@@ -1,0 +1,38 @@
+{
+    "name": "Belific",
+    "short_name": "Belific",
+    "description": "Focus & Schedule productivity app for managing your daily routine with Pomodoro timer",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#FAF8F5",
+    "theme_color": "#D97652",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "icons": [
+        {
+            "src": "assets/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["productivity", "utilities"],
+    "shortcuts": [
+        {
+            "name": "Today",
+            "url": "/?page=today",
+            "description": "View today's schedule"
+        },
+        {
+            "name": "Focus Timer",
+            "url": "/?page=focus",
+            "description": "Start a Pomodoro session"
+        }
+    ]
+}

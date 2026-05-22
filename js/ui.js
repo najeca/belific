@@ -6,7 +6,7 @@
 
 let selectedDate = new Date();
 let calendarMonth = new Date();
-let selectedCategory = 'personal';
+let selectedCategory = 'free';
 let editingEventId = null;
 
 // =============================================
@@ -41,7 +41,7 @@ function renderCurrentActivity(date) {
     }
     
     card.style.display = 'block';
-    const category = CATEGORIES[currentEvent.category] || CATEGORIES.personal;
+    const category = CATEGORIES[currentEvent.category] || CATEGORIES.free;
     const currentMinutes = getCurrentTimeMinutes();
     const endMinutes = timeToMinutes(currentEvent.end);
     const remainingMinutes = endMinutes - currentMinutes;
@@ -72,7 +72,7 @@ function renderNextActivity(date) {
     }
     
     card.style.display = 'block';
-    const category = CATEGORIES[nextEvent.category] || CATEGORIES.personal;
+    const category = CATEGORIES[nextEvent.category] || CATEGORIES.free;
     const currentMinutes = getCurrentTimeMinutes();
     const startMinutes = timeToMinutes(nextEvent.start);
     const minutesUntil = startMinutes - currentMinutes;
@@ -90,9 +90,9 @@ function renderNextActivity(date) {
 
 function renderTodayStats(schedule) {
     const stats = calculateStats(schedule);
-    document.getElementById('statStudy').textContent = formatMinutesAsTime(stats.study);
-    document.getElementById('statJobs').textContent = formatMinutesAsTime(stats.jobHunting);
-    document.getElementById('statPortfolio').textContent = formatMinutesAsTime(stats.portfolio);
+    document.getElementById('statStudy').textContent = formatMinutesAsTime(stats.project);
+    document.getElementById('statJobs').textContent = formatMinutesAsTime(stats.jobs);
+    document.getElementById('statPortfolio').textContent = formatMinutesAsTime(stats.cyber);
 }
 
 function renderScheduleList(schedule, date) {
@@ -106,7 +106,7 @@ function renderScheduleList(schedule, date) {
     }
     
     container.innerHTML = schedule.events.map(event => {
-        const category = CATEGORIES[event.category] || CATEGORIES.personal;
+        const category = CATEGORIES[event.category] || CATEGORIES.free;
         const startMinutes = timeToMinutes(event.start);
         const endMinutes = timeToMinutes(event.end);
         
@@ -230,7 +230,7 @@ function renderSelectedDaySchedule() {
     }
     
     container.innerHTML = schedule.events.map(event => {
-        const category = CATEGORIES[event.category] || CATEGORIES.personal;
+        const category = CATEGORIES[event.category] || CATEGORIES.free;
         const startMinutes = timeToMinutes(event.start);
         const endMinutes = timeToMinutes(event.end);
         
@@ -278,7 +278,7 @@ function navigateMonth(direction) {
 function openAddEventModal() {
     document.getElementById('eventTitleInput').value = '';
     document.getElementById('eventNotesInput').value = '';
-    selectedCategory = 'personal';
+    selectedCategory = 'free';
     
     const now = new Date();
     const minutes = Math.ceil(now.getMinutes() / 30) * 30;

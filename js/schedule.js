@@ -30,7 +30,7 @@ function getScheduleForDate(date) {
         return schedules[dateKey];
     }
     
-    // Check if we have a pre-populated schedule for this date
+    // Check if we have a date-specific override
     if (SPECIFIC_SCHEDULES[dateKey]) {
         const template = SPECIFIC_SCHEDULES[dateKey];
         const events = template.events.map((event, index) => ({
@@ -42,16 +42,30 @@ function getScheduleForDate(date) {
             notes: event.notes || '',
             completed: false
         }));
-        
-        schedules[dateKey] = {
-            dayType: template.dayType,
-            events: events
-        };
-        
+        schedules[dateKey] = { dayType: template.dayType, events };
         saveSchedules(schedules);
         return schedules[dateKey];
     }
-    
+
+    // Fall back to the weekly repeating template
+    const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayKey = DAY_KEYS[date.getDay()];
+    if (WEEKLY_SCHEDULE[dayKey]) {
+        const template = WEEKLY_SCHEDULE[dayKey];
+        const events = template.events.map((event, index) => ({
+            id: `${dateKey}-${index}`,
+            title: event.title,
+            category: event.category,
+            start: event.start,
+            end: event.end,
+            notes: event.notes || '',
+            completed: false
+        }));
+        schedules[dateKey] = { dayType: template.dayType, events };
+        saveSchedules(schedules);
+        return schedules[dateKey];
+    }
+
     // Default empty schedule
     schedules[dateKey] = {
         dayType: 'nonWorkDay',
@@ -151,15 +165,15 @@ function getNextEvent(date) {
 }
 
 function calculateStats(schedule) {
-    const stats = { study: 0, jobHunting: 0, portfolio: 0 };
-    
+    const stats = { jobs: 0, project: 0, cyber: 0 };
+
     schedule.events.forEach(event => {
         const duration = timeToMinutes(event.end) - timeToMinutes(event.start);
-        if (event.category === 'study' || event.category === 'exam') stats.study += duration;
-        else if (event.category === 'jobHunting') stats.jobHunting += duration;
-        else if (event.category === 'portfolio') stats.portfolio += duration;
+        if (event.category === 'jobs')    stats.jobs    += duration;
+        else if (event.category === 'project') stats.project += duration;
+        else if (event.category === 'cyber')   stats.cyber   += duration;
     });
-    
+
     return stats;
 }
 

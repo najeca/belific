@@ -1,13 +1,4 @@
-/**
- * =============================================
- * DATA.JS - Application Constants & Schedules
- * =============================================
- * 
- * Contains all configuration data for the Belific app.
- * Updated for Security+ exam prep: Jan 27 - Feb 9, 2026
- */
-
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 const STORAGE_KEYS = {
     SCHEDULES: 'belific_schedules',
@@ -15,282 +6,229 @@ const STORAGE_KEYS = {
     SETTINGS: 'belific_settings'
 };
 
-/**
- * EVENT CATEGORIES
- */
 const CATEGORIES = {
-    work: { name: 'Work', color: '#5B8CB8', icon: '💼' },
-    exercise: { name: 'Exercise', color: '#6B9B76', icon: '🏃' },
-    study: { name: 'Study', color: '#D4915D', icon: '📚' },
-    jobHunting: { name: 'Job Hunting', color: '#8B7BB8', icon: '🔍' },
-    portfolio: { name: 'Portfolio', color: '#C76B8F', icon: '💻' },
-    meal: { name: 'Meal', color: '#C9A857', icon: '🍽️' },
-    personal: { name: 'Personal', color: '#5BA3A3', icon: '✨' },
-    rest: { name: 'Rest', color: '#7B82AA', icon: '😴' },
-    routine: { name: 'Routine', color: '#8B8B8B', icon: '🔄' },
-    exam: { name: 'Exam', color: '#E74C3C', icon: '📝' },
-    birthday: { name: 'Birthday', color: '#FF69B4', icon: '🎂' }
+    work:     { name: 'Work',        color: '#888780', icon: '💼' },
+    routine:  { name: 'Routine',     color: '#B4B2A9', icon: '🔄' },
+    hygiene:  { name: 'Hygiene',     color: '#7F77DD', icon: '🪥' },
+    fitness:  { name: 'Fitness',     color: '#639922', icon: '🏃' },
+    jobs:     { name: 'Jobs',        color: '#378ADD', icon: '🔍' },
+    project:  { name: 'Project',     color: '#534AB7', icon: '💻' },
+    cyber:    { name: 'Cyber',       color: '#1D9E75', icon: '🔐' },
+    game:     { name: 'Game',        color: '#BA7517', icon: '🎮' },
+    school:   { name: 'School run',  color: '#D85A30', icon: '🏫' },
+    church:   { name: 'Church',      color: '#D4537E', icon: '⛪' },
+    chore:    { name: 'Chore',       color: '#C47C2B', icon: '🧹' },
+    winddown: { name: 'Wind down',   color: '#D3D1C7', icon: '🌙' },
+    sleep:    { name: 'Sleep',       color: '#D3D1C7', icon: '😴' },
+    free:     { name: 'Free',        color: '#B4B2A9', icon: '☕' },
 };
 
-/**
- * DAY TYPES
- */
 const DAY_TYPES = {
-    workDay: { name: 'Work Day', color: '#5B8CB8' },
-    nonWorkDay: { name: 'Non-Work Day', color: '#6B9B76' },
-    examDay: { name: 'Exam Day', color: '#E74C3C' },
-    birthdayDay: { name: 'Birthday', color: '#FF69B4' }
+    workDay:     { name: 'Work Day',  color: '#888780' },
+    nonWorkDay:  { name: 'Off Work',  color: '#6B9B76' },
+    examDay:     { name: 'Exam Day',  color: '#E74C3C' },
+    birthdayDay: { name: 'Birthday',  color: '#FF69B4' }
 };
 
-/**
- * PRE-POPULATED SCHEDULES - Security+ Exam Prep
- */
-const SPECIFIC_SCHEDULES = {
-    // TUESDAY 27 JANUARY (WORK DAY)
-    '2026-01-27': {
-        dayType: 'workDay',
-        events: [
-            { title: 'Part-time job', category: 'work', start: '06:00', end: '10:00', notes: '' },
-            { title: 'Commute, light snack, change', category: 'routine', start: '10:00', end: '11:00', notes: '' },
-            { title: 'Gym/Running', category: 'exercise', start: '11:00', end: '12:30', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:30', end: '13:30', notes: '' },
-            { title: 'STUDY SESSION - Domain 1 start', category: 'study', start: '13:30', end: '15:00', notes: 'General Security Concepts' },
-            { title: 'School run', category: 'routine', start: '15:00', end: '16:00', notes: '' },
-            { title: 'STUDY SESSION - Domain 1 continue', category: 'study', start: '16:00', end: '18:00', notes: '' },
-            { title: 'Dinner', category: 'meal', start: '18:00', end: '19:00', notes: '' },
-            { title: 'STUDY SESSION - Domain 1 finish + flashcards', category: 'study', start: '19:00', end: '20:00', notes: '' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Wind down, sleep prep', category: 'rest', start: '21:00', end: '22:00', notes: '' }
-        ]
-    },
-
-    // WEDNESDAY 28 JANUARY (NON-WORK DAY)
-    '2026-01-28': {
+// Weekly repeating schedule — keyed Mon–Sun.
+// getScheduleForDate() in schedule.js falls back to this when no date override exists.
+const WEEKLY_SCHEDULE = {
+    Mon: {
         dayType: 'nonWorkDay',
+        label: 'Monday — off work · Zone 2 run · laundry day · school run 3–4pm',
         events: [
-            { title: 'Wake up, breakfast', category: 'routine', start: '07:00', end: '08:00', notes: '' },
-            { title: 'STUDY SESSION - Domain 2 start', category: 'study', start: '08:00', end: '10:30', notes: 'Threats, Vulnerabilities, and Mitigations' },
-            { title: 'Gym/Running', category: 'exercise', start: '10:30', end: '12:00', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:00', end: '13:00', notes: '' },
-            { title: 'STUDY SESSION - Domain 2 continue', category: 'study', start: '13:00', end: '15:00', notes: '' },
-            { title: 'School run', category: 'routine', start: '15:00', end: '16:00', notes: '' },
-            { title: 'Job applications', category: 'jobHunting', start: '16:00', end: '17:30', notes: '14 apps target' },
-            { title: 'Dinner', category: 'meal', start: '17:30', end: '18:30', notes: '' },
-            { title: 'STUDY SESSION - Domain 2 finish + flashcards', category: 'study', start: '18:30', end: '20:00', notes: '' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Wind down, sleep prep', category: 'rest', start: '21:00', end: '22:00', notes: '' }
+            { title: 'Brush teeth — before eating', category: 'hygiene', start: '07:00', end: '07:03', notes: '' },
+            { title: 'Start laundry machine — runs while you train', category: 'chore', start: '07:03', end: '07:10', notes: '' },
+            { title: 'Overnight oats + peppermint tea + morning supplements', category: 'routine', start: '07:10', end: '07:30', notes: '' },
+            { title: 'Job applications × 6', category: 'jobs', start: '07:30', end: '09:00', notes: '' },
+            { title: 'Zone 2 run — 2 hours', category: 'fitness', start: '09:00', end: '11:00', notes: '' },
+            { title: 'Move laundry to dryer', category: 'chore', start: '11:00', end: '11:10', notes: '' },
+            { title: 'Shower & recovery', category: 'routine', start: '11:10', end: '11:30', notes: '' },
+            { title: 'Project building — deep work', category: 'project', start: '11:30', end: '13:00', notes: '' },
+            { title: 'Lunch + turmeric citrus ginger or moringa tea · rinse mouth after', category: 'free', start: '13:00', end: '14:00', notes: '' },
+            { title: 'TryHackMe — Pre-Security path', category: 'cyber', start: '14:00', end: '15:00', notes: '' },
+            { title: 'School run', category: 'school', start: '15:00', end: '16:00', notes: '' },
+            { title: 'Fold & put away laundry', category: 'chore', start: '16:00', end: '16:30', notes: '' },
+            { title: 'Project building', category: 'project', start: '16:30', end: '18:00', notes: '' },
+            { title: 'Turmeric ginger tea · rinse mouth after', category: 'free', start: '17:30', end: '18:00', notes: '' },
+            { title: 'Dinner & free time', category: 'free', start: '18:00', end: '19:00', notes: '' },
+            { title: 'Umamusume', category: 'game', start: '19:00', end: '20:00', notes: '' },
+            { title: 'Prep tomorrow — lay out clothes, pack gym bag, make overnight oats', category: 'routine', start: '20:00', end: '20:10', notes: '' },
+            { title: 'Skincare — CeraVe', category: 'hygiene', start: '20:10', end: '20:15', notes: '' },
+            { title: 'Stretching & mobility', category: 'fitness', start: '20:15', end: '20:30', notes: '' },
+            { title: 'Dark chocolate (85%)', category: 'free', start: '20:30', end: '20:35', notes: '' },
+            { title: 'Chamomile or turmeric ashwagandha tea · read / journal / pray · rinse mouth after', category: 'winddown', start: '20:35', end: '20:55', notes: '' },
+            { title: 'Brush teeth', category: 'hygiene', start: '20:55', end: '21:00', notes: '' },
+            { title: 'Sleep', category: 'sleep', start: '21:00', end: '23:59', notes: '' },
         ]
     },
-
-    // THURSDAY 29 JANUARY (WORK DAY)
-    '2026-01-29': {
+    Tue: {
         dayType: 'workDay',
+        label: 'Tuesday — work 6–10am · straight to gym · Push day · school run 3–4pm',
         events: [
-            { title: 'Part-time job', category: 'work', start: '06:00', end: '10:00', notes: '' },
-            { title: 'Commute, recovery', category: 'routine', start: '10:00', end: '11:00', notes: '' },
-            { title: 'Gym/Running', category: 'exercise', start: '11:00', end: '12:30', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:30', end: '13:30', notes: '' },
-            { title: 'STUDY SESSION - Domain 3 start', category: 'study', start: '13:30', end: '15:00', notes: 'Security Architecture' },
-            { title: 'School run', category: 'routine', start: '15:00', end: '16:00', notes: '' },
-            { title: 'STUDY SESSION - Domain 3 continue', category: 'study', start: '16:00', end: '18:00', notes: '' },
-            { title: 'Dinner', category: 'meal', start: '18:00', end: '19:00', notes: '' },
-            { title: 'STUDY SESSION - Domain 3 finish', category: 'study', start: '19:00', end: '20:00', notes: '' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Wind down, sleep prep', category: 'rest', start: '21:00', end: '22:00', notes: '' }
+            { title: 'Wake up · brush teeth — before eating', category: 'hygiene', start: '05:15', end: '05:18', notes: '' },
+            { title: 'Overnight oats + peppermint tea + supplements · pack gym bag', category: 'routine', start: '05:18', end: '05:45', notes: '' },
+            { title: 'Home Bargains shift · banana at 9:45am', category: 'work', start: '06:00', end: '10:00', notes: '' },
+            { title: 'Drive to gym · creatine in 500ml bottle', category: 'routine', start: '10:00', end: '10:15', notes: '' },
+            { title: 'Gym — Push day', category: 'fitness', start: '10:15', end: '12:15', notes: '' },
+            { title: 'Drive home · shower', category: 'routine', start: '12:15', end: '13:00', notes: '' },
+            { title: 'Lunch + job applications × 2', category: 'jobs', start: '13:00', end: '13:30', notes: '' },
+            { title: 'Turmeric citrus ginger or moringa tea · rinse mouth after', category: 'free', start: '13:30', end: '14:00', notes: '' },
+            { title: 'Project building or TryHackMe', category: 'project', start: '14:00', end: '15:00', notes: '' },
+            { title: 'School run', category: 'school', start: '15:00', end: '16:00', notes: '' },
+            { title: 'Project building', category: 'project', start: '16:00', end: '18:00', notes: '' },
+            { title: 'Turmeric ginger tea · rinse mouth after', category: 'free', start: '17:30', end: '18:00', notes: '' },
+            { title: 'Dinner · iron or fold laundry if needed', category: 'free', start: '18:00', end: '19:00', notes: '' },
+            { title: 'Umamusume · iron/fold laundry alongside', category: 'game', start: '19:00', end: '20:00', notes: '' },
+            { title: 'Prep tomorrow — lay out clothes, pack gym bag, make overnight oats', category: 'routine', start: '20:00', end: '20:10', notes: '' },
+            { title: 'Skincare — CeraVe', category: 'hygiene', start: '20:10', end: '20:15', notes: '' },
+            { title: 'Stretching & mobility', category: 'fitness', start: '20:15', end: '20:30', notes: '' },
+            { title: 'Dark chocolate (85%)', category: 'free', start: '20:30', end: '20:35', notes: '' },
+            { title: 'Chamomile or turmeric ashwagandha tea · read / journal / pray · rinse mouth after', category: 'winddown', start: '20:35', end: '20:55', notes: '' },
+            { title: 'Brush teeth', category: 'hygiene', start: '20:55', end: '21:00', notes: '' },
+            { title: 'Sleep', category: 'sleep', start: '21:00', end: '23:59', notes: '' },
         ]
     },
-
-    // FRIDAY 30 JANUARY (NON-WORK DAY)
-    '2026-01-30': {
+    Wed: {
         dayType: 'nonWorkDay',
+        label: 'Wednesday — off work · Tempo run · room clean · school run 3–4pm · cyber focus',
         events: [
-            { title: 'Wake up, breakfast', category: 'routine', start: '07:00', end: '08:00', notes: '' },
-            { title: 'STUDY SESSION - Domain 4 start', category: 'study', start: '08:00', end: '10:30', notes: 'Security Operations' },
-            { title: 'Gym/Running', category: 'exercise', start: '10:30', end: '12:00', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:00', end: '13:00', notes: '' },
-            { title: 'STUDY SESSION - Domain 4 continue', category: 'study', start: '13:00', end: '15:00', notes: '' },
-            { title: 'School run', category: 'routine', start: '15:00', end: '16:00', notes: '' },
-            { title: 'Job applications', category: 'jobHunting', start: '16:00', end: '17:30', notes: '14 apps target' },
-            { title: 'Dinner', category: 'meal', start: '17:30', end: '18:30', notes: '' },
-            { title: 'STUDY SESSION - Domain 4 finish', category: 'study', start: '18:30', end: '20:00', notes: '' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Wind down, sleep prep', category: 'rest', start: '21:00', end: '22:00', notes: '' }
+            { title: 'Brush teeth — before eating', category: 'hygiene', start: '07:00', end: '07:03', notes: '' },
+            { title: 'Start laundry if needed', category: 'chore', start: '07:03', end: '07:10', notes: '' },
+            { title: 'Overnight oats + peppermint tea + morning supplements', category: 'routine', start: '07:10', end: '07:30', notes: '' },
+            { title: 'Job applications × 6', category: 'jobs', start: '07:30', end: '09:00', notes: '' },
+            { title: 'Tempo run — 2 hours', category: 'fitness', start: '09:00', end: '11:00', notes: '' },
+            { title: 'Shower & recovery · move laundry if running', category: 'routine', start: '11:00', end: '11:30', notes: '' },
+            { title: 'TryHackMe — dedicated cyber block', category: 'cyber', start: '11:30', end: '13:00', notes: '' },
+            { title: 'Lunch + turmeric citrus ginger or moringa tea · rinse mouth after', category: 'free', start: '13:00', end: '14:00', notes: '' },
+            { title: 'Project building', category: 'project', start: '14:00', end: '15:00', notes: '' },
+            { title: 'School run', category: 'school', start: '15:00', end: '16:00', notes: '' },
+            { title: 'Clean room — hoover, surfaces, tidy', category: 'chore', start: '16:00', end: '16:45', notes: '' },
+            { title: 'Project building', category: 'project', start: '16:45', end: '18:00', notes: '' },
+            { title: 'Turmeric ginger tea · rinse mouth after', category: 'free', start: '17:30', end: '18:00', notes: '' },
+            { title: 'Dinner & free time', category: 'free', start: '18:00', end: '19:00', notes: '' },
+            { title: 'Umamusume', category: 'game', start: '19:00', end: '20:00', notes: '' },
+            { title: 'Prep tomorrow — lay out clothes, make overnight oats', category: 'routine', start: '20:00', end: '20:10', notes: '' },
+            { title: 'Skincare — CeraVe · Nizoral on applicable nights', category: 'hygiene', start: '20:10', end: '20:15', notes: '' },
+            { title: 'Stretching & mobility', category: 'fitness', start: '20:15', end: '20:30', notes: '' },
+            { title: 'Dark chocolate (85%)', category: 'free', start: '20:30', end: '20:35', notes: '' },
+            { title: 'Chamomile or turmeric ashwagandha tea · read / journal / pray · rinse mouth after', category: 'winddown', start: '20:35', end: '20:55', notes: '' },
+            { title: 'Brush teeth', category: 'hygiene', start: '20:55', end: '21:00', notes: '' },
+            { title: 'Sleep', category: 'sleep', start: '21:00', end: '23:59', notes: '' },
         ]
     },
-
-    // SATURDAY 31 JANUARY (WORK DAY)
-    '2026-01-31': {
+    Thu: {
         dayType: 'workDay',
+        label: 'Thursday — work 6–10am · straight to gym · Pull day · school run 3–4pm',
         events: [
-            { title: 'Part-time job', category: 'work', start: '06:00', end: '10:00', notes: '' },
-            { title: 'Commute, light snack', category: 'routine', start: '10:00', end: '11:00', notes: '' },
-            { title: 'Gym/Running', category: 'exercise', start: '11:00', end: '12:30', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:30', end: '13:30', notes: '' },
-            { title: 'STUDY SESSION - Domain 5 start', category: 'study', start: '13:30', end: '15:30', notes: 'Security Program Management and Oversight' },
-            { title: 'Break', category: 'rest', start: '15:30', end: '16:00', notes: '' },
-            { title: 'STUDY SESSION - Domain 5 finish', category: 'study', start: '16:00', end: '17:00', notes: '' },
-            { title: 'Job applications', category: 'jobHunting', start: '17:00', end: '18:30', notes: '10 apps target' },
-            { title: 'Dinner', category: 'meal', start: '18:30', end: '19:30', notes: '' },
-            { title: 'STUDY SESSION - Review all domains', category: 'study', start: '19:30', end: '20:00', notes: 'Quick overview' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Sleep prep', category: 'rest', start: '21:00', end: '22:00', notes: '' }
+            { title: 'Wake up · brush teeth — before eating', category: 'hygiene', start: '05:15', end: '05:18', notes: '' },
+            { title: 'Overnight oats + peppermint tea + supplements · pack gym bag', category: 'routine', start: '05:18', end: '05:45', notes: '' },
+            { title: 'Home Bargains shift · banana at 9:45am', category: 'work', start: '06:00', end: '10:00', notes: '' },
+            { title: 'Drive to gym · creatine in 500ml bottle', category: 'routine', start: '10:00', end: '10:15', notes: '' },
+            { title: 'Gym — Pull day', category: 'fitness', start: '10:15', end: '12:15', notes: '' },
+            { title: 'Drive home · shower', category: 'routine', start: '12:15', end: '13:00', notes: '' },
+            { title: 'Lunch + job applications × 2', category: 'jobs', start: '13:00', end: '13:30', notes: '' },
+            { title: 'Turmeric citrus ginger or moringa tea · rinse mouth after', category: 'free', start: '13:30', end: '14:00', notes: '' },
+            { title: 'Project building or TryHackMe', category: 'project', start: '14:00', end: '15:00', notes: '' },
+            { title: 'School run', category: 'school', start: '15:00', end: '16:00', notes: '' },
+            { title: 'Project building', category: 'project', start: '16:00', end: '18:00', notes: '' },
+            { title: 'Turmeric ginger tea · rinse mouth after', category: 'free', start: '17:30', end: '18:00', notes: '' },
+            { title: 'Dinner', category: 'free', start: '18:00', end: '19:00', notes: '' },
+            { title: 'Umamusume', category: 'game', start: '19:00', end: '20:00', notes: '' },
+            { title: 'Prep tomorrow — lay out clothes, make overnight oats', category: 'routine', start: '20:00', end: '20:10', notes: '' },
+            { title: 'Skincare — CeraVe · Nizoral on applicable nights', category: 'hygiene', start: '20:10', end: '20:15', notes: '' },
+            { title: 'Stretching & mobility', category: 'fitness', start: '20:15', end: '20:30', notes: '' },
+            { title: 'Dark chocolate (85%)', category: 'free', start: '20:30', end: '20:35', notes: '' },
+            { title: 'Chamomile or turmeric ashwagandha tea · read / journal / pray · rinse mouth after', category: 'winddown', start: '20:35', end: '20:55', notes: '' },
+            { title: 'Brush teeth', category: 'hygiene', start: '20:55', end: '21:00', notes: '' },
+            { title: 'Sleep', category: 'sleep', start: '21:00', end: '23:59', notes: '' },
         ]
     },
-
-    // SUNDAY 1 FEBRUARY (WORK DAY)
-    '2026-02-01': {
-        dayType: 'workDay',
-        events: [
-            { title: 'Part-time job', category: 'work', start: '06:00', end: '10:00', notes: '' },
-            { title: 'Commute, recovery', category: 'routine', start: '10:00', end: '11:00', notes: '' },
-            { title: 'Light activity or rest', category: 'rest', start: '11:00', end: '12:30', notes: 'Skip gym - rest day' },
-            { title: 'Lunch', category: 'meal', start: '12:30', end: '13:30', notes: '' },
-            { title: 'FIRST PRACTICE EXAM', category: 'exam', start: '13:30', end: '15:00', notes: 'Full 90 min practice test' },
-            { title: 'Break', category: 'rest', start: '15:00', end: '15:30', notes: '' },
-            { title: 'Review wrong answers - detailed', category: 'study', start: '15:30', end: '17:30', notes: 'Go through every wrong answer' },
-            { title: 'Job applications', category: 'jobHunting', start: '17:30', end: '19:00', notes: '10 apps target' },
-            { title: 'Dinner', category: 'meal', start: '19:00', end: '20:00', notes: '' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Sleep prep', category: 'rest', start: '21:00', end: '22:00', notes: '' }
-        ]
-    },
-
-    // MONDAY 2 FEBRUARY (NON-WORK DAY)
-    '2026-02-02': {
+    Fri: {
         dayType: 'nonWorkDay',
+        label: 'Friday — off work · Zone 2 run · room tidy + ironing · school run 3–4pm · weekly review',
         events: [
-            { title: 'Wake up, breakfast', category: 'routine', start: '07:00', end: '08:00', notes: '' },
-            { title: 'STUDY SESSION - Attack types deep dive', category: 'study', start: '08:00', end: '10:30', notes: 'Malware, social engineering, application attacks' },
-            { title: 'Gym', category: 'exercise', start: '10:30', end: '12:00', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:00', end: '13:00', notes: '' },
-            { title: 'STUDY SESSION - Cryptography review', category: 'study', start: '13:00', end: '15:00', notes: 'Symmetric, asymmetric, hashing, PKI' },
-            { title: 'School run', category: 'routine', start: '15:00', end: '16:00', notes: '' },
-            { title: 'Job applications', category: 'jobHunting', start: '16:00', end: '17:30', notes: '14 apps target' },
-            { title: 'Dinner', category: 'meal', start: '17:30', end: '18:30', notes: '' },
-            { title: 'STUDY SESSION - Network protocols', category: 'study', start: '18:30', end: '20:00', notes: 'Ports, protocols, secure communications' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Wind down', category: 'rest', start: '21:00', end: '22:00', notes: '' }
+            { title: 'Brush teeth — before eating', category: 'hygiene', start: '07:00', end: '07:03', notes: '' },
+            { title: 'Overnight oats + peppermint tea + morning supplements', category: 'routine', start: '07:03', end: '07:30', notes: '' },
+            { title: 'Job applications × 6', category: 'jobs', start: '07:30', end: '09:00', notes: '' },
+            { title: 'Zone 2 run — 2 hours', category: 'fitness', start: '09:00', end: '11:00', notes: '' },
+            { title: 'Shower & recovery', category: 'routine', start: '11:00', end: '11:30', notes: '' },
+            { title: 'Project building — deep work', category: 'project', start: '11:30', end: '13:00', notes: '' },
+            { title: 'Lunch + turmeric citrus ginger or moringa tea · rinse mouth after', category: 'free', start: '13:00', end: '14:00', notes: '' },
+            { title: 'TryHackMe — Pre-Security path', category: 'cyber', start: '14:00', end: '15:00', notes: '' },
+            { title: 'School run', category: 'school', start: '15:00', end: '16:00', notes: '' },
+            { title: 'Weekly review & plan next week', category: 'project', start: '16:00', end: '16:30', notes: '' },
+            { title: 'Ironing — low-cognitive, clears the pile', category: 'chore', start: '16:30', end: '17:15', notes: '' },
+            { title: 'Light project / admin', category: 'project', start: '17:15', end: '18:00', notes: '' },
+            { title: 'Turmeric ginger tea · rinse mouth after', category: 'free', start: '17:30', end: '18:00', notes: '' },
+            { title: 'Dinner & free time', category: 'free', start: '18:00', end: '19:00', notes: '' },
+            { title: 'Umamusume', category: 'game', start: '19:00', end: '20:00', notes: '' },
+            { title: 'Prep tomorrow — lay out clothes, make overnight oats', category: 'routine', start: '20:00', end: '20:10', notes: '' },
+            { title: 'Skincare — CeraVe · Nizoral on applicable nights', category: 'hygiene', start: '20:10', end: '20:15', notes: '' },
+            { title: 'Stretching & mobility', category: 'fitness', start: '20:15', end: '20:30', notes: '' },
+            { title: 'Dark chocolate (85%)', category: 'free', start: '20:30', end: '20:35', notes: '' },
+            { title: 'Chamomile or turmeric ashwagandha tea · read / journal / pray · rinse mouth after', category: 'winddown', start: '20:35', end: '20:55', notes: '' },
+            { title: 'Brush teeth', category: 'hygiene', start: '20:55', end: '21:00', notes: '' },
+            { title: 'Sleep', category: 'sleep', start: '21:00', end: '23:59', notes: '' },
         ]
     },
-
-    // TUESDAY 3 FEBRUARY (WORK DAY)
-    '2026-02-03': {
+    Sat: {
         dayType: 'workDay',
+        label: 'Saturday — work 6–10am · straight to gym · Legs day · car clean · no school run',
         events: [
-            { title: 'Part-time job', category: 'work', start: '06:00', end: '10:00', notes: '' },
-            { title: 'Commute', category: 'routine', start: '10:00', end: '11:00', notes: '' },
-            { title: 'Gym/Running', category: 'exercise', start: '11:00', end: '12:30', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:30', end: '13:30', notes: '' },
-            { title: 'STUDY SESSION - Security controls', category: 'study', start: '13:30', end: '15:00', notes: 'Technical, administrative, physical controls' },
-            { title: 'School run', category: 'routine', start: '15:00', end: '16:00', notes: '' },
-            { title: 'STUDY SESSION - PBQ practice scenarios', category: 'study', start: '16:00', end: '18:00', notes: 'Performance-based questions practice' },
-            { title: 'Dinner', category: 'meal', start: '18:00', end: '19:00', notes: '' },
-            { title: 'STUDY SESSION - Continue PBQ', category: 'study', start: '19:00', end: '20:00', notes: '' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Sleep prep', category: 'rest', start: '21:00', end: '22:00', notes: '' }
+            { title: 'Wake up · brush teeth — before eating', category: 'hygiene', start: '05:15', end: '05:18', notes: '' },
+            { title: 'Overnight oats + peppermint tea + supplements · pack gym bag', category: 'routine', start: '05:18', end: '05:45', notes: '' },
+            { title: 'Home Bargains shift · banana at 9:45am', category: 'work', start: '06:00', end: '10:00', notes: '' },
+            { title: 'Drive to gym · creatine in 500ml bottle', category: 'routine', start: '10:00', end: '10:15', notes: '' },
+            { title: 'Gym — Legs day', category: 'fitness', start: '10:15', end: '12:15', notes: '' },
+            { title: 'Drive home · shower', category: 'routine', start: '12:15', end: '13:00', notes: '' },
+            { title: 'Lunch + job applications × 2', category: 'jobs', start: '13:00', end: '13:30', notes: '' },
+            { title: 'Turmeric citrus ginger or moringa tea · rinse mouth after', category: 'free', start: '13:30', end: '14:00', notes: '' },
+            { title: 'Project building', category: 'project', start: '14:00', end: '16:00', notes: '' },
+            { title: 'Clean inside of car — fortnightly task', category: 'chore', start: '16:00', end: '16:45', notes: '' },
+            { title: 'Rest & free time', category: 'free', start: '16:45', end: '17:30', notes: '' },
+            { title: 'Turmeric ginger tea · rinse mouth after', category: 'free', start: '17:00', end: '17:30', notes: '' },
+            { title: 'Dinner', category: 'free', start: '17:30', end: '18:30', notes: '' },
+            { title: 'Umamusume', category: 'game', start: '18:30', end: '19:30', notes: '' },
+            { title: 'Prep tomorrow — lay out clothes, pack gym bag, make overnight oats', category: 'routine', start: '19:30', end: '19:40', notes: '' },
+            { title: 'Skincare — CeraVe · Nizoral on applicable nights', category: 'hygiene', start: '19:40', end: '19:45', notes: '' },
+            { title: 'Stretching & mobility — after legs day', category: 'fitness', start: '19:45', end: '20:00', notes: '' },
+            { title: 'Dark chocolate (85%)', category: 'free', start: '20:00', end: '20:05', notes: '' },
+            { title: 'Chamomile or turmeric ashwagandha tea · read / journal · rinse mouth after', category: 'winddown', start: '20:05', end: '20:25', notes: '' },
+            { title: 'Brush teeth', category: 'hygiene', start: '20:25', end: '20:30', notes: '' },
+            { title: 'Sleep (early — 5:15am wake Sunday)', category: 'sleep', start: '20:30', end: '23:59', notes: '' },
         ]
     },
-
-    // WEDNESDAY 4 FEBRUARY (NON-WORK DAY)
-    '2026-02-04': {
-        dayType: 'nonWorkDay',
-        events: [
-            { title: 'Wake up, breakfast', category: 'routine', start: '07:00', end: '08:00', notes: '' },
-            { title: 'SECOND PRACTICE EXAM + review', category: 'exam', start: '08:00', end: '10:30', notes: 'Full practice test then immediate review' },
-            { title: 'Gym/Running', category: 'exercise', start: '10:30', end: '12:00', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:00', end: '13:00', notes: '' },
-            { title: 'STUDY SESSION - Weak areas from exam', category: 'study', start: '13:00', end: '15:00', notes: 'Focus on topics you got wrong' },
-            { title: 'School run', category: 'routine', start: '15:00', end: '16:00', notes: '' },
-            { title: 'Job applications', category: 'jobHunting', start: '16:00', end: '17:30', notes: '14 apps target' },
-            { title: 'Dinner', category: 'meal', start: '17:30', end: '18:30', notes: '' },
-            { title: 'STUDY SESSION - Port numbers drill', category: 'study', start: '18:30', end: '20:00', notes: 'Memorize common ports' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Wind down', category: 'rest', start: '21:00', end: '22:00', notes: '' }
-        ]
-    },
-
-    // THURSDAY 5 FEBRUARY (WORK DAY)
-    '2026-02-05': {
+    Sun: {
         dayType: 'workDay',
+        label: 'Sunday — work 6–10am · Church · rest day · weekly planning',
         events: [
-            { title: 'Part-time job', category: 'work', start: '06:00', end: '10:00', notes: '' },
-            { title: 'Commute', category: 'routine', start: '10:00', end: '11:00', notes: '' },
-            { title: 'Gym/Running', category: 'exercise', start: '11:00', end: '12:30', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:30', end: '13:30', notes: '' },
-            { title: 'STUDY SESSION - Governance + compliance', category: 'study', start: '13:30', end: '15:00', notes: 'Policies, regulations, frameworks' },
-            { title: 'School run', category: 'routine', start: '15:00', end: '16:00', notes: '' },
-            { title: 'STUDY SESSION - Acronyms review', category: 'study', start: '16:00', end: '18:00', notes: 'CIA, AAA, SIEM, SOAR, IDS, IPS, etc.' },
-            { title: 'Dinner', category: 'meal', start: '18:00', end: '19:00', notes: '' },
-            { title: 'STUDY SESSION - Protocol review', category: 'study', start: '19:00', end: '20:00', notes: '' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Sleep prep', category: 'rest', start: '21:00', end: '22:00', notes: '' }
-        ]
-    },
-
-    // FRIDAY 6 FEBRUARY (NON-WORK DAY)
-    '2026-02-06': {
-        dayType: 'nonWorkDay',
-        events: [
-            { title: 'Wake up, breakfast', category: 'routine', start: '07:00', end: '08:00', notes: '' },
-            { title: 'THIRD PRACTICE EXAM + review', category: 'exam', start: '08:00', end: '10:30', notes: 'Target: 80%+ score' },
-            { title: 'Gym/Running', category: 'exercise', start: '10:30', end: '12:00', notes: '' },
-            { title: 'Shower, lunch', category: 'meal', start: '12:00', end: '13:00', notes: '' },
-            { title: 'STUDY SESSION - Wrong answers deep dive', category: 'study', start: '13:00', end: '15:00', notes: 'Understand WHY each answer is wrong' },
-            { title: 'School run', category: 'routine', start: '15:00', end: '16:00', notes: '' },
-            { title: 'Job applications', category: 'jobHunting', start: '16:00', end: '17:30', notes: '14 apps target' },
-            { title: 'Dinner', category: 'meal', start: '17:30', end: '18:30', notes: '' },
-            { title: 'STUDY SESSION - Final weak areas', category: 'study', start: '18:30', end: '20:00', notes: '' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '21:00', notes: '' },
-            { title: 'Wind down', category: 'rest', start: '21:00', end: '22:00', notes: '' }
-        ]
-    },
-
-    // SATURDAY 7 FEBRUARY (BIRTHDAY)
-    '2026-02-07': {
-        dayType: 'birthdayDay',
-        events: [
-            { title: 'Part-time job', category: 'work', start: '06:00', end: '10:00', notes: '' },
-            { title: "🎂 SHIRLY'S BIRTHDAY PARTY 🎂", category: 'birthday', start: '10:00', end: '22:00', notes: 'COMPLETELY OFF - NO STUDYING! Enjoy!' }
-        ]
-    },
-
-    // SUNDAY 8 FEBRUARY (WORK DAY)
-    '2026-02-08': {
-        dayType: 'workDay',
-        events: [
-            { title: 'Part-time job', category: 'work', start: '06:00', end: '10:00', notes: '' },
-            { title: 'Commute, recovery', category: 'routine', start: '10:00', end: '11:00', notes: '' },
-            { title: 'Light rest - skip gym', category: 'rest', start: '11:00', end: '12:00', notes: 'Rest before exam' },
-            { title: 'Lunch', category: 'meal', start: '12:00', end: '13:00', notes: '' },
-            { title: 'FOURTH PRACTICE EXAM', category: 'exam', start: '13:00', end: '14:30', notes: 'Final practice - confidence builder' },
-            { title: 'Break', category: 'rest', start: '14:30', end: '15:00', notes: '' },
-            { title: 'Review wrong answers', category: 'study', start: '15:00', end: '16:30', notes: 'Light review only' },
-            { title: 'Job applications', category: 'jobHunting', start: '16:30', end: '18:00', notes: '10 apps target' },
-            { title: 'Dinner', category: 'meal', start: '18:00', end: '19:00', notes: '' },
-            { title: 'Skim all flashcards', category: 'study', start: '19:00', end: '20:00', notes: 'Quick review, no stress' },
-            { title: 'Free time', category: 'personal', start: '20:00', end: '20:30', notes: '' },
-            { title: 'STOP STUDYING - early bed prep', category: 'rest', start: '20:30', end: '21:00', notes: 'Relax!' },
-            { title: 'Sleep', category: 'rest', start: '21:00', end: '22:00', notes: 'Early night for exam' }
-        ]
-    },
-
-    // MONDAY 9 FEBRUARY - EXAM DAY
-    '2026-02-09': {
-        dayType: 'examDay',
-        events: [
-            { title: 'Wake up, light breakfast', category: 'routine', start: '07:00', end: '07:30', notes: 'Eat something sustaining' },
-            { title: 'Quick flashcard skim', category: 'study', start: '07:30', end: '08:00', notes: 'Ports/acronyms only' },
-            { title: 'Final prep, gather ID', category: 'routine', start: '08:00', end: '08:30', notes: '2 forms of ID' },
-            { title: 'Leave for exam center', category: 'routine', start: '08:30', end: '09:00', notes: 'Arrive early!' },
-            { title: '🎯 SECURITY+ EXAM 🎯', category: 'exam', start: '09:00', end: '11:00', notes: 'YOU GOT THIS!' },
-            { title: 'Post-exam celebration', category: 'personal', start: '11:00', end: '22:00', notes: 'Celebrate your hard work!' }
+            { title: 'Wake up · brush teeth — before eating', category: 'hygiene', start: '05:15', end: '05:18', notes: '' },
+            { title: 'Overnight oats + peppermint tea + supplements', category: 'routine', start: '05:18', end: '05:45', notes: '' },
+            { title: 'Home Bargains shift', category: 'work', start: '06:00', end: '10:00', notes: '' },
+            { title: 'Return home & prep for church', category: 'routine', start: '10:00', end: '11:00', notes: '' },
+            { title: 'Church', category: 'church', start: '11:00', end: '13:00', notes: '' },
+            { title: 'Lunch + turmeric citrus ginger tea · rinse mouth after', category: 'free', start: '13:00', end: '14:00', notes: '' },
+            { title: 'Job applications × 2', category: 'jobs', start: '14:00', end: '15:00', notes: '' },
+            { title: 'Rest & free time — unstructured recovery', category: 'free', start: '15:00', end: '17:00', notes: '' },
+            { title: 'Weekly planning — prep for Monday', category: 'project', start: '17:00', end: '18:00', notes: '' },
+            { title: 'Turmeric ginger tea · rinse mouth after', category: 'free', start: '17:30', end: '18:00', notes: '' },
+            { title: 'Dinner', category: 'free', start: '18:00', end: '19:00', notes: '' },
+            { title: 'Umamusume', category: 'game', start: '19:00', end: '20:00', notes: '' },
+            { title: 'Prep tomorrow — lay out clothes, make overnight oats', category: 'routine', start: '20:00', end: '20:10', notes: '' },
+            { title: 'Skincare — CeraVe · Nizoral on applicable nights', category: 'hygiene', start: '20:10', end: '20:15', notes: '' },
+            { title: 'Stretching & mobility', category: 'fitness', start: '20:15', end: '20:30', notes: '' },
+            { title: 'Dark chocolate (85%)', category: 'free', start: '20:30', end: '20:35', notes: '' },
+            { title: 'Chamomile or turmeric ashwagandha tea · read / journal / pray · rinse mouth after', category: 'winddown', start: '20:35', end: '20:55', notes: '' },
+            { title: 'Brush teeth', category: 'hygiene', start: '20:55', end: '21:00', notes: '' },
+            { title: 'Sleep', category: 'sleep', start: '21:00', end: '23:59', notes: '' },
         ]
     }
 };
 
-/**
- * DEFAULT POMODORO SETTINGS
- */
+// Date-specific overrides — add entries here for one-off days (holidays, exam days, etc.)
+const SPECIFIC_SCHEDULES = {};
+
 const DEFAULT_POMODORO = {
     focusDuration: 25,
     breakDuration: 5,
@@ -298,9 +236,6 @@ const DEFAULT_POMODORO = {
     sessionsUntilLongBreak: 4
 };
 
-/**
- * NOTIFICATION SETTINGS
- */
 const NOTIFICATION_SETTINGS = {
     snoozeInterval: 10,
     maxSnoozes: 6

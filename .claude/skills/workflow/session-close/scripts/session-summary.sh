@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "=== Session Summary ==="
+echo "=== Belific Session Summary ==="
 echo ""
 echo "--- Working tree ---"
 git status --short

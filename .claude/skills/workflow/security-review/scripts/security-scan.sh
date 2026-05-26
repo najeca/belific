@@ -1,15 +1,15 @@
 #!/bin/bash
 ROOT="$(git rev-parse --show-toplevel)"
+MOBILE="$ROOT/mobile"
 FAIL=false
 
-echo "=== Landis Security Scan ==="
+echo "=== Belific Security Scan ==="
 echo ""
 
-# 1. Hardcoded credentials in tracked files
-# Matches JWT tokens (eyJ) and Anthropic keys (sk-ant-) but excludes process.env reads
+# 1. Hardcoded credentials
 echo "--- Hardcoded credentials ---"
-MATCHES=$(git grep -n -E "eyJhbGci|sk-ant-" \
-  -- ":(exclude)*.env*" ":(exclude)docs/" ":(exclude)*.md" ":(exclude)create-issues.sh" ":(exclude).claude/" 2>/dev/null || true)
+MATCHES=$(git grep -n -E "eyJhbGci|sk-ant-|SUPABASE_SERVICE_ROLE|password\s*=\s*['\"][^'\"]{8}" \
+  -- ":(exclude)*.env*" ":(exclude)docs/" ":(exclude)*.md" ":(exclude).claude/" 2>/dev/null || true)
 if [ -n "$MATCHES" ]; then
   echo "❌ FAIL:"
   echo "$MATCHES"
@@ -19,12 +19,11 @@ else
 fi
 echo ""
 
-# 2. Sensitive console.log (excludes node_modules, .next build output, and boolean-only logs)
+# 2. Sensitive console.log in mobile TypeScript
 echo "--- Sensitive console.log ---"
-LOGS=$(grep -rn "console\.log" --include="*.ts" --include="*.tsx" --include="*.js" \
-  "$ROOT/apps" "$ROOT/packages" 2>/dev/null \
+LOGS=$(grep -rn "console\.log" --include="*.ts" --include="*.tsx" \
+  "$MOBILE/app" "$MOBILE/lib" 2>/dev/null \
   | grep -v "node_modules/" \
-  | grep -v "\.next/" \
   | grep -iE "key|token|secret|password" \
   | grep -v "!!" || true)
 if [ -n "$LOGS" ]; then
@@ -36,10 +35,10 @@ else
 fi
 echo ""
 
-# 3. TypeScript as any (excludes node_modules)
+# 3. TypeScript as any in mobile
 echo "--- TypeScript 'as any' ---"
 ANY=$(grep -rn " as any" --include="*.ts" --include="*.tsx" \
-  "$ROOT/apps" "$ROOT/packages" 2>/dev/null \
+  "$MOBILE/app" "$MOBILE/lib" 2>/dev/null \
   | grep -v "node_modules/" || true)
 if [ -n "$ANY" ]; then
   echo "❌ FAIL:"
@@ -50,17 +49,7 @@ else
 fi
 echo ""
 
-# 4. eas.json credentials
-echo "--- eas.json credentials ---"
-if grep -qE "SUPABASE|ANTHROPIC|API_KEY" "$ROOT/apps/mobile/eas.json" 2>/dev/null; then
-  echo "❌ FAIL: Credentials in eas.json — move to EAS Secrets and rotate"
-  FAIL=true
-else
-  echo "✅ eas.json clean"
-fi
-echo ""
-
-# 5. Staged .env files
+# 4. Staged .env files
 echo "--- Staged .env files ---"
 STAGED=$(git diff --cached --name-only | grep -E "\.env" || true)
 if [ -n "$STAGED" ]; then

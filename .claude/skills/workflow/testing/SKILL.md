@@ -1,28 +1,47 @@
 ---
 name: testing
-description: Run before every EAS build and after every device install. Confirms all Landis features work correctly and catches regressions before App Store submission.
+description: Run before every EAS build and after every device install. Confirms all Belific features work correctly on device.
 ---
+
+# Testing
 
 ## Instructions
 
-### Step 1 — Pre-test check
-Run pre-test-check.sh to confirm Metro is running and device is connected.
-
+### Step 1 — Confirm app is installed on device
 ```bash
-bash .claude/skills/workflow/testing/scripts/pre-test-check.sh
+cd mobile/
+npx expo run:ios --device 00008150-000438D40A92401C --configuration Release
 ```
+Or open the installed build directly on Jethro's iPhone (`00008150-000438D40A92401C`).
 
 ### Step 2 — Work through checklist
-Work through checklist.md top to bottom.
-Mark each item pass or fail.
-Stop and fix any fail before continuing.
 
-### Step 3 — Edge case checks
-Run edge case checks from edge-cases.md manually on device.
+**WebView**
+- [ ] App launches without crash
+- [ ] WebView loads `https://najeca.github.io/belific/` correctly
+- [ ] Schedule displays for today
+- [ ] Pomodoro timer starts and runs
 
-### Step 4 — Report result
-If all pass, report: **TESTING PASSED**
-If any fail, report: **TESTING FAILED** with exact list of failures.
+**Notifications**
+- [ ] Permission prompt appears on first launch
+- [ ] Custom Reminder can be created with a time and message
+- [ ] Custom Reminder fires at the correct time
+- [ ] Weekly Summary is scheduled (Sunday 6 PM)
+- [ ] Streak at Risk is scheduled (daily 8 PM)
 
-### Step 5 — Update audit
-Update docs/current-state-audit.md with test results and date.
+**Navigation**
+- [ ] Tab bar visible at bottom
+- [ ] Safe area insets correct (no content under status bar or home indicator)
+- [ ] Tab switching works without crash
+
+**Release build health**
+- [ ] No Metro connection prompt (confirms Release config)
+- [ ] No crash on background/foreground cycle
+
+### Step 3 — Report result
+
+If all pass: **TESTING PASSED**
+If any fail: **TESTING FAILED** — list exact failures
+
+### Step 4 — Update audit
+Update `docs/current-state-audit.md` with test results and date.

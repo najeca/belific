@@ -153,6 +153,34 @@ installs.
 
 ---
 
+---
+
+## EAS Build Errors
+
+### package-lock.json out of sync
+
+EAS uses `npm ci` (strict mode) which requires `package-lock.json` to exactly match `package.json`. If they are out of sync the build fails with:
+
+```
+npm ci can only install packages when your package.json and package-lock.json are in sync
+Missing: react-dom@19.2.7 from lock file
+Missing: scheduler@0.27.0 from lock file
+```
+
+**Fix:** Run `npm install --legacy-peer-deps` inside `mobile/` to regenerate `package-lock.json`, then commit and push before retrying the EAS build.
+
+```bash
+cd /Users/jethro/Developer/belific/mobile
+npm install --legacy-peer-deps
+git add package-lock.json
+git commit -m "Sync package-lock.json for EAS build"
+git push
+```
+
+**Prevention:** Always run `npm install` and commit `package-lock.json` after any dependency changes before triggering an EAS build.
+
+---
+
 ## Correct full build sequence (run every time after prebuild)
 
 ```bash

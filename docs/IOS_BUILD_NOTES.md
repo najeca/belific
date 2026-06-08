@@ -167,17 +167,30 @@ Missing: react-dom@19.2.7 from lock file
 Missing: scheduler@0.27.0 from lock file
 ```
 
-**Fix:** Run `npm install --legacy-peer-deps` inside `mobile/` to regenerate `package-lock.json`, then commit and push before retrying the EAS build.
+**Fix:** A full clean reinstall is required — `npm install --legacy-peer-deps` alone is not sufficient as it may leave the lock file still missing entries. Delete both `node_modules` and `package-lock.json` entirely, then reinstall from scratch:
 
 ```bash
 cd /Users/jethro/Developer/belific/mobile
-npm install --legacy-peer-deps
+rm -rf node_modules package-lock.json
+npm install
+# If peer dependency errors occur, fall back to:
+# npm install --legacy-peer-deps
+```
+
+Verify both packages are present before committing:
+```bash
+grep -c "react-dom" package-lock.json   # must be > 0
+grep -c "scheduler" package-lock.json   # must be > 0
+```
+
+Then commit and push:
+```bash
 git add package-lock.json
-git commit -m "Sync package-lock.json for EAS build"
+git commit -m "Rebuild package-lock.json from scratch for EAS"
 git push
 ```
 
-**Prevention:** Always run `npm install` and commit `package-lock.json` after any dependency changes before triggering an EAS build.
+**Prevention:** Always run `rm -rf node_modules package-lock.json && npm install` and commit `package-lock.json` after any dependency changes before triggering an EAS build. Do not rely on `npm install --legacy-peer-deps` alone to sync the lock file.
 
 ---
 

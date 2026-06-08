@@ -190,7 +190,24 @@ git commit -m "Rebuild package-lock.json from scratch for EAS"
 git push
 ```
 
-**Prevention:** Always run `rm -rf node_modules package-lock.json && npm install` and commit `package-lock.json` after any dependency changes before triggering an EAS build. Do not rely on `npm install --legacy-peer-deps` alone to sync the lock file.
+**EAS also rejects peer dependency conflicts.** `react-dom` must not be in `package.json` for a React Native project — it demands `react@^19.2.7` which conflicts with Expo SDK 54's pinned `react@19.1.0`, and EAS's strict `npm ci` will abort on it. Additionally, `npm install` needs `legacy-peer-deps=true` in `.npmrc` so EAS picks it up without a flag.
+
+**Full fix sequence:**
+```bash
+cd /Users/jethro/Developer/belific/mobile
+npm uninstall react-dom --legacy-peer-deps   # remove conflicting dep
+echo "legacy-peer-deps=true" > .npmrc        # persist flag for EAS
+rm -rf node_modules package-lock.json
+npm install                                  # clean reinstall respects .npmrc
+grep "react-dom" package.json               # must return nothing
+grep -c "react-dom" package-lock.json       # must be > 0 (transitive only)
+grep -c "scheduler" package-lock.json       # must be > 0
+git add package.json package-lock.json .npmrc
+git commit -m "Remove react-dom, add .npmrc legacy-peer-deps for EAS"
+git push
+```
+
+**Prevention:** Always run `rm -rf node_modules package-lock.json && npm install` and commit `package-lock.json` after any dependency changes before triggering an EAS build. Do not rely on `npm install --legacy-peer-deps` alone to sync the lock file. Keep `.npmrc` committed so EAS always installs with the same flags.
 
 ---
 

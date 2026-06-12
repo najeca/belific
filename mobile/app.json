@@ -6,37 +6,50 @@
     "scheme": "belific",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": false,
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FAF8F5"
+      "backgroundColor": "#1a1a1a"
     },
+    "assetBundlePatterns": [
+      "assets/sounds/*",
+      "assets/**/*"
+    ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.belific.app",
+      "bundleIdentifier": "com.najeca.belific",
+      "buildNumber": "1",
+      "deploymentTarget": "16.4",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UNNotificationDefaultSoundName": "notification.wav"
       }
     },
     "plugins": [
+      "expo-font",
       "expo-router",
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
           "color": "#D97652",
-          "sounds": []
+          "sounds": [
+            "./assets/sounds/notification.wav"
+          ]
         }
       ]
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": ""
+        "projectId": "90588798-2a74-4eba-91b6-b7127c3bc3dd"
       }
     },
-    "owner": "jetmakes"
+    "owner": "jetmakes",
+    "android": {
+      "package": "com.belific.app"
+    }
   }
 }

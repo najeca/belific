@@ -23,8 +23,7 @@
       "buildNumber": "2",
       "deploymentTarget": "16.4",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "UNNotificationDefaultSoundName": "notification.wav"
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "plugins": [
@@ -34,10 +33,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#D97652",
-          "sounds": [
-            "./assets/sounds/notification.wav"
-          ]
+          "color": "#D97652"
         }
       ]
     ],

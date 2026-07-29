@@ -19,7 +19,7 @@ import {
   formatDateKey,
 } from '../../lib/data';
 import { loadCustomEvents } from '../../lib/storage';
-import AddEventModal from '../components/AddEventModal';
+import { EventForm } from '../components/AddEventModal';
 import type { ScheduleEvent, CustomEvent } from '../../lib/types';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -88,11 +88,13 @@ export default function CalendarScreen() {
   const [viewMonth, setViewMonth] = useState(realToday.getMonth());
   const [selectedDay, setSelectedDay] = useState<number | null>(realToday.getDate());
   const [allCustomEvents, setAllCustomEvents] = useState<CustomEvent[]>([]);
-  const [detailVisible, setDetailVisible] = useState(false);
-  const [addModalVisible, setAddModalVisible] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<CustomEvent | undefined>(undefined);
-  // Holds an event to edit after the detail sheet finishes closing
-  const [pendingEditEvent, setPendingEditEvent] = useState<CustomEvent | null>(null);
+  // One Modal, one visibility flag. `mode` picks which content it shows —
+  // switching between them just swaps the rendered child, no separate
+  // Modal instances to close/reopen (that chaining is what onDetailDismiss
+  // used to exist for).
+  const [modalVisible, setModalVisible] = useState(false);
+  const [mode, setMode] = useState<'detail' | 'edit' | 'add' | null>(null);
+  const [activeEvent, setActiveEvent] = useState<CustomEvent | undefined>(undefined);
 
   useFocusEffect(
     useCallback(() => {
@@ -145,37 +147,67 @@ export default function CalendarScreen() {
     return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
   }
 
+  // Called after a successful save or delete from the form. Editing an
+  // existing event drops back to the day list (decision: multi-edit in one
+  // sitting is a normal flow, don't force a reopen). Adding a brand-new
+  // event closes the sheet entirely, matching the FAB's old standalone
+  // behavior — there's no prior detail view to return to in that path.
   function handleEventSaved() {
-    setAddModalVisible(false);
-    setEditingEvent(undefined);
     loadCustomEvents().then(setAllCustomEvents);
-  }
-
-  // Schedules the edit modal to open after the detail sheet has fully closed.
-  // Calling setDetailVisible(false) here triggers the close; onDetailDismiss
-  // picks up pendingEditEvent and opens the edit modal once the sheet is gone.
-  function openEditModal(scheduleEvent: ScheduleEvent) {
-    const found = allCustomEvents.find(c => c.id === scheduleEvent.id);
-    if (!found) return;
-    setPendingEditEvent(found);
-    setDetailVisible(false);
-  }
-
-  // Called by iOS after the detail sheet fully closes — whether the user
-  // pressed the X button, swiped the sheet down, or we set visible=false
-  // programmatically. This is the single reliable close hook on iOS.
-  function onDetailDismiss() {
-    setDetailVisible(false); // sync state in case it was a swipe-dismiss
-    if (pendingEditEvent) {
-      setEditingEvent(pendingEditEvent);
-      setPendingEditEvent(null);
-      setAddModalVisible(true);
+    if (mode === 'edit') {
+      setActiveEvent(undefined);
+      setMode('detail');
+    } else {
+      setModalVisible(false);
+      setMode(null);
+      setActiveEvent(undefined);
     }
   }
 
-  function handleAddModalClose() {
-    setAddModalVisible(false);
-    setEditingEvent(undefined);
+  // Cancel / close-X from within the form. Same detail-vs-close split as
+  // handleEventSaved above.
+  function handleFormClose() {
+    if (mode === 'edit') {
+      setActiveEvent(undefined);
+      setMode('detail');
+    } else {
+      setModalVisible(false);
+      setMode(null);
+      setActiveEvent(undefined);
+    }
+  }
+
+  function openDetail(day: number) {
+    setSelectedDay(day);
+    setMode('detail');
+    setModalVisible(true);
+  }
+
+  // Swaps the sheet's content from the day list to the edit form — no
+  // Modal close/reopen, so no iOS pageSheet dismiss-animation race to work
+  // around.
+  function openEditModal(scheduleEvent: ScheduleEvent) {
+    const found = allCustomEvents.find(c => c.id === scheduleEvent.id);
+    if (!found) return;
+    setActiveEvent(found);
+    setMode('edit');
+  }
+
+  function openAddModal() {
+    setActiveEvent(undefined);
+    setMode('add');
+    setModalVisible(true);
+  }
+
+  // The only place that fires when the sheet is actually, fully gone —
+  // whether closed via the X button, Android back, or an iOS swipe-down
+  // the code above never initiated. Runs unconditionally, independent of
+  // whatever handler (or lack of one) already tried to close it, so state
+  // can never drift out of sync with what's really on screen.
+  function handleModalDismiss() {
+    setModalVisible(false);
+    setMode(null);
+    setActiveEvent(undefined);
   }
 
   return (
@@ -225,8 +257,7 @@ export default function CalendarScreen() {
                 style={styles.dayCell}
                 onPress={() => {
                   if (day != null) {
-                    setSelectedDay(day);
-                    setDetailVisible(true);
+                    openDetail(day);
                   }
                 }}
                 disabled={day == null}
@@ -263,7 +294,7 @@ export default function CalendarScreen() {
       {/* FAB */}
       <TouchableOpacity
         style={[styles.fab, { bottom: insets.bottom + 24 }]}
-        onPress={() => setAddModalVisible(true)}
+        onPress={openAddModal}
         activeOpacity={0.85}
         accessibilityLabel="Add event"
         accessibilityRole="button"
@@ -271,53 +302,55 @@ export default function CalendarScreen() {
         <Ionicons name="add" size={28} color="#ffffff" />
       </TouchableOpacity>
 
-      {/* Day detail sheet */}
+      {/* Unified day-detail / edit / add sheet — one Modal, content swaps by mode */}
       <Modal
-        visible={detailVisible}
+        visible={modalVisible}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setDetailVisible(false)}
-        onDismiss={onDetailDismiss}
+        onRequestClose={() => setModalVisible(false)}
+        onDismiss={handleModalDismiss}
       >
-        <View style={[styles.detailContainer, { paddingTop: insets.top + 16 }]}>
-          <View style={styles.detailHeader}>
-            <Text style={styles.detailTitle}>{formatDetailHeader(selectedDate)}</Text>
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => setDetailVisible(false)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        {mode === 'detail' && (
+          <View style={[styles.detailContainer, { paddingTop: insets.top + 16 }]}>
+            <View style={styles.detailHeader}>
+              <Text style={styles.detailTitle}>{formatDetailHeader(selectedDate)}</Text>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setModalVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.detailScroll}
+              contentContainerStyle={styles.detailContent}
+              showsVerticalScrollIndicator={false}
             >
-              <Ionicons name="close" size={24} color={Colors.textPrimary} />
-            </TouchableOpacity>
+              {detailEvents.length === 0 ? (
+                <Text style={styles.emptyText}>No events scheduled</Text>
+              ) : (
+                detailEvents.map(e => (
+                  <EventRowCompact
+                    key={e.id}
+                    event={e}
+                    onLongPress={e.isCustom ? () => openEditModal(e) : undefined}
+                  />
+                ))
+              )}
+              <View style={{ height: 40 }} />
+            </ScrollView>
           </View>
-          <ScrollView
-            style={styles.detailScroll}
-            contentContainerStyle={styles.detailContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {detailEvents.length === 0 ? (
-              <Text style={styles.emptyText}>No events scheduled</Text>
-            ) : (
-              detailEvents.map(e => (
-                <EventRowCompact
-                  key={e.id}
-                  event={e}
-                  onLongPress={e.isCustom ? () => openEditModal(e) : undefined}
-                />
-              ))
-            )}
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        </View>
+        )}
+        {(mode === 'edit' || mode === 'add') && (
+          <EventForm
+            date={selectedDate}
+            onClose={handleFormClose}
+            onSaved={handleEventSaved}
+            editEvent={activeEvent}
+          />
+        )}
       </Modal>
-
-      <AddEventModal
-        visible={addModalVisible}
-        date={selectedDate}
-        onClose={handleAddModalClose}
-        onSaved={handleEventSaved}
-        editEvent={editingEvent}
-      />
     </View>
   );
 }

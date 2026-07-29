@@ -18,14 +18,6 @@ import { createCustomEvent, durationMinutes, formatDateKey } from '../../lib/dat
 import { addCustomEvent, updateCustomEvent, deleteCustomEvent } from '../../lib/storage';
 import type { CustomEvent } from '../../lib/types';
 
-interface Props {
-  visible: boolean;
-  date: Date;
-  onClose: () => void;
-  onSaved: (event: CustomEvent) => void;
-  editEvent?: CustomEvent;
-}
-
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -64,7 +56,21 @@ function now(): Date {
   return d;
 }
 
-export default function AddEventModal({ visible, date, onClose, onSaved, editEvent }: Props) {
+interface EventFormProps {
+  date: Date;
+  onClose: () => void;
+  onSaved: (event: CustomEvent) => void;
+  editEvent?: CustomEvent;
+}
+
+// Bare form content, no Modal of its own — the caller decides how it's
+// presented. AddEventModal below wraps this in its own pageSheet for
+// screens (today.tsx) that just need a single, standalone form modal.
+// calendar.tsx renders this directly inside its own unified pageSheet
+// instead, swapping it in for the day-detail view without closing and
+// reopening a separate Modal (which is what caused the onDismiss chaining
+// this component used to need).
+export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps) {
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -84,9 +90,10 @@ export default function AddEventModal({ visible, date, onClose, onSaved, editEve
   // prevents start-change from silently overwriting a deliberate end time.
   const endTouched = useRef(false);
 
-  // Populate fields when opening
+  // EventForm is always conditionally mounted by its caller (mounted only
+  // while actually shown), so populating on mount/editEvent-change is
+  // enough — no separate "visible" flag needed here.
   useEffect(() => {
-    if (!visible) return;
     if (editEvent) {
       setTitle(editEvent.title);
       setCategory(editEvent.category);
@@ -101,7 +108,7 @@ export default function AddEventModal({ visible, date, onClose, onSaved, editEve
       setEventDate(date);
       endTouched.current = false;
     }
-  }, [visible, editEvent?.id]);
+  }, [editEvent?.id]);
 
   const startHHMM = dateToHHMM(startDate);
   const endHHMM = dateToHHMM(endDate);
@@ -226,12 +233,7 @@ export default function AddEventModal({ visible, date, onClose, onSaved, editEve
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleClose}
-    >
+    <>
       <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{isEditing ? 'Edit Event' : 'New Event'}</Text>
@@ -387,6 +389,33 @@ export default function AddEventModal({ visible, date, onClose, onSaved, editEve
           </TouchableOpacity>
         </View>
       </View>
+    </>
+  );
+}
+
+interface Props {
+  visible: boolean;
+  date: Date;
+  onClose: () => void;
+  onSaved: (event: CustomEvent) => void;
+  editEvent?: CustomEvent;
+}
+
+// Standalone form modal, used where the form isn't part of a larger
+// unified sheet (e.g. today.tsx's own add/edit flow, which has no
+// day-detail step to chain with).
+export default function AddEventModal({ visible, date, onClose, onSaved, editEvent }: Props) {
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+      onDismiss={onClose}
+    >
+      {visible && (
+        <EventForm date={date} onClose={onClose} onSaved={onSaved} editEvent={editEvent} />
+      )}
     </Modal>
   );
 }

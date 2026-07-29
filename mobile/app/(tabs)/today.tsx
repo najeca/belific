@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   RefreshControl,
 } from 'react-native';
@@ -95,16 +96,15 @@ function EventRow({
 
   if (onLongPress) {
     return (
-      <TouchableOpacity
-        style={styles.eventRow}
+      <Pressable
+        style={({ pressed }) => [styles.eventRow, pressed && { opacity: 0.85 }]}
         onLongPress={onLongPress}
         delayLongPress={500}
-        activeOpacity={0.85}
         accessibilityLabel={event.title}
         accessibilityHint="Long press to edit"
       >
         {inner}
-      </TouchableOpacity>
+      </Pressable>
     );
   }
   return <View style={styles.eventRow}>{inner}</View>;

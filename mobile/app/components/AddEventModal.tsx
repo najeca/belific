@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  KeyboardAvoidingView,
   StyleSheet,
   Platform,
   Alert,
@@ -234,6 +235,10 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
 
   return (
     <>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{isEditing ? 'Edit Event' : 'New Event'}</Text>
@@ -389,6 +394,7 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
           </TouchableOpacity>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </>
   );
 }

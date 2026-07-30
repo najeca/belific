@@ -91,7 +91,7 @@ export default function InboxScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Inbox</Text>
+        <Text style={styles.title}>Dump</Text>
       </View>
 
       <View style={styles.captureRow}>
@@ -123,29 +123,29 @@ export default function InboxScreen() {
           <Text style={styles.emptyStateSubtext}>Type above to capture a thought</Text>
         </View>
       ) : (
-        <View style={styles.listContainer}>
-          <FlatList
-            data={sorted}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item, index }) => (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.itemRow,
-                  index === sorted.length - 1 && styles.itemRowLast,
-                  pressed && { opacity: 0.85 },
-                ]}
-                onPress={() => openActions(item)}
-                accessibilityLabel={item.title}
-                accessibilityHint="Tap to schedule or delete"
-              >
-                <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
-                <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
-              </Pressable>
-            )}
-          />
-        </View>
+        <FlatList
+          data={sorted}
+          keyExtractor={(item) => item.id}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <Pressable
+              style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
+              onPress={() => openActions(item)}
+              accessibilityLabel={item.title}
+              accessibilityHint="Tap to schedule or delete"
+            >
+              <View style={styles.cardHeader}>
+                <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
+                <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+              </View>
+              {!!item.notes && (
+                <Text style={styles.cardNotes} numberOfLines={3}>{item.notes}</Text>
+              )}
+            </Pressable>
+          )}
+        />
       )}
 
       <Modal
@@ -242,34 +242,32 @@ const styles = StyleSheet.create({
   captureBtnDisabled: {
     opacity: 0.5,
   },
-  listContainer: {
+  list: {
     flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 16,
   },
   listContent: {
-    flexGrow: 1,
+    paddingBottom: 24,
   },
-  itemRow: {
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
+  },
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 56,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    gap: 10,
   },
-  itemRowLast: {
-    borderBottomWidth: 0,
-  },
-  itemTitle: {
+  cardTitle: {
     flex: 1,
     fontSize: 15,
     color: Colors.textPrimary,
-    paddingVertical: 14,
-    paddingRight: 12,
+  },
+  cardNotes: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 6,
   },
   emptyState: {
     backgroundColor: Colors.surface,

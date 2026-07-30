@@ -134,7 +134,7 @@ export default function InboxScreen() {
               style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
               onPress={() => openActions(item)}
               accessibilityLabel={item.title}
-              accessibilityHint="Tap to schedule or delete"
+              accessibilityHint="Tap for options"
             >
               <View style={styles.cardHeader}>
                 <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
@@ -167,6 +167,15 @@ export default function InboxScreen() {
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={() => setModalVisible(false)}
+              accessibilityLabel="Keep in Dump"
+              accessibilityRole="button"
+            >
+              <Ionicons name="bulb-outline" size={20} color={Colors.textSecondary} style={{ marginRight: 12 }} />
+              <Text style={styles.actionText}>Keep in Dump</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionRow}
               onPress={() => setMode('schedule')}

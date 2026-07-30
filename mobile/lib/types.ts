@@ -119,6 +119,53 @@ export interface BrainDumpItem {
   createdAt: string;
 }
 
+// Time-of-day grouping for Routines (habit-tracker feature) — a
+// separate sense of "routine" from the `routine` CategoryKey used by
+// scheduled events; see UBIQUITOUS_LANGUAGE.md for both definitions.
+export type TimeOfDay = 'morning' | 'afternoon' | 'evening';
+
+export interface Routine {
+  id: string;
+  title: string;
+  timeOfDay: TimeOfDay;
+  createdAt: string;
+}
+
+// One row per completed day, per routine — not append-only despite the
+// name suggesting a log: un-completing removes the row for that date
+// (see deleteRoutineCompletion). Reversibility is a hard requirement
+// here (design-identity skill's vacation-mode principle), so "toggle
+// off" must be a real, working operation, not just theoretically
+// possible. No streak count is ever derived from this — "done today"
+// is a lookup, nothing more.
+export interface RoutineCompletion {
+  routineId: string;
+  date: string;
+  completedAt: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  dueDate?: string;
+  priority?: EventPriority;
+  projectKey?: string;
+  completed: boolean;
+  completedAt?: string;
+  createdAt: string;
+  // Set once, at creation, when promoted from a Brain Dump item — same
+  // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
+  origin?: 'dump';
+}
+
+// Lightweight tag only — no color/icon, just a filter label. Deliberately
+// not a full "project" concept with its own screen/progress view; add
+// one later only if actually needed once Tasks/Routines are in daily use.
+export interface Project {
+  key: string;
+  name: string;
+}
+
 export interface TimerSettings {
   focusDuration: number;
   breakDuration: number;

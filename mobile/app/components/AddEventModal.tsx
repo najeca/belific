@@ -22,6 +22,7 @@ import {
   durationMinutes,
   formatDateKey,
   generateRecurringEvents,
+  getDayOfWeek,
 } from '../../lib/data';
 import {
   addCustomEvent,
@@ -30,7 +31,7 @@ import {
   deleteCustomEvent,
   deleteCustomEventSeriesFrom,
 } from '../../lib/storage';
-import type { CategoryKey, CustomEvent, RecurrenceRule } from '../../lib/types';
+import type { CategoryKey, CustomEvent, RecurrenceRule, WeekDay } from '../../lib/types';
 
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -39,6 +40,13 @@ const DEFAULT_DURATION_MINUTES = 30;
 const CATEGORY_KEYS = Object.keys(CATEGORIES) as CategoryKey[];
 type RecurrenceChoice = RecurrenceRule | 'none';
 const RECURRENCE_CHOICES: RecurrenceChoice[] = ['none', ...(Object.keys(RECURRENCE_LABELS) as RecurrenceRule[])];
+// Rules where a specific weekday selection is meaningful — daily is every
+// day regardless, monthly follows the anchor's calendar day-of-month.
+const DAY_PICKER_RULES: RecurrenceRule[] = ['weekly', 'biweekly', 'triweekly'];
+const WEEKDAY_ORDER: WeekDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAY_ABBR: Record<WeekDay, string> = {
+  Mon: 'Mo', Tue: 'Tu', Wed: 'We', Thu: 'Th', Fri: 'Fr', Sat: 'Sa', Sun: 'Su',
+};
 
 function formatEventDate(d: Date): string {
   return `${SHORT_DAYS[d.getDay()]} ${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
@@ -125,6 +133,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
   // already-materialized series would mean regenerating/reconciling rows,
   // which is out of scope for now (see generateRecurringEvents comment).
   const [recurrence, setRecurrence] = useState<RecurrenceChoice>('none');
+  const [recurrenceDays, setRecurrenceDays] = useState<WeekDay[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -144,6 +153,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
       setEndDate(toTimeDate(editEvent.end));
       setNotes(editEvent.notes || '');
       setRecurrence('none');
+      setRecurrenceDays([]);
       // Treat the existing end time as manually set so start changes don't override it
       endTouched.current = true;
     } else {
@@ -155,6 +165,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
       setEndDate(defaultEnd(start));
       setNotes('');
       setRecurrence('none');
+      setRecurrenceDays([]);
       endTouched.current = false;
     }
   }, [editEvent?.id, initialTitle]);
@@ -174,6 +185,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
     setEndDate(defaultEnd(start));
     setNotes('');
     setRecurrence('none');
+    setRecurrenceDays([]);
     setShowDatePicker(false);
     setShowStartPicker(false);
     setShowEndPicker(false);
@@ -212,7 +224,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
         end: endHHMM,
         notes: notes.trim(),
       };
-      const series = generateRecurringEvents(fields, recurrence, eventDate);
+      const series = generateRecurringEvents(fields, recurrence, eventDate, recurrenceDays);
       await addCustomEvents(series);
       reset();
       onSaved(series[0]);
@@ -446,7 +458,12 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
                     <TouchableOpacity
                       key={choice}
                       style={[styles.categoryChip, selected && styles.categoryChipSelected]}
-                      onPress={() => setRecurrence(choice)}
+                      onPress={() => {
+                        setRecurrence(choice);
+                        if (choice !== 'none' && DAY_PICKER_RULES.includes(choice) && recurrenceDays.length === 0) {
+                          setRecurrenceDays([getDayOfWeek(eventDate)]);
+                        }
+                      }}
                       accessibilityLabel={label}
                       accessibilityRole="button"
                     >
@@ -457,6 +474,31 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
                   );
                 })}
               </View>
+
+              {recurrence !== 'none' && DAY_PICKER_RULES.includes(recurrence) && (
+                <View style={styles.weekdayRow}>
+                  {WEEKDAY_ORDER.map((day) => {
+                    const selected = recurrenceDays.includes(day);
+                    return (
+                      <TouchableOpacity
+                        key={day}
+                        style={[styles.weekdayChip, selected && styles.weekdayChipSelected]}
+                        onPress={() =>
+                          setRecurrenceDays((prev) =>
+                            prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
+                          )
+                        }
+                        accessibilityLabel={day}
+                        accessibilityRole="button"
+                      >
+                        <Text style={[styles.weekdayChipText, selected && styles.weekdayChipTextSelected]}>
+                          {WEEKDAY_ABBR[day]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </>
           )}
 
@@ -464,7 +506,12 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
             <>
               <Text style={styles.label}>Repeat</Text>
               <View style={styles.timeRow}>
-                <Text style={styles.timeText}>{RECURRENCE_LABELS[editEvent.recurrence]}</Text>
+                <Text style={styles.timeText}>
+                  {RECURRENCE_LABELS[editEvent.recurrence]}
+                  {editEvent.recurrenceDays && editEvent.recurrenceDays.length > 0
+                    ? ` — ${editEvent.recurrenceDays.map((d) => WEEKDAY_ABBR[d]).join(', ')}`
+                    : ''}
+                </Text>
               </View>
             </>
           )}
@@ -626,6 +673,32 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   categoryChipTextSelected: {
+    color: Colors.accentText,
+    fontWeight: '600',
+  },
+  weekdayRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+  },
+  weekdayChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  weekdayChipSelected: {
+    backgroundColor: Colors.accent + '22',
+    borderColor: Colors.accent,
+  },
+  weekdayChipText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  weekdayChipTextSelected: {
     color: Colors.accentText,
     fontWeight: '600',
   },

@@ -6,12 +6,12 @@
     "scheme": "belific",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a1a1a"
+      "backgroundColor": "#F0EEE8"
     },
     "assetBundlePatterns": [
       "assets/sounds/*",
@@ -34,7 +34,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#D97652",
+          "color": "#5C7A6B",
           "sounds": [
             "./assets/sounds/notification.wav"
           ]

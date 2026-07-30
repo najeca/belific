@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { requestPermissions, scheduleRecurring } from '../lib/notifications';
+import { requestPermissions } from '../lib/notifications';
 import { useTimerStore } from '../lib/store';
 import { seedDevEvents } from '../lib/devSeed';
 import { Colors } from '../lib/theme';
@@ -97,8 +97,7 @@ function RootLayoutInner() {
     hydrate();
     (async () => {
       await seedDevEvents();
-      const granted = await requestPermissions();
-      if (granted) await scheduleRecurring();
+      await requestPermissions();
     })();
   }, [hydrate]);
 

@@ -1,7 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import type { ScheduleEvent } from './types';
 
-const WEEKLY_SUMMARY_ID = 'belific-weekly-summary';
 const EVENT_NOTIFICATION_PREFIX = 'belific-event-';
 
 export async function requestPermissions(): Promise<boolean> {
@@ -9,26 +8,6 @@ export async function requestPermissions(): Promise<boolean> {
     ios: { allowAlert: true, allowBadge: true, allowSound: true },
   });
   return status === 'granted';
-}
-
-export async function scheduleRecurring(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(WEEKLY_SUMMARY_ID).catch(() => {});
-
-  await Notifications.scheduleNotificationAsync({
-    identifier: WEEKLY_SUMMARY_ID,
-    content: {
-      title: 'Weekly Summary',
-      body: "Here's how your week went — tap to review your schedule.",
-      sound: 'notification.wav',
-      data: { type: 'weekly-summary' },
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-      weekday: 1,
-      hour: 18,
-      minute: 0,
-    },
-  });
 }
 
 export async function scheduleCustomReminder(
@@ -57,6 +36,10 @@ export async function scheduleEventNotifications(
   const now = new Date();
   for (const { events, date } of dayEntries) {
     for (const event of events) {
+      // Notifications are tied only to real user-set commitments — never
+      // fire one for a template/starter-routine event the person never
+      // actually created.
+      if (!event.isCustom) continue;
       const [hours, minutes] = event.start.split(':').map(Number);
       const triggerDate = new Date(date);
       triggerDate.setHours(hours, minutes, 0, 0);

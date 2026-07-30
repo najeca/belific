@@ -15,12 +15,15 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { createCustomEvent, durationMinutes, formatDateKey } from '../../lib/data';
+import { CATEGORIES, createCustomEvent, durationMinutes, formatDateKey } from '../../lib/data';
 import { addCustomEvent, updateCustomEvent, deleteCustomEvent } from '../../lib/storage';
-import type { CustomEvent } from '../../lib/types';
+import type { CategoryKey, CustomEvent } from '../../lib/types';
 
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DEFAULT_CATEGORY: CategoryKey = 'free';
+const DEFAULT_DURATION_MINUTES = 30;
+const CATEGORY_KEYS = Object.keys(CATEGORIES) as CategoryKey[];
 
 function formatEventDate(d: Date): string {
   return `${SHORT_DAYS[d.getDay()]} ${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
@@ -51,10 +54,24 @@ function formatDuration(mins: number): string {
   return `${h}h ${m}m`;
 }
 
-function now(): Date {
+// Smart default: round up to the next quarter hour, not "right now" —
+// nobody wants an event that starts mid-scroll.
+function defaultStart(): Date {
   const d = new Date();
   d.setSeconds(0, 0);
+  const remainder = d.getMinutes() % 15;
+  if (remainder !== 0) d.setMinutes(d.getMinutes() + (15 - remainder));
   return d;
+}
+
+function defaultEnd(start: Date): Date {
+  const d = new Date(start);
+  d.setMinutes(d.getMinutes() + DEFAULT_DURATION_MINUTES);
+  return d;
+}
+
+function isCategoryKey(value: string): value is CategoryKey {
+  return Object.prototype.hasOwnProperty.call(CATEGORIES, value);
 }
 
 interface EventFormProps {
@@ -71,19 +88,21 @@ interface EventFormProps {
 // instead, swapping it in for the day-detail view without closing and
 // reopening a separate Modal (which is what caused the onDismiss chaining
 // this component used to need).
+//
+// Progressive disclosure: title is the only field visible/required up
+// front. Date, start/end time, category and notes all get genuinely-true
+// smart defaults (today, next quarter hour, 30 min, "Free") and live
+// behind "More options" — collapsed for a new event, expanded for editing
+// (editing implies the person already cares about the detail).
 export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps) {
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('');
-  const [icon, setIcon] = useState('');
+  const [category, setCategory] = useState<CategoryKey>(DEFAULT_CATEGORY);
   const [eventDate, setEventDate] = useState<Date>(date);
-  const [startDate, setStartDate] = useState(now);
-  const [endDate, setEndDate] = useState(() => {
-    const d = now();
-    d.setMinutes(d.getMinutes() + 1);
-    return d;
-  });
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(() => defaultEnd(defaultStart()));
   const [notes, setNotes] = useState('');
+  const [showMore, setShowMore] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -97,16 +116,23 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
   useEffect(() => {
     if (editEvent) {
       setTitle(editEvent.title);
-      setCategory(editEvent.category);
-      setIcon(editEvent.icon || '');
+      setCategory(isCategoryKey(editEvent.category) ? editEvent.category : DEFAULT_CATEGORY);
       setEventDate(parseDateKey(editEvent.date));
       setStartDate(toTimeDate(editEvent.start));
       setEndDate(toTimeDate(editEvent.end));
       setNotes(editEvent.notes || '');
+      setShowMore(true);
       // Treat the existing end time as manually set so start changes don't override it
       endTouched.current = true;
     } else {
+      const start = defaultStart();
+      setTitle('');
+      setCategory(DEFAULT_CATEGORY);
       setEventDate(date);
+      setStartDate(start);
+      setEndDate(defaultEnd(start));
+      setNotes('');
+      setShowMore(false);
       endTouched.current = false;
     }
   }, [editEvent?.id]);
@@ -115,17 +141,17 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
   const endHHMM = dateToHHMM(endDate);
   const duration = durationMinutes(startHHMM, endHHMM);
   const isEditing = !!editEvent;
+  const canSave = title.trim().length > 0;
 
   function reset() {
+    const start = defaultStart();
     setTitle('');
-    setCategory('');
-    setIcon('');
+    setCategory(DEFAULT_CATEGORY);
     setEventDate(date);
-    setStartDate(now());
-    const d = now();
-    d.setMinutes(d.getMinutes() + 1);
-    setEndDate(d);
+    setStartDate(start);
+    setEndDate(defaultEnd(start));
     setNotes('');
+    setShowMore(false);
     setShowDatePicker(false);
     setShowStartPicker(false);
     setShowEndPicker(false);
@@ -138,21 +164,15 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
   }
 
   async function handleSave() {
-    if (!title.trim()) {
-      Alert.alert('Title required', 'Please enter an event title.');
-      return;
-    }
-    if (duration <= 0) {
-      Alert.alert('Invalid time', 'End time must be after start time.');
-      return;
-    }
+    if (!canSave) return;
+    const icon = CATEGORIES[category].icon;
 
     if (isEditing && editEvent) {
       const updated: CustomEvent = {
         ...editEvent,
         title: title.trim(),
-        category: category.trim() || 'free',
-        icon: icon.trim() || '📌',
+        category,
+        icon,
         start: startHHMM,
         end: endHHMM,
         notes: notes.trim(),
@@ -164,8 +184,8 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
     } else {
       const event = createCustomEvent({
         title: title.trim(),
-        category: category.trim() || 'free',
-        icon: icon.trim() || '📌',
+        category,
+        icon,
         start: startHHMM,
         end: endHHMM,
         notes: notes.trim(),
@@ -212,9 +232,7 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
     if (selected) {
       setStartDate(selected);
       if (!endTouched.current) {
-        const autoEnd = new Date(selected);
-        autoEnd.setMinutes(autoEnd.getMinutes() + 1);
-        setEndDate(autoEnd);
+        setEndDate(defaultEnd(selected));
       }
     }
   }
@@ -248,130 +266,150 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
         </View>
 
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-          <Text style={styles.label}>Event title</Text>
           <TextInput
-            style={styles.input}
+            style={styles.titleInput}
             placeholder="What are you doing?"
             placeholderTextColor={Colors.textSecondary}
             value={title}
             onChangeText={setTitle}
-            returnKeyType="next"
+            returnKeyType="done"
+            autoFocus
           />
 
-          <Text style={styles.label}>Category</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. work, fitness, routine…"
-            placeholderTextColor={Colors.textSecondary}
-            value={category}
-            onChangeText={setCategory}
-            returnKeyType="next"
-          />
-
-          <Text style={styles.label}>Emoji icon</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. 💼"
-            placeholderTextColor={Colors.textSecondary}
-            value={icon}
-            onChangeText={setIcon}
-            returnKeyType="next"
-          />
-
-          <Text style={styles.label}>Date</Text>
           <TouchableOpacity
-            style={styles.timeRow}
-            onPress={() => {
-              setShowDatePicker(true);
-              setShowStartPicker(false);
-              setShowEndPicker(false);
-            }}
+            style={styles.moreToggle}
+            onPress={() => setShowMore((v) => !v)}
+            accessibilityLabel={showMore ? 'Hide more options' : 'Show more options'}
+            accessibilityRole="button"
           >
-            <Text style={styles.timeText}>{formatEventDate(eventDate)}</Text>
-            <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
-          </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={eventDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleDateChange}
-              textColor={Colors.textPrimary}
+            <Text style={styles.moreToggleText}>{showMore ? 'Fewer options' : 'More options'}</Text>
+            <Ionicons
+              name={showMore ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={Colors.accentText}
             />
-          )}
-
-          <Text style={styles.label}>Start time</Text>
-          <TouchableOpacity
-            style={styles.timeRow}
-            onPress={() => {
-              setShowStartPicker(true);
-              setShowDatePicker(false);
-              setShowEndPicker(false);
-            }}
-          >
-            <Text style={styles.timeText}>{startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</Text>
-            <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
           </TouchableOpacity>
-          {showStartPicker && (
-            <DateTimePicker
-              value={startDate}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleStartChange}
-              textColor={Colors.textPrimary}
-            />
-          )}
 
-          <Text style={styles.label}>End time</Text>
-          <TouchableOpacity
-            style={styles.timeRow}
-            onPress={() => {
-              setShowEndPicker(true);
-              setShowDatePicker(false);
-              setShowStartPicker(false);
-            }}
-          >
-            <Text style={styles.timeText}>{endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</Text>
-            <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
-          </TouchableOpacity>
-          {showEndPicker && (
-            <DateTimePicker
-              value={endDate}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleEndChange}
-              textColor={Colors.textPrimary}
-            />
-          )}
+          {showMore && (
+            <>
+              <Text style={styles.label}>Category</Text>
+              <View style={styles.categoryGrid}>
+                {CATEGORY_KEYS.map((key) => {
+                  const meta = CATEGORIES[key];
+                  const selected = category === key;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[styles.categoryChip, selected && styles.categoryChipSelected]}
+                      onPress={() => setCategory(key)}
+                      accessibilityLabel={meta.name}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.categoryChipIcon}>{meta.icon}</Text>
+                      <Text style={[styles.categoryChipText, selected && styles.categoryChipTextSelected]}>
+                        {meta.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-          <View style={styles.durationRow}>
-            <Text style={styles.durationLabel}>Duration</Text>
-            <Text style={styles.durationValue}>{formatDuration(duration)}</Text>
-          </View>
+              <Text style={styles.label}>Date</Text>
+              <TouchableOpacity
+                style={styles.timeRow}
+                onPress={() => {
+                  setShowDatePicker(true);
+                  setShowStartPicker(false);
+                  setShowEndPicker(false);
+                }}
+              >
+                <Text style={styles.timeText}>{formatEventDate(eventDate)}</Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={eventDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                  textColor={Colors.textPrimary}
+                />
+              )}
 
-          <Text style={styles.label}>Notes</Text>
-          <TextInput
-            style={[styles.input, styles.notesInput]}
-            placeholder="Optional notes…"
-            placeholderTextColor={Colors.textSecondary}
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
+              <Text style={styles.label}>Start time</Text>
+              <TouchableOpacity
+                style={styles.timeRow}
+                onPress={() => {
+                  setShowStartPicker(true);
+                  setShowDatePicker(false);
+                  setShowEndPicker(false);
+                }}
+              >
+                <Text style={styles.timeText}>{startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+              </TouchableOpacity>
+              {showStartPicker && (
+                <DateTimePicker
+                  value={startDate}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleStartChange}
+                  textColor={Colors.textPrimary}
+                />
+              )}
 
-          {isEditing && (
-            <TouchableOpacity
-              style={styles.deleteBtn}
-              onPress={handleDelete}
-              activeOpacity={0.7}
-              accessibilityLabel="Delete event"
-              accessibilityRole="button"
-            >
-              <Ionicons name="trash-outline" size={18} color={Colors.danger} style={{ marginRight: 8 }} />
-              <Text style={styles.deleteText}>Delete event</Text>
-            </TouchableOpacity>
+              <Text style={styles.label}>End time</Text>
+              <TouchableOpacity
+                style={styles.timeRow}
+                onPress={() => {
+                  setShowEndPicker(true);
+                  setShowDatePicker(false);
+                  setShowStartPicker(false);
+                }}
+              >
+                <Text style={styles.timeText}>{endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+              </TouchableOpacity>
+              {showEndPicker && (
+                <DateTimePicker
+                  value={endDate}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleEndChange}
+                  textColor={Colors.textPrimary}
+                />
+              )}
+
+              <View style={styles.durationRow}>
+                <Text style={styles.durationLabel}>Duration</Text>
+                <Text style={styles.durationValue}>{formatDuration(duration)}</Text>
+              </View>
+
+              <Text style={styles.label}>Notes</Text>
+              <TextInput
+                style={[styles.input, styles.notesInput]}
+                placeholder="Optional notes…"
+                placeholderTextColor={Colors.textSecondary}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+
+              {isEditing && (
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={handleDelete}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Delete event"
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="trash-outline" size={18} color={Colors.danger} style={{ marginRight: 8 }} />
+                  <Text style={styles.deleteText}>Delete event</Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </ScrollView>
 
@@ -385,8 +423,9 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.saveBtn}
+            style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
             onPress={handleSave}
+            disabled={!canSave}
             accessibilityLabel={isEditing ? 'Save changes' : 'Save event'}
             accessibilityRole="button"
           >
@@ -452,6 +491,27 @@ const styles = StyleSheet.create({
   form: {
     paddingBottom: 24,
   },
+  titleInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  moreToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 16,
+  },
+  moreToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.accentText,
+  },
   label: {
     fontSize: 12,
     fontWeight: '600',
@@ -467,6 +527,37 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     color: Colors.textPrimary,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  categoryChipSelected: {
+    backgroundColor: Colors.accent + '22',
+    borderColor: Colors.accent,
+  },
+  categoryChipIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  categoryChipTextSelected: {
+    color: Colors.accentText,
+    fontWeight: '600',
   },
   timeRow: {
     backgroundColor: Colors.surface,
@@ -542,6 +633,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  saveBtnDisabled: {
+    opacity: 0.5,
   },
   saveText: {
     color: Colors.onAccent,

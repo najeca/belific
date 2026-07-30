@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 1.2.0 — 2026-07-30
+
+- **Feature:** each Priority option (Low/Normal/High) now shows a
+  short description underneath — "Nice to do, flexible timing" / 
+  "Standard importance" / "Time-sensitive or non-negotiable" — so the
+  picker gives a sense of how to use each level rather than just a
+  bare label. Chips restyled from inline pills to a 3-across card row
+  to fit the subtext.
+
+---
+
 ## 1.1.2 — 2026-07-30
 
 - **Fix:** Brain Dump's swipe-to-delete rebuilt on

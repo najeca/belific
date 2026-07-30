@@ -57,6 +57,11 @@ const WEEKDAY_ABBR: Record<WeekDay, string> = {
 type PriorityChoice = EventPriority | 'normal';
 const PRIORITY_CHOICES: PriorityChoice[] = ['low', 'normal', 'high'];
 const PRIORITY_LABELS: Record<PriorityChoice, string> = { low: 'Low', normal: 'Normal', high: 'High' };
+const PRIORITY_DESCRIPTIONS: Record<PriorityChoice, string> = {
+  low: 'Nice to do, flexible timing',
+  normal: 'Standard importance',
+  high: 'Time-sensitive or non-negotiable',
+};
 
 function formatEventDate(d: Date): string {
   return `${SHORT_DAYS[d.getDay()]} ${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
@@ -483,19 +488,22 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle, ori
           </View>
 
           <Text style={styles.label}>Priority</Text>
-          <View style={styles.categoryGrid}>
+          <View style={styles.priorityRow}>
             {PRIORITY_CHOICES.map((choice) => {
               const selected = priority === choice;
               return (
                 <TouchableOpacity
                   key={choice}
-                  style={[styles.categoryChip, selected && styles.categoryChipSelected]}
+                  style={[styles.priorityCard, selected && styles.categoryChipSelected]}
                   onPress={() => setPriority(choice)}
-                  accessibilityLabel={PRIORITY_LABELS[choice]}
+                  accessibilityLabel={`${PRIORITY_LABELS[choice]}: ${PRIORITY_DESCRIPTIONS[choice]}`}
                   accessibilityRole="button"
                 >
-                  <Text style={[styles.categoryChipText, selected && styles.categoryChipTextSelected]}>
+                  <Text style={[styles.priorityCardLabel, selected && styles.categoryChipTextSelected]}>
                     {PRIORITY_LABELS[choice]}
+                  </Text>
+                  <Text style={styles.priorityCardDescription}>
+                    {PRIORITY_DESCRIPTIONS[choice]}
                   </Text>
                 </TouchableOpacity>
               );
@@ -801,6 +809,29 @@ const styles = StyleSheet.create({
   categoryChipTextSelected: {
     color: Colors.accentText,
     fontWeight: '600',
+  },
+  priorityRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  priorityCard: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  priorityCardLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  priorityCardDescription: {
+    fontSize: 11,
+    color: Colors.textSecondary,
   },
   weekdayRow: {
     flexDirection: 'row',

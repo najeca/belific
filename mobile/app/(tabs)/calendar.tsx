@@ -46,10 +46,13 @@ function buildCalendarWeeks(year: number, month: number): (number | null)[][] {
 function EventRowCompact({
   event,
   onLongPress,
+  isLast,
 }: {
   event: ScheduleEvent;
   onLongPress?: () => void;
+  isLast?: boolean;
 }) {
+  const rowStyle = [styles.eventRow, isLast && styles.eventRowLast];
   const inner = (
     <>
       <View style={[styles.eventBar, { backgroundColor: event.color }]} />
@@ -68,7 +71,7 @@ function EventRowCompact({
   if (onLongPress) {
     return (
       <Pressable
-        style={({ pressed }) => [styles.eventRow, pressed && { opacity: 0.85 }]}
+        style={({ pressed }) => [...rowStyle, pressed && { opacity: 0.85 }]}
         onLongPress={onLongPress}
         delayLongPress={300}
         accessibilityLabel={event.title}
@@ -78,7 +81,7 @@ function EventRowCompact({
       </Pressable>
     );
   }
-  return <View style={styles.eventRow}>{inner}</View>;
+  return <View style={rowStyle}>{inner}</View>;
 }
 
 export default function CalendarScreen() {
@@ -299,7 +302,7 @@ export default function CalendarScreen() {
         accessibilityLabel="Add event"
         accessibilityRole="button"
       >
-        <Ionicons name="add" size={28} color="#ffffff" />
+        <Ionicons name="add" size={28} color={Colors.onAccent} />
       </TouchableOpacity>
 
       {/* Unified day-detail / edit / add sheet — one Modal, content swaps by mode */}
@@ -328,15 +331,21 @@ export default function CalendarScreen() {
               showsVerticalScrollIndicator={false}
             >
               {detailEvents.length === 0 ? (
-                <Text style={styles.emptyText}>No events scheduled</Text>
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateTitle}>No events scheduled</Text>
+                  <Text style={styles.emptyStateSubtext}>Tap + to add your first event</Text>
+                </View>
               ) : (
-                detailEvents.map(e => (
-                  <EventRowCompact
-                    key={e.id}
-                    event={e}
-                    onLongPress={e.isCustom ? () => openEditModal(e) : undefined}
-                  />
-                ))
+                <View style={styles.eventListContainer}>
+                  {detailEvents.map((e, i) => (
+                    <EventRowCompact
+                      key={e.id}
+                      event={e}
+                      onLongPress={e.isCustom ? () => openEditModal(e) : undefined}
+                      isLast={i === detailEvents.length - 1}
+                    />
+                  ))}
+                </View>
               )}
               <View style={{ height: 40 }} />
             </ScrollView>
@@ -431,7 +440,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   todayText: {
-    color: '#ffffff',
+    color: Colors.onAccent,
     fontWeight: '700',
   },
   dot: {
@@ -442,7 +451,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dotOnToday: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.onAccent,
   },
   fab: {
     position: 'absolute',
@@ -453,11 +462,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
   },
   detailContainer: {
     flex: 1,
@@ -483,20 +487,38 @@ const styles = StyleSheet.create({
   },
   detailScroll: { flex: 1 },
   detailContent: { paddingBottom: 20 },
-  emptyText: {
+  emptyState: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    paddingVertical: 40,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: Colors.textSecondary,
-    fontSize: 15,
-    textAlign: 'center',
-    marginTop: 40,
+    marginBottom: 6,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    opacity: 0.7,
+  },
+  eventListContainer: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    overflow: 'hidden',
   },
   eventRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    marginBottom: 6,
-    overflow: 'hidden',
     minHeight: 56,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  eventRowLast: {
+    borderBottomWidth: 0,
   },
   eventBar: {
     width: 4,

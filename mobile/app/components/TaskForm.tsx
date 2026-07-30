@@ -21,8 +21,14 @@ import {
   formatDateKey,
   type PriorityChoice,
 } from '../../lib/data';
-import { addTask, updateTask, deleteTask } from '../../lib/storage';
-import type { EventPriority, Task } from '../../lib/types';
+import {
+  addTask,
+  updateTask,
+  deleteTask,
+  loadProjects,
+  addProject,
+} from '../../lib/storage';
+import type { EventPriority, Project, Task } from '../../lib/types';
 
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -44,29 +50,41 @@ interface TaskFormContentProps {
   onClose: () => void;
   onSaved: () => void;
   editTask?: Task;
-  // Prefills title without treating it as editing — for the future Dump
-  // "Make Task" promotion path.
+  // Prefills title without treating it as editing — used when promoting
+  // a Brain Dump item via "Make Task".
   initialTitle?: string;
+  // Set by the Dump "Make Task" path — tags the created Task's origin so
+  // it renders with the 🧠 indicator, same as CustomEvent's origin field.
+  // Ignored when editing (origin is decided at creation).
+  origin?: 'dump';
 }
 
-export function TaskFormContent({ onClose, onSaved, editTask, initialTitle }: TaskFormContentProps) {
+export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, origin }: TaskFormContentProps) {
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [priority, setPriority] = useState<PriorityChoice>('normal');
+  const [projectKey, setProjectKey] = useState<string | undefined>(undefined);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const isEditing = !!editTask;
   const canSave = title.trim().length > 0;
+
+  useEffect(() => {
+    loadProjects().then(setProjects);
+  }, []);
 
   useEffect(() => {
     if (editTask) {
       setTitle(editTask.title);
       setDueDate(editTask.dueDate ? parseDateKey(editTask.dueDate) : null);
       setPriority(editTask.priority ?? 'normal');
+      setProjectKey(editTask.projectKey);
     } else {
       setTitle(initialTitle ?? '');
       setDueDate(null);
       setPriority('normal');
+      setProjectKey(undefined);
     }
     setShowDatePicker(false);
   }, [editTask?.id, initialTitle]);
@@ -75,7 +93,25 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle }: Ta
     setTitle('');
     setDueDate(null);
     setPriority('normal');
+    setProjectKey(undefined);
     setShowDatePicker(false);
+  }
+
+  function handleAddProject() {
+    Alert.prompt(
+      'New Project',
+      'What would you like to call it?',
+      (name) => {
+        const trimmed = name?.trim();
+        if (!trimmed) return;
+        const newProject: Project = { key: `project-${Date.now().toString(36)}`, name: trimmed };
+        addProject(newProject).then(() => {
+          setProjects((prev) => [...prev, newProject]);
+          setProjectKey(newProject.key);
+        });
+      },
+      'plain-text',
+    );
   }
 
   function handleClose() {
@@ -103,6 +139,7 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle }: Ta
         title: title.trim(),
         dueDate: dueDateField,
         priority: priorityField,
+        projectKey,
       });
     } else {
       await addTask({
@@ -110,8 +147,10 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle }: Ta
         title: title.trim(),
         dueDate: dueDateField,
         priority: priorityField,
+        projectKey,
         completed: false,
         createdAt: new Date().toISOString(),
+        origin,
       });
     }
     reset();
@@ -212,6 +251,43 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle }: Ta
           })}
         </View>
 
+        <Text style={styles.label}>Project</Text>
+        <View style={styles.categoryGrid}>
+          <TouchableOpacity
+            style={[styles.categoryChip, !projectKey && styles.categoryChipSelected]}
+            onPress={() => setProjectKey(undefined)}
+            accessibilityLabel="None"
+            accessibilityRole="button"
+          >
+            <Text style={[styles.categoryChipText, !projectKey && styles.categoryChipTextSelected]}>None</Text>
+          </TouchableOpacity>
+          {projects.map((project) => {
+            const selected = projectKey === project.key;
+            return (
+              <TouchableOpacity
+                key={project.key}
+                style={[styles.categoryChip, selected && styles.categoryChipSelected]}
+                onPress={() => setProjectKey(project.key)}
+                accessibilityLabel={project.name}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.categoryChipText, selected && styles.categoryChipTextSelected]}>
+                  {project.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            style={styles.categoryChip}
+            onPress={handleAddProject}
+            accessibilityLabel="Add project"
+            accessibilityRole="button"
+          >
+            <Ionicons name="add" size={14} color={Colors.textSecondary} style={{ marginRight: 4 }} />
+            <Text style={styles.categoryChipText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+
         {isEditing && (
           <TouchableOpacity
             style={styles.deleteBtn}
@@ -252,9 +328,10 @@ interface TaskFormModalProps {
   onSaved: () => void;
   editTask?: Task;
   initialTitle?: string;
+  origin?: 'dump';
 }
 
-export default function TaskFormModal({ visible, onClose, onSaved, editTask, initialTitle }: TaskFormModalProps) {
+export default function TaskFormModal({ visible, onClose, onSaved, editTask, initialTitle, origin }: TaskFormModalProps) {
   return (
     <Modal
       visible={visible}
@@ -264,7 +341,13 @@ export default function TaskFormModal({ visible, onClose, onSaved, editTask, ini
       onDismiss={onClose}
     >
       {visible && (
-        <TaskFormContent onClose={onClose} onSaved={onSaved} editTask={editTask} initialTitle={initialTitle} />
+        <TaskFormContent
+          onClose={onClose}
+          onSaved={onSaved}
+          editTask={editTask}
+          initialTitle={initialTitle}
+          origin={origin}
+        />
       )}
     </Modal>
   );
@@ -364,6 +447,33 @@ const styles = StyleSheet.create({
   priorityCardDescription: {
     fontSize: 11,
     color: Colors.textSecondary,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  categoryChipSelected: {
+    backgroundColor: Colors.accent + '22',
+    borderColor: Colors.accent,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  categoryChipTextSelected: {
+    color: Colors.accentText,
+    fontWeight: '600',
   },
   deleteBtn: {
     flexDirection: 'row',

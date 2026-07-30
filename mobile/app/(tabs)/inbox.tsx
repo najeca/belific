@@ -20,6 +20,7 @@ import { Colors } from '../../lib/theme';
 import { createBrainDumpItem } from '../../lib/data';
 import { loadBrainDumpItems, addBrainDumpItem, deleteBrainDumpItem } from '../../lib/storage';
 import { EventForm } from '../components/AddEventModal';
+import { TaskFormContent } from '../components/TaskForm';
 import type { BrainDumpItem, CustomEvent } from '../../lib/types';
 
 if (Platform.OS === 'android') {
@@ -82,7 +83,7 @@ function DumpCard({
         style={styles.card}
         onPress={handlePress}
         accessibilityLabel={item.title}
-        accessibilityHint="Opens the schedule form. Swipe left to delete."
+        accessibilityHint="Tap for options. Swipe left to delete."
       >
         <View style={styles.cardHeader}>
           <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
@@ -100,7 +101,11 @@ export default function InboxScreen() {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<BrainDumpItem[]>([]);
   const [captureText, setCaptureText] = useState('');
-  const [formVisible, setFormVisible] = useState(false);
+  // One Modal, mode picks the content — same pattern as calendar.tsx's
+  // unified sheet, so there's no chained close/reopen between the
+  // actions sheet and either form.
+  const [modalVisible, setModalVisible] = useState(false);
+  const [mode, setMode] = useState<'actions' | 'schedule' | 'task' | null>(null);
   const [activeItem, setActiveItem] = useState<BrainDumpItem | undefined>(undefined);
   const inputRef = useRef<TextInput>(null);
 
@@ -119,9 +124,10 @@ export default function InboxScreen() {
     inputRef.current?.focus();
   }
 
-  function openForm(item: BrainDumpItem) {
+  function openActions(item: BrainDumpItem) {
     setActiveItem(item);
-    setFormVisible(true);
+    setMode('actions');
+    setModalVisible(true);
   }
 
   async function handleDeleteItem(item: BrainDumpItem) {
@@ -131,16 +137,38 @@ export default function InboxScreen() {
   }
 
   // Scheduling copies the item onto the calendar — the dump item is left
-  // untouched. Swipe-to-delete is the only removal path now.
+  // untouched in Dump.
   function handleScheduled(_event: CustomEvent) {
-    setFormVisible(false);
+    setModalVisible(false);
+    setMode(null);
     setActiveItem(undefined);
   }
 
-  // Closing without saving leaves the item exactly as it was — this is
-  // the entire "keep in Dump" behavior, no dedicated action needed for it.
+  // Making a Task is a move, not a copy — a Task is the item's final
+  // form, unlike scheduling (which creates a different kind of thing
+  // that can coexist with the original thought). Opposite behavior from
+  // handleScheduled, deliberately: there's no calendar slot for the dump
+  // item to "also" occupy once it's a Task.
+  async function handleTaskSaved() {
+    if (activeItem) {
+      await deleteBrainDumpItem(activeItem.id);
+    }
+    setModalVisible(false);
+    setMode(null);
+    setActiveItem(undefined);
+    loadBrainDumpItems().then(setItems);
+  }
+
+  // Cancel from either form drops back to the actions sheet for the same
+  // item, rather than closing outright — mirrors calendar.tsx's
+  // edit-cancel-returns-to-detail behavior.
   function handleFormClose() {
-    setFormVisible(false);
+    setMode('actions');
+  }
+
+  function handleModalDismiss() {
+    setModalVisible(false);
+    setMode(null);
     setActiveItem(undefined);
   }
 
@@ -190,7 +218,7 @@ export default function InboxScreen() {
           renderItem={({ item }) => (
             <DumpCard
               item={item}
-              onPress={() => openForm(item)}
+              onPress={() => openActions(item)}
               onDelete={() => handleDeleteItem(item)}
             />
           )}
@@ -198,19 +226,59 @@ export default function InboxScreen() {
       )}
 
       <Modal
-        visible={formVisible}
+        visible={modalVisible}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={handleFormClose}
-        onDismiss={handleFormClose}
+        onRequestClose={() => setModalVisible(false)}
+        onDismiss={handleModalDismiss}
       >
-        {activeItem && (
+        {mode === 'actions' && activeItem && (
+          <View style={[styles.actionsContainer, { paddingTop: insets.top + 16 }]}>
+            <View style={styles.actionsHeader}>
+              <Text style={styles.actionsTitle} numberOfLines={2}>{activeItem.title}</Text>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setModalVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={() => setMode('schedule')}
+              accessibilityLabel="Schedule this"
+              accessibilityRole="button"
+            >
+              <Ionicons name="calendar-outline" size={20} color={Colors.accentText} style={{ marginRight: 12 }} />
+              <Text style={styles.actionText}>Schedule</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={() => setMode('task')}
+              accessibilityLabel="Make this a task"
+              accessibilityRole="button"
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color={Colors.accentText} style={{ marginRight: 12 }} />
+              <Text style={styles.actionText}>Make task</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {mode === 'schedule' && activeItem && (
           <EventForm
             date={new Date()}
             initialTitle={activeItem.title}
             origin="dump"
             onClose={handleFormClose}
             onSaved={handleScheduled}
+          />
+        )}
+        {mode === 'task' && activeItem && (
+          <TaskFormContent
+            initialTitle={activeItem.title}
+            origin="dump"
+            onClose={handleFormClose}
+            onSaved={handleTaskSaved}
           />
         )}
       </Modal>
@@ -313,5 +381,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     opacity: 0.7,
+  },
+  actionsContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingHorizontal: 20,
+  },
+  actionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  actionsTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginRight: 12,
+  },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginBottom: 10,
+  },
+  actionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
 });

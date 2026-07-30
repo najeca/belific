@@ -470,6 +470,7 @@ export default function TodayScreen() {
                   {task.priority === 'high' && (
                     <Ionicons name="flag" size={12} color={Colors.accentText} style={styles.priorityFlag} />
                   )}
+                  {task.origin === 'dump' && <Text style={styles.taskOriginEmoji}>🧠</Text>}
                   <Text
                     style={[styles.routineTitle, task.priority === 'low' && styles.routineTitleDone]}
                     numberOfLines={1}
@@ -793,6 +794,10 @@ const styles = StyleSheet.create({
   },
   priorityFlag: {
     marginRight: 4,
+  },
+  taskOriginEmoji: {
+    fontSize: 14,
+    marginRight: 2,
   },
   editHint: {
     paddingRight: 12,

@@ -8,6 +8,28 @@ to know the current version and recent history.
 
 ---
 
+## 1.5.0 — 2026-07-30
+
+- **Feature:** Projects — a lightweight `{ key, name }` tag, no color/
+  icon/screen of its own. Tasks can optionally carry a `projectKey`,
+  set via a chip picker (+ "Add" via a single-field prompt) in
+  TaskForm; the Tasks screen shows an "All" + per-project filter row
+  whenever any project exists.
+- **Feature:** Brain Dump gets its third path back, in a smaller form
+  than before. Tapping a card now opens a 2-option sheet — Schedule
+  (unchanged: opens EventForm, copies onto the calendar, dump item
+  untouched) or Make Task (opens TaskForm prefilled with the title).
+  Making a Task is a **move**, not a copy — deleting the dump item —
+  deliberately the opposite of Schedule's copy behavior, since a Task
+  has no calendar slot for the original thought to "also" occupy.
+  Promoted Tasks get the same 🧠 origin indicator as promoted
+  CustomEvents, shown on both the Tasks screen and Today's Top 3
+  section. Swipe-to-delete is unchanged.
+
+This completes the planned Routines/Tasks/Projects phase (1.3.0–1.5.0).
+
+---
+
 ## 1.4.0 — 2026-07-30
 
 - **Feature:** Tasks — a to-do list distinct from both Calendar events

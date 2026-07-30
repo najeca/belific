@@ -13,9 +13,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../lib/theme';
 import { sortTasksForDisplay } from '../lib/data';
-import { loadTasks, addTask, updateTask } from '../lib/storage';
+import { loadTasks, addTask, updateTask, loadProjects } from '../lib/storage';
 import TaskFormModal from './components/TaskForm';
-import type { Task } from '../lib/types';
+import type { Project, Task } from '../lib/types';
 
 function generateId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -32,6 +32,8 @@ export default function TasksScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectFilter, setProjectFilter] = useState<string | undefined>(undefined);
   const [captureText, setCaptureText] = useState('');
   const [formVisible, setFormVisible] = useState(false);
   const [editTask, setEditTask] = useState<Task | undefined>(undefined);
@@ -40,6 +42,7 @@ export default function TasksScreen() {
   useFocusEffect(
     useCallback(() => {
       loadTasks().then(setTasks);
+      loadProjects().then(setProjects);
     }, []),
   );
 
@@ -77,7 +80,10 @@ export default function TasksScreen() {
     loadTasks().then(setTasks);
   }
 
-  const sorted = sortTasksForDisplay(tasks);
+  const filteredTasks = projectFilter
+    ? tasks.filter((t) => t.projectKey === projectFilter)
+    : tasks;
+  const sorted = sortTasksForDisplay(filteredTasks);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -117,6 +123,35 @@ export default function TasksScreen() {
           <Ionicons name="add" size={24} color={Colors.onAccent} />
         </TouchableOpacity>
       </View>
+
+      {projects.length > 0 && (
+        <View style={styles.filterRow}>
+          <TouchableOpacity
+            style={[styles.filterChip, !projectFilter && styles.filterChipSelected]}
+            onPress={() => setProjectFilter(undefined)}
+            accessibilityLabel="All projects"
+            accessibilityRole="button"
+          >
+            <Text style={[styles.filterChipText, !projectFilter && styles.filterChipTextSelected]}>All</Text>
+          </TouchableOpacity>
+          {projects.map((project) => {
+            const selected = projectFilter === project.key;
+            return (
+              <TouchableOpacity
+                key={project.key}
+                style={[styles.filterChip, selected && styles.filterChipSelected]}
+                onPress={() => setProjectFilter(project.key)}
+                accessibilityLabel={project.name}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
+                  {project.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       {sorted.length === 0 ? (
         <View style={styles.emptyState}>
@@ -240,6 +275,32 @@ const styles = StyleSheet.create({
   },
   captureBtnDisabled: {
     opacity: 0.5,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  filterChipSelected: {
+    backgroundColor: Colors.accent + '22',
+    borderColor: Colors.accent,
+  },
+  filterChipText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  filterChipTextSelected: {
+    color: Colors.accentText,
+    fontWeight: '600',
   },
   list: {
     flex: 1,

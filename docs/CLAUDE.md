@@ -90,22 +90,15 @@ Simplest solution always. No abstractions beyond what the task requires.
 If three similar lines exist, that is fine. Do not extract prematurely.
 
 ## Domain language
-See docs/UBIQUITOUS_LANGUAGE.md for the full glossary — note that it
-still contains "Block", "Streak", "Weekly Summary", and "Streak at
-Risk" from the old web-app-era architecture. None of those concepts
-exist in the current mobile codebase (which uses "Custom Event" /
-"ScheduleEvent" / "Category" instead of "Block", and has no streak
-concept anywhere). That file has not yet been updated to match —
-treat it as unreliable for the mobile app's actual terms until it is.
-Belific — always capitalised exactly this way.
+See docs/UBIQUITOUS_LANGUAGE.md for the full glossary — rewritten to
+match the current mobile codebase (Custom Event / Template Event /
+Category / Brain Dump, no streak concept anywhere). Belific — always
+capitalised exactly this way.
 
 ## Session protocol
 Opening message every session:
-Read docs/current-state-audit.md and docs/CLAUDE.md, then summarise.
-(docs/architecture.md and docs/UBIQUITOUS_LANGUAGE.md describe the
-pre-v2 WebView-era architecture and have not been updated yet — don't
-treat them as authoritative for the mobile app without cross-checking
-against the actual code in `mobile/`.)
+Read docs/current-state-audit.md, docs/architecture.md,
+docs/UBIQUITOUS_LANGUAGE.md, and docs/CLAUDE.md, then summarise.
 
 Closing message every session:
 Run /workflow/session-close

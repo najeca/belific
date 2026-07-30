@@ -3,23 +3,28 @@
 Use these exact terms in all code, docs, and conversations.
 Never invent synonyms.
 
+> [!WARNING] This file previously used "Block", "Streak", "Weekly
+> Summary", and "Streak at Risk" — terms from the pre-v2 WebView-era
+> web app (`js/data.js`'s `WEEKLY_SCHEDULE`). None of those concepts
+> exist in the current mobile codebase: there is no streak tracking
+> anywhere, and both notifications were removed during the v2
+> restructuring's psychology-rule audit. The terms below reflect the
+> mobile app (`mobile/lib/types.ts`) as it actually is.
+
 ---
 
 ## Core Terms
 
 | Term | Definition |
 |------|-----------|
-| **Schedule** | The full day plan loaded from `data.js` |
-| **Block** | One time slot in the schedule (time + label + category) |
-| **Category** | The type of a block (work, fitness, cyber, etc.) |
-| **Reminder** | A custom user-created local notification |
-| **Streak** | Consecutive days with logged activity |
-| **Pomodoro** | A 25-minute focused work session |
-| **Session** | One completed Pomodoro block |
-| **Weekly Summary** | The Sunday 6 PM recurring digest notification |
-| **Streak at Risk** | The daily 8 PM unconditional nudge notification |
-| **WEEKLY_SCHEDULE** | The source-of-truth schedule object in `data.js`, keyed Mon–Sun |
-| **SPECIFIC_SCHEDULES** | Date-keyed overrides; empty for general use |
+| **Custom Event** | A user-created scheduled item (`CustomEvent` — title, category, start/end time, date, notes) |
+| **Template Event** | A recurring weekly-schedule or starter-routine event, not user-created — never generates a notification |
+| **Category** | The type of an event (work, fitness, cyber, etc.) — see `CATEGORIES` in `lib/data.ts` |
+| **Brain Dump** / **Inbox** | The quick-capture space for spontaneous, title-only tasks with no date/time required upfront (`BrainDumpItem`) |
+| **Promote** | Converting a Brain Dump item into a real Custom Event via the schedule form, then deleting the dump item |
+| **Reminder** | A custom user-created local notification with its own time and message (`scheduleCustomReminder`) — distinct from an event-start notification |
+| **Pomodoro** | The focused work-session technique; duration is user-configurable in Settings (default 25 min focus / 5 min break / 15 min long break / 4 sessions) |
+| **Session** | One completed Pomodoro focus phase |
 
 ---
 
@@ -29,24 +34,9 @@ Never invent synonyms.
 
 ---
 
-## Category Colours (exact hex values from `data.js`)
+## Category Colours
 
-| Category | Hex |
-|----------|-----|
-| `work` | `#888780` |
-| `routine` | `#B4B2A9` |
-| `hygiene` | `#7F77DD` |
-| `fitness` | `#639922` |
-| `jobs` | `#378ADD` |
-| `project` | `#534AB7` |
-| `cyber` | `#1D9E75` |
-| `game` | `#BA7517` |
-| `school` | `#D85A30` |
-| `church` | `#D4537E` |
-| `chore` | `#C47C2B` |
-| `winddown` | `#D3D1C7` |
-| `sleep` | `#D3D1C7` |
-| `free` | `#B4B2A9` |
+Current values (light/sage-cream theme, v2) live in `mobile/lib/data.ts` — do not hardcode them here, as they've already drifted from a stale copy once. Check `CATEGORIES` and `DAY_TYPES` in that file directly for the source of truth.
 
 ---
 
@@ -56,9 +46,10 @@ Never invent synonyms.
 |-------|-------|
 | "timer" (for the technique) | Pomodoro |
 | "push notification" | Notification (all notifications are local) |
-| "task" | Block |
-| "plan" | Schedule |
-| "alert" | Reminder |
+| "block" / "task" (for a scheduled item) | Custom Event (if user-created) or Template Event (if from the weekly schedule) |
+| "note" / "scratch item" | Brain Dump item |
+| "alert" | Reminder (only for the custom-message type; event-start notifications are just "event notifications") |
+| "streak" | Does not exist in this app — do not introduce streak tracking without discussing the design-identity skill's no-loss-framing rule first |
 
 ---
 

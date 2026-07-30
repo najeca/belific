@@ -70,14 +70,15 @@ Remaining planned phase:
 
 ---
 
-## Known Documentation Drift (not yet fixed)
+## Documentation Drift — Resolved
 
-`docs/architecture.md` and `docs/UBIQUITOUS_LANGUAGE.md` still
-describe the pre-v2 WebView-wrapper architecture (a WebView tab,
-"Block"/"Streak"/"Weekly Summary" terminology) and have **not** been
-updated as part of this session's doc fixes — only `CLAUDE.md` and
-this file were. Don't treat those two files as authoritative for the
-mobile app without cross-checking the actual code in `mobile/`.
+`docs/architecture.md` and `docs/UBIQUITOUS_LANGUAGE.md` also
+described the pre-v2 WebView-wrapper architecture and
+"Block"/"Streak"/"Weekly Summary" terminology; both were rewritten in
+a follow-up pass (same session) to match the actual mobile codebase.
+All four docs (`CLAUDE.md`, this file, `architecture.md`,
+`UBIQUITOUS_LANGUAGE.md`) are now consistent with the v2 native
+architecture.
 
 ---
 
@@ -115,4 +116,5 @@ claude
 ```
 
 Opening message:
-> Read docs/current-state-audit.md and docs/CLAUDE.md, then summarise.
+> Read docs/current-state-audit.md, docs/architecture.md,
+> docs/UBIQUITOUS_LANGUAGE.md, and docs/CLAUDE.md, then summarise.

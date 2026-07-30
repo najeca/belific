@@ -2,14 +2,14 @@
   "expo": {
     "name": "Belific",
     "slug": "belific",
-    "version": "1.5.1",
+    "version": "1.5.2",
     "scheme": "belific",
     "orientation": "portrait",
     "icon": "./assets/belificappicon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/belificappicon.png",
       "resizeMode": "contain",
       "backgroundColor": "#F0EEE8"
     },
@@ -33,7 +33,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/belificappicon.png",
           "color": "#5C7A6B",
           "sounds": [
             "./assets/sounds/notification.wav"

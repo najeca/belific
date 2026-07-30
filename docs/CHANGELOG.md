@@ -8,6 +8,34 @@ to know the current version and recent history.
 
 ---
 
+## 1.5.2 — 2026-07-31
+
+- **Fix:** `splash.image` and the `expo-notifications` plugin's `icon`
+  in `app.json` now also point to `./assets/belificappicon.png`,
+  matching the app icon fixed in 1.5.1 — both previously still
+  referenced the old default `icon.png`.
+- Deleted the stale alpha-containing source file at the repo root
+  (`assets/belificappicon.png`, the legacy web app's assets folder,
+  untracked in git) now that the flattened version lives in
+  `mobile/assets/` and nothing references the old one.
+- Required another `expo prebuild --platform ios` to regenerate the
+  native splash asset catalog (confirmed: `SplashScreenLegacy.imageset`
+  was still the old 512×512 asset before this). As documented in
+  `IOS_BUILD_NOTES.md` #9, this re-added the `aps-environment`
+  entitlement and broke the build again — stripped it again, exactly
+  as expected since `mobile/ios/` is gitignored and this recurs on
+  every prebuild, not just the first time.
+- Verified directly from the regenerated native source of truth
+  rather than trying to screenshot a fast-dismissing splash frame:
+  `SplashScreen.storyboard`'s embedded `SplashScreenBackground` color
+  resource decodes to exactly `#F0EEE8`, and its image view references
+  `SplashScreenLegacy`, confirmed regenerated from the new icon
+  (1024×1024, was 512×512). Home screen icon re-confirmed unaffected
+  (still correct) by this second prebuild/rebuild via simulator
+  screenshot.
+
+---
+
 ## 1.5.1 — 2026-07-31
 
 - **Fix:** real app icon installed, replacing the Expo default. Source

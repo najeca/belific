@@ -102,10 +102,11 @@ function EventRow({
     return (
       <Pressable
         style={({ pressed }) => [...rowStyle, pressed && { opacity: 0.85 }]}
+        onPress={onLongPress}
         onLongPress={onLongPress}
         delayLongPress={500}
         accessibilityLabel={event.title}
-        accessibilityHint="Long press to edit"
+        accessibilityHint="Tap to edit"
       >
         {inner}
       </Pressable>

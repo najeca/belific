@@ -15,15 +15,30 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { CATEGORIES, createCustomEvent, durationMinutes, formatDateKey } from '../../lib/data';
-import { addCustomEvent, updateCustomEvent, deleteCustomEvent } from '../../lib/storage';
-import type { CategoryKey, CustomEvent } from '../../lib/types';
+import {
+  CATEGORIES,
+  RECURRENCE_LABELS,
+  createCustomEvent,
+  durationMinutes,
+  formatDateKey,
+  generateRecurringEvents,
+} from '../../lib/data';
+import {
+  addCustomEvent,
+  addCustomEvents,
+  updateCustomEvent,
+  deleteCustomEvent,
+  deleteCustomEventSeriesFrom,
+} from '../../lib/storage';
+import type { CategoryKey, CustomEvent, RecurrenceRule } from '../../lib/types';
 
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DEFAULT_CATEGORY: CategoryKey = 'free';
 const DEFAULT_DURATION_MINUTES = 30;
 const CATEGORY_KEYS = Object.keys(CATEGORIES) as CategoryKey[];
+type RecurrenceChoice = RecurrenceRule | 'none';
+const RECURRENCE_CHOICES: RecurrenceChoice[] = ['none', ...(Object.keys(RECURRENCE_LABELS) as RecurrenceRule[])];
 
 function formatEventDate(d: Date): string {
   return `${SHORT_DAYS[d.getDay()]} ${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
@@ -105,6 +120,10 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
   const [startDate, setStartDate] = useState(defaultStart);
   const [endDate, setEndDate] = useState(() => defaultEnd(defaultStart()));
   const [notes, setNotes] = useState('');
+  // Recurrence only applies when creating a new event — changing it on an
+  // already-materialized series would mean regenerating/reconciling rows,
+  // which is out of scope for now (see generateRecurringEvents comment).
+  const [recurrence, setRecurrence] = useState<RecurrenceChoice>('none');
   const [showMore, setShowMore] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -124,6 +143,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
       setStartDate(toTimeDate(editEvent.start));
       setEndDate(toTimeDate(editEvent.end));
       setNotes(editEvent.notes || '');
+      setRecurrence('none');
       setShowMore(true);
       // Treat the existing end time as manually set so start changes don't override it
       endTouched.current = true;
@@ -135,6 +155,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
       setStartDate(start);
       setEndDate(defaultEnd(start));
       setNotes('');
+      setRecurrence('none');
       setShowMore(false);
       endTouched.current = false;
     }
@@ -154,6 +175,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
     setStartDate(start);
     setEndDate(defaultEnd(start));
     setNotes('');
+    setRecurrence('none');
     setShowMore(false);
     setShowDatePicker(false);
     setShowStartPicker(false);
@@ -184,6 +206,19 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
       await updateCustomEvent(updated);
       reset();
       onSaved(updated);
+    } else if (recurrence !== 'none') {
+      const fields = {
+        title: title.trim(),
+        category,
+        icon,
+        start: startHHMM,
+        end: endHHMM,
+        notes: notes.trim(),
+      };
+      const series = generateRecurringEvents(fields, recurrence, eventDate);
+      await addCustomEvents(series);
+      reset();
+      onSaved(series[0]);
     } else {
       const event = createCustomEvent({
         title: title.trim(),
@@ -202,6 +237,37 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
 
   async function handleDelete() {
     if (!editEvent) return;
+
+    if (editEvent.seriesId) {
+      const seriesId = editEvent.seriesId;
+      Alert.alert(
+        'Delete Event',
+        'This event repeats. What would you like to delete?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete this occurrence',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteCustomEvent(editEvent.id);
+              reset();
+              onSaved(editEvent);
+            },
+          },
+          {
+            text: 'Delete this and future occurrences',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteCustomEventSeriesFrom(seriesId, editEvent.date);
+              reset();
+              onSaved(editEvent);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     Alert.alert(
       'Delete Event',
       'Are you sure you want to delete this event?',
@@ -387,6 +453,31 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
                 <Text style={styles.durationLabel}>Duration</Text>
                 <Text style={styles.durationValue}>{formatDuration(duration)}</Text>
               </View>
+
+              {!isEditing && (
+                <>
+                  <Text style={styles.label}>Repeat</Text>
+                  <View style={styles.categoryGrid}>
+                    {RECURRENCE_CHOICES.map((choice) => {
+                      const selected = recurrence === choice;
+                      const label = choice === 'none' ? 'None' : RECURRENCE_LABELS[choice];
+                      return (
+                        <TouchableOpacity
+                          key={choice}
+                          style={[styles.categoryChip, selected && styles.categoryChipSelected]}
+                          onPress={() => setRecurrence(choice)}
+                          accessibilityLabel={label}
+                          accessibilityRole="button"
+                        >
+                          <Text style={[styles.categoryChipText, selected && styles.categoryChipTextSelected]}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
 
               <Text style={styles.label}>Notes</Text>
               <TextInput

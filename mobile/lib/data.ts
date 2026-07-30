@@ -10,28 +10,35 @@ import type {
   CustomEvent,
 } from './types';
 
+// Colors below are the light (sage/cream) theme's decorative fill palette,
+// used only for event bars/icons — never as text, so they only need to be
+// visually distinct from the cream background, not AA text-contrast.
 export const CATEGORIES: Record<CategoryKey, CategoryMeta> = {
-  work:     { name: 'Work',        color: '#888780', icon: '💼' },
-  routine:  { name: 'Routine',     color: '#B4B2A9', icon: '🔄' },
-  hygiene:  { name: 'Hygiene',     color: '#7F77DD', icon: '🪥' },
-  fitness:  { name: 'Fitness',     color: '#639922', icon: '🏃' },
-  jobs:     { name: 'Jobs',        color: '#378ADD', icon: '🔍' },
-  project:  { name: 'Project',     color: '#534AB7', icon: '💻' },
-  cyber:    { name: 'Cyber',       color: '#1D9E75', icon: '🔐' },
-  game:     { name: 'Game',        color: '#BA7517', icon: '🎮' },
-  school:   { name: 'School run',  color: '#D85A30', icon: '🏫' },
-  church:   { name: 'Church',      color: '#D4537E', icon: '⛪' },
-  chore:    { name: 'Chore',       color: '#C47C2B', icon: '🧹' },
-  winddown: { name: 'Wind down',   color: '#D3D1C7', icon: '🌙' },
-  sleep:    { name: 'Sleep',       color: '#D3D1C7', icon: '😴' },
-  free:     { name: 'Free',        color: '#B4B2A9', icon: '☕' },
+  work:     { name: 'Work',        color: '#6B6558', icon: '💼' },
+  routine:  { name: 'Routine',     color: '#8C8977', icon: '🔄' },
+  hygiene:  { name: 'Hygiene',     color: '#6B5FB0', icon: '🪥' },
+  fitness:  { name: 'Fitness',     color: '#4F7A1E', icon: '🏃' },
+  jobs:     { name: 'Jobs',        color: '#2E6FA8', icon: '🔍' },
+  project:  { name: 'Project',     color: '#453D8F', icon: '💻' },
+  cyber:    { name: 'Cyber',       color: '#157A5A', icon: '🔐' },
+  game:     { name: 'Game',        color: '#8F5C10', icon: '🎮' },
+  school:   { name: 'School run',  color: '#B14322', icon: '🏫' },
+  church:   { name: 'Church',      color: '#A8395F', icon: '⛪' },
+  chore:    { name: 'Chore',       color: '#93601E', icon: '🧹' },
+  winddown: { name: 'Wind down',   color: '#8A8672', icon: '🌙' },
+  sleep:    { name: 'Sleep',       color: '#5C6470', icon: '😴' },
+  free:     { name: 'Free',        color: '#9A9686', icon: '☕' },
 };
 
+// DAY_TYPES colors render as actual text (status pill label), so these are
+// darkened to clear WCAG AA (4.5:1) on the cream background — verified,
+// not guessed. examDay/birthdayDay were pure semantic red/hot-pink in the
+// dark theme; muted per the Quiet Function "no clashing semantic colors" rule.
 export const DAY_TYPES: Record<DayTypeKey, DayTypeMeta> = {
-  workDay:     { name: 'Work Day',  color: '#888780' },
-  nonWorkDay:  { name: 'Off Work',  color: '#6B9B76' },
-  examDay:     { name: 'Exam Day',  color: '#E74C3C' },
-  birthdayDay: { name: 'Birthday',  color: '#FF69B4' },
+  workDay:     { name: 'Work Day',  color: '#5A5648' },
+  nonWorkDay:  { name: 'Off Work',  color: '#3F5A46' },
+  examDay:     { name: 'Exam Day',  color: '#A8402F' },
+  birthdayDay: { name: 'Birthday',  color: '#A24D74' },
 };
 
 export const WEEKLY_SCHEDULE: WeeklySchedule = {};

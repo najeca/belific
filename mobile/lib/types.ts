@@ -77,6 +77,10 @@ export interface CustomEvent {
   // changes. Both fields are absent on a one-off event.
   recurrence?: RecurrenceRule;
   seriesId?: string;
+  // Which weekdays a weekly/biweekly/triweekly series applies to — stored
+  // for provenance/display only, since the series is already materialized
+  // (see generateRecurringEvents in data.ts). Absent for daily/monthly.
+  recurrenceDays?: WeekDay[];
 }
 
 // A brain-dump item is deliberately not a CustomEvent with optional

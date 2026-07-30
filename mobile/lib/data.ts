@@ -197,48 +197,78 @@ export const RECURRENCE_LABELS: Record<RecurrenceRule, string> = {
   monthly: 'Monthly',
 };
 
-function nextOccurrence(current: Date, rule: RecurrenceRule): Date {
+// daily/monthly step forward by a fixed unit — no day-of-week concept
+// applies to either (daily is every day; monthly follows the anchor's
+// calendar day-of-month).
+function nextOccurrence(current: Date, rule: 'daily' | 'monthly'): Date {
   const next = new Date(current);
-  switch (rule) {
-    case 'daily':
-      next.setDate(next.getDate() + 1);
-      break;
-    case 'weekly':
-      next.setDate(next.getDate() + 7);
-      break;
-    case 'biweekly':
-      next.setDate(next.getDate() + 14);
-      break;
-    case 'triweekly':
-      next.setDate(next.getDate() + 21);
-      break;
-    case 'monthly':
-      next.setMonth(next.getMonth() + 1);
-      break;
-  }
+  if (rule === 'daily') next.setDate(next.getDate() + 1);
+  else next.setMonth(next.getMonth() + 1);
   return next;
 }
 
+const WEEK_DAY_INDEX: Record<WeekDay, number> = {
+  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+};
+
+function startOfWeek(d: Date): Date {
+  const result = new Date(d);
+  result.setHours(0, 0, 0, 0);
+  result.setDate(result.getDate() - result.getDay());
+  return result;
+}
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
 export function generateRecurringEvents(
-  fields: Omit<CustomEvent, 'id' | 'date' | 'recurrence' | 'seriesId'>,
+  fields: Omit<CustomEvent, 'id' | 'date' | 'recurrence' | 'seriesId' | 'recurrenceDays'>,
   rule: RecurrenceRule,
   anchorDate: Date,
+  days?: WeekDay[],
 ): CustomEvent[] {
   const seriesId = generateId();
   const horizon = new Date(anchorDate);
   horizon.setDate(horizon.getDate() + RECURRENCE_HORIZON_DAYS);
-
   const events: CustomEvent[] = [];
-  let current = new Date(anchorDate);
-  while (current <= horizon) {
-    events.push({
-      ...fields,
-      id: generateId(),
-      date: formatDateKey(current),
-      recurrence: rule,
-      seriesId,
-    });
-    current = nextOccurrence(current, rule);
+
+  if (rule === 'daily' || rule === 'monthly') {
+    let current = new Date(anchorDate);
+    while (current <= horizon) {
+      events.push({ ...fields, id: generateId(), date: formatDateKey(current), recurrence: rule, seriesId });
+      current = nextOccurrence(current, rule);
+    }
+    return events;
+  }
+
+  // weekly / biweekly / triweekly: walk day-by-day, including any day whose
+  // weekday is selected AND whose week falls on the right interval from the
+  // anchor's week. The anchor's own week always qualifies (weeksSince = 0);
+  // days before the anchor date itself are excluded even if their weekday
+  // matches, same as most calendar apps' "starts partway through the week"
+  // behavior.
+  const interval = rule === 'weekly' ? 1 : rule === 'biweekly' ? 2 : 3;
+  const selectedDays = days && days.length > 0 ? days : [getDayOfWeek(anchorDate)];
+  const selectedIndices = new Set(selectedDays.map((d) => WEEK_DAY_INDEX[d]));
+  const anchorWeekStart = startOfWeek(anchorDate);
+
+  const cursor = new Date(anchorDate);
+  while (cursor <= horizon) {
+    if (cursor >= anchorDate && selectedIndices.has(cursor.getDay())) {
+      const weeksSince = Math.round(
+        (startOfWeek(cursor).getTime() - anchorWeekStart.getTime()) / MS_PER_WEEK,
+      );
+      if (weeksSince % interval === 0) {
+        events.push({
+          ...fields,
+          id: generateId(),
+          date: formatDateKey(cursor),
+          recurrence: rule,
+          seriesId,
+          recurrenceDays: selectedDays,
+        });
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
   }
   return events;
 }

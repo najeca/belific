@@ -34,7 +34,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="inbox"
         options={{
-          title: 'Inbox',
+          title: 'Brain Dump',
           tabBarIcon: ({ color, size }: IconProps) => (
             <Ionicons name="file-tray-outline" size={size} color={color} />
           ),

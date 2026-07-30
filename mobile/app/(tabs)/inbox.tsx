@@ -167,7 +167,7 @@ export default function InboxScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Dump</Text>
+        <Text style={styles.title}>Brain Dump</Text>
       </View>
 
       <View style={styles.captureRow}>
@@ -226,6 +226,7 @@ export default function InboxScreen() {
           <EventForm
             date={new Date()}
             initialTitle={activeItem.title}
+            origin="dump"
             onClose={handleFormClose}
             onSaved={handleScheduled}
           />

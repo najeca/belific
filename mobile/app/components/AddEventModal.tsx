@@ -111,6 +111,10 @@ interface EventFormProps {
   // Prefills title for a new event without treating it as editing — used
   // when promoting a Brain Dump item into a scheduled event.
   initialTitle?: string;
+  // Set by the Dump promotion flow — forces the 🧠 icon and tags the
+  // created event's origin so it stays visually identifiable through
+  // later edits. Ignored when editing (origin is decided at creation).
+  origin?: 'dump';
 }
 
 // Bare form content, no Modal of its own — the caller decides how it's
@@ -127,7 +131,7 @@ interface EventFormProps {
 // reveal fields cost more than the shorter default view saved. Smart
 // defaults (today, next quarter hour, 30 min, "Free") still apply so a
 // fast add is still just title + Save.
-export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: EventFormProps) {
+export function EventForm({ date, onClose, onSaved, editEvent, initialTitle, origin }: EventFormProps) {
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<string>(DEFAULT_CATEGORY);
@@ -223,10 +227,16 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
 
   async function handleSave() {
     if (!canSave) return;
-    const icon =
-      CATEGORIES[category as CategoryKey]?.icon ??
-      pickerCategories.find((c) => c.key === category)?.icon ??
-      '📌';
+    // Dump-origin forces the brain icon regardless of category — for an
+    // existing occurrence that's decided by editEvent.origin (set once, at
+    // creation); for a new event it's decided by the origin prop the Dump
+    // promotion flow passes in.
+    const isDumpOrigin = isEditing ? editEvent?.origin === 'dump' : origin === 'dump';
+    const icon = isDumpOrigin
+      ? '🧠'
+      : CATEGORIES[category as CategoryKey]?.icon ??
+        pickerCategories.find((c) => c.key === category)?.icon ??
+        '📌';
     const priorityField: EventPriority | undefined = priority === 'normal' ? undefined : priority;
 
     if (isEditing && editEvent) {
@@ -253,6 +263,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
         end: endHHMM,
         notes: notes.trim(),
         priority: priorityField,
+        origin,
       };
       const series = generateRecurringEvents(fields, recurrence, eventDate, recurrenceDays);
       await addCustomEvents(series);
@@ -268,6 +279,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
         notes: notes.trim(),
         date: formatDateKey(eventDate),
         priority: priorityField,
+        origin,
       });
       await addCustomEvent(event);
       reset();

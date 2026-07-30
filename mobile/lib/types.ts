@@ -99,6 +99,11 @@ export interface CustomEvent {
   recurrenceDays?: WeekDay[];
   // Absent means normal priority — see the EventPriority comment above.
   priority?: EventPriority;
+  // Set once, at creation, when an event was promoted from a Brain Dump
+  // item — forces the 🧠 icon regardless of category, including on later
+  // edits, so a scheduled Dump item stays visually identifiable as having
+  // come from there. Never set any other way.
+  origin?: 'dump';
 }
 
 // A brain-dump item is deliberately not a CustomEvent with optional

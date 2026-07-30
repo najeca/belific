@@ -17,27 +17,32 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import {
   CATEGORIES,
+  CUSTOM_CATEGORY_COLOR_POOL,
+  DEFAULT_CATEGORY_KEYS,
   RECURRENCE_LABELS,
   createCustomEvent,
   durationMinutes,
   formatDateKey,
   generateRecurringEvents,
   getDayOfWeek,
+  getLegacyCategoriesInUse,
 } from '../../lib/data';
 import {
   addCustomEvent,
   addCustomEvents,
+  addCustomCategory,
   updateCustomEvent,
   deleteCustomEvent,
   deleteCustomEventSeriesFrom,
+  loadCustomCategories,
+  loadCustomEvents,
 } from '../../lib/storage';
-import type { CategoryKey, CustomEvent, RecurrenceRule, WeekDay } from '../../lib/types';
+import type { CategoryKey, CustomCategory, CustomEvent, RecurrenceRule, WeekDay } from '../../lib/types';
 
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DEFAULT_CATEGORY: CategoryKey = 'free';
 const DEFAULT_DURATION_MINUTES = 30;
-const CATEGORY_KEYS = Object.keys(CATEGORIES) as CategoryKey[];
 type RecurrenceChoice = RecurrenceRule | 'none';
 const RECURRENCE_CHOICES: RecurrenceChoice[] = ['none', ...(Object.keys(RECURRENCE_LABELS) as RecurrenceRule[])];
 // Rules where a specific weekday selection is meaningful — daily is every
@@ -93,10 +98,6 @@ function defaultEnd(start: Date): Date {
   return d;
 }
 
-function isCategoryKey(value: string): value is CategoryKey {
-  return Object.prototype.hasOwnProperty.call(CATEGORIES, value);
-}
-
 interface EventFormProps {
   date: Date;
   onClose: () => void;
@@ -124,7 +125,8 @@ interface EventFormProps {
 export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: EventFormProps) {
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<CategoryKey>(DEFAULT_CATEGORY);
+  const [category, setCategory] = useState<string>(DEFAULT_CATEGORY);
+  const [pickerCategories, setPickerCategories] = useState<CustomCategory[]>([]);
   const [eventDate, setEventDate] = useState<Date>(date);
   const [startDate, setStartDate] = useState(defaultStart);
   const [endDate, setEndDate] = useState(() => defaultEnd(defaultStart()));
@@ -141,13 +143,26 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
   // prevents start-change from silently overwriting a deliberate end time.
   const endTouched = useRef(false);
 
+  // Picker shows: the 5 defaults, any legacy category actually used by an
+  // already-saved event (so removed defaults keep working with zero
+  // migration — see getLegacyCategoriesInUse), and user-created custom
+  // categories. Loaded fresh each time the form mounts.
+  useEffect(() => {
+    Promise.all([loadCustomEvents(), loadCustomCategories()]).then(([events, custom]) => {
+      const legacy = getLegacyCategoriesInUse(events);
+      const seen = new Set(custom.map((c) => c.key));
+      const deduped = legacy.filter((c) => !seen.has(c.key));
+      setPickerCategories([...deduped, ...custom]);
+    });
+  }, []);
+
   // EventForm is always conditionally mounted by its caller (mounted only
   // while actually shown), so populating on mount/editEvent-change is
   // enough — no separate "visible" flag needed here.
   useEffect(() => {
     if (editEvent) {
       setTitle(editEvent.title);
-      setCategory(isCategoryKey(editEvent.category) ? editEvent.category : DEFAULT_CATEGORY);
+      setCategory(editEvent.category);
       setEventDate(parseDateKey(editEvent.date));
       setStartDate(toTimeDate(editEvent.start));
       setEndDate(toTimeDate(editEvent.end));
@@ -199,7 +214,10 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
 
   async function handleSave() {
     if (!canSave) return;
-    const icon = CATEGORIES[category].icon;
+    const icon =
+      CATEGORIES[category as CategoryKey]?.icon ??
+      pickerCategories.find((c) => c.key === category)?.icon ??
+      '📌';
 
     if (isEditing && editEvent) {
       const updated: CustomEvent = {
@@ -242,6 +260,42 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
       reset();
       onSaved(event);
     }
+  }
+
+  // Alert.prompt is iOS-only (no Android equivalent in core RN) — an
+  // acceptable trade for this pass since this app's only tested/deployed
+  // target is iOS (see TESTING_PROTOCOL.md); a real cross-platform "add
+  // category" screen can replace this later without changing the storage
+  // shape. Two chained prompts (name, then icon) rather than a whole new
+  // modal for a single-use, low-frequency action.
+  function handleAddCategory() {
+    Alert.prompt(
+      'New Category',
+      'What would you like to call it?',
+      (name) => {
+        const trimmedName = name?.trim();
+        if (!trimmedName) return;
+        Alert.prompt(
+          'Category Icon',
+          'Pick an emoji for this category (optional)',
+          (icon) => {
+            const colorIndex = pickerCategories.length % CUSTOM_CATEGORY_COLOR_POOL.length;
+            const newCategory: CustomCategory = {
+              key: `custom-${Date.now().toString(36)}`,
+              name: trimmedName,
+              icon: icon?.trim() || '📌',
+              color: CUSTOM_CATEGORY_COLOR_POOL[colorIndex],
+            };
+            addCustomCategory(newCategory).then(() => {
+              setPickerCategories((prev) => [...prev, newCategory]);
+              setCategory(newCategory.key);
+            });
+          },
+          'plain-text',
+        );
+      },
+      'plain-text',
+    );
   }
 
   async function handleDelete() {
@@ -356,7 +410,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
 
           <Text style={styles.label}>Category</Text>
           <View style={styles.categoryGrid}>
-            {CATEGORY_KEYS.map((key) => {
+            {DEFAULT_CATEGORY_KEYS.map((key) => {
               const meta = CATEGORIES[key];
               const selected = category === key;
               return (
@@ -374,6 +428,33 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
                 </TouchableOpacity>
               );
             })}
+            {pickerCategories.map((meta) => {
+              const selected = category === meta.key;
+              return (
+                <TouchableOpacity
+                  key={meta.key}
+                  style={[styles.categoryChip, selected && styles.categoryChipSelected]}
+                  onPress={() => setCategory(meta.key)}
+                  accessibilityLabel={meta.name}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.categoryChipIcon}>{meta.icon}</Text>
+                  <Text style={[styles.categoryChipText, selected && styles.categoryChipTextSelected]}>
+                    {meta.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              key="add-category"
+              style={styles.categoryChip}
+              onPress={handleAddCategory}
+              accessibilityLabel="Add category"
+              accessibilityRole="button"
+            >
+              <Ionicons name="add" size={14} color={Colors.textSecondary} style={{ marginRight: 4 }} />
+              <Text style={styles.categoryChipText}>Add</Text>
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.label}>Date</Text>

@@ -28,9 +28,21 @@ const PHASE_LABELS: Record<TimerPhase, string> = {
   longBreak: 'Long Break',
 };
 
+// Fill colors — used for circle border, play button background, selected
+// phase-picker tint, and session dots. Decorative/graphical use only.
 const PHASE_COLORS: Record<TimerPhase, string> = {
   focus: Colors.accent,
   break: '#6B9B76',
+  longBreak: '#534AB7',
+};
+
+// Text colors — darkened variants for wherever a phase color sits behind
+// readable text (phase label, selected phase-picker label) on the cream
+// background. focus/break raw hues fail WCAG AA (4.07:1 / 2.75:1); these
+// verified variants clear 4.5:1. longBreak's raw hue already passes (5.97:1).
+const PHASE_TEXT_COLORS: Record<TimerPhase, string> = {
+  focus: Colors.accentText,
+  break: '#4b6d53',
   longBreak: '#534AB7',
 };
 
@@ -143,6 +155,7 @@ export default function FocusScreen() {
   const total = phaseDuration(phase, store);
   const progress = total > 0 ? (total - timeLeft) / total : 0;
   const phaseColor = PHASE_COLORS[phase];
+  const phaseTextColor = PHASE_TEXT_COLORS[phase];
   const circumference = Math.PI * (CIRCLE_SIZE - 16);
   const strokeDashoffset = circumference * (1 - progress);
 
@@ -152,7 +165,7 @@ export default function FocusScreen() {
       <Text style={styles.title}>Focus</Text>
 
       {/* Phase label */}
-      <Text style={[styles.phaseLabel, { color: phaseColor }]}>
+      <Text style={[styles.phaseLabel, { color: phaseTextColor }]}>
         {PHASE_LABELS[phase]}
       </Text>
 
@@ -209,7 +222,7 @@ export default function FocusScreen() {
           <Ionicons
             name={isRunning ? 'pause' : 'play'}
             size={32}
-            color="#ffffff"
+            color={Colors.onAccent}
             style={!isRunning ? { marginLeft: 4 } : undefined}
           />
         </TouchableOpacity>
@@ -233,7 +246,7 @@ export default function FocusScreen() {
             style={[styles.phaseBtn, phase === p && { backgroundColor: phaseColor + '33' }]}
             onPress={() => resetToPhase(p)}
           >
-            <Text style={[styles.phaseBtnText, phase === p && { color: phaseColor }]}>
+            <Text style={[styles.phaseBtnText, phase === p && { color: PHASE_TEXT_COLORS[p] }]}>
               {PHASE_LABELS[p]}
             </Text>
           </TouchableOpacity>
@@ -339,10 +352,6 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
   },
   phasePicker: {
     flexDirection: 'row',

@@ -84,7 +84,7 @@ const errorStyles = StyleSheet.create({
     borderRadius: 14,
   },
   buttonText: {
-    color: '#ffffff',
+    color: Colors.onAccent,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -104,7 +104,7 @@ function RootLayoutInner() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }} />
     </SafeAreaProvider>
   );

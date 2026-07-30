@@ -75,10 +75,13 @@ function formatStartsIn(startHHMM: string, nowMins: number): string {
 function EventRow({
   event,
   onLongPress,
+  isLast,
 }: {
   event: ScheduleEvent;
   onLongPress?: () => void;
+  isLast?: boolean;
 }) {
+  const rowStyle = [styles.eventRow, isLast && styles.eventRowLast];
   const inner = (
     <>
       <View style={[styles.eventBar, { backgroundColor: event.color }]} />
@@ -97,7 +100,7 @@ function EventRow({
   if (onLongPress) {
     return (
       <Pressable
-        style={({ pressed }) => [styles.eventRow, pressed && { opacity: 0.85 }]}
+        style={({ pressed }) => [...rowStyle, pressed && { opacity: 0.85 }]}
         onLongPress={onLongPress}
         delayLongPress={500}
         accessibilityLabel={event.title}
@@ -107,7 +110,7 @@ function EventRow({
       </Pressable>
     );
   }
-  return <View style={styles.eventRow}>{inner}</View>;
+  return <View style={rowStyle}>{inner}</View>;
 }
 
 function StatCard({ stat }: { stat: CategoryStat }) {
@@ -238,7 +241,7 @@ export default function TodayScreen() {
           <View style={styles.nowCard}>
             <View style={styles.nowBorder} />
             <View style={styles.nowContent}>
-              <Text style={styles.nowLabel}>NOW</Text>
+              <Text style={styles.nowLabel}>Now</Text>
               <Text style={styles.nowTitle}>{currentEvent.icon} {currentEvent.title}</Text>
               <Text style={styles.nowTime}>{currentEvent.start} – {currentEvent.end}</Text>
               <Text style={styles.nowCountdown}>{formatCountdown(currentEvent.end, nowMins)}</Text>
@@ -248,7 +251,7 @@ export default function TodayScreen() {
           <View style={[styles.nowCard, styles.emptyNowCard]}>
             <View style={[styles.nowBorder, { backgroundColor: Colors.textSecondary }]} />
             <View style={styles.nowContent}>
-              <Text style={styles.nowLabel}>NOW</Text>
+              <Text style={styles.nowLabel}>Now</Text>
               <Text style={[styles.nowTitle, { color: Colors.textSecondary }]}>No current event</Text>
             </View>
           </View>
@@ -259,7 +262,7 @@ export default function TodayScreen() {
           <View style={styles.nextCard}>
             <View style={[styles.nowBorder, { backgroundColor: Colors.border }]} />
             <View style={styles.nowContent}>
-              <Text style={styles.nextLabel}>NEXT UP</Text>
+              <Text style={styles.nextLabel}>Next up</Text>
               <Text style={styles.nextTitle}>{nextEvent.icon} {nextEvent.title}</Text>
               <Text style={styles.nextTime}>{formatStartsIn(nextEvent.start, nowMins)}</Text>
             </View>
@@ -269,7 +272,7 @@ export default function TodayScreen() {
         {/* Summary row */}
         {stats.length > 0 && (
           <View style={styles.sectionBlock}>
-            <Text style={styles.sectionLabel}>TODAY'S BREAKDOWN</Text>
+            <Text style={styles.sectionLabel}>Today's breakdown</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
               {stats.map((s) => (
                 <StatCard key={s.category} stat={s} />
@@ -280,20 +283,23 @@ export default function TodayScreen() {
 
         {/* Full Schedule */}
         <View style={styles.sectionBlock}>
-          <Text style={styles.sectionLabel}>FULL SCHEDULE</Text>
+          <Text style={styles.sectionLabel}>Full schedule</Text>
           {events.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateTitle}>No events scheduled</Text>
               <Text style={styles.emptyStateSubtext}>Tap + to add your first event</Text>
             </View>
           ) : (
-            events.map((e) => (
-              <EventRow
-                key={e.id}
-                event={e}
-                onLongPress={e.isCustom ? () => openEditModal(e) : undefined}
-              />
-            ))
+            <View style={styles.eventListContainer}>
+              {events.map((e, i) => (
+                <EventRow
+                  key={e.id}
+                  event={e}
+                  onLongPress={e.isCustom ? () => openEditModal(e) : undefined}
+                  isLast={i === events.length - 1}
+                />
+              ))}
+            </View>
           )}
         </View>
 
@@ -308,7 +314,7 @@ export default function TodayScreen() {
         accessibilityLabel="Add event"
         accessibilityRole="button"
       >
-        <Ionicons name="add" size={28} color="#ffffff" />
+        <Ionicons name="add" size={28} color={Colors.onAccent} />
       </TouchableOpacity>
 
       <AddEventModal
@@ -354,8 +360,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   nowCard: {
     backgroundColor: Colors.surface,
@@ -379,8 +384,8 @@ const styles = StyleSheet.create({
   nowLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.accent,
-    letterSpacing: 1,
+    color: Colors.accentText,
+    letterSpacing: 0.5,
     marginBottom: 6,
   },
   nowTitle: {
@@ -397,7 +402,7 @@ const styles = StyleSheet.create({
   nowCountdown: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   nextCard: {
     backgroundColor: Colors.surface,
@@ -411,7 +416,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: Colors.textSecondary,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     marginBottom: 6,
   },
   nextTitle: {
@@ -431,7 +436,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: Colors.textSecondary,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     marginBottom: 12,
   },
   statsScroll: {
@@ -462,14 +467,20 @@ const styles = StyleSheet.create({
     maxWidth: 70,
     textAlign: 'center',
   },
+  eventListContainer: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
   eventRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    marginBottom: 6,
-    overflow: 'hidden',
     minHeight: 56,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  eventRowLast: {
+    borderBottomWidth: 0,
   },
   eventBar: {
     width: 4,
@@ -531,10 +542,5 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
   },
 });

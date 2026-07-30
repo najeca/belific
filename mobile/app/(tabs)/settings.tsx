@@ -235,7 +235,7 @@ export default function SettingsScreen() {
         <Text style={styles.title}>Settings</Text>
 
         {/* Notifications section */}
-        <Text style={styles.sectionHeader}>NOTIFICATIONS</Text>
+        <Text style={styles.sectionHeader}>Notifications</Text>
         <View style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Daily Notifications</Text>
@@ -243,7 +243,7 @@ export default function SettingsScreen() {
               value={notificationsEnabled}
               onValueChange={handleNotificationsToggle}
               trackColor={{ false: Colors.border, true: Colors.accent }}
-              thumbColor="#ffffff"
+              thumbColor={Colors.onAccent}
             />
           </View>
           {showSettingsPrompt && (
@@ -254,14 +254,14 @@ export default function SettingsScreen() {
               accessibilityLabel="Tap to enable notifications in Settings"
               accessibilityRole="button"
             >
-              <Ionicons name="settings-outline" size={14} color={Colors.accent} style={{ marginRight: 6 }} />
+              <Ionicons name="settings-outline" size={14} color={Colors.accentText} style={{ marginRight: 6 }} />
               <Text style={styles.settingsPromptText}>Tap to enable in Settings</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Pomodoro section */}
-        <Text style={styles.sectionHeader}>POMODORO TIMER</Text>
+        <Text style={styles.sectionHeader}>Pomodoro timer</Text>
         <View style={styles.card}>
           {POMODORO_SETTINGS.map((meta, i) => (
             <View key={meta.key}>
@@ -276,7 +276,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* Data section */}
-        <Text style={styles.sectionHeader}>DATA</Text>
+        <Text style={styles.sectionHeader}>Data</Text>
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.dangerRow}
@@ -291,7 +291,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* About section */}
-        <Text style={styles.sectionHeader}>ABOUT</Text>
+        <Text style={styles.sectionHeader}>About</Text>
         <View style={styles.card}>
           <View style={styles.aboutRow}>
             <Text style={styles.aboutLabel}>App</Text>
@@ -315,7 +315,7 @@ export default function SettingsScreen() {
 
         {ownerVisible && (
           <>
-            <Text style={styles.sectionHeader}>OWNER</Text>
+            <Text style={styles.sectionHeader}>Owner</Text>
             <View style={styles.card}>
               <TouchableOpacity
                 style={styles.row}
@@ -325,7 +325,7 @@ export default function SettingsScreen() {
                 accessibilityLabel="Load my schedule"
                 accessibilityRole="button"
               >
-                <Text style={[styles.rowLabel, { color: Colors.accent }]}>
+                <Text style={[styles.rowLabel, { color: Colors.accentText }]}>
                   Load My Schedule
                 </Text>
                 {isSeeding && (
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   settingsPromptText: {
     fontSize: 13,
-    color: Colors.accent,
+    color: Colors.accentText,
     fontWeight: '500',
   },
   divider: {
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editSaveText: {
-    color: '#ffffff',
+    color: Colors.onAccent,
     fontSize: 16,
     fontWeight: '700',
   },

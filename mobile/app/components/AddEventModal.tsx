@@ -241,14 +241,14 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
       >
       <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{isEditing ? 'Edit Event' : 'New Event'}</Text>
+          <Text style={styles.headerTitle}>{isEditing ? 'Edit event' : 'New event'}</Text>
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="close" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-          <Text style={styles.label}>Event Title</Text>
+          <Text style={styles.label}>Event title</Text>
           <TextInput
             style={styles.input}
             placeholder="What are you doing?"
@@ -268,7 +268,7 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
             returnKeyType="next"
           />
 
-          <Text style={styles.label}>Emoji Icon</Text>
+          <Text style={styles.label}>Emoji icon</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g. 💼"
@@ -300,7 +300,7 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
             />
           )}
 
-          <Text style={styles.label}>Start Time</Text>
+          <Text style={styles.label}>Start time</Text>
           <TouchableOpacity
             style={styles.timeRow}
             onPress={() => {
@@ -322,7 +322,7 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
             />
           )}
 
-          <Text style={styles.label}>End Time</Text>
+          <Text style={styles.label}>End time</Text>
           <TouchableOpacity
             style={styles.timeRow}
             onPress={() => {
@@ -370,7 +370,7 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
               accessibilityRole="button"
             >
               <Ionicons name="trash-outline" size={18} color={Colors.danger} style={{ marginRight: 8 }} />
-              <Text style={styles.deleteText}>Delete Event</Text>
+              <Text style={styles.deleteText}>Delete event</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
@@ -390,7 +390,7 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
             accessibilityLabel={isEditing ? 'Save changes' : 'Save event'}
             accessibilityRole="button"
           >
-            <Text style={styles.saveText}>{isEditing ? 'Save Changes' : 'Save Event'}</Text>
+            <Text style={styles.saveText}>{isEditing ? 'Save changes' : 'Save event'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -456,8 +456,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.3,
     marginBottom: 8,
     marginTop: 16,
   },
@@ -496,7 +495,7 @@ const styles = StyleSheet.create({
   durationValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   notesInput: {
     minHeight: 80,
@@ -545,7 +544,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveText: {
-    color: '#ffffff',
+    color: Colors.onAccent,
     fontSize: 16,
     fontWeight: '700',
   },

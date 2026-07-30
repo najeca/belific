@@ -155,7 +155,7 @@ export default function SettingsScreen() {
         const dateKey = formatDateKey(today);
         const template = getWeeklyEventsForDate(today);
         const custom = await loadCustomEventsForDate(dateKey);
-        const customResolved = custom.map(customToScheduleEvent);
+        const customResolved = custom.map((e) => customToScheduleEvent(e));
         const merged = [...template, ...customResolved].sort(
           (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start),
         );

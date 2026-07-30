@@ -20,6 +20,17 @@ export interface CategoryMeta {
   icon: string;
 }
 
+// A user-created category, distinct from the built-in CATEGORIES table.
+// key is a generated id, not a CategoryKey union member — CustomEvent's
+// category field is already a plain string, so this needs no widening
+// there.
+export interface CustomCategory {
+  key: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
 export type DayTypeKey = 'workDay' | 'nonWorkDay' | 'examDay' | 'birthdayDay';
 
 export interface DayTypeMeta {

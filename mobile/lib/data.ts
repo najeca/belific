@@ -10,6 +10,7 @@ import type {
   CustomEvent,
   BrainDumpItem,
   RecurrenceRule,
+  CustomCategory,
 } from './types';
 
 // Colors below are the light (sage/cream) theme's decorative fill palette,
@@ -31,6 +32,50 @@ export const CATEGORIES: Record<CategoryKey, CategoryMeta> = {
   sleep:    { name: 'Sleep',       color: '#5C6470', icon: '😴' },
   free:     { name: 'Free',        color: '#9A9686', icon: '☕' },
 };
+
+// The category picker (EventForm) only shows these 5 by default — the
+// other 9 keys above still fully exist for rendering (template events,
+// already-saved custom events) and are surfaced back into the picker
+// automatically for anyone who already has events using them, via
+// getLegacyCategoriesInUse below. No migration step needed: nothing
+// stored ever changes, only what the picker chooses to show.
+export const DEFAULT_CATEGORY_KEYS: CategoryKey[] = ['work', 'routine', 'fitness', 'chore', 'free'];
+
+// Auto-assigned in rotation to user-created custom categories — same
+// decorative-fill contrast bar as CATEGORIES (>=2.5:1 on cream), no color
+// picker in this pass.
+export const CUSTOM_CATEGORY_COLOR_POOL = [
+  '#6B5FB0', '#2E6FA8', '#A8395F', '#8F5C10', '#157A5A', '#93601E',
+];
+
+// Looks up display metadata for any category key — default, legacy
+// (in CATEGORIES but not in the current default set), or user-created
+// custom. Returns undefined only if the key is truly unknown anywhere.
+export function resolveCategoryMeta(
+  categoryKey: string,
+  customCategories: CustomCategory[] = [],
+): CategoryMeta | undefined {
+  const builtin = CATEGORIES[categoryKey as CategoryKey];
+  if (builtin) return builtin;
+  return customCategories.find((c) => c.key === categoryKey);
+}
+
+// Distinct categories actually used by saved events that aren't in the
+// current default set — these are what let removed defaults keep working
+// for existing data without any explicit migration.
+export function getLegacyCategoriesInUse(events: CustomEvent[]): CustomCategory[] {
+  const seen = new Set<string>();
+  const result: CustomCategory[] = [];
+  for (const e of events) {
+    if (DEFAULT_CATEGORY_KEYS.includes(e.category as CategoryKey)) continue;
+    if (seen.has(e.category)) continue;
+    const legacy = CATEGORIES[e.category as CategoryKey];
+    if (!legacy) continue;
+    seen.add(e.category);
+    result.push({ key: e.category, name: legacy.name, icon: legacy.icon, color: legacy.color });
+  }
+  return result;
+}
 
 // DAY_TYPES colors render as actual text (status pill label), so these are
 // darkened to clear WCAG AA (4.5:1) on the cream background — verified,
@@ -103,8 +148,8 @@ function resolveTemplateEvent(e: WeeklyTemplateEvent, index: number): ScheduleEv
   };
 }
 
-export function customToScheduleEvent(e: CustomEvent): ScheduleEvent {
-  const meta = CATEGORIES[e.category as CategoryKey];
+export function customToScheduleEvent(e: CustomEvent, customCategories: CustomCategory[] = []): ScheduleEvent {
+  const meta = resolveCategoryMeta(e.category, customCategories);
   return {
     id: e.id,
     title: e.title,
@@ -145,7 +190,7 @@ export interface CategoryStat {
   totalMinutes: number;
 }
 
-export function computeCategoryStats(events: ScheduleEvent[]): CategoryStat[] {
+export function computeCategoryStats(events: ScheduleEvent[], customCategories: CustomCategory[] = []): CategoryStat[] {
   const map = new Map<string, CategoryStat>();
 
   for (const e of events) {
@@ -156,16 +201,23 @@ export function computeCategoryStats(events: ScheduleEvent[]): CategoryStat[] {
     if (existing) {
       existing.totalMinutes += mins;
     } else {
-      const meta = CATEGORIES[e.category as CategoryKey];
-      if (meta) {
-        map.set(e.category, {
-          category: e.category as CategoryKey,
-          name: meta.name,
-          color: meta.color,
-          icon: meta.icon,
-          totalMinutes: mins,
-        });
-      }
+      // Falls back to a generic pin/grey rather than dropping the stat
+      // entirely — a user-created custom category not passed in here
+      // (e.g. this call site hasn't loaded custom categories) would
+      // otherwise silently vanish from the breakdown instead of just
+      // looking generic.
+      const meta = resolveCategoryMeta(e.category, customCategories) ?? {
+        name: e.category,
+        color: '#888888',
+        icon: '📌',
+      };
+      map.set(e.category, {
+        category: e.category as CategoryKey,
+        name: meta.name,
+        color: meta.color,
+        icon: meta.icon,
+        totalMinutes: mins,
+      });
     }
   }
 

@@ -18,9 +18,9 @@ import {
   timeToMinutes,
   formatDateKey,
 } from '../../lib/data';
-import { loadCustomEvents } from '../../lib/storage';
+import { loadCustomEvents, loadCustomCategories } from '../../lib/storage';
 import { EventForm } from '../components/AddEventModal';
-import type { ScheduleEvent, CustomEvent } from '../../lib/types';
+import type { ScheduleEvent, CustomEvent, CustomCategory } from '../../lib/types';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_HEADERS = ['Mo','Tu','We','Th','Fr','Sa','Su'];
@@ -91,6 +91,7 @@ export default function CalendarScreen() {
   const [viewMonth, setViewMonth] = useState(realToday.getMonth());
   const [selectedDay, setSelectedDay] = useState<number | null>(realToday.getDate());
   const [allCustomEvents, setAllCustomEvents] = useState<CustomEvent[]>([]);
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   // One Modal, one visibility flag. `mode` picks which content it shows —
   // switching between them just swaps the rendered child, no separate
   // Modal instances to close/reopen (that chaining is what onDetailDismiss
@@ -102,6 +103,7 @@ export default function CalendarScreen() {
   useFocusEffect(
     useCallback(() => {
       loadCustomEvents().then(setAllCustomEvents);
+      loadCustomCategories().then(setCustomCategories);
     }, []),
   );
 
@@ -127,7 +129,7 @@ export default function CalendarScreen() {
     const weekly = getWeeklyEventsForDate(date);
     const custom = allCustomEvents
       .filter(e => e.date === key)
-      .map(customToScheduleEvent);
+      .map(e => customToScheduleEvent(e, customCategories));
     return [...weekly, ...custom].sort(
       (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start),
     );

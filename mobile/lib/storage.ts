@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { BrainDumpItem, CustomEvent, TimerSettings } from './types';
+import type { BrainDumpItem, CustomCategory, CustomEvent, TimerSettings } from './types';
 
 const KEYS = {
   CUSTOM_EVENTS: 'belific_custom_events',
@@ -7,6 +7,7 @@ const KEYS = {
   NOTIFICATIONS_ENABLED: 'belific_notifications_enabled',
   FIRST_LAUNCH: 'belific_first_launch',
   BRAIN_DUMP: 'belific_brain_dump',
+  CUSTOM_CATEGORIES: 'belific_custom_categories',
 } as const;
 
 export async function loadTimerSettings(): Promise<TimerSettings | null> {
@@ -146,6 +147,28 @@ export async function shouldShowStarterRoutine(): Promise<boolean> {
   }
 }
 
+export async function loadCustomCategories(): Promise<CustomCategory[]> {
+  try {
+    const data = await AsyncStorage.getItem(KEYS.CUSTOM_CATEGORIES);
+    return data ? (JSON.parse(data) as CustomCategory[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveCustomCategories(categories: CustomCategory[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.CUSTOM_CATEGORIES, JSON.stringify(categories));
+  } catch {
+    // noop
+  }
+}
+
+export async function addCustomCategory(category: CustomCategory): Promise<void> {
+  const existing = await loadCustomCategories();
+  await saveCustomCategories([...existing, category]);
+}
+
 export async function clearAllData(): Promise<void> {
   try {
     await AsyncStorage.multiRemove([
@@ -154,6 +177,7 @@ export async function clearAllData(): Promise<void> {
       KEYS.FIRST_LAUNCH,
       KEYS.NOTIFICATIONS_ENABLED,
       KEYS.BRAIN_DUMP,
+      KEYS.CUSTOM_CATEGORIES,
     ]);
   } catch {
     // noop

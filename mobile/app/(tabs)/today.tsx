@@ -25,12 +25,13 @@ import {
 import {
   loadCustomEventsForDate,
   loadCustomEvents,
+  loadCustomCategories,
   loadNotificationsEnabled,
   shouldShowStarterRoutine,
 } from '../../lib/storage';
 import { scheduleEventNotifications } from '../../lib/notifications';
 import AddEventModal from '../components/AddEventModal';
-import type { ScheduleEvent, CustomEvent } from '../../lib/types';
+import type { ScheduleEvent, CustomEvent, CustomCategory } from '../../lib/types';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -131,25 +132,28 @@ export default function TodayScreen() {
 
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [customEventsList, setCustomEventsList] = useState<CustomEvent[]>([]);
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [nowMins, setNowMins] = useState(currentMinutes);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editEvent, setEditEvent] = useState<CustomEvent | undefined>(undefined);
 
   async function loadEvents() {
-    const [starterMode, allCustom, enabled] = await Promise.all([
+    const [starterMode, allCustom, categories, enabled] = await Promise.all([
       shouldShowStarterRoutine(),
       loadCustomEvents(),
+      loadCustomCategories(),
       loadNotificationsEnabled(),
     ]);
 
     const todayCustom = allCustom.filter((e) => e.date === dateKey);
     setCustomEventsList(allCustom);
+    setCustomCategories(categories);
 
     const template = starterMode
       ? getStarterEventsForDate(today)
       : getWeeklyEventsForDate(today);
-    const customResolved = todayCustom.map(customToScheduleEvent);
+    const customResolved = todayCustom.map((e) => customToScheduleEvent(e, categories));
     const merged = [...template, ...customResolved].sort(
       (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start),
     );
@@ -209,7 +213,7 @@ export default function TodayScreen() {
   const dayType = getDayTypeForDate(today);
   const currentEvent = findCurrentEvent(events, nowMins);
   const nextEvent = findNextEvent(events, nowMins);
-  const stats = computeCategoryStats(events);
+  const stats = computeCategoryStats(events, customCategories);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

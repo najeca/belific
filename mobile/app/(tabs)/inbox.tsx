@@ -60,17 +60,16 @@ export default function InboxScreen() {
     loadBrainDumpItems().then(setItems);
   }
 
-  // Fires once the promoted event is actually saved — the dump item is
-  // fully converted at this point, so it's deleted and the sheet closes
-  // entirely (there's nothing left on this item to act on).
+  // Fires once the promoted event is actually saved. The dump item
+  // deliberately STAYS in Dump — scheduling copies it onto the calendar
+  // rather than consuming it. (Reversal of the original promote-and-remove
+  // design: on-device testing showed items vanishing from Dump on every
+  // schedule reads as data loss, not a feature. Removing an item is only
+  // ever an explicit user delete.)
   async function handleScheduled(_event: CustomEvent) {
-    if (activeItem) {
-      await deleteBrainDumpItem(activeItem.id);
-    }
     setModalVisible(false);
     setMode(null);
     setActiveItem(undefined);
-    loadBrainDumpItems().then(setItems);
   }
 
   // Cancel from the schedule form drops back to the actions sheet for the

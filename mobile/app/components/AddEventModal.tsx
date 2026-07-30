@@ -79,6 +79,9 @@ interface EventFormProps {
   onClose: () => void;
   onSaved: (event: CustomEvent) => void;
   editEvent?: CustomEvent;
+  // Prefills title for a new event without treating it as editing — used
+  // when promoting a Brain Dump item into a scheduled event.
+  initialTitle?: string;
 }
 
 // Bare form content, no Modal of its own — the caller decides how it's
@@ -94,7 +97,7 @@ interface EventFormProps {
 // smart defaults (today, next quarter hour, 30 min, "Free") and live
 // behind "More options" — collapsed for a new event, expanded for editing
 // (editing implies the person already cares about the detail).
-export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps) {
+export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: EventFormProps) {
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<CategoryKey>(DEFAULT_CATEGORY);
@@ -126,7 +129,7 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
       endTouched.current = true;
     } else {
       const start = defaultStart();
-      setTitle('');
+      setTitle(initialTitle ?? '');
       setCategory(DEFAULT_CATEGORY);
       setEventDate(date);
       setStartDate(start);
@@ -135,7 +138,7 @@ export function EventForm({ date, onClose, onSaved, editEvent }: EventFormProps)
       setShowMore(false);
       endTouched.current = false;
     }
-  }, [editEvent?.id]);
+  }, [editEvent?.id, initialTitle]);
 
   const startHHMM = dateToHHMM(startDate);
   const endHHMM = dateToHHMM(endDate);

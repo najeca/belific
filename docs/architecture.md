@@ -99,8 +99,10 @@ No `react-native-webview` dependency exists in `package.json`.
    (expo-notifications scheduled on-device; no backend exists)
 3. **No Supabase, no auth, no database** — covers custom events,
    Brain Dump items, and timer settings alike; all on-device AsyncStorage
-4. **Polyfill order in `mobile/index.js`:**
-   `react-native-get-random-values` → `process` → `Buffer` → `expo-router/entry`
+4. **Import/polyfill order in `mobile/index.js`:**
+   `react-native-gesture-handler` → `react-native-get-random-values` →
+   `process` → `Buffer` → `expo-router/entry` — gesture-handler must be
+   the very first import per its own setup requirement
 5. **Bottom tab bar only** — never hamburger menu
    (iOS HIG compliance)
 6. **`babel.config.js` must exist in `mobile/`**

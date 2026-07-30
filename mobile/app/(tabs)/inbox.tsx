@@ -7,13 +7,12 @@ import {
   Pressable,
   FlatList,
   Modal,
-  Animated,
-  PanResponder,
   StyleSheet,
   LayoutAnimation,
   Platform,
   UIManager,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,11 +28,12 @@ if (Platform.OS === 'android') {
 
 const DELETE_WIDTH = 88;
 
-// Swipe-left-to-delete card. No gesture-handler/reanimated dependency —
-// this project's native build is already fragile (see IOS_BUILD_NOTES.md),
-// so this uses only core PanResponder + Animated, which need no native
-// linking. A small horizontal-drag threshold in onMoveShouldSetPanResponder
-// means ordinary taps still reach the inner Pressable untouched.
+// Swipe-left-to-delete card, built on react-native-gesture-handler's
+// Swipeable. A hand-rolled PanResponder version shipped first to avoid a
+// native dependency, but on-device testing showed it only completing
+// partial swipes instead of a clean full reveal — the risk flagged when
+// that choice was made. Swipeable is the standard, battle-tested
+// component for exactly this and needs no reanimated dependency.
 function DumpCard({
   item,
   onPress,
@@ -43,74 +43,56 @@ function DumpCard({
   onPress: () => void;
   onDelete: () => void;
 }) {
-  const translateX = useRef(new Animated.Value(0)).current;
+  const swipeableRef = useRef<Swipeable>(null);
   const isOpenRef = useRef(false);
-  const baseRef = useRef(0);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_evt, gesture) =>
-        Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
-      onPanResponderGrant: () => {
-        baseRef.current = isOpenRef.current ? -DELETE_WIDTH : 0;
-      },
-      onPanResponderMove: (_evt, gesture) => {
-        const next = Math.max(-DELETE_WIDTH, Math.min(0, baseRef.current + gesture.dx));
-        translateX.setValue(next);
-      },
-      onPanResponderRelease: (_evt, gesture) => {
-        const current = baseRef.current + gesture.dx;
-        const shouldOpen = current < -DELETE_WIDTH / 2;
-        isOpenRef.current = shouldOpen;
-        Animated.spring(translateX, {
-          toValue: shouldOpen ? -DELETE_WIDTH : 0,
-          useNativeDriver: true,
-          bounciness: 0,
-        }).start();
-      },
-    }),
-  ).current;
 
   function handlePress() {
     if (isOpenRef.current) {
-      isOpenRef.current = false;
-      Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+      swipeableRef.current?.close();
       return;
     }
     onPress();
   }
 
+  function handleDeletePress() {
+    swipeableRef.current?.close();
+    onDelete();
+  }
+
   return (
-    <View style={styles.swipeContainer}>
-      <View style={styles.deleteBackdrop}>
+    <Swipeable
+      ref={swipeableRef}
+      containerStyle={styles.swipeContainer}
+      overshootRight={false}
+      rightThreshold={DELETE_WIDTH / 2}
+      onSwipeableWillOpen={() => { isOpenRef.current = true; }}
+      onSwipeableClose={() => { isOpenRef.current = false; }}
+      renderRightActions={() => (
         <TouchableOpacity
           style={styles.deleteAction}
-          onPress={onDelete}
+          onPress={handleDeletePress}
           accessibilityLabel="Delete"
           accessibilityRole="button"
         >
           <Ionicons name="trash-outline" size={20} color={Colors.onAccent} />
         </TouchableOpacity>
-      </View>
-      <Animated.View
-        style={[styles.card, { transform: [{ translateX }] }]}
-        {...panResponder.panHandlers}
+      )}
+    >
+      <Pressable
+        style={styles.card}
+        onPress={handlePress}
+        accessibilityLabel={item.title}
+        accessibilityHint="Opens the schedule form. Swipe left to delete."
       >
-        <Pressable
-          onPress={handlePress}
-          accessibilityLabel={item.title}
-          accessibilityHint="Opens the schedule form. Swipe left to delete."
-        >
-          <View style={styles.cardHeader}>
-            <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
-            <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-          </View>
-          {!!item.notes && (
-            <Text style={styles.cardNotes} numberOfLines={3}>{item.notes}</Text>
-          )}
-        </Pressable>
-      </Animated.View>
-    </View>
+        <View style={styles.cardHeader}>
+          <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
+          <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+        </View>
+        {!!item.notes && (
+          <Text style={styles.cardNotes} numberOfLines={3}>{item.notes}</Text>
+        )}
+      </Pressable>
+    </Swipeable>
   );
 }
 
@@ -289,17 +271,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
   },
-  deleteBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.danger,
-    borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
   deleteAction: {
     width: DELETE_WIDTH,
-    height: '100%',
+    backgroundColor: Colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },

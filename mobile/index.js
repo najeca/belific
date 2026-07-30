@@ -1,3 +1,5 @@
+import 'react-native-gesture-handler';
+
 require('react-native-get-random-values');
 
 if (typeof global.process === 'undefined') {

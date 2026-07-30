@@ -153,6 +153,24 @@ installs.
 
 ---
 
+### 8. Adding react-native-gesture-handler (v1.1.2, replacing PanResponder swipe)
+
+Installed via `npx expo install react-native-gesture-handler` (picks the SDK-54-compatible
+version automatically — landed on `~2.28.0`). Two setup requirements, both easy to miss:
+
+1. **`import 'react-native-gesture-handler';` must be the very first line of `mobile/index.js`** —
+   ahead of the existing polyfill chain (`react-native-get-random-values` → `process` →
+   `Buffer` → `expo-router/entry`). This is gesture-handler's own documented requirement, not
+   optional ordering.
+2. **Wrap the root in `<GestureHandlerRootView style={{ flex: 1 }}>`** (`mobile/app/_layout.tsx`,
+   inside `RootLayoutInner`, outside `SafeAreaProvider`). Without it gesture recognition silently
+   doesn't work — no error, gestures just never fire.
+
+No Podfile patch needed for this one — unlike ExpoFont/fmt, it links cleanly through
+`use_expo_modules!` with no `post_install` intervention required. Uses the classic
+(non-Reanimated) `Swipeable` component (`import { Swipeable } from 'react-native-gesture-handler'`)
+so this does **not** pull in `react-native-reanimated` as a second new dependency.
+
 ---
 
 ## EAS Build Errors

@@ -8,6 +8,21 @@ to know the current version and recent history.
 
 ---
 
+## 1.1.2 — 2026-07-30
+
+- **Fix:** Brain Dump's swipe-to-delete rebuilt on
+  `react-native-gesture-handler`'s `Swipeable`, replacing the
+  hand-rolled `PanResponder` version — real device testing showed the
+  PanResponder implementation only completing partial swipes instead
+  of a clean full reveal, the exact risk flagged when it was chosen
+  over gesture-handler to avoid a native dependency. New setup: the
+  gesture-handler import is now first in `mobile/index.js` (ahead of
+  the existing polyfill chain), and the root layout is wrapped in
+  `GestureHandlerRootView`. See `docs/IOS_BUILD_NOTES.md` #8 — no
+  Podfile patch was needed, confirmed via a clean local Release build.
+
+---
+
 ## 1.1.1 — 2026-07-30
 
 - **Fix:** the event title field autofocused unconditionally on every

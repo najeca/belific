@@ -43,8 +43,11 @@ older artifact and shares no code or data with `mobile/`.
 3. No auth, no database, no Supabase — see [[003-no-supabase]].
    Covers custom events, timer settings, and Brain Dump items alike;
    all AsyncStorage, all on-device.
-4. Polyfill order in mobile/index.js:
-   react-native-get-random-values → process → Buffer → expo-router/entry
+4. Import/polyfill order in mobile/index.js:
+   react-native-gesture-handler → react-native-get-random-values →
+   process → Buffer → expo-router/entry
+   (gesture-handler must be the very first import per its own setup
+   requirement, ahead of the rest of the polyfill chain)
 5. Bottom tab bar only — never hamburger menu (iOS HIG compliance)
 6. babel.config.js must exist in mobile/ (without it Metro bundle crashes on launch)
 7. useSafeAreaInsets() — never hardcoded paddingTop

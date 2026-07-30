@@ -9,6 +9,7 @@ import type {
   ScheduleEvent,
   CustomEvent,
   BrainDumpItem,
+  RecurrenceRule,
 } from './types';
 
 // Colors below are the light (sage/cream) theme's decorative fill palette,
@@ -179,4 +180,65 @@ export function createCustomEvent(fields: Omit<CustomEvent, 'id'>): CustomEvent 
 
 export function createBrainDumpItem(title: string): BrainDumpItem {
   return { id: generateId(), title, notes: '', createdAt: new Date().toISOString() };
+}
+
+// Recurring events are materialized as concrete rows up front rather than
+// evaluated as a live rule at render time — see the comment on
+// CustomEvent.recurrence in types.ts for why. This bounds how far ahead a
+// series is generated; past this horizon nothing more exists until the
+// series is regenerated (not yet implemented — a known v1 limitation).
+export const RECURRENCE_HORIZON_DAYS = 365;
+
+export const RECURRENCE_LABELS: Record<RecurrenceRule, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  biweekly: 'Every 2 weeks',
+  triweekly: 'Every 3 weeks',
+  monthly: 'Monthly',
+};
+
+function nextOccurrence(current: Date, rule: RecurrenceRule): Date {
+  const next = new Date(current);
+  switch (rule) {
+    case 'daily':
+      next.setDate(next.getDate() + 1);
+      break;
+    case 'weekly':
+      next.setDate(next.getDate() + 7);
+      break;
+    case 'biweekly':
+      next.setDate(next.getDate() + 14);
+      break;
+    case 'triweekly':
+      next.setDate(next.getDate() + 21);
+      break;
+    case 'monthly':
+      next.setMonth(next.getMonth() + 1);
+      break;
+  }
+  return next;
+}
+
+export function generateRecurringEvents(
+  fields: Omit<CustomEvent, 'id' | 'date' | 'recurrence' | 'seriesId'>,
+  rule: RecurrenceRule,
+  anchorDate: Date,
+): CustomEvent[] {
+  const seriesId = generateId();
+  const horizon = new Date(anchorDate);
+  horizon.setDate(horizon.getDate() + RECURRENCE_HORIZON_DAYS);
+
+  const events: CustomEvent[] = [];
+  let current = new Date(anchorDate);
+  while (current <= horizon) {
+    events.push({
+      ...fields,
+      id: generateId(),
+      date: formatDateKey(current),
+      recurrence: rule,
+      seriesId,
+    });
+    current = nextOccurrence(current, rule);
+  }
+  return events;
 }

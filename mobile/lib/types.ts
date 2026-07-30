@@ -57,6 +57,8 @@ export interface ScheduleEvent {
   isCustom: boolean;
 }
 
+export type RecurrenceRule = 'daily' | 'weekly' | 'biweekly' | 'triweekly' | 'monthly';
+
 export interface CustomEvent {
   id: string;
   title: string;
@@ -66,6 +68,15 @@ export interface CustomEvent {
   end: string;
   notes: string;
   date: string;
+  // Recurring events are materialized as separate rows sharing one
+  // seriesId (see generateRecurringEvents in data.ts) rather than a
+  // live rule evaluated at render time — every other CustomEvent
+  // consumer (today.tsx's merge, calendar dots, notification
+  // scheduling) already assumes one row = one concrete date, so this
+  // keeps recurring events working everywhere with no other code
+  // changes. Both fields are absent on a one-off event.
+  recurrence?: RecurrenceRule;
+  seriesId?: string;
 }
 
 // A brain-dump item is deliberately not a CustomEvent with optional

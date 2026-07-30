@@ -48,6 +48,22 @@ export async function addCustomEvent(event: CustomEvent): Promise<void> {
   await saveCustomEvents([...existing, event]);
 }
 
+// Bulk variant for materialized recurring series — one load/save round
+// trip instead of one per occurrence.
+export async function addCustomEvents(events: CustomEvent[]): Promise<void> {
+  const existing = await loadCustomEvents();
+  await saveCustomEvents([...existing, ...events]);
+}
+
+// Removes one occurrence plus every other row sharing its seriesId with
+// a date on or after it — "this and all future occurrences".
+export async function deleteCustomEventSeriesFrom(seriesId: string, fromDate: string): Promise<void> {
+  const existing = await loadCustomEvents();
+  await saveCustomEvents(
+    existing.filter((e) => !(e.seriesId === seriesId && e.date >= fromDate)),
+  );
+}
+
 export async function deleteCustomEvent(id: string): Promise<void> {
   const existing = await loadCustomEvents();
   await saveCustomEvents(existing.filter((e) => e.id !== id));

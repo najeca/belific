@@ -28,10 +28,22 @@ import {
   loadCustomCategories,
   loadNotificationsEnabled,
   shouldShowStarterRoutine,
+  loadRoutines,
+  loadRoutineCompletions,
+  addRoutineCompletion,
+  deleteRoutineCompletion,
 } from '../../lib/storage';
 import { scheduleEventNotifications } from '../../lib/notifications';
 import AddEventModal from '../components/AddEventModal';
-import type { ScheduleEvent, CustomEvent, CustomCategory } from '../../lib/types';
+import RoutineFormModal from '../components/RoutineForm';
+import type { ScheduleEvent, CustomEvent, CustomCategory, Routine, TimeOfDay } from '../../lib/types';
+
+const TIME_OF_DAY_ORDER: TimeOfDay[] = ['morning', 'afternoon', 'evening'];
+const TIME_OF_DAY_LABELS: Record<TimeOfDay, string> = {
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  evening: 'Evening',
+};
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -151,6 +163,52 @@ export default function TodayScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editEvent, setEditEvent] = useState<CustomEvent | undefined>(undefined);
 
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [completedRoutineIds, setCompletedRoutineIds] = useState<Set<string>>(new Set());
+  const [routineFormVisible, setRoutineFormVisible] = useState(false);
+  const [editRoutine, setEditRoutine] = useState<Routine | undefined>(undefined);
+
+  async function loadRoutinesData() {
+    const [allRoutines, completions] = await Promise.all([
+      loadRoutines(),
+      loadRoutineCompletions(),
+    ]);
+    setRoutines(allRoutines);
+    setCompletedRoutineIds(
+      new Set(completions.filter((c) => c.date === dateKey).map((c) => c.routineId)),
+    );
+  }
+
+  async function toggleRoutine(routine: Routine) {
+    if (completedRoutineIds.has(routine.id)) {
+      await deleteRoutineCompletion(routine.id, dateKey);
+    } else {
+      await addRoutineCompletion(routine.id, dateKey);
+    }
+    loadRoutinesData();
+  }
+
+  function openAddRoutine() {
+    setEditRoutine(undefined);
+    setRoutineFormVisible(true);
+  }
+
+  function openEditRoutine(routine: Routine) {
+    setEditRoutine(routine);
+    setRoutineFormVisible(true);
+  }
+
+  function handleRoutineFormClose() {
+    setRoutineFormVisible(false);
+    setEditRoutine(undefined);
+  }
+
+  function handleRoutineSaved() {
+    setRoutineFormVisible(false);
+    setEditRoutine(undefined);
+    loadRoutinesData();
+  }
+
   async function loadEvents() {
     const [starterMode, allCustom, categories, enabled] = await Promise.all([
       shouldShowStarterRoutine(),
@@ -193,6 +251,7 @@ export default function TodayScreen() {
   useFocusEffect(
     useCallback(() => {
       loadEvents();
+      loadRoutinesData();
       const timer = setInterval(() => setNowMins(currentMinutes()), 60_000);
       return () => clearInterval(timer);
     }, []),
@@ -200,7 +259,7 @@ export default function TodayScreen() {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await loadEvents();
+    await Promise.all([loadEvents(), loadRoutinesData()]);
     setNowMins(currentMinutes());
     setRefreshing(false);
   }
@@ -227,6 +286,12 @@ export default function TodayScreen() {
   const currentEvent = findCurrentEvent(events, nowMins);
   const nextEvent = findNextEvent(events, nowMins);
   const stats = computeCategoryStats(events, customCategories);
+
+  const routineGroups = TIME_OF_DAY_ORDER.map((timeOfDay) => ({
+    timeOfDay,
+    label: TIME_OF_DAY_LABELS[timeOfDay],
+    items: routines.filter((r) => r.timeOfDay === timeOfDay),
+  })).filter((g) => g.items.length > 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -286,6 +351,62 @@ export default function TodayScreen() {
           </View>
         )}
 
+        {/* Routines */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionLabel}>Routines</Text>
+            <TouchableOpacity
+              style={styles.sectionAddBtn}
+              onPress={openAddRoutine}
+              accessibilityLabel="Add routine"
+              accessibilityRole="button"
+            >
+              <Ionicons name="add" size={16} color={Colors.accentText} />
+            </TouchableOpacity>
+          </View>
+          {routines.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateTitle}>No routines yet</Text>
+              <Text style={styles.emptyStateSubtext}>Tap + to add your first routine</Text>
+            </View>
+          ) : (
+            <View style={styles.routineListContainer}>
+              {routineGroups.map((group, gi) => (
+                <View key={group.timeOfDay}>
+                  <Text style={styles.routineGroupLabel}>{group.label}</Text>
+                  {group.items.map((routine, ri) => {
+                    const isLast = gi === routineGroups.length - 1 && ri === group.items.length - 1;
+                    const done = completedRoutineIds.has(routine.id);
+                    return (
+                      <Pressable
+                        key={routine.id}
+                        style={({ pressed }) => [
+                          styles.routineRow,
+                          isLast && styles.routineRowLast,
+                          pressed && { opacity: 0.85 },
+                        ]}
+                        onPress={() => toggleRoutine(routine)}
+                        onLongPress={() => openEditRoutine(routine)}
+                        accessibilityLabel={routine.title}
+                        accessibilityHint="Tap to mark done, long press to edit"
+                      >
+                        <Ionicons
+                          name={done ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={20}
+                          color={done ? Colors.accent : Colors.textSecondary}
+                        />
+                        <Text style={[styles.routineTitle, done && styles.routineTitleDone]}>
+                          {routine.title}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Summary row */}
         {stats.length > 0 && (
           <View style={styles.sectionBlock}>
@@ -340,6 +461,13 @@ export default function TodayScreen() {
         onClose={handleModalClose}
         onSaved={handleEventSaved}
         editEvent={editEvent}
+      />
+
+      <RoutineFormModal
+        visible={routineFormVisible}
+        onClose={handleRoutineFormClose}
+        onSaved={handleRoutineSaved}
+        editRoutine={editRoutine}
       />
     </View>
   );
@@ -455,6 +583,52 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     letterSpacing: 0.5,
     marginBottom: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionAddBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  routineListContainer: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    overflow: 'hidden',
+    paddingHorizontal: 16,
+  },
+  routineGroupLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  routineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 44,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  routineRowLast: {
+    borderBottomWidth: 0,
+    marginBottom: 4,
+  },
+  routineTitle: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+  },
+  routineTitleDone: {
+    color: Colors.textSecondary,
   },
   statsScroll: {
     flexDirection: 'row',

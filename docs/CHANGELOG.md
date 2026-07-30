@@ -8,6 +8,29 @@ to know the current version and recent history.
 
 ---
 
+## 1.3.0 — 2026-07-30
+
+- **Feature:** Routines — a habit tracker, separate from the schedule.
+  New "Routines" section on Today, between the NOW/NEXT UP cards and
+  the existing stat/schedule sections, grouped by Morning/Afternoon/
+  Evening (empty groups hidden; one combined empty state only when
+  zero routines exist at all). Tap a routine to mark it done for
+  today (tap again to un-mark — genuinely reversible, no streak
+  count, no history view, missing a day is never flagged). Long-press
+  to edit; "+" in the section header to add a new one (title +
+  time-of-day, via the new `RoutineForm` component). `Routine` and
+  `RoutineCompletion` types + storage landed in a prior unversioned
+  commit (foundation for this whole phase); this is the first of them
+  to actually ship.
+- `docs/UBIQUITOUS_LANGUAGE.md` updated: clarifies the two unrelated
+  senses of "Routine" now in the app (the habit feature vs. the
+  pre-existing `routine` category), documents Task and Project ahead
+  of their own UI landing, and corrects a stale "Promote" definition
+  that still described the old delete-on-schedule Dump behavior
+  reversed back in 1.1.0.
+
+---
+
 ## 1.2.0 — 2026-07-30
 
 - **Feature:** each Priority option (Low/Normal/High) now shows a

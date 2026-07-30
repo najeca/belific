@@ -7,7 +7,12 @@ import {
   Pressable,
   FlatList,
   Modal,
+  Animated,
+  PanResponder,
   StyleSheet,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -18,15 +23,102 @@ import { loadBrainDumpItems, addBrainDumpItem, deleteBrainDumpItem } from '../..
 import { EventForm } from '../components/AddEventModal';
 import type { BrainDumpItem, CustomEvent } from '../../lib/types';
 
+if (Platform.OS === 'android') {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
+
+const DELETE_WIDTH = 88;
+
+// Swipe-left-to-delete card. No gesture-handler/reanimated dependency —
+// this project's native build is already fragile (see IOS_BUILD_NOTES.md),
+// so this uses only core PanResponder + Animated, which need no native
+// linking. A small horizontal-drag threshold in onMoveShouldSetPanResponder
+// means ordinary taps still reach the inner Pressable untouched.
+function DumpCard({
+  item,
+  onPress,
+  onDelete,
+}: {
+  item: BrainDumpItem;
+  onPress: () => void;
+  onDelete: () => void;
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const isOpenRef = useRef(false);
+  const baseRef = useRef(0);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt, gesture) =>
+        Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+      onPanResponderGrant: () => {
+        baseRef.current = isOpenRef.current ? -DELETE_WIDTH : 0;
+      },
+      onPanResponderMove: (_evt, gesture) => {
+        const next = Math.max(-DELETE_WIDTH, Math.min(0, baseRef.current + gesture.dx));
+        translateX.setValue(next);
+      },
+      onPanResponderRelease: (_evt, gesture) => {
+        const current = baseRef.current + gesture.dx;
+        const shouldOpen = current < -DELETE_WIDTH / 2;
+        isOpenRef.current = shouldOpen;
+        Animated.spring(translateX, {
+          toValue: shouldOpen ? -DELETE_WIDTH : 0,
+          useNativeDriver: true,
+          bounciness: 0,
+        }).start();
+      },
+    }),
+  ).current;
+
+  function handlePress() {
+    if (isOpenRef.current) {
+      isOpenRef.current = false;
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+      return;
+    }
+    onPress();
+  }
+
+  return (
+    <View style={styles.swipeContainer}>
+      <View style={styles.deleteBackdrop}>
+        <TouchableOpacity
+          style={styles.deleteAction}
+          onPress={onDelete}
+          accessibilityLabel="Delete"
+          accessibilityRole="button"
+        >
+          <Ionicons name="trash-outline" size={20} color={Colors.onAccent} />
+        </TouchableOpacity>
+      </View>
+      <Animated.View
+        style={[styles.card, { transform: [{ translateX }] }]}
+        {...panResponder.panHandlers}
+      >
+        <Pressable
+          onPress={handlePress}
+          accessibilityLabel={item.title}
+          accessibilityHint="Opens the schedule form. Swipe left to delete."
+        >
+          <View style={styles.cardHeader}>
+            <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
+            <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+          </View>
+          {!!item.notes && (
+            <Text style={styles.cardNotes} numberOfLines={3}>{item.notes}</Text>
+          )}
+        </Pressable>
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function InboxScreen() {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<BrainDumpItem[]>([]);
   const [captureText, setCaptureText] = useState('');
-  // One Modal, mode picks the content — same pattern as calendar.tsx's
-  // unified sheet, so there's no chained close/reopen between the actions
-  // sheet and the schedule form.
-  const [modalVisible, setModalVisible] = useState(false);
-  const [mode, setMode] = useState<'actions' | 'schedule' | null>(null);
+  const [formVisible, setFormVisible] = useState(false);
   const [activeItem, setActiveItem] = useState<BrainDumpItem | undefined>(undefined);
   const inputRef = useRef<TextInput>(null);
 
@@ -45,43 +137,28 @@ export default function InboxScreen() {
     inputRef.current?.focus();
   }
 
-  function openActions(item: BrainDumpItem) {
+  function openForm(item: BrainDumpItem) {
     setActiveItem(item);
-    setMode('actions');
-    setModalVisible(true);
+    setFormVisible(true);
   }
 
-  async function handleDelete() {
-    if (!activeItem) return;
-    await deleteBrainDumpItem(activeItem.id);
-    setModalVisible(false);
-    setMode(null);
-    setActiveItem(undefined);
-    loadBrainDumpItems().then(setItems);
+  async function handleDeleteItem(item: BrainDumpItem) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    await deleteBrainDumpItem(item.id);
   }
 
-  // Fires once the promoted event is actually saved. The dump item
-  // deliberately STAYS in Dump — scheduling copies it onto the calendar
-  // rather than consuming it. (Reversal of the original promote-and-remove
-  // design: on-device testing showed items vanishing from Dump on every
-  // schedule reads as data loss, not a feature. Removing an item is only
-  // ever an explicit user delete.)
-  async function handleScheduled(_event: CustomEvent) {
-    setModalVisible(false);
-    setMode(null);
+  // Scheduling copies the item onto the calendar — the dump item is left
+  // untouched. Swipe-to-delete is the only removal path now.
+  function handleScheduled(_event: CustomEvent) {
+    setFormVisible(false);
     setActiveItem(undefined);
   }
 
-  // Cancel from the schedule form drops back to the actions sheet for the
-  // same item, rather than closing outright — mirrors calendar.tsx's
-  // edit-cancel-returns-to-detail behavior.
+  // Closing without saving leaves the item exactly as it was — this is
+  // the entire "keep in Dump" behavior, no dedicated action needed for it.
   function handleFormClose() {
-    setMode('actions');
-  }
-
-  function handleModalDismiss() {
-    setModalVisible(false);
-    setMode(null);
+    setFormVisible(false);
     setActiveItem(undefined);
   }
 
@@ -129,73 +206,23 @@ export default function InboxScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <Pressable
-              style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
-              onPress={() => openActions(item)}
-              accessibilityLabel={item.title}
-              accessibilityHint="Tap for options"
-            >
-              <View style={styles.cardHeader}>
-                <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
-                <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-              </View>
-              {!!item.notes && (
-                <Text style={styles.cardNotes} numberOfLines={3}>{item.notes}</Text>
-              )}
-            </Pressable>
+            <DumpCard
+              item={item}
+              onPress={() => openForm(item)}
+              onDelete={() => handleDeleteItem(item)}
+            />
           )}
         />
       )}
 
       <Modal
-        visible={modalVisible}
+        visible={formVisible}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setModalVisible(false)}
-        onDismiss={handleModalDismiss}
+        onRequestClose={handleFormClose}
+        onDismiss={handleFormClose}
       >
-        {mode === 'actions' && activeItem && (
-          <View style={[styles.actionsContainer, { paddingTop: insets.top + 16 }]}>
-            <View style={styles.actionsHeader}>
-              <Text style={styles.actionsTitle} numberOfLines={2}>{activeItem.title}</Text>
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => setModalVisible(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={styles.actionRow}
-              onPress={() => setModalVisible(false)}
-              accessibilityLabel="Keep in Dump"
-              accessibilityRole="button"
-            >
-              <Ionicons name="bulb-outline" size={20} color={Colors.textSecondary} style={{ marginRight: 12 }} />
-              <Text style={styles.actionText}>Keep in Dump</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionRow}
-              onPress={() => setMode('schedule')}
-              accessibilityLabel="Schedule this"
-              accessibilityRole="button"
-            >
-              <Ionicons name="calendar-outline" size={20} color={Colors.accentText} style={{ marginRight: 12 }} />
-              <Text style={styles.actionText}>Schedule</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionRow}
-              onPress={handleDelete}
-              accessibilityLabel="Delete"
-              accessibilityRole="button"
-            >
-              <Ionicons name="trash-outline" size={20} color={Colors.danger} style={{ marginRight: 12 }} />
-              <Text style={[styles.actionText, { color: Colors.danger }]}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        {mode === 'schedule' && activeItem && (
+        {activeItem && (
           <EventForm
             date={new Date()}
             initialTitle={activeItem.title}
@@ -256,11 +283,29 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 24,
   },
+  swipeContainer: {
+    marginBottom: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  deleteBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.danger,
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  deleteAction: {
+    width: DELETE_WIDTH,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 14,
     padding: 16,
-    marginBottom: 10,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -293,43 +338,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     opacity: 0.7,
-  },
-  actionsContainer: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-  },
-  actionsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  actionsTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginRight: 12,
-  },
-  closeBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginBottom: 10,
-  },
-  actionText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
   },
 });

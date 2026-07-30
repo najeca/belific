@@ -160,6 +160,7 @@ export function customToScheduleEvent(e: CustomEvent, customCategories: CustomCa
     end: e.end,
     notes: e.notes,
     isCustom: true,
+    priority: e.priority,
   };
 }
 

@@ -37,7 +37,7 @@ import {
   loadCustomCategories,
   loadCustomEvents,
 } from '../../lib/storage';
-import type { CategoryKey, CustomCategory, CustomEvent, RecurrenceRule, WeekDay } from '../../lib/types';
+import type { CategoryKey, CustomCategory, CustomEvent, EventPriority, RecurrenceRule, WeekDay } from '../../lib/types';
 
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -52,6 +52,11 @@ const WEEKDAY_ORDER: WeekDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun
 const WEEKDAY_ABBR: Record<WeekDay, string> = {
   Mon: 'Mo', Tue: 'Tu', Wed: 'We', Thu: 'Th', Fri: 'Fr', Sat: 'Sa', Sun: 'Su',
 };
+// UI-only choice — 'normal' is never actually stored (see EventPriority
+// in types.ts); it's just what the middle chip represents.
+type PriorityChoice = EventPriority | 'normal';
+const PRIORITY_CHOICES: PriorityChoice[] = ['low', 'normal', 'high'];
+const PRIORITY_LABELS: Record<PriorityChoice, string> = { low: 'Low', normal: 'Normal', high: 'High' };
 
 function formatEventDate(d: Date): string {
   return `${SHORT_DAYS[d.getDay()]} ${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
@@ -136,6 +141,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
   // which is out of scope for now (see generateRecurringEvents comment).
   const [recurrence, setRecurrence] = useState<RecurrenceChoice>('none');
   const [recurrenceDays, setRecurrenceDays] = useState<WeekDay[]>([]);
+  const [priority, setPriority] = useState<PriorityChoice>('normal');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -169,6 +175,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
       setNotes(editEvent.notes || '');
       setRecurrence('none');
       setRecurrenceDays([]);
+      setPriority(editEvent.priority ?? 'normal');
       // Treat the existing end time as manually set so start changes don't override it
       endTouched.current = true;
     } else {
@@ -181,6 +188,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
       setNotes('');
       setRecurrence('none');
       setRecurrenceDays([]);
+      setPriority('normal');
       endTouched.current = false;
     }
   }, [editEvent?.id, initialTitle]);
@@ -201,6 +209,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
     setNotes('');
     setRecurrence('none');
     setRecurrenceDays([]);
+    setPriority('normal');
     setShowDatePicker(false);
     setShowStartPicker(false);
     setShowEndPicker(false);
@@ -218,6 +227,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
       CATEGORIES[category as CategoryKey]?.icon ??
       pickerCategories.find((c) => c.key === category)?.icon ??
       '📌';
+    const priorityField: EventPriority | undefined = priority === 'normal' ? undefined : priority;
 
     if (isEditing && editEvent) {
       const updated: CustomEvent = {
@@ -229,6 +239,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
         end: endHHMM,
         notes: notes.trim(),
         date: formatDateKey(eventDate),
+        priority: priorityField,
       };
       await updateCustomEvent(updated);
       reset();
@@ -241,6 +252,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
         start: startHHMM,
         end: endHHMM,
         notes: notes.trim(),
+        priority: priorityField,
       };
       const series = generateRecurringEvents(fields, recurrence, eventDate, recurrenceDays);
       await addCustomEvents(series);
@@ -255,6 +267,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
         end: endHHMM,
         notes: notes.trim(),
         date: formatDateKey(eventDate),
+        priority: priorityField,
       });
       await addCustomEvent(event);
       reset();
@@ -455,6 +468,26 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle }: E
               <Ionicons name="add" size={14} color={Colors.textSecondary} style={{ marginRight: 4 }} />
               <Text style={styles.categoryChipText}>Add</Text>
             </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>Priority</Text>
+          <View style={styles.categoryGrid}>
+            {PRIORITY_CHOICES.map((choice) => {
+              const selected = priority === choice;
+              return (
+                <TouchableOpacity
+                  key={choice}
+                  style={[styles.categoryChip, selected && styles.categoryChipSelected]}
+                  onPress={() => setPriority(choice)}
+                  accessibilityLabel={PRIORITY_LABELS[choice]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.categoryChipText, selected && styles.categoryChipTextSelected]}>
+                    {PRIORITY_LABELS[choice]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <Text style={styles.label}>Date</Text>

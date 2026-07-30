@@ -66,9 +66,14 @@ export interface ScheduleEvent {
   end: string;
   notes: string;
   isCustom: boolean;
+  priority?: EventPriority;
 }
 
 export type RecurrenceRule = 'daily' | 'weekly' | 'biweekly' | 'triweekly' | 'monthly';
+
+// Absent means 'normal' — only 'low'/'high' are ever stored explicitly,
+// so every already-saved event needs no migration.
+export type EventPriority = 'low' | 'high';
 
 export interface CustomEvent {
   id: string;
@@ -92,6 +97,8 @@ export interface CustomEvent {
   // for provenance/display only, since the series is already materialized
   // (see generateRecurringEvents in data.ts). Absent for daily/monthly.
   recurrenceDays?: WeekDay[];
+  // Absent means normal priority — see the EventPriority comment above.
+  priority?: EventPriority;
 }
 
 // A brain-dump item is deliberately not a CustomEvent with optional

@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import {
@@ -18,6 +18,7 @@ import {
   getDayTypeForDate,
   computeCategoryStats,
   customToScheduleEvent,
+  getTopTasks,
   timeToMinutes,
   formatDateKey,
   type CategoryStat,
@@ -32,11 +33,13 @@ import {
   loadRoutineCompletions,
   addRoutineCompletion,
   deleteRoutineCompletion,
+  loadTasks,
+  updateTask,
 } from '../../lib/storage';
 import { scheduleEventNotifications } from '../../lib/notifications';
 import AddEventModal from '../components/AddEventModal';
 import RoutineFormModal from '../components/RoutineForm';
-import type { ScheduleEvent, CustomEvent, CustomCategory, Routine, TimeOfDay } from '../../lib/types';
+import type { ScheduleEvent, CustomEvent, CustomCategory, Routine, TimeOfDay, Task } from '../../lib/types';
 
 const TIME_OF_DAY_ORDER: TimeOfDay[] = ['morning', 'afternoon', 'evening'];
 const TIME_OF_DAY_LABELS: Record<TimeOfDay, string> = {
@@ -152,6 +155,7 @@ function StatCard({ stat }: { stat: CategoryStat }) {
 
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const today = new Date();
   const dateKey = formatDateKey(today);
 
@@ -167,6 +171,13 @@ export default function TodayScreen() {
   const [completedRoutineIds, setCompletedRoutineIds] = useState<Set<string>>(new Set());
   const [routineFormVisible, setRoutineFormVisible] = useState(false);
   const [editRoutine, setEditRoutine] = useState<Routine | undefined>(undefined);
+
+  const [topTasks, setTopTasks] = useState<Task[]>([]);
+
+  async function loadTopTasks() {
+    const allTasks = await loadTasks();
+    setTopTasks(getTopTasks(allTasks));
+  }
 
   async function loadRoutinesData() {
     const [allRoutines, completions] = await Promise.all([
@@ -207,6 +218,15 @@ export default function TodayScreen() {
     setRoutineFormVisible(false);
     setEditRoutine(undefined);
     loadRoutinesData();
+  }
+
+  async function toggleTopTask(task: Task) {
+    await updateTask({
+      ...task,
+      completed: !task.completed,
+      completedAt: !task.completed ? new Date().toISOString() : undefined,
+    });
+    loadTopTasks();
   }
 
   async function loadEvents() {
@@ -252,6 +272,7 @@ export default function TodayScreen() {
     useCallback(() => {
       loadEvents();
       loadRoutinesData();
+      loadTopTasks();
       const timer = setInterval(() => setNowMins(currentMinutes()), 60_000);
       return () => clearInterval(timer);
     }, []),
@@ -259,7 +280,7 @@ export default function TodayScreen() {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await Promise.all([loadEvents(), loadRoutinesData()]);
+    await Promise.all([loadEvents(), loadRoutinesData(), loadTopTasks()]);
     setNowMins(currentMinutes());
     setRefreshing(false);
   }
@@ -402,6 +423,60 @@ export default function TodayScreen() {
                     );
                   })}
                 </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Top 3 Tasks */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionLabel}>Top 3 tasks</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/tasks')}
+              accessibilityLabel="See all tasks"
+              accessibilityRole="button"
+            >
+              <Text style={styles.seeAllText}>See all</Text>
+            </TouchableOpacity>
+          </View>
+          {topTasks.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateTitle}>Nothing due</Text>
+              <Text style={styles.emptyStateSubtext}>Add a task from Brain Dump or the full list</Text>
+            </View>
+          ) : (
+            <View style={styles.routineListContainer}>
+              {topTasks.map((task, i) => (
+                <Pressable
+                  key={task.id}
+                  style={({ pressed }) => [
+                    styles.routineRow,
+                    i === topTasks.length - 1 && styles.routineRowLast,
+                    pressed && { opacity: 0.85 },
+                  ]}
+                  onPress={() => router.push('/tasks')}
+                  accessibilityLabel={task.title}
+                  accessibilityHint="Tap to open Tasks"
+                >
+                  <TouchableOpacity
+                    onPress={() => toggleTopTask(task)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityLabel="Mark complete"
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="ellipse-outline" size={20} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                  {task.priority === 'high' && (
+                    <Ionicons name="flag" size={12} color={Colors.accentText} style={styles.priorityFlag} />
+                  )}
+                  <Text
+                    style={[styles.routineTitle, task.priority === 'low' && styles.routineTitleDone]}
+                    numberOfLines={1}
+                  >
+                    {task.title}
+                  </Text>
+                </Pressable>
               ))}
             </View>
           )}
@@ -596,6 +671,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.accentText,
     marginBottom: 12,
   },
   routineListContainer: {

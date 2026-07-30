@@ -12,6 +12,7 @@ import type {
   RecurrenceRule,
   CustomCategory,
   EventPriority,
+  Task,
 } from './types';
 
 // Colors below are the light (sage/cream) theme's decorative fill palette,
@@ -337,4 +338,35 @@ export function generateRecurringEvents(
     cursor.setDate(cursor.getDate() + 1);
   }
   return events;
+}
+
+// Shared ordering for both the Tasks screen (full list) and Today's
+// Top 3 section (slices the incomplete portion) — keeping this in one
+// place means both always agree on what counts as "most pressing".
+// Incomplete tasks: due-today-or-overdue first, then High priority,
+// then oldest created. Completed tasks: most recently completed first,
+// always after every incomplete one.
+export function sortTasksForDisplay(tasks: Task[]): Task[] {
+  const todayKey = formatDateKey(new Date());
+  const incomplete = tasks.filter((t) => !t.completed);
+  const completed = tasks.filter((t) => t.completed);
+
+  incomplete.sort((a, b) => {
+    const aOverdue = !!a.dueDate && a.dueDate <= todayKey;
+    const bOverdue = !!b.dueDate && b.dueDate <= todayKey;
+    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+    const aHigh = a.priority === 'high';
+    const bHigh = b.priority === 'high';
+    if (aHigh !== bHigh) return aHigh ? -1 : 1;
+    return a.createdAt.localeCompare(b.createdAt);
+  });
+  completed.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
+
+  return [...incomplete, ...completed];
+}
+
+export function getTopTasks(tasks: Task[], count = 3): Task[] {
+  return sortTasksForDisplay(tasks)
+    .filter((t) => !t.completed)
+    .slice(0, count);
 }

@@ -8,6 +8,31 @@ to know the current version and recent history.
 
 ---
 
+## 1.4.0 — 2026-07-30
+
+- **Feature:** Tasks — a to-do list distinct from both Calendar events
+  (always have a concrete date/time) and Brain Dump (no due date at
+  all). A Task has an optional due date (date-only) and priority
+  (reuses the existing Low/Normal/High picker, factored out of
+  `AddEventModal` into `lib/data.ts` so both forms share it).
+  "Top 3 tasks" section on Today — incomplete only, due-today-or-
+  overdue first, then High priority, then oldest created — with
+  checkbox-tap-to-complete directly from Today. "See all" pushes a
+  new stack screen (`app/tasks.tsx`, not a tab — keeps the 5-tab
+  decision intact) with a pinned quick-add (same pattern as Brain
+  Dump: title-only, submit-and-refocus), the full sorted list,
+  completed tasks dimmed at the bottom (manually deletable via the
+  edit sheet, no auto-purge, no counts anywhere). The pushed screen
+  builds its own custom header with a back chevron rather than
+  enabling the native Stack header, matching every other screen's
+  hand-built header instead of introducing a visually inconsistent
+  one.
+- No Project support yet (tagging/filtering) — deliberately deferred
+  to land with Brain Dump's third promotion path in the next version,
+  per the agreed sequencing.
+
+---
+
 ## 1.3.0 — 2026-07-30
 
 - **Feature:** Routines — a habit tracker, separate from the schedule.

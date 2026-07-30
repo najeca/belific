@@ -19,6 +19,9 @@ import {
   CATEGORIES,
   CUSTOM_CATEGORY_COLOR_POOL,
   DEFAULT_CATEGORY_KEYS,
+  PRIORITY_CHOICES,
+  PRIORITY_DESCRIPTIONS,
+  PRIORITY_LABELS,
   RECURRENCE_LABELS,
   createCustomEvent,
   durationMinutes,
@@ -26,6 +29,7 @@ import {
   generateRecurringEvents,
   getDayOfWeek,
   getLegacyCategoriesInUse,
+  type PriorityChoice,
 } from '../../lib/data';
 import {
   addCustomEvent,
@@ -51,16 +55,6 @@ const DAY_PICKER_RULES: RecurrenceRule[] = ['weekly', 'biweekly', 'triweekly'];
 const WEEKDAY_ORDER: WeekDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WEEKDAY_ABBR: Record<WeekDay, string> = {
   Mon: 'Mo', Tue: 'Tu', Wed: 'We', Thu: 'Th', Fri: 'Fr', Sat: 'Sa', Sun: 'Su',
-};
-// UI-only choice — 'normal' is never actually stored (see EventPriority
-// in types.ts); it's just what the middle chip represents.
-type PriorityChoice = EventPriority | 'normal';
-const PRIORITY_CHOICES: PriorityChoice[] = ['low', 'normal', 'high'];
-const PRIORITY_LABELS: Record<PriorityChoice, string> = { low: 'Low', normal: 'Normal', high: 'High' };
-const PRIORITY_DESCRIPTIONS: Record<PriorityChoice, string> = {
-  low: 'Nice to do, flexible timing',
-  normal: 'Standard importance',
-  high: 'Time-sensitive or non-negotiable',
 };
 
 function formatEventDate(d: Date): string {

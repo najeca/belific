@@ -11,6 +11,7 @@ import type {
   BrainDumpItem,
   RecurrenceRule,
   CustomCategory,
+  EventPriority,
 } from './types';
 
 // Colors below are the light (sage/cream) theme's decorative fill palette,
@@ -248,6 +249,18 @@ export const RECURRENCE_LABELS: Record<RecurrenceRule, string> = {
   biweekly: 'Every 2 weeks',
   triweekly: 'Every 3 weeks',
   monthly: 'Monthly',
+};
+
+// Shared between EventForm and TaskForm — 'normal' is UI-only, never
+// actually stored (see EventPriority in types.ts); it's just what the
+// middle chip represents.
+export type PriorityChoice = EventPriority | 'normal';
+export const PRIORITY_CHOICES: PriorityChoice[] = ['low', 'normal', 'high'];
+export const PRIORITY_LABELS: Record<PriorityChoice, string> = { low: 'Low', normal: 'Normal', high: 'High' };
+export const PRIORITY_DESCRIPTIONS: Record<PriorityChoice, string> = {
+  low: 'Nice to do, flexible timing',
+  normal: 'Standard importance',
+  high: 'Time-sensitive or non-negotiable',
 };
 
 // daily/monthly step forward by a fixed unit — no day-of-week concept

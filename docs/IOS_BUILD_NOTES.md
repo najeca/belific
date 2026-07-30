@@ -173,6 +173,43 @@ so this does **not** pull in `react-native-reanimated` as a second new dependenc
 
 ---
 
+### 9. `expo prebuild` adds a push-notification entitlement that breaks free/automatic signing
+
+Running `npx expo prebuild --platform ios` (e.g. after changing `app.json`'s `icon`, or any other
+prebuild-triggering config change) regenerates `ios/Belific/Belific.entitlements` and — because
+`expo-notifications` is in the `plugins` array — **adds `aps-environment: development`
+unconditionally**, even though Belific only ever uses local notifications (decision 002) and
+never requests the remote/push capability. With automatic signing on a free Apple ID ("iOS Team
+Provisioning Profile: *"), this entitlement is not supported by the profile and the build fails
+with two errors:
+
+```
+❌ Provisioning Profile "iOS Team Provisioning Profile: *" does not support the Push
+   Notifications capability.
+❌ Entitlements file defines the value "aps-environment" which is not registered for
+   profile "iOS Team Provisioning Profile: *".
+```
+
+**Fix — after every `expo prebuild`, strip the `aps-environment` key from**
+**`ios/Belific/Belific.entitlements`:**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+  </dict>
+</plist>
+```
+
+`mobile/ios/` is entirely gitignored (`mobile/.gitignore` line 4: `ios/`), so **this fix is not
+persisted anywhere** — like the fmt patch and the ExpoFont pod line, it must be reapplied by hand
+after every future prebuild, not just the first time. Unlike those two, this isn't a stale patch
+being wiped — prebuild actively *adds* this entitlement fresh each time because the
+`expo-notifications` plugin has no config option to opt out of it.
+
+---
+
 ## EAS Build Errors
 
 ### package-lock.json out of sync

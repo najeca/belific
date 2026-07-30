@@ -8,6 +8,41 @@ to know the current version and recent history.
 
 ---
 
+## 1.5.1 — 2026-07-31
+
+- **Fix:** real app icon installed, replacing the Expo default. Source
+  file was found at the repo root (`assets/belificappicon.png`, the
+  legacy web app's assets folder) rather than `mobile/assets/` as
+  initially expected — moved into the correct location. It had an
+  RGBA alpha channel (`sips` reports `hasAlpha: yes`); flattened to
+  solid `#F0EEE8` (matching the app background) and re-encoded as
+  RGB with no alpha channel, since iOS/App Store icon validation
+  rejects on the alpha channel's mere presence regardless of whether
+  any pixel is actually transparent — manually decoding the pixel
+  data confirmed this specific image was already 100% opaque
+  everywhere, so the flatten step changed nothing visually, only
+  stripped the channel. `app.json`'s `expo.icon` now points to
+  `./assets/belificappicon.png` (`splash.image` and the notifications
+  plugin's `icon` still reference the old `icon.png` — left alone,
+  out of scope for this fix).
+- **Fix:** `npx expo prebuild --platform ios` (required to regenerate
+  the native icon asset catalog) also regenerated
+  `Belific.entitlements` with an `aps-environment` key that automatic/
+  free-tier signing doesn't support, breaking the build. Removed it —
+  Belific never uses remote push (decision 002, local notifications
+  only). Since `mobile/ios/` is gitignored, this isn't a one-time fix;
+  documented in `IOS_BUILD_NOTES.md` #9 as a step required after every
+  future prebuild, the same way the fmt patch already is.
+- Verified via simulator screenshot (physical-device screenshots have
+  no CLI tooling available) — new icon renders correctly, no
+  transparency artifacts, no leftover default icon. A duplicate
+  "Belific" icon under the old `com.belific.app` bundle ID also
+  appeared during verification; confirmed as pre-existing simulator
+  cruft from before the bundle ID was corrected to `com.najeca.belific`
+  (unrelated to this fix) and removed from the test simulator.
+
+---
+
 ## 1.5.0 — 2026-07-30
 
 - **Feature:** Projects — a lightweight `{ key, name }` tag, no color/

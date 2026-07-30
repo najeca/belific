@@ -8,6 +8,7 @@ import type {
   WeeklyTemplateEvent,
   ScheduleEvent,
   CustomEvent,
+  BrainDumpItem,
 } from './types';
 
 // Colors below are the light (sage/cream) theme's decorative fill palette,
@@ -174,4 +175,8 @@ export function computeCategoryStats(events: ScheduleEvent[]): CategoryStat[] {
 
 export function createCustomEvent(fields: Omit<CustomEvent, 'id'>): CustomEvent {
   return { ...fields, id: generateId() };
+}
+
+export function createBrainDumpItem(title: string): BrainDumpItem {
+  return { id: generateId(), title, notes: '', createdAt: new Date().toISOString() };
 }

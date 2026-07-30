@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { CustomEvent, TimerSettings } from './types';
+import type { BrainDumpItem, CustomEvent, TimerSettings } from './types';
 
 const KEYS = {
   CUSTOM_EVENTS: 'belific_custom_events',
   TIMER_SETTINGS: 'belific_pomodoro',
   NOTIFICATIONS_ENABLED: 'belific_notifications_enabled',
   FIRST_LAUNCH: 'belific_first_launch',
+  BRAIN_DUMP: 'belific_brain_dump',
 } as const;
 
 export async function loadTimerSettings(): Promise<TimerSettings | null> {
@@ -79,13 +80,42 @@ export async function saveNotificationsEnabled(enabled: boolean): Promise<void> 
   }
 }
 
+export async function loadBrainDumpItems(): Promise<BrainDumpItem[]> {
+  try {
+    const data = await AsyncStorage.getItem(KEYS.BRAIN_DUMP);
+    return data ? (JSON.parse(data) as BrainDumpItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveBrainDumpItems(items: BrainDumpItem[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.BRAIN_DUMP, JSON.stringify(items));
+  } catch {
+    // noop
+  }
+}
+
+export async function addBrainDumpItem(item: BrainDumpItem): Promise<void> {
+  const existing = await loadBrainDumpItems();
+  await saveBrainDumpItems([...existing, item]);
+}
+
+export async function deleteBrainDumpItem(id: string): Promise<void> {
+  const existing = await loadBrainDumpItems();
+  await saveBrainDumpItems(existing.filter((i) => i.id !== id));
+}
+
 export async function shouldShowStarterRoutine(): Promise<boolean> {
   try {
     const flag = await AsyncStorage.getItem(KEYS.FIRST_LAUNCH);
     const customData = await AsyncStorage.getItem(KEYS.CUSTOM_EVENTS);
+    const dumpData = await AsyncStorage.getItem(KEYS.BRAIN_DUMP);
     const hasCustom = !!customData && (JSON.parse(customData) as CustomEvent[]).length > 0;
+    const hasDump = !!dumpData && (JSON.parse(dumpData) as BrainDumpItem[]).length > 0;
 
-    if (hasCustom) return false;
+    if (hasCustom || hasDump) return false;
 
     if (flag === 'true') {
       // Past first launch, no custom events → show empty state
@@ -107,6 +137,7 @@ export async function clearAllData(): Promise<void> {
       KEYS.TIMER_SETTINGS,
       KEYS.FIRST_LAUNCH,
       KEYS.NOTIFICATIONS_ENABLED,
+      KEYS.BRAIN_DUMP,
     ]);
   } catch {
     // noop

@@ -430,7 +430,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle, ori
             value={title}
             onChangeText={setTitle}
             returnKeyType="done"
-            autoFocus
+            autoFocus={!isEditing && !initialTitle}
           />
 
           <Text style={styles.label}>Category</Text>

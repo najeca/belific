@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 1.1.1 — 2026-07-30
+
+- **Fix:** the event title field autofocused unconditionally on every
+  form open, including when already populated (editing an event, or
+  Dump promotion via `initialTitle`) — keyboard up + cursor in
+  existing text on open is the exact mechanical pattern of a rename
+  dialog, which is what made it feel that way. A genuinely blank new
+  event still autofocuses (correct — matches the fast-capture goal);
+  editing and Dump-prefilled opens no longer do.
+
+---
+
 ## 1.1.0 — 2026-07-30
 
 Batch: Dump interaction rework, recurrence day-picker, category

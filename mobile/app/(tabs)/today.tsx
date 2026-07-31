@@ -220,13 +220,22 @@ export default function TodayScreen() {
     loadRoutinesData();
   }
 
+  // Updates the row in place rather than reloading from getTopTasks —
+  // that filters out completed tasks by design, which would make the
+  // row vanish/get replaced the instant it's tapped: no visible checked
+  // state, and no way to tap again to undo from this same view. Staying
+  // in place keeps the toggle genuinely reversible (matching Routine's
+  // toggle) until the next natural refresh (refocus/pull-to-refresh),
+  // which is when a newly-completed task should actually vacate its
+  // Top 3 slot.
   async function toggleTopTask(task: Task) {
-    await updateTask({
+    const updated: Task = {
       ...task,
       completed: !task.completed,
       completedAt: !task.completed ? new Date().toISOString() : undefined,
-    });
-    loadTopTasks();
+    };
+    await updateTask(updated);
+    setTopTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
   }
 
   async function loadEvents() {
@@ -462,17 +471,24 @@ export default function TodayScreen() {
                   <TouchableOpacity
                     onPress={() => toggleTopTask(task)}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessibilityLabel="Mark complete"
+                    accessibilityLabel={task.completed ? 'Mark incomplete' : 'Mark complete'}
                     accessibilityRole="button"
                   >
-                    <Ionicons name="ellipse-outline" size={20} color={Colors.textSecondary} />
+                    <Ionicons
+                      name={task.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={20}
+                      color={task.completed ? Colors.accent : Colors.textSecondary}
+                    />
                   </TouchableOpacity>
                   {task.priority === 'high' && (
                     <Ionicons name="flag" size={12} color={Colors.accentText} style={styles.priorityFlag} />
                   )}
                   {task.origin === 'dump' && <Text style={styles.taskOriginEmoji}>🧠</Text>}
                   <Text
-                    style={[styles.routineTitle, task.priority === 'low' && styles.routineTitleDone]}
+                    style={[
+                      styles.routineTitle,
+                      (task.completed || task.priority === 'low') && styles.routineTitleDone,
+                    ]}
                     numberOfLines={1}
                   >
                     {task.title}

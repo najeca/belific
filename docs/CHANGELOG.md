@@ -8,6 +8,30 @@ to know the current version and recent history.
 
 ---
 
+## 1.5.4 — 2026-07-31
+
+- **Fix:** Top 3 Tasks checkbox on Today didn't show a checked state
+  and completing a task there was effectively irreversible from that
+  view. Two compounding bugs: the checkbox icon was hardcoded to
+  `ellipse-outline` unconditionally, never checking `task.completed`
+  at all (unlike the Routine checkbox, which already switched icons
+  correctly); and `toggleTopTask` called `loadTopTasks()` right after
+  toggling, which re-derives the list via `getTopTasks()` —
+  deliberately filters out completed tasks — so the row would vanish/
+  get replaced the instant it was tapped, before any checked state
+  could be seen and with no way to tap again to undo from the same
+  spot. Fixed both: the icon now reflects `task.completed`, and
+  toggling updates the row in place (optimistic local state update)
+  instead of immediately re-fetching/re-filtering, so it stays visible
+  and genuinely reversible — tap again to un-complete — until the next
+  natural refresh (refocus/pull-to-refresh), which is when a completed
+  task should actually vacate its Top 3 slot. Confirmed the Tasks
+  screen's own checkbox was unaffected — it already conditioned the
+  icon on `item.completed` and its full list keeps completed tasks
+  visible (dimmed, moved to the bottom) rather than filtering them out.
+
+---
+
 ## 1.5.3 — 2026-07-31
 
 - **Simplified Brain Dump back to fast-capture only.** Removed the

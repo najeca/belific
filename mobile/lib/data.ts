@@ -69,13 +69,24 @@ export function resolveCategoryMeta(
 export function getLegacyCategoriesInUse(events: CustomEvent[]): CustomCategory[] {
   const seen = new Set<string>();
   const result: CustomCategory[] = [];
+  // Synthetic, never persisted — these represent built-in CATEGORIES
+  // entries, not real CustomCategory rows, so createdAt/updatedAt are
+  // just placeholders to satisfy the type, never read or compared.
+  const placeholder = new Date().toISOString();
   for (const e of events) {
     if (DEFAULT_CATEGORY_KEYS.includes(e.category as CategoryKey)) continue;
     if (seen.has(e.category)) continue;
     const legacy = CATEGORIES[e.category as CategoryKey];
     if (!legacy) continue;
     seen.add(e.category);
-    result.push({ key: e.category, name: legacy.name, icon: legacy.icon, color: legacy.color });
+    result.push({
+      key: e.category,
+      name: legacy.name,
+      icon: legacy.icon,
+      color: legacy.color,
+      createdAt: placeholder,
+      updatedAt: placeholder,
+    });
   }
   return result;
 }
@@ -165,8 +176,21 @@ export function durationMinutes(start: string, end: string): number {
   return timeToMinutes(end) - timeToMinutes(start);
 }
 
-function generateId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+// RFC4122 v4 UUID, generated from crypto.getRandomValues (polyfilled by
+// react-native-get-random-values, imported first thing in index.js —
+// see decision 003's "Consequences" note). Real randomness matters now
+// that ids may need to be unique across devices for cloud sync, not
+// just within one device's own AsyncStorage. Existing Date.now()-based
+// ids already saved anywhere are never touched or regenerated — both
+// formats are just opaque strings and coexist permanently; only new
+// rows created from here on get this format.
+export function generateId(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function resolveTemplateEvent(e: WeeklyTemplateEvent, index: number): ScheduleEvent {
@@ -263,12 +287,13 @@ export function computeCategoryStats(events: ScheduleEvent[], customCategories: 
     .sort((a, b) => b.totalMinutes - a.totalMinutes);
 }
 
-export function createCustomEvent(fields: Omit<CustomEvent, 'id'>): CustomEvent {
-  return { ...fields, id: generateId() };
+export function createCustomEvent(fields: Omit<CustomEvent, 'id' | 'updatedAt'>): CustomEvent {
+  return { ...fields, id: generateId(), updatedAt: new Date().toISOString() };
 }
 
 export function createBrainDumpItem(title: string): BrainDumpItem {
-  return { id: generateId(), title, notes: '', createdAt: new Date().toISOString() };
+  const now = new Date().toISOString();
+  return { id: generateId(), title, notes: '', createdAt: now, updatedAt: now };
 }
 
 // Recurring events are materialized as concrete rows up front rather than
@@ -322,7 +347,7 @@ function startOfWeek(d: Date): Date {
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
 export function generateRecurringEvents(
-  fields: Omit<CustomEvent, 'id' | 'date' | 'recurrence' | 'seriesId' | 'recurrenceDays'>,
+  fields: Omit<CustomEvent, 'id' | 'date' | 'recurrence' | 'seriesId' | 'recurrenceDays' | 'updatedAt'>,
   rule: RecurrenceRule,
   anchorDate: Date,
   days?: WeekDay[],
@@ -331,11 +356,13 @@ export function generateRecurringEvents(
   const horizon = new Date(anchorDate);
   horizon.setDate(horizon.getDate() + RECURRENCE_HORIZON_DAYS);
   const events: CustomEvent[] = [];
+  // Every row in a freshly-generated series shares one creation instant.
+  const updatedAt = new Date().toISOString();
 
   if (rule === 'daily' || rule === 'monthly') {
     let current = new Date(anchorDate);
     while (current <= horizon) {
-      events.push({ ...fields, id: generateId(), date: formatDateKey(current), recurrence: rule, seriesId });
+      events.push({ ...fields, id: generateId(), date: formatDateKey(current), recurrence: rule, seriesId, updatedAt });
       current = nextOccurrence(current, rule);
     }
     return events;
@@ -366,6 +393,7 @@ export function generateRecurringEvents(
           recurrence: rule,
           seriesId,
           recurrenceDays: selectedDays,
+          updatedAt,
         });
       }
     }

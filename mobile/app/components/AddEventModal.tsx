@@ -304,11 +304,14 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle, ori
           'Pick an emoji for this category (optional)',
           (icon) => {
             const colorIndex = pickerCategories.length % CUSTOM_CATEGORY_COLOR_POOL.length;
+            const now = new Date().toISOString();
             const newCategory: CustomCategory = {
               key: `custom-${Date.now().toString(36)}`,
               name: trimmedName,
               icon: icon?.trim() || '📌',
               color: CUSTOM_CATEGORY_COLOR_POOL[colorIndex],
+              createdAt: now,
+              updatedAt: now,
             };
             addCustomCategory(newCategory).then(() => {
               setPickerCategories((prev) => [...prev, newCategory]);

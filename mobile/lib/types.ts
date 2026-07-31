@@ -29,6 +29,11 @@ export interface CustomCategory {
   name: string;
   icon: string;
   color: string;
+  // Same as Project above — no timestamps existed before this; existing
+  // rows get both backfilled to a shared migration timestamp.
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
 }
 
 export type DayTypeKey = 'workDay' | 'nonWorkDay' | 'examDay' | 'birthdayDay';
@@ -104,6 +109,18 @@ export interface CustomEvent {
   // edits, so a scheduled Dump item stays visually identifiable as having
   // come from there. Never set any other way.
   origin?: 'dump';
+  // Sync bookkeeping (added for optional-account cloud backup) — stamped
+  // by storage.ts on every add/update, never set by callers directly.
+  // Drives last-write-wins conflict resolution when the same row exists
+  // on two devices.
+  updatedAt: string;
+  // Soft-delete marker — absent means alive, same "absence = default"
+  // convention as priority/recurrence/origin above. Deletes set this
+  // instead of removing the row so a delete can propagate to other
+  // devices during sync; storage.ts prunes tombstones for real after a
+  // retention window once they're old enough that every device has had
+  // a chance to see them.
+  deletedAt?: string;
 }
 
 // A brain-dump item is deliberately not a CustomEvent with optional
@@ -117,6 +134,9 @@ export interface BrainDumpItem {
   title: string;
   notes: string;
   createdAt: string;
+  // See CustomEvent.updatedAt / deletedAt above — same sync bookkeeping.
+  updatedAt: string;
+  deletedAt?: string;
 }
 
 // Time-of-day grouping for Routines (habit-tracker feature) — a
@@ -129,6 +149,9 @@ export interface Routine {
   title: string;
   timeOfDay: TimeOfDay;
   createdAt: string;
+  // See CustomEvent.updatedAt / deletedAt above — same sync bookkeeping.
+  updatedAt: string;
+  deletedAt?: string;
 }
 
 // One row per completed day, per routine — not append-only despite the
@@ -156,6 +179,9 @@ export interface Task {
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';
+  // See CustomEvent.updatedAt / deletedAt above — same sync bookkeeping.
+  updatedAt: string;
+  deletedAt?: string;
 }
 
 // Lightweight tag only — no color/icon, just a filter label. Deliberately
@@ -164,6 +190,14 @@ export interface Task {
 export interface Project {
   key: string;
   name: string;
+  // Added for optional-account cloud backup — see CustomEvent.updatedAt
+  // above. Project had no timestamps at all before this; existing rows
+  // get both backfilled to a shared migration timestamp (see
+  // migrateToSyncableSchema in storage.ts), since there's no earlier
+  // "real" creation time to recover.
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
 }
 
 export interface TimerSettings {

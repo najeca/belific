@@ -19,6 +19,7 @@ import {
   PRIORITY_LABELS,
   PRIORITY_DESCRIPTIONS,
   formatDateKey,
+  generateId,
   type PriorityChoice,
 } from '../../lib/data';
 import {
@@ -32,10 +33,6 @@ import type { EventPriority, Project, Task } from '../../lib/types';
 
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function generateId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 function formatDueDate(d: Date): string {
   return `${SHORT_DAYS[d.getDay()]} ${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
@@ -104,7 +101,13 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
       (name) => {
         const trimmed = name?.trim();
         if (!trimmed) return;
-        const newProject: Project = { key: `project-${Date.now().toString(36)}`, name: trimmed };
+        const now = new Date().toISOString();
+        const newProject: Project = {
+          key: `project-${Date.now().toString(36)}`,
+          name: trimmed,
+          createdAt: now,
+          updatedAt: now,
+        };
         addProject(newProject).then(() => {
           setProjects((prev) => [...prev, newProject]);
           setProjectKey(newProject.key);
@@ -142,6 +145,7 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
         projectKey,
       });
     } else {
+      const now = new Date().toISOString();
       await addTask({
         id: generateId(),
         title: title.trim(),
@@ -149,7 +153,8 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
         priority: priorityField,
         projectKey,
         completed: false,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
         origin,
       });
     }

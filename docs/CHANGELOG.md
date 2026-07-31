@@ -8,6 +8,64 @@ to know the current version and recent history.
 
 ---
 
+## 1.7.0 — 2026-07-31
+
+- **Phase A of optional accounts + cloud backup: local data-shape
+  restructuring, no backend yet.** Reverses no part of decision 003
+  ("No Supabase for v1") by itself — this ships standalone, works
+  identically offline-only, and is a prerequisite for the sync work in
+  003's own "Do Not Change Unless" clause, not the sync itself.
+  - **`updatedAt`** added to `CustomEvent`, `BrainDumpItem`, `Routine`,
+    `Task`, `Project`, `CustomCategory` — needed for last-write-wins
+    conflict resolution once sync exists. `Project`/`CustomCategory` had
+    no timestamps at all before this; both also gained `createdAt`.
+    Every `addX`/`updateX` in `storage.ts` now stamps it server-side
+    (the single source of truth — call sites don't need to remember to
+    set it correctly on every edit).
+  - **One-time migration** (`migrateToSyncableSchema`, gated by a new
+    `belific_schema_migrated_v2` flag, same pattern as
+    `belific_owner_seeded`) backfills `updatedAt` on every already-saved
+    row from `createdAt` where it exists, or a single shared migration
+    timestamp for `CustomEvent`/`Project`/`CustomCategory` (which had no
+    earlier timestamp to recover). Runs once on app launch, before
+    anything else touches storage; every write it does is
+    backfill-if-missing, so it's safe to no-op or retry indefinitely.
+    Never rewrites an id, never removes a row.
+  - **Ids switched to real random UUIDs** (RFC4122 v4, generated from
+    `crypto.getRandomValues`, already polyfilled via
+    `react-native-get-random-values` per decision 003's own
+    "Consequences" note) for all *newly created* rows — needed once ids
+    may need to be unique across devices, not just within one device's
+    own AsyncStorage. Deliberately **not** a new npm dependency (a
+    ~10-line local generator instead) given this repo's build history of
+    dependency-change pain documented in `IOS_BUILD_NOTES.md`. Existing
+    `Date.now()`-based ids are never touched or regenerated — both
+    formats coexist permanently as opaque strings.
+  - **Soft-delete tombstones** (`deletedAt?`) added to `CustomEvent`,
+    `BrainDumpItem`, `Routine`, `Task`, `Project`, `CustomCategory`.
+    Delete functions in `storage.ts` now set this instead of removing
+    the row outright; every loader filters tombstoned rows out (never
+    visible to any screen) and prunes them for real after 90 days once
+    old enough that a slow-to-sync device would have had a chance to see
+    the delete. `shouldShowStarterRoutine` updated to use the
+    tombstone-filtered loaders instead of raw `AsyncStorage` reads — it
+    would otherwise have permanently miscounted a store containing only
+    soft-deleted rows as "has data."
+  - **`RoutineCompletion` deliberately excluded** from all of the above —
+    no `updatedAt`, no tombstone. Un-completing a routine is frequent,
+    intentional, everyday behavior (per its own existing code comment),
+    not an occasional cleanup action; tombstoning it would mean
+    permanently retaining a complete/uncomplete pair for every day of
+    every routine's life. Its sync story (Phase D, not yet built) is a
+    real row delete on its `(routineId, date)` composite key, with
+    conflicts resolved by whichever device's sync reaches the server
+    last — deliberately the simple version, not a rigorous per-row
+    timestamp queue, since this is one person's own data across their
+    own devices and a same-day toggle collision is rare, low-stakes, and
+    self-correcting.
+
+---
+
 ## 1.6.1 — 2026-07-31
 
 - **Starter Routines now show a one-emoji icon per item** (💧 drink

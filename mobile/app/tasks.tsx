@@ -12,14 +12,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../lib/theme';
-import { sortTasksForDisplay, STARTER_TOP_TASKS } from '../lib/data';
+import { sortTasksForDisplay, STARTER_TOP_TASKS, generateId } from '../lib/data';
 import { loadTasks, addTask, updateTask, loadProjects, shouldShowStarterRoutine } from '../lib/storage';
 import TaskFormModal from './components/TaskForm';
 import type { Project, Task } from '../lib/types';
-
-function generateId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -51,7 +47,8 @@ export default function TasksScreen() {
   async function handleCapture() {
     const trimmed = captureText.trim();
     if (!trimmed) return;
-    await addTask({ id: generateId(), title: trimmed, completed: false, createdAt: new Date().toISOString() });
+    const now = new Date().toISOString();
+    await addTask({ id: generateId(), title: trimmed, completed: false, createdAt: now, updatedAt: now });
     setCaptureText('');
     loadTasks().then(setTasks);
     inputRef.current?.focus();

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { backfillUpdatedAt, backfillCreatedAndUpdatedAt } from './migrations';
 import type {
   BrainDumpItem,
   CustomCategory,
@@ -21,9 +22,15 @@ const KEYS = {
   ROUTINE_COMPLETIONS: 'belific_routine_completions',
   TASKS: 'belific_tasks',
   PROJECTS: 'belific_projects',
+  SCHEMA_MIGRATED_V2: 'belific_schema_migrated_v2',
 } as const;
 
 const COMPLETION_RETENTION_DAYS = 90;
+// How long a tombstoned (soft-deleted) row is kept around before being
+// pruned for real — long enough that a device which hasn't synced in a
+// while still gets a chance to see the delete before the row vanishes
+// from the source of truth entirely.
+const TOMBSTONE_RETENTION_DAYS = 90;
 
 function dateKeyDaysAgo(days: number): string {
   const d = new Date();
@@ -32,6 +39,27 @@ function dateKeyDaysAgo(days: number): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function isoDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString();
+}
+
+// Filters out tombstoned rows entirely (never shown to callers) and
+// separately reports whether any tombstone was old enough to prune from
+// storage for real — same two-step shape as the RoutineCompletion
+// prune-on-load below, just generalized. String comparison on ISO
+// timestamps is safe: fixed-width, lexicographic order matches
+// chronological order.
+function pruneAndHideTombstones<T extends { deletedAt?: string }>(
+  items: T[],
+): { visible: T[]; forStorage: T[]; changed: boolean } {
+  const cutoff = isoDaysAgo(TOMBSTONE_RETENTION_DAYS);
+  const forStorage = items.filter((i) => !i.deletedAt || i.deletedAt >= cutoff);
+  const visible = forStorage.filter((i) => !i.deletedAt);
+  return { visible, forStorage, changed: forStorage.length !== items.length };
 }
 
 export async function loadTimerSettings(): Promise<TimerSettings | null> {
@@ -51,13 +79,23 @@ export async function saveTimerSettings(settings: TimerSettings): Promise<void> 
   }
 }
 
-export async function loadCustomEvents(): Promise<CustomEvent[]> {
+// Loads raw, unfiltered rows including tombstones — only the migration
+// function and internal helpers below should use this; every other
+// caller wants loadCustomEvents.
+async function loadCustomEventsRaw(): Promise<CustomEvent[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.CUSTOM_EVENTS);
     return data ? (JSON.parse(data) as CustomEvent[]) : [];
   } catch {
     return [];
   }
+}
+
+export async function loadCustomEvents(): Promise<CustomEvent[]> {
+  const all = await loadCustomEventsRaw();
+  const { visible, forStorage, changed } = pruneAndHideTombstones(all);
+  if (changed) await saveCustomEvents(forStorage);
+  return visible;
 }
 
 export async function saveCustomEvents(events: CustomEvent[]): Promise<void> {
@@ -69,34 +107,42 @@ export async function saveCustomEvents(events: CustomEvent[]): Promise<void> {
 }
 
 export async function addCustomEvent(event: CustomEvent): Promise<void> {
-  const existing = await loadCustomEvents();
-  await saveCustomEvents([...existing, event]);
+  const existing = await loadCustomEventsRaw();
+  await saveCustomEvents([...existing, { ...event, updatedAt: new Date().toISOString() }]);
 }
 
 // Bulk variant for materialized recurring series — one load/save round
 // trip instead of one per occurrence.
 export async function addCustomEvents(events: CustomEvent[]): Promise<void> {
-  const existing = await loadCustomEvents();
-  await saveCustomEvents([...existing, ...events]);
+  const existing = await loadCustomEventsRaw();
+  const now = new Date().toISOString();
+  await saveCustomEvents([...existing, ...events.map((e) => ({ ...e, updatedAt: now }))]);
 }
 
 // Removes one occurrence plus every other row sharing its seriesId with
-// a date on or after it — "this and all future occurrences".
+// a date on or after it — "this and all future occurrences". Tombstoned
+// (deletedAt set), not removed outright — see CustomEvent.deletedAt.
 export async function deleteCustomEventSeriesFrom(seriesId: string, fromDate: string): Promise<void> {
-  const existing = await loadCustomEvents();
+  const existing = await loadCustomEventsRaw();
+  const now = new Date().toISOString();
   await saveCustomEvents(
-    existing.filter((e) => !(e.seriesId === seriesId && e.date >= fromDate)),
+    existing.map((e) =>
+      e.seriesId === seriesId && e.date >= fromDate ? { ...e, deletedAt: now, updatedAt: now } : e,
+    ),
   );
 }
 
+// Tombstoned, not removed outright — see CustomEvent.deletedAt.
 export async function deleteCustomEvent(id: string): Promise<void> {
-  const existing = await loadCustomEvents();
-  await saveCustomEvents(existing.filter((e) => e.id !== id));
+  const existing = await loadCustomEventsRaw();
+  const now = new Date().toISOString();
+  await saveCustomEvents(existing.map((e) => (e.id === id ? { ...e, deletedAt: now, updatedAt: now } : e)));
 }
 
 export async function updateCustomEvent(updated: CustomEvent): Promise<void> {
-  const existing = await loadCustomEvents();
-  await saveCustomEvents(existing.map((e) => (e.id === updated.id ? updated : e)));
+  const existing = await loadCustomEventsRaw();
+  const stamped = { ...updated, updatedAt: new Date().toISOString() };
+  await saveCustomEvents(existing.map((e) => (e.id === updated.id ? stamped : e)));
 }
 
 export async function loadCustomEventsForDate(dateKey: string): Promise<CustomEvent[]> {
@@ -121,13 +167,20 @@ export async function saveNotificationsEnabled(enabled: boolean): Promise<void> 
   }
 }
 
-export async function loadBrainDumpItems(): Promise<BrainDumpItem[]> {
+async function loadBrainDumpItemsRaw(): Promise<BrainDumpItem[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.BRAIN_DUMP);
     return data ? (JSON.parse(data) as BrainDumpItem[]) : [];
   } catch {
     return [];
   }
+}
+
+export async function loadBrainDumpItems(): Promise<BrainDumpItem[]> {
+  const all = await loadBrainDumpItemsRaw();
+  const { visible, forStorage, changed } = pruneAndHideTombstones(all);
+  if (changed) await saveBrainDumpItems(forStorage);
+  return visible;
 }
 
 export async function saveBrainDumpItems(items: BrainDumpItem[]): Promise<void> {
@@ -139,18 +192,21 @@ export async function saveBrainDumpItems(items: BrainDumpItem[]): Promise<void> 
 }
 
 export async function addBrainDumpItem(item: BrainDumpItem): Promise<void> {
-  const existing = await loadBrainDumpItems();
-  await saveBrainDumpItems([...existing, item]);
+  const existing = await loadBrainDumpItemsRaw();
+  await saveBrainDumpItems([...existing, { ...item, updatedAt: new Date().toISOString() }]);
 }
 
 export async function updateBrainDumpItem(updated: BrainDumpItem): Promise<void> {
-  const existing = await loadBrainDumpItems();
-  await saveBrainDumpItems(existing.map((i) => (i.id === updated.id ? updated : i)));
+  const existing = await loadBrainDumpItemsRaw();
+  const stamped = { ...updated, updatedAt: new Date().toISOString() };
+  await saveBrainDumpItems(existing.map((i) => (i.id === updated.id ? stamped : i)));
 }
 
+// Tombstoned, not removed outright — see BrainDumpItem.deletedAt.
 export async function deleteBrainDumpItem(id: string): Promise<void> {
-  const existing = await loadBrainDumpItems();
-  await saveBrainDumpItems(existing.filter((i) => i.id !== id));
+  const existing = await loadBrainDumpItemsRaw();
+  const now = new Date().toISOString();
+  await saveBrainDumpItems(existing.map((i) => (i.id === id ? { ...i, deletedAt: now, updatedAt: now } : i)));
 }
 
 // Whether to show starter/example content in place of an empty state —
@@ -162,28 +218,39 @@ export async function deleteBrainDumpItem(id: string): Promise<void> {
 // screen the user opens first and never on the other two.
 export async function shouldShowStarterRoutine(): Promise<boolean> {
   try {
-    const customData = await AsyncStorage.getItem(KEYS.CUSTOM_EVENTS);
-    const dumpData = await AsyncStorage.getItem(KEYS.BRAIN_DUMP);
-    const routinesData = await AsyncStorage.getItem(KEYS.ROUTINES);
-    const tasksData = await AsyncStorage.getItem(KEYS.TASKS);
-    const hasCustom = !!customData && (JSON.parse(customData) as CustomEvent[]).length > 0;
-    const hasDump = !!dumpData && (JSON.parse(dumpData) as BrainDumpItem[]).length > 0;
-    const hasRoutines = !!routinesData && (JSON.parse(routinesData) as Routine[]).length > 0;
-    const hasTasks = !!tasksData && (JSON.parse(tasksData) as Task[]).length > 0;
+    // Uses the public, tombstone-filtered loaders (not raw AsyncStorage
+    // reads) — otherwise a store containing only soft-deleted rows would
+    // count as "has data" and starter content would never come back,
+    // even though nothing is actually visible anymore.
+    const [customEvents, dumpItems, routines, tasks] = await Promise.all([
+      loadCustomEvents(),
+      loadBrainDumpItems(),
+      loadRoutines(),
+      loadTasks(),
+    ]);
 
-    return !(hasCustom || hasDump || hasRoutines || hasTasks);
+    return !(customEvents.length > 0 || dumpItems.length > 0 || routines.length > 0 || tasks.length > 0);
   } catch {
     return false;
   }
 }
 
-export async function loadCustomCategories(): Promise<CustomCategory[]> {
+async function loadCustomCategoriesRaw(): Promise<CustomCategory[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.CUSTOM_CATEGORIES);
     return data ? (JSON.parse(data) as CustomCategory[]) : [];
   } catch {
     return [];
   }
+}
+
+// No delete path exists for CustomCategory yet (see types.ts comment),
+// so there's nothing to tombstone-filter today — this still goes
+// through the same shape as every other loader so a future delete
+// feature is a one-line addition here, not a new pattern.
+export async function loadCustomCategories(): Promise<CustomCategory[]> {
+  const all = await loadCustomCategoriesRaw();
+  return all.filter((c) => !c.deletedAt);
 }
 
 export async function saveCustomCategories(categories: CustomCategory[]): Promise<void> {
@@ -195,19 +262,26 @@ export async function saveCustomCategories(categories: CustomCategory[]): Promis
 }
 
 export async function addCustomCategory(category: CustomCategory): Promise<void> {
-  const existing = await loadCustomCategories();
-  await saveCustomCategories([...existing, category]);
+  const existing = await loadCustomCategoriesRaw();
+  await saveCustomCategories([...existing, { ...category, updatedAt: new Date().toISOString() }]);
 }
 
 // --- Routines ---
 
-export async function loadRoutines(): Promise<Routine[]> {
+async function loadRoutinesRaw(): Promise<Routine[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.ROUTINES);
     return data ? (JSON.parse(data) as Routine[]) : [];
   } catch {
     return [];
   }
+}
+
+export async function loadRoutines(): Promise<Routine[]> {
+  const all = await loadRoutinesRaw();
+  const { visible, forStorage, changed } = pruneAndHideTombstones(all);
+  if (changed) await saveRoutines(forStorage);
+  return visible;
 }
 
 export async function saveRoutines(routines: Routine[]): Promise<void> {
@@ -219,21 +293,26 @@ export async function saveRoutines(routines: Routine[]): Promise<void> {
 }
 
 export async function addRoutine(routine: Routine): Promise<void> {
-  const existing = await loadRoutines();
-  await saveRoutines([...existing, routine]);
+  const existing = await loadRoutinesRaw();
+  await saveRoutines([...existing, { ...routine, updatedAt: new Date().toISOString() }]);
 }
 
 export async function updateRoutine(updated: Routine): Promise<void> {
-  const existing = await loadRoutines();
-  await saveRoutines(existing.map((r) => (r.id === updated.id ? updated : r)));
+  const existing = await loadRoutinesRaw();
+  const stamped = { ...updated, updatedAt: new Date().toISOString() };
+  await saveRoutines(existing.map((r) => (r.id === updated.id ? stamped : r)));
 }
 
+// Tombstoned, not removed outright — see Routine.deletedAt.
 export async function deleteRoutine(id: string): Promise<void> {
-  const existing = await loadRoutines();
-  await saveRoutines(existing.filter((r) => r.id !== id));
+  const existing = await loadRoutinesRaw();
+  const now = new Date().toISOString();
+  await saveRoutines(existing.map((r) => (r.id === id ? { ...r, deletedAt: now, updatedAt: now } : r)));
   // A deleted routine's completion history is meaningless on its own
   // (nothing displays it — no streak/history view exists), so it's
-  // cleaned up here rather than left as orphaned rows.
+  // cleaned up here rather than left as orphaned rows. Completions are
+  // never tombstoned (see the section comment below) — a real removal
+  // here is correct, not an inconsistency.
   const completions = await loadRoutineCompletions();
   await saveRoutineCompletions(completions.filter((c) => c.routineId !== id));
 }
@@ -287,13 +366,20 @@ export async function deleteRoutineCompletion(routineId: string, date: string): 
 
 // --- Tasks ---
 
-export async function loadTasks(): Promise<Task[]> {
+async function loadTasksRaw(): Promise<Task[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.TASKS);
     return data ? (JSON.parse(data) as Task[]) : [];
   } catch {
     return [];
   }
+}
+
+export async function loadTasks(): Promise<Task[]> {
+  const all = await loadTasksRaw();
+  const { visible, forStorage, changed } = pruneAndHideTombstones(all);
+  if (changed) await saveTasks(forStorage);
+  return visible;
 }
 
 export async function saveTasks(tasks: Task[]): Promise<void> {
@@ -305,30 +391,40 @@ export async function saveTasks(tasks: Task[]): Promise<void> {
 }
 
 export async function addTask(task: Task): Promise<void> {
-  const existing = await loadTasks();
-  await saveTasks([...existing, task]);
+  const existing = await loadTasksRaw();
+  await saveTasks([...existing, { ...task, updatedAt: new Date().toISOString() }]);
 }
 
 export async function updateTask(updated: Task): Promise<void> {
-  const existing = await loadTasks();
-  await saveTasks(existing.map((t) => (t.id === updated.id ? updated : t)));
+  const existing = await loadTasksRaw();
+  const stamped = { ...updated, updatedAt: new Date().toISOString() };
+  await saveTasks(existing.map((t) => (t.id === updated.id ? stamped : t)));
 }
 
+// Tombstoned, not removed outright — see Task.deletedAt.
 export async function deleteTask(id: string): Promise<void> {
-  const existing = await loadTasks();
-  await saveTasks(existing.filter((t) => t.id !== id));
+  const existing = await loadTasksRaw();
+  const now = new Date().toISOString();
+  await saveTasks(existing.map((t) => (t.id === id ? { ...t, deletedAt: now, updatedAt: now } : t)));
 }
 
 // --- Projects ---
 // Lightweight tag only — see the Project type comment in types.ts.
 
-export async function loadProjects(): Promise<Project[]> {
+async function loadProjectsRaw(): Promise<Project[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.PROJECTS);
     return data ? (JSON.parse(data) as Project[]) : [];
   } catch {
     return [];
   }
+}
+
+// No delete path exists for Project yet — see loadCustomCategories'
+// identical situation above.
+export async function loadProjects(): Promise<Project[]> {
+  const all = await loadProjectsRaw();
+  return all.filter((p) => !p.deletedAt);
 }
 
 export async function saveProjects(projects: Project[]): Promise<void> {
@@ -340,8 +436,8 @@ export async function saveProjects(projects: Project[]): Promise<void> {
 }
 
 export async function addProject(project: Project): Promise<void> {
-  const existing = await loadProjects();
-  await saveProjects([...existing, project]);
+  const existing = await loadProjectsRaw();
+  await saveProjects([...existing, { ...project, updatedAt: new Date().toISOString() }]);
 }
 
 export async function clearAllData(): Promise<void> {
@@ -357,8 +453,69 @@ export async function clearAllData(): Promise<void> {
       KEYS.ROUTINE_COMPLETIONS,
       KEYS.TASKS,
       KEYS.PROJECTS,
+      KEYS.SCHEMA_MIGRATED_V2,
     ]);
   } catch {
     // noop
+  }
+}
+
+// One-time upgrade for optional-account cloud backup: every mutable
+// type needs `updatedAt` for last-write-wins conflict resolution, and
+// Project/CustomCategory had no timestamps at all before this. Runs
+// once per install (gated by SCHEMA_MIGRATED_V2, same pattern as
+// belific_owner_seeded) and only ever backfills missing fields — it
+// never rewrites ids, never touches rows that already have updatedAt,
+// and never removes anything. Safe to call on every app launch; it
+// no-ops immediately after the first real run.
+export async function migrateToSyncableSchema(): Promise<void> {
+  try {
+    const already = await AsyncStorage.getItem(KEYS.SCHEMA_MIGRATED_V2);
+    if (already === 'true') return;
+
+    const migrationTimestamp = new Date().toISOString();
+
+    // CustomEvent never had a createdAt field to fall back to — the
+    // `item.createdAt ?? migrationTimestamp` inside backfillUpdatedAt
+    // resolves straight to migrationTimestamp for it, same function as
+    // the three types that do have createdAt, no separate case needed.
+    const events = await loadCustomEventsRaw();
+    const migratedEvents = backfillUpdatedAt(events, migrationTimestamp);
+    await saveCustomEvents(migratedEvents);
+
+    const dumpItems = await loadBrainDumpItemsRaw();
+    const migratedDump = backfillUpdatedAt(dumpItems, migrationTimestamp);
+    await saveBrainDumpItems(migratedDump);
+
+    const routines = await loadRoutinesRaw();
+    const migratedRoutines = backfillUpdatedAt(routines, migrationTimestamp);
+    await saveRoutines(migratedRoutines);
+
+    const tasks = await loadTasksRaw();
+    const migratedTasks = backfillUpdatedAt(tasks, migrationTimestamp);
+    await saveTasks(migratedTasks);
+
+    // Project/CustomCategory had no timestamps at all — both fields
+    // backfilled together.
+    const projects = await loadProjectsRaw();
+    const migratedProjects = backfillCreatedAndUpdatedAt(projects, migrationTimestamp);
+    await saveProjects(migratedProjects);
+
+    const categories = await loadCustomCategoriesRaw();
+    const migratedCategories = backfillCreatedAndUpdatedAt(categories, migrationTimestamp);
+    await saveCustomCategories(migratedCategories);
+
+    await AsyncStorage.setItem(KEYS.SCHEMA_MIGRATED_V2, 'true');
+    // Counts only, never titles/content — for one-time confirmation via
+    // device console that this ran and touched the expected rows.
+    console.log(
+      `[migrateToSyncableSchema] done — events:${migratedEvents.length} dump:${migratedDump.length} ` +
+        `routines:${migratedRoutines.length} tasks:${migratedTasks.length} projects:${migratedProjects.length} ` +
+        `categories:${migratedCategories.length}`,
+    );
+  } catch {
+    // noop — if this fails, it retries next launch since the flag is
+    // only set on success, and every write above is independently safe
+    // to redo (backfill-if-missing is idempotent).
   }
 }

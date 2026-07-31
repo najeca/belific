@@ -12,7 +12,7 @@ export async function seedDevEvents(): Promise<void> {
 
   const today = formatDateKey(new Date());
 
-  const raw: Omit<CustomEvent, 'id'>[] = [
+  const raw: Omit<CustomEvent, 'id' | 'updatedAt'>[] = [
     { title: 'Morning routine',  category: 'routine',  icon: '🌅', start: '07:00', end: '07:30', notes: '', date: today },
     { title: 'Breakfast',        category: 'free',     icon: '🍳', start: '07:30', end: '08:00', notes: '', date: today },
     { title: 'Gym session',      category: 'fitness',  icon: '💪', start: '08:00', end: '09:00', notes: '', date: today },
@@ -32,6 +32,7 @@ export async function seedDevEvents(): Promise<void> {
   const events: CustomEvent[] = raw.map((fields, i) => ({
     ...fields,
     id: `dev-seed-${i}`,
+    updatedAt: new Date().toISOString(),
   }));
 
   const existing = await AsyncStorage.getItem('belific_custom_events');

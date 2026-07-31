@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { requestPermissions } from '../lib/notifications';
 import { useTimerStore } from '../lib/store';
 import { seedDevEvents } from '../lib/devSeed';
+import { migrateToSyncableSchema } from '../lib/storage';
 import { Colors } from '../lib/theme';
 
 Notifications.setNotificationHandler({
@@ -97,6 +98,10 @@ function RootLayoutInner() {
   useEffect(() => {
     hydrate();
     (async () => {
+      // Must run before anything else touches storage — every load/save
+      // path below (and every screen's useFocusEffect) assumes updatedAt
+      // already exists on every row.
+      await migrateToSyncableSchema();
       await seedDevEvents();
       await requestPermissions();
     })();

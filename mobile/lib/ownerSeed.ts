@@ -187,6 +187,7 @@ export async function seedOwnerSchedule(): Promise<void> {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const generatedAt = new Date().toISOString();
 
   const seedEvents: CustomEvent[] = [];
   const WEEKS = 12;
@@ -213,6 +214,7 @@ export async function seedOwnerSchedule(): Promise<void> {
         end: raw.end,
         notes: '',
         date: dateKey,
+        updatedAt: generatedAt,
       });
     });
   }

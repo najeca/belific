@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
+import { generateId } from '../../lib/data';
 import { addRoutine, updateRoutine, deleteRoutine } from '../../lib/storage';
 import type { Routine, TimeOfDay } from '../../lib/types';
 
@@ -22,10 +23,6 @@ const TIME_OF_DAY_LABELS: Record<TimeOfDay, string> = {
   afternoon: 'Afternoon',
   evening: 'Evening',
 };
-
-function generateId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 interface RoutineFormContentProps {
   onClose: () => void;
@@ -68,11 +65,13 @@ export function RoutineFormContent({ onClose, onSaved, editRoutine }: RoutineFor
     if (isEditing && editRoutine) {
       await updateRoutine({ ...editRoutine, title: title.trim(), timeOfDay });
     } else {
+      const now = new Date().toISOString();
       await addRoutine({
         id: generateId(),
         title: title.trim(),
         timeOfDay,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       });
     }
     reset();

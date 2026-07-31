@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Pressable,
   FlatList,
   Modal,
+  KeyboardAvoidingView,
   StyleSheet,
   LayoutAnimation,
   Platform,
@@ -18,10 +19,13 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { createBrainDumpItem } from '../../lib/data';
-import { loadBrainDumpItems, addBrainDumpItem, deleteBrainDumpItem } from '../../lib/storage';
-import { EventForm } from '../components/AddEventModal';
-import { TaskFormContent } from '../components/TaskForm';
-import type { BrainDumpItem, CustomEvent } from '../../lib/types';
+import {
+  loadBrainDumpItems,
+  addBrainDumpItem,
+  updateBrainDumpItem,
+  deleteBrainDumpItem,
+} from '../../lib/storage';
+import type { BrainDumpItem } from '../../lib/types';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -83,7 +87,7 @@ function DumpCard({
         style={styles.card}
         onPress={handlePress}
         accessibilityLabel={item.title}
-        accessibilityHint="Tap for options. Swipe left to delete."
+        accessibilityHint="Tap to edit. Swipe left to delete."
       >
         <View style={styles.cardHeader}>
           <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
@@ -97,15 +101,93 @@ function DumpCard({
   );
 }
 
+// Simple edit view — title and notes only. Brain Dump is fast capture,
+// nothing more; no scheduling, no promotion, no date/time fields
+// anywhere in this flow. Deleting lives entirely in the swipe gesture,
+// not duplicated here.
+function DumpEditForm({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: BrainDumpItem;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [title, setTitle] = useState(item.title);
+  const [notes, setNotes] = useState(item.notes);
+
+  useEffect(() => {
+    setTitle(item.title);
+    setNotes(item.notes);
+  }, [item.id]);
+
+  const canSave = title.trim().length > 0;
+
+  async function handleSave() {
+    if (!canSave) return;
+    await updateBrainDumpItem({ ...item, title: title.trim(), notes: notes.trim() });
+    onSaved();
+  }
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.editContainer, { paddingTop: insets.top + 16 }]}>
+        <View style={styles.editHeader}>
+          <Text style={styles.editHeaderTitle}>Edit thought</Text>
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+
+        <TextInput
+          style={styles.editTitleInput}
+          placeholder="What's on your mind?"
+          placeholderTextColor={Colors.textSecondary}
+          value={title}
+          onChangeText={setTitle}
+          returnKeyType="done"
+        />
+
+        <Text style={styles.editLabel}>Notes</Text>
+        <TextInput
+          style={styles.editNotesInput}
+          placeholder="Add more detail… (optional)"
+          placeholderTextColor={Colors.textSecondary}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+
+        <View style={{ flex: 1 }} />
+
+        <View style={[styles.editFooter, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity style={styles.cancelBtn} onPress={onClose} accessibilityLabel="Cancel" accessibilityRole="button">
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={!canSave}
+            accessibilityLabel="Save changes"
+            accessibilityRole="button"
+          >
+            <Text style={styles.saveText}>Save changes</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
 export default function InboxScreen() {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<BrainDumpItem[]>([]);
   const [captureText, setCaptureText] = useState('');
-  // One Modal, mode picks the content — same pattern as calendar.tsx's
-  // unified sheet, so there's no chained close/reopen between the
-  // actions sheet and either form.
-  const [modalVisible, setModalVisible] = useState(false);
-  const [mode, setMode] = useState<'actions' | 'schedule' | 'task' | null>(null);
+  const [editVisible, setEditVisible] = useState(false);
   const [activeItem, setActiveItem] = useState<BrainDumpItem | undefined>(undefined);
   const inputRef = useRef<TextInput>(null);
 
@@ -124,10 +206,9 @@ export default function InboxScreen() {
     inputRef.current?.focus();
   }
 
-  function openActions(item: BrainDumpItem) {
+  function openEdit(item: BrainDumpItem) {
     setActiveItem(item);
-    setMode('actions');
-    setModalVisible(true);
+    setEditVisible(true);
   }
 
   async function handleDeleteItem(item: BrainDumpItem) {
@@ -136,40 +217,15 @@ export default function InboxScreen() {
     await deleteBrainDumpItem(item.id);
   }
 
-  // Scheduling copies the item onto the calendar — the dump item is left
-  // untouched in Dump.
-  function handleScheduled(_event: CustomEvent) {
-    setModalVisible(false);
-    setMode(null);
+  function handleEditClose() {
+    setEditVisible(false);
     setActiveItem(undefined);
   }
 
-  // Making a Task is a move, not a copy — a Task is the item's final
-  // form, unlike scheduling (which creates a different kind of thing
-  // that can coexist with the original thought). Opposite behavior from
-  // handleScheduled, deliberately: there's no calendar slot for the dump
-  // item to "also" occupy once it's a Task.
-  async function handleTaskSaved() {
-    if (activeItem) {
-      await deleteBrainDumpItem(activeItem.id);
-    }
-    setModalVisible(false);
-    setMode(null);
+  function handleEditSaved() {
+    setEditVisible(false);
     setActiveItem(undefined);
     loadBrainDumpItems().then(setItems);
-  }
-
-  // Cancel from either form drops back to the actions sheet for the same
-  // item, rather than closing outright — mirrors calendar.tsx's
-  // edit-cancel-returns-to-detail behavior.
-  function handleFormClose() {
-    setMode('actions');
-  }
-
-  function handleModalDismiss() {
-    setModalVisible(false);
-    setMode(null);
-    setActiveItem(undefined);
   }
 
   const sorted = [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -218,7 +274,7 @@ export default function InboxScreen() {
           renderItem={({ item }) => (
             <DumpCard
               item={item}
-              onPress={() => openActions(item)}
+              onPress={() => openEdit(item)}
               onDelete={() => handleDeleteItem(item)}
             />
           )}
@@ -226,60 +282,14 @@ export default function InboxScreen() {
       )}
 
       <Modal
-        visible={modalVisible}
+        visible={editVisible}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setModalVisible(false)}
-        onDismiss={handleModalDismiss}
+        onRequestClose={handleEditClose}
+        onDismiss={handleEditClose}
       >
-        {mode === 'actions' && activeItem && (
-          <View style={[styles.actionsContainer, { paddingTop: insets.top + 16 }]}>
-            <View style={styles.actionsHeader}>
-              <Text style={styles.actionsTitle} numberOfLines={2}>{activeItem.title}</Text>
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => setModalVisible(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={styles.actionRow}
-              onPress={() => setMode('schedule')}
-              accessibilityLabel="Schedule this"
-              accessibilityRole="button"
-            >
-              <Ionicons name="calendar-outline" size={20} color={Colors.accentText} style={{ marginRight: 12 }} />
-              <Text style={styles.actionText}>Schedule</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionRow}
-              onPress={() => setMode('task')}
-              accessibilityLabel="Make this a task"
-              accessibilityRole="button"
-            >
-              <Ionicons name="checkmark-circle-outline" size={20} color={Colors.accentText} style={{ marginRight: 12 }} />
-              <Text style={styles.actionText}>Make task</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        {mode === 'schedule' && activeItem && (
-          <EventForm
-            date={new Date()}
-            initialTitle={activeItem.title}
-            origin="dump"
-            onClose={handleFormClose}
-            onSaved={handleScheduled}
-          />
-        )}
-        {mode === 'task' && activeItem && (
-          <TaskFormContent
-            initialTitle={activeItem.title}
-            origin="dump"
-            onClose={handleFormClose}
-            onSaved={handleTaskSaved}
-          />
+        {activeItem && (
+          <DumpEditForm item={activeItem} onClose={handleEditClose} onSaved={handleEditSaved} />
         )}
       </Modal>
     </View>
@@ -382,23 +392,21 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     opacity: 0.7,
   },
-  actionsContainer: {
+  editContainer: {
     flex: 1,
     backgroundColor: Colors.background,
     paddingHorizontal: 20,
   },
-  actionsHeader: {
+  editHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  actionsTitle: {
-    flex: 1,
-    fontSize: 20,
+  editHeaderTitle: {
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginRight: 12,
   },
   closeBtn: {
     width: 44,
@@ -406,18 +414,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  editTitleInput: {
     backgroundColor: Colors.surface,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    marginBottom: 10,
-  },
-  actionText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: Colors.textPrimary,
+  },
+  editLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    letterSpacing: 0.3,
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  editNotesInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: Colors.textPrimary,
+    minHeight: 100,
+    paddingTop: 14,
+  },
+  editFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  cancelText: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveBtn: {
+    flex: 1,
+    backgroundColor: Colors.accent,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  saveBtnDisabled: {
+    opacity: 0.5,
+  },
+  saveText: {
+    color: Colors.onAccent,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

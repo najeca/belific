@@ -8,6 +8,30 @@ to know the current version and recent history.
 
 ---
 
+## 1.5.3 — 2026-07-31
+
+- **Simplified Brain Dump back to fast-capture only.** Removed the
+  2-option sheet (Schedule / Make Task) entirely — tapping a card now
+  opens a simple edit view with just title and notes, nothing else.
+  No date/time fields, no scheduling, no promotion to Task anywhere
+  in this flow. Swipe-left-to-delete unchanged. Tasks and Events are
+  now fully independent of Dump again — both are created via their
+  own existing quick-add flows (Tasks screen, Today/Calendar), not
+  through Dump. `BrainDumpItem.notes` (from the original Phase 3 data
+  model) already existed and the card-preview-of-notes was already
+  implemented — neither needed rebuilding, just re-exposed via the
+  new edit view. New `updateBrainDumpItem` in `lib/storage.ts` (didn't
+  exist before; only add/delete did).
+- Note: `EventForm`/`TaskForm`'s `origin`/`initialTitle` props (added
+  for the now-removed Dump promotion paths) are left in place —
+  they're harmless, optional, and still used by their own components'
+  types; only Dump's actual usage of them was removed. This does mean
+  the 🧠 origin indicator on Tasks/Events is now vestigial for new
+  items (nothing creates one anymore) but still correctly reflects
+  historical data from items promoted before this change.
+
+---
+
 ## 1.5.2 — 2026-07-31
 
 - **Fix:** `splash.image` and the `expo-notifications` plugin's `icon`

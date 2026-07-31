@@ -143,6 +143,11 @@ export async function addBrainDumpItem(item: BrainDumpItem): Promise<void> {
   await saveBrainDumpItems([...existing, item]);
 }
 
+export async function updateBrainDumpItem(updated: BrainDumpItem): Promise<void> {
+  const existing = await loadBrainDumpItems();
+  await saveBrainDumpItems(existing.map((i) => (i.id === updated.id ? updated : i)));
+}
+
 export async function deleteBrainDumpItem(id: string): Promise<void> {
   const existing = await loadBrainDumpItems();
   await saveBrainDumpItems(existing.filter((i) => i.id !== id));

@@ -13,6 +13,7 @@ import type {
   CustomCategory,
   EventPriority,
   Task,
+  TimeOfDay,
 } from './types';
 
 // Colors below are the light (sage/cream) theme's decorative fill palette,
@@ -94,10 +95,43 @@ export const WEEKLY_SCHEDULE: WeeklySchedule = {};
 
 const STARTER_EVENTS: WeeklyTemplateEvent[] = [
   { title: 'Morning routine', category: 'routine', start: '07:00', end: '08:00', notes: '' },
-  { title: 'Deep work block', category: 'work', start: '09:00', end: '12:00', notes: '' },
+  { title: 'Work block', category: 'work', start: '09:00', end: '12:00', notes: '' },
   { title: 'Lunch break', category: 'free', start: '12:00', end: '13:00', notes: '' },
-  { title: 'Afternoon focus', category: 'work', start: '13:00', end: '17:00', notes: '' },
-  { title: 'Evening wind down', category: 'winddown', start: '20:00', end: '21:00', notes: '' },
+  { title: 'Work block', category: 'work', start: '13:00', end: '17:00', notes: '' },
+  { title: 'Gym', category: 'fitness', start: '17:30', end: '18:30', notes: '' },
+  { title: 'Cook dinner', category: 'chore', start: '18:30', end: '19:00', notes: '' },
+  { title: 'Downtime', category: 'free', start: '19:30', end: '20:30', notes: '' },
+  { title: 'Evening wind down', category: 'winddown', start: '20:30', end: '21:00', notes: '' },
+];
+
+// Example content for new users with no real data yet — Routines,
+// Top 3 Tasks, and Brain Dump each show these (non-interactive,
+// never persisted) in place of their normal empty state. Same
+// no-account-required, on-device-only starter concept as
+// STARTER_EVENTS above, just for the other three sections.
+export interface StarterRoutineItem {
+  title: string;
+  icon: string;
+  timeOfDay: TimeOfDay;
+}
+
+export const STARTER_ROUTINES: StarterRoutineItem[] = [
+  { title: 'Drink water on waking up', icon: '💧', timeOfDay: 'morning' },
+  { title: 'Brush teeth', icon: '🪥', timeOfDay: 'morning' },
+  { title: 'Shower', icon: '🚿', timeOfDay: 'morning' },
+  { title: 'Eat lunch away from your desk', icon: '🥗', timeOfDay: 'afternoon' },
+  { title: 'Get some fresh air', icon: '🍃', timeOfDay: 'afternoon' },
+  { title: 'Put your phone away before bed', icon: '📵', timeOfDay: 'evening' },
+  { title: 'Brush teeth', icon: '🪥', timeOfDay: 'evening' },
+];
+
+export const STARTER_TOP_TASKS: string[] = ['Do laundry', 'Grocery shopping', 'Walk the dog'];
+
+export const STARTER_BRAIN_DUMP: string[] = [
+  'Clean room',
+  'Schedule meeting with a friend',
+  'Cook rice',
+  'Take chicken out of the freezer',
 ];
 
 const WEEK_DAYS: WeekDay[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

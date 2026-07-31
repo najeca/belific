@@ -18,12 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { createBrainDumpItem } from '../../lib/data';
+import { createBrainDumpItem, STARTER_BRAIN_DUMP } from '../../lib/data';
 import {
   loadBrainDumpItems,
   addBrainDumpItem,
   updateBrainDumpItem,
   deleteBrainDumpItem,
+  shouldShowStarterRoutine,
 } from '../../lib/storage';
 import type { BrainDumpItem } from '../../lib/types';
 
@@ -189,11 +190,13 @@ export default function InboxScreen() {
   const [captureText, setCaptureText] = useState('');
   const [editVisible, setEditVisible] = useState(false);
   const [activeItem, setActiveItem] = useState<BrainDumpItem | undefined>(undefined);
+  const [starterMode, setStarterMode] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useFocusEffect(
     useCallback(() => {
       loadBrainDumpItems().then(setItems);
+      shouldShowStarterRoutine().then(setStarterMode);
     }, []),
   );
 
@@ -260,10 +263,23 @@ export default function InboxScreen() {
       </View>
 
       {sorted.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateTitle}>Nothing on your mind</Text>
-          <Text style={styles.emptyStateSubtext}>Type above to capture a thought</Text>
-        </View>
+        starterMode ? (
+          <View style={styles.listContent}>
+            {STARTER_BRAIN_DUMP.map((title) => (
+              <View key={title} style={[styles.card, styles.swipeContainer]}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
+                  <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>Nothing on your mind</Text>
+            <Text style={styles.emptyStateSubtext}>Type above to capture a thought</Text>
+          </View>
+        )
       ) : (
         <FlatList
           data={sorted}

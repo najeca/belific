@@ -153,9 +153,15 @@ export async function deleteBrainDumpItem(id: string): Promise<void> {
   await saveBrainDumpItems(existing.filter((i) => i.id !== id));
 }
 
+// Whether to show starter/example content in place of an empty state —
+// on Today (routines, top 3 tasks, full schedule), Tasks, and Brain
+// Dump alike. True for as long as none of those stores have any real
+// data yet, false the moment any one of them gets its first real
+// entry — deliberately not a one-time flag, since a per-screen visit
+// order would make a single-use flag show the starter on whichever
+// screen the user opens first and never on the other two.
 export async function shouldShowStarterRoutine(): Promise<boolean> {
   try {
-    const flag = await AsyncStorage.getItem(KEYS.FIRST_LAUNCH);
     const customData = await AsyncStorage.getItem(KEYS.CUSTOM_EVENTS);
     const dumpData = await AsyncStorage.getItem(KEYS.BRAIN_DUMP);
     const routinesData = await AsyncStorage.getItem(KEYS.ROUTINES);
@@ -165,16 +171,7 @@ export async function shouldShowStarterRoutine(): Promise<boolean> {
     const hasRoutines = !!routinesData && (JSON.parse(routinesData) as Routine[]).length > 0;
     const hasTasks = !!tasksData && (JSON.parse(tasksData) as Task[]).length > 0;
 
-    if (hasCustom || hasDump || hasRoutines || hasTasks) return false;
-
-    if (flag === 'true') {
-      // Past first launch, no custom events → show empty state
-      return false;
-    }
-
-    // First launch with no custom events → show starter, set flag
-    await AsyncStorage.setItem(KEYS.FIRST_LAUNCH, 'true');
-    return true;
+    return !(hasCustom || hasDump || hasRoutines || hasTasks);
   } catch {
     return false;
   }

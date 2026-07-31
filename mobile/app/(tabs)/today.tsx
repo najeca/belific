@@ -21,6 +21,8 @@ import {
   getTopTasks,
   timeToMinutes,
   formatDateKey,
+  STARTER_ROUTINES,
+  STARTER_TOP_TASKS,
   type CategoryStat,
 } from '../../lib/data';
 import {
@@ -173,6 +175,7 @@ export default function TodayScreen() {
   const [editRoutine, setEditRoutine] = useState<Routine | undefined>(undefined);
 
   const [topTasks, setTopTasks] = useState<Task[]>([]);
+  const [starterMode, setStarterMode] = useState(false);
 
   async function loadTopTasks() {
     const allTasks = await loadTasks();
@@ -239,18 +242,19 @@ export default function TodayScreen() {
   }
 
   async function loadEvents() {
-    const [starterMode, allCustom, categories, enabled] = await Promise.all([
+    const [starter, allCustom, categories, enabled] = await Promise.all([
       shouldShowStarterRoutine(),
       loadCustomEvents(),
       loadCustomCategories(),
       loadNotificationsEnabled(),
     ]);
 
+    setStarterMode(starter);
     const todayCustom = allCustom.filter((e) => e.date === dateKey);
     setCustomEventsList(allCustom);
     setCustomCategories(categories);
 
-    const template = starterMode
+    const template = starter
       ? getStarterEventsForDate(today)
       : getWeeklyEventsForDate(today);
     const customResolved = todayCustom.map((e) => customToScheduleEvent(e, categories));
@@ -267,7 +271,7 @@ export default function TodayScreen() {
         const futureDate = new Date(today);
         futureDate.setDate(today.getDate() + i);
         dayEntries.push({
-          events: starterMode
+          events: starter
             ? getStarterEventsForDate(futureDate)
             : getWeeklyEventsForDate(futureDate),
           date: futureDate,
@@ -321,6 +325,12 @@ export default function TodayScreen() {
     timeOfDay,
     label: TIME_OF_DAY_LABELS[timeOfDay],
     items: routines.filter((r) => r.timeOfDay === timeOfDay),
+  })).filter((g) => g.items.length > 0);
+
+  const starterRoutineGroups = TIME_OF_DAY_ORDER.map((timeOfDay) => ({
+    timeOfDay,
+    label: TIME_OF_DAY_LABELS[timeOfDay],
+    items: STARTER_ROUTINES.filter((r) => r.timeOfDay === timeOfDay),
   })).filter((g) => g.items.length > 0);
 
   return (
@@ -395,10 +405,32 @@ export default function TodayScreen() {
             </TouchableOpacity>
           </View>
           {routines.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateTitle}>No routines yet</Text>
-              <Text style={styles.emptyStateSubtext}>Tap + to add your first routine</Text>
-            </View>
+            starterMode ? (
+              <View style={styles.routineListContainer}>
+                {starterRoutineGroups.map((group, gi) => (
+                  <View key={group.timeOfDay}>
+                    <Text style={styles.routineGroupLabel}>{group.label}</Text>
+                    {group.items.map((item, ri) => {
+                      const isLast = gi === starterRoutineGroups.length - 1 && ri === group.items.length - 1;
+                      return (
+                        <View
+                          key={item.title}
+                          style={[styles.routineRow, isLast && styles.routineRowLast]}
+                        >
+                          <Ionicons name="ellipse-outline" size={20} color={Colors.textSecondary} />
+                          <Text style={styles.routineTitle}>{item.title} {item.icon}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateTitle}>No routines yet</Text>
+                <Text style={styles.emptyStateSubtext}>Tap + to add your first routine</Text>
+              </View>
+            )
           ) : (
             <View style={styles.routineListContainer}>
               {routineGroups.map((group, gi) => (
@@ -450,10 +482,24 @@ export default function TodayScreen() {
             </TouchableOpacity>
           </View>
           {topTasks.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateTitle}>Nothing due</Text>
-              <Text style={styles.emptyStateSubtext}>Add a task from Brain Dump or the full list</Text>
-            </View>
+            starterMode ? (
+              <View style={styles.routineListContainer}>
+                {STARTER_TOP_TASKS.map((title, i) => (
+                  <View
+                    key={title}
+                    style={[styles.routineRow, i === STARTER_TOP_TASKS.length - 1 && styles.routineRowLast]}
+                  >
+                    <Ionicons name="ellipse-outline" size={20} color={Colors.textSecondary} />
+                    <Text style={styles.routineTitle}>{title}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateTitle}>Nothing due</Text>
+                <Text style={styles.emptyStateSubtext}>Add a task from Brain Dump or the full list</Text>
+              </View>
+            )
           ) : (
             <View style={styles.routineListContainer}>
               {topTasks.map((task, i) => (

@@ -8,6 +8,47 @@ to know the current version and recent history.
 
 ---
 
+## 1.6.1 — 2026-07-31
+
+- **Starter Routines now show a one-emoji icon per item** (💧 drink
+  water, 🪥 brush teeth, 🚿 shower, 🥗 lunch away from desk, 🍃 fresh
+  air, 📵 phone away before bed) — on-device feedback was that the
+  plain-text starter rows read as less expressive than the rest of the
+  app. Starter Top 3 Tasks deliberately stay icon-free: real Task rows
+  never show one either, and keeping it that way is what visually
+  tells Routines and Tasks apart despite sharing the same row styling.
+
+---
+
+## 1.6.0 — 2026-07-31
+
+- **Expanded the new-user starter template** to cover Routines, Top 3
+  Tasks, and Brain Dump — previously only the Full Schedule had example
+  content; the other three sections just showed a bare empty state.
+  All four now show casual, relatable examples (Morning: "Drink water
+  on waking up", "Brush teeth", "Shower"; Afternoon: "Eat lunch away
+  from your desk", "Get some fresh air"; Evening: "Put your phone away
+  before bed", "Brush teeth"; Top 3 Tasks: "Do laundry", "Grocery
+  shopping", "Walk the dog"; Brain Dump: "Clean room", "Schedule
+  meeting with a friend", "Cook rice", "Take chicken out of the
+  freezer"; Full Schedule reworded to Work block / Gym / Downtime
+  alongside Lunch break / Cook dinner). All starter rows are
+  non-interactive display-only, same treatment as the existing
+  Full Schedule template — never written to storage.
+- **Fix:** `shouldShowStarterRoutine` was a one-time flag — it flipped
+  to "seen" on its very first call ever and never showed starter
+  content again after that, even with zero real data, even on a
+  different tab that hadn't loaded yet. That's incompatible with
+  showing starter content consistently across Today, Tasks, and Brain
+  Dump regardless of which tab loads first. Now purely computed from
+  whether any of custom events / Brain Dump / Routines / Tasks have
+  real data — starter content shows for as long as none of the four
+  do, and disappears the moment any one of them gets its first real
+  entry. `belific_first_launch` is no longer read for this; `Clear All
+  Data` still clears the now-unused key.
+
+---
+
 ## 1.5.5 — 2026-07-31
 
 - **Fix:** Settings' "Version" row was a hardcoded literal `"1.0.0"`

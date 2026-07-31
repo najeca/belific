@@ -12,8 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../lib/theme';
-import { sortTasksForDisplay } from '../lib/data';
-import { loadTasks, addTask, updateTask, loadProjects } from '../lib/storage';
+import { sortTasksForDisplay, STARTER_TOP_TASKS } from '../lib/data';
+import { loadTasks, addTask, updateTask, loadProjects, shouldShowStarterRoutine } from '../lib/storage';
 import TaskFormModal from './components/TaskForm';
 import type { Project, Task } from '../lib/types';
 
@@ -37,12 +37,14 @@ export default function TasksScreen() {
   const [captureText, setCaptureText] = useState('');
   const [formVisible, setFormVisible] = useState(false);
   const [editTask, setEditTask] = useState<Task | undefined>(undefined);
+  const [starterMode, setStarterMode] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useFocusEffect(
     useCallback(() => {
       loadTasks().then(setTasks);
       loadProjects().then(setProjects);
+      shouldShowStarterRoutine().then(setStarterMode);
     }, []),
   );
 
@@ -154,10 +156,24 @@ export default function TasksScreen() {
       )}
 
       {sorted.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateTitle}>No tasks yet</Text>
-          <Text style={styles.emptyStateSubtext}>Type above to add your first task</Text>
-        </View>
+        starterMode ? (
+          <View style={styles.list}>
+            {STARTER_TOP_TASKS.map((title, i) => (
+              <View
+                key={title}
+                style={[styles.taskRow, i === STARTER_TOP_TASKS.length - 1 && styles.taskRowLast]}
+              >
+                <Ionicons name="ellipse-outline" size={22} color={Colors.textSecondary} />
+                <Text style={styles.taskTitle} numberOfLines={2}>{title}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No tasks yet</Text>
+            <Text style={styles.emptyStateSubtext}>Type above to add your first task</Text>
+          </View>
+        )
       ) : (
         <FlatList
           data={sorted}

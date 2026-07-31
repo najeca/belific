@@ -8,6 +8,25 @@ to know the current version and recent history.
 
 ---
 
+## 1.5.5 — 2026-07-31
+
+- **Fix:** Settings' "Version" row was a hardcoded literal `"1.0.0"`
+  string — never wired to `app.json`'s actual `expo.version` at all,
+  in any version of this file. Every version bump this session (and
+  presumably before it) was genuinely correct in `app.json`/
+  `CHANGELOG.md`; the Settings UI simply never displayed it. This was
+  not a stale-build or caching issue — confirmed by reading the source
+  directly before assuming anything. Now reads
+  `Constants.expoConfig?.version` from `expo-constants` (promoted from
+  an already-present transitive dependency to an explicit one via
+  `npx expo install expo-constants`; no prebuild needed, since its
+  native module was already linked as part of the `expo` package —
+  every build log this session shows the `[CP-User] Generate
+  app.config for prebuilt Constants.manifest` step that populates this
+  at build time). Version now genuinely reflects the installed build.
+
+---
+
 ## 1.5.4 — 2026-07-31
 
 - **Fix:** Top 3 Tasks checkbox on Today didn't show a checked state

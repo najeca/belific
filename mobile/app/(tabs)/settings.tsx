@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Colors } from '../../lib/theme';
 import { useTimerStore } from '../../lib/store';
@@ -37,6 +38,11 @@ import { seedOwnerSchedule } from '../../lib/ownerSeed';
 import type { TimerSettings } from '../../lib/types';
 
 type SettingKey = keyof TimerSettings;
+
+// Read from app.json's expo.version at runtime rather than hardcoded —
+// this was previously a literal "1.0.0" string that never reflected
+// actual version bumps.
+const APP_VERSION = Constants.expoConfig?.version ?? '—';
 
 interface SettingMeta {
   key: SettingKey;
@@ -304,7 +310,7 @@ export default function SettingsScreen() {
             activeOpacity={1}
           >
             <Text style={styles.aboutLabel}>Version</Text>
-            <Text style={styles.aboutValue}>1.0.0</Text>
+            <Text style={styles.aboutValue}>{APP_VERSION}</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
           <View style={styles.aboutRow}>

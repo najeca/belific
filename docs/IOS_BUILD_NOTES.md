@@ -210,6 +210,51 @@ being wiped — prebuild actively *adds* this entitlement fresh each time becaus
 
 ---
 
+### 10. Headless `expo run:ios` / `xcodebuild` never fetches new provisioning profiles or capability changes on its own — even on a fully paid account with correctly registered App ID capabilities
+
+Added `aps-environment` back to `Belific.entitlements` to test whether the account was really on
+a paid Apple Developer Program tier (see decision-adjacent investigation, July 2026). The build
+failed with:
+
+```
+❌  Belific/Belific: Provisioning Profile "iOS Team Provisioning Profile: *" does not support the
+    Push Notifications capability.
+❌  Belific/Belific: Entitlements file defines the value "aps-environment" which is not registered
+    for profile "iOS Team Provisioning Profile: *".
+```
+
+This looks exactly like a free-tier/account problem, and it is easy to conclude "this Apple ID
+isn't paid" from it — **that conclusion was wrong.** The account (team `9PG7ANYKDV`) was
+confirmed via developer.apple.com/account as an active paid Individual Program membership the
+whole time. Root cause was unrelated to tier:
+
+- `CODE_SIGN_STYLE = Automatic` with no explicit App ID registered yet falls back to Xcode's
+  generic **wildcard** profile (`9PG7ANYKDV.*`, named `"iOS Team Provisioning Profile: *"`).
+  Apple does not allow wildcard App IDs to carry Push Notifications, Sign in with Apple, iCloud,
+  HealthKit, or any other capability-gated entitlement — only an **explicit** App ID (one scoped
+  to the exact bundle id, `com.najeca.belific`) can. This restriction applies on every tier, paid
+  or free.
+- Registering the explicit App ID for `com.najeca.belific` with Push + Sign in with Apple on the
+  portal was **not enough by itself**. Re-running `npx expo run:ios --configuration Release`
+  straight after that registration reproduced the identical error — headless `xcodebuild`
+  (however `expo run:ios` invokes it) does not proactively talk to the portal or refresh cached
+  provisioning profiles. It just kept reusing the same stale wildcard profile file already sitting
+  in `~/Library/Developer/Xcode/UserData/Provisioning Profiles/` from months earlier.
+- The fix: **open `ios/Belific.xcworkspace` in Xcode's GUI at least once** after enabling any new
+  capability on the portal. Only the GUI actively syncs accounts and downloads a fresh explicit
+  profile. Immediately after doing that once, the next headless `expo run:ios` build picked up a
+  brand-new profile (`9PG7ANYKDV.com.najeca.belific`, correctly carrying `aps-environment:
+  development`) and the build succeeded with 0 errors.
+
+**Takeaway:** after enabling *any* new capability on the Apple Developer Portal (Push, Sign in
+with Apple, etc.), always open the Xcode workspace in the GUI once before assuming a subsequent
+headless/CLI build will pick it up. Skipping that step produces a misleading "does not support
+capability" error that reads exactly like an account/tier problem but isn't one — don't diagnose
+account status from this error alone; check the actual cached profile's entitlements (`security
+cms -D -i <profile>.mobileprovision`) and creation date first.
+
+---
+
 ## EAS Build Errors
 
 ### package-lock.json out of sync

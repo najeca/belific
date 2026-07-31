@@ -1,167 +1,58 @@
-# Session Summary — Calendar Bug Fixes
-**Date:** 2026-06-08  
-**Project:** Belific mobile (`/Users/jethro/Developer/belific/mobile`)  
-**Status:** Code complete, not yet built/tested on device
+# Session Summary — v2 Restructuring (Phases 1–5, Icon/Splash, Post-launch fixes)
+**Date:** 2026-07-30 to 2026-07-31
+**Project:** Belific mobile (`/Users/jethro/Developer/belific/mobile`)
+**Current version:** 1.5.5 (`mobile/app.json` `expo.version`)
+**Status:** All work committed locally on `v2-redesign`; **NOT yet pushed to origin** (see Branch State below — flagging this explicitly since it affects what "safe to /clear" actually means)
 
 ---
 
-## What was done this session
+## What was completed this session
 
-### Three calendar bugs fixed — `app/(tabs)/calendar.tsx`
+This was a single long session covering the full v2 restructuring plan plus several follow-up rounds of bug fixes and polish. Rough chronological summary:
 
-All three bugs are in one file. Zero TypeScript errors confirmed after fixes.
+### Phase 1 — Sage/cream theme
+Dark theme replaced with the sage/cream "Quiet Function" palette (`lib/theme.ts`), including a verified `accent`/`accentText` split (raw sage accent measures 4.07:1 on cream — fails WCAG AA for text — while the darker `accentText` clears 5.97:1). `CATEGORIES`/`DAY_TYPES` colors in `data.ts` repicked for the light background. Shadows removed app-wide, ALL-CAPS labels converted to sentence case, event lists restructured to flat hairline-divided rows.
 
----
+### Phase 2 — Task-setting speed
+`EventForm` reworked for progressive disclosure (title-only fast path, everything else behind "More options") — **later fully reversed** per explicit device-testing feedback; all fields are now always visible (see "Post-launch fixes" below).
 
-#### Bug 1 — Long press to edit does nothing on custom event rows
+### Phase 3 — Brain Dump (original)
+`BrainDumpItem` data model + storage, Dump tab, swipe-to-delete (first hand-rolled via PanResponder, later replaced with `react-native-gesture-handler`'s `Swipeable` after on-device testing showed the PanResponder version only completing partial swipes).
 
-**Root cause (confirmed):** `openEditModal` set `addModalVisible = true` while `detailVisible` was still `true`. On iOS you cannot present a second `presentationStyle="pageSheet"` modal while one is already presented — the second one silently fails to appear. The `TouchableOpacity` was also using `delayLongPress={500}` inside a `ScrollView`, which is fragile because the scroll pan recogniser can win the gesture competition before 500ms elapses.
+### Phase 4 — Psychology-rule audit
+Weekly summary notification removed entirely (engagement-bait, no real feature behind it). `scheduleEventNotifications` restricted to user-created events only (never fires for template/starter events). Stale docs (`CLAUDE.md`, `current-state-audit.md`, `architecture.md`, `UBIQUITOUS_LANGUAGE.md`) rewritten — they previously described a retired WebView architecture and a "streak at risk" notification that never existed in code.
 
-**Fix applied:**
-- `openEditModal` now sets `pendingEditEvent` (new state) and calls `setDetailVisible(false)`. The edit modal opens inside `onDetailDismiss` *after* the sheet has fully closed — so iOS only ever presents one sheet at a time.
-- `EventRowCompact` switched from `TouchableOpacity` to `Pressable` for the long-press case. `Pressable` uses a different gesture recogniser path that coexists more reliably with `ScrollView` on iOS.
-- `delayLongPress` reduced from 500 ms → 300 ms.
+### Phase 5 — Routines / Tasks / Projects
+- **Routines**: habit tracker section on Today (Morning/Afternoon/Evening groups), tap-to-toggle completion (reversible, no streaks, no history), `RoutineForm` component.
+- **Tasks**: separate type from Calendar events (always have a date/time) and Brain Dump (no due date at all) — optional due date, priority, project tag. "Top 3 Tasks" on Today, full list on a pushed (not tabbed) `/tasks` screen.
+- **Projects**: lightweight `{ key, name }` tag only, no dedicated screen — surfaces only as a filter on the Tasks screen.
+- Brain Dump briefly gained a 2-option promotion sheet (Schedule / Make Task) — **later removed entirely** (see below).
 
----
+### App icon / splash / branding
+Real app icon installed (was Expo's default). Source file had an RGBA alpha channel; flattened to solid `#F0EEE8` and re-encoded with no alpha (App Store icon validation rejects on the channel's mere presence). `splash.image` and the notifications plugin's icon updated to match. Required `expo prebuild --platform ios` twice (once per asset-catalog regen), each time re-triggering a real build-breaking issue: `expo-notifications`' config plugin unconditionally adds an `aps-environment` entitlement that the free/automatic signing profile doesn't support — stripped both times, documented in `docs/IOS_BUILD_NOTES.md` #9 as a **recurring** required step (not a one-time fix; `mobile/ios/` is gitignored).
 
-#### Bug 2 — Calendar freezes after viewing any date and closing the detail sheet
-
-**Root cause (confirmed):** `presentationStyle="pageSheet"` on iOS creates a native sheet the user can swipe down to dismiss. When they swipe it down, iOS dismisses the sheet natively but **`onRequestClose` is never called on iOS** — it only fires for Android's hardware back button. `detailVisible` therefore stayed `true` in React state. React Native kept the modal "active" as an invisible UIViewController on top of the screen, intercepting every touch event. The calendar grid and FAB were completely unreachable.
-
-**Fix applied:** Added `onDismiss={onDetailDismiss}` to the detail Modal. `onDismiss` is iOS-specific and fires after *any* dismissal — swipe down, X button, or programmatic `visible=false`. The handler always calls `setDetailVisible(false)` to sync React state with native state, then checks `pendingEditEvent` to chain the edit modal if needed.
-
----
-
-#### Bug 3 — FAB frozen after viewing a date
-
-**Root cause:** Same invisible modal as Bug 2 blocking all touches.  
-**Fix:** Resolves automatically with the `onDismiss` fix above.
+### Post-launch fixes (most recent commits)
+- **Brain Dump simplified back to fast-capture only** — the 2-option sheet (Schedule/Make Task) removed entirely; tapping a card now opens a plain title+notes edit view. Tasks and Events are independent of Dump again, created only via their own quick-add flows.
+- **Top 3 Tasks checkbox fixed** — two stacked bugs: the icon was hardcoded to always show unchecked (never read `task.completed`), and toggling immediately re-filtered the list (which excludes completed tasks by design), making the row vanish before any checked state was visible and effectively irreversible from that view. Both fixed together; toggling now updates the row in place.
+- **Settings "Version" row fixed** — was a hardcoded literal `"1.0.0"` string, never wired to `app.json` at all (confirmed via source read, not assumed). Now reads `Constants.expoConfig?.version` via `expo-constants`.
 
 ---
 
-## Current state of modified files
+## Current version: 1.5.5
 
-### `app/(tabs)/calendar.tsx` — MODIFIED this session
-Key changes from the pre-session version:
-- Added `Pressable` to imports (replacing `TouchableOpacity` for long-press rows)
-- Added `pendingEditEvent: CustomEvent | null` state
-- `EventRowCompact` uses `Pressable` instead of `TouchableOpacity` when `onLongPress` is provided, `delayLongPress={300}`
-- `openEditModal` now sets `pendingEditEvent` and `setDetailVisible(false)` instead of directly opening the edit modal
-- Added `onDetailDismiss()` function — the single close hook; handles both swipe-dismiss state sync and pending edit chaining
-- Detail `Modal` has `onDismiss={onDetailDismiss}` added
-
-### `app/components/AddEventModal.tsx` — MODIFIED (earlier session, stable)
-- Added `Date` field above Start Time using `@react-native-community/datetimepicker` in `'date'` mode
-- Display format: `"Mon 9 Jun"` (short weekday, bare day, short month)
-- New state: `eventDate: Date` (initialised from `date` prop; updated in edit mode from `editEvent.date`)
-- New state: `showDatePicker: boolean`
-- `handleSave` uses `formatDateKey(eventDate)` instead of `formatDateKey(date)` — event stored against user-selected date, not always today
-- Edit mode: date pre-populated from `parseDateKey(editEvent.date)`
-- All three pickers (date, start time, end time) mutually exclusive — opening one closes the others
-
-### `app/(tabs)/today.tsx` — MODIFIED (earlier session, stable)
-- Replaced `getWeeklyEventsForDate` template with empty-state fallback now that `WEEKLY_SCHEDULE = {}`
-- Empty state in Full Schedule: "No events scheduled" / "Tap + to add your first event"
-- Long-press on custom event rows → edit modal (same Pressable pattern as calendar, but `TouchableOpacity` still used — review if same bug surface appears on Today screen)
-- Tracks `customEventsList: CustomEvent[]` separately to map `ScheduleEvent.id` back to `CustomEvent` for edit
-- `handleEventSaved` clears `editEvent` state on close
-- FAB: `accessibilityLabel="Add event"`, `accessibilityRole="button"`
-
-### `lib/data.ts` — MODIFIED (earlier session, stable)
-- `WEEKLY_SCHEDULE` replaced with empty object `{}`
-- `getWeeklyEventsForDate`: returns `[]` if no template for the day (was crashing)
-- `getDayTypeForDate`: returns `nonWorkDay` default if no template
-
-### `lib/storage.ts` — MODIFIED (earlier session, stable)
-- `shouldShowStarterRoutine`: new logic — first launch + no custom events → show starter + set flag; subsequent launches no events → empty state; has events → false
-- `clearAllData`: now removes `FIRST_LAUNCH` and `NOTIFICATIONS_ENABLED` keys (was missing them)
-- Added `deleteCustomEvent(id)` and `updateCustomEvent(updated)`
-
-### `lib/notifications.ts` — MODIFIED (earlier session, stable)
-- Removed `STREAK_AT_RISK_ID` notification entirely (was telling users they hadn't logged activity when no activity logging exists)
-- Per-notification `try-catch` in `scheduleEventNotifications` — single failure no longer aborts the whole batch
-
-### `lib/ownerSeed.ts` — CREATED this session (earlier in session, stable)
-- `seedOwnerSchedule()`: generates 12 weeks of `CustomEvent` objects from Jethro's personal weekly schedule (Mon–Sun, all events in 24-hr HH:MM format)
-- Guard: reads `belific_owner_seeded` AsyncStorage key; returns immediately if already seeded (idempotent)
-- IDs are deterministic: `seed-{dateKey}-{startHHMM}-{index}` — safe to call multiple times
-- Category mapping: `'interview'` → `'project'` (icon `'🎯'`), `'anime'` → `'game'` (icon `'📺'`), all others map 1:1 to `CategoryKey`
-- Merges with existing custom events (does not overwrite)
-
-### `app/(tabs)/settings.tsx` — MODIFIED (multiple sessions, stable)
-- Permission check on mount: reads actual iOS permission status via `Notifications.getPermissionsAsync()`; if system denied but stored as enabled, corrects stored value and shows "Tap to enable in Settings" link
-- `handleNotificationsToggle` wrapped in try-catch with user-facing Alert on error
-- Hidden owner section: 7 taps on the "Version" row in About → reveals OWNER section with "Load My Schedule" button
-  - `ownerTapCount` ref (not state — no re-render on each tap)
-  - `ownerVisible` state
-  - `isSeeding` state with `ActivityIndicator` while seeding runs
-  - Calls `seedOwnerSchedule()`, shows Alert on completion, hides section
-- "Schedule: 2026 weekly planner" row removed from About section
-- All interactive controls have `accessibilityLabel` and `accessibilityRole="button"`
-
-### `app/_layout.tsx` — MODIFIED (earlier session, stable)
-- Added `ErrorBoundary` class component wrapping `Stack` navigator
-- Shows "Something went wrong" + "Try again" button on unhandled render errors
-- Split into `RootLayoutInner` (hook-using) + `RootLayout` (class boundary wrapper)
-
-### `ios/.xcode.env.local` — MODIFIED (earlier session, stable)
-- Was: `export NODE_BINARY=/opt/homebrew/Cellar/node/25.9.0_2/bin/node` (stale — node 25 uninstalled)
-- Now: `export NODE_BINARY=$(command -v node)`
-
-### `ios/Podfile` — MODIFIED (earlier session, stable)
-- Removed duplicate `pod 'ExpoFont', :path => '../node_modules/expo-font/ios'` (conflicted with `use_expo_modules!` autolinking)
-
-### `package.json` — MODIFIED (earlier session, stable)
-- Removed `react-native-webview` (not used anywhere in source)
-- Added `expo-font ~14.0.11` as direct dependency (was only nested inside expo; needed for app.json plugin resolution)
-
-### `lib/types.ts` — MODIFIED (earlier session, stable)
-- `WeeklySchedule` changed from `Record<WeekDay, WeeklyDayTemplate>` to `Partial<Record<WeekDay, WeeklyDayTemplate>>` to allow empty `{}`
+Full history in `docs/CHANGELOG.md`. Every commit this session bumped `app.json`'s `expo.version` and logged a dated entry there — read that file before starting new work to get the authoritative current state and recent history in more detail than this summary.
 
 ---
 
-## What still needs to be done
+## Branch state
 
-### Pending: Custom notification sound
-A custom notification sound has not yet been implemented. The task is:
-- Add a custom `.wav` or `.caf` audio file to `ios/Belific/` (and register it in `app.json` under `expo-notifications` plugin config)
-- Reference it in `notifications.ts` when scheduling event notifications: `sound: 'custom_sound.wav'` (or `.caf`)
-- The `app.json` already has the notifications plugin entry:
-  ```json
-  ["expo-notifications", {
-    "icon": "./assets/icon.png",
-    "color": "#D97652",
-    "sounds": []   ← ADD sound file path here
-  }]
-  ```
-- After adding, `pod install` and rebuild are required (native change)
-- This was noted as pending but not started this session
-
-### Pending: First device test of calendar fixes
-The three calendar bug fixes were written but **not yet built and tested on device**. The next step is:
-```
-npx expo run:ios -d 00008150-000438D40A92401C --configuration Release
-```
-Verify on device:
-1. Long-pressing a custom event in the day detail sheet opens the edit modal (Bug 1)
-2. Viewing any date, closing the sheet, then tapping other dates works normally (Bug 2)
-3. FAB responds after closing the sheet (Bug 3)
-
-### Pending: Owner seed not yet triggered
-`seedOwnerSchedule()` exists but has not been called. To seed Jethro's personal schedule:
-1. Build and install the app
-2. Open Settings
-3. Tap the "Version" row 7 times rapidly
-4. Tap "Load My Schedule"
-5. Restart the app
+- Branch: `v2-redesign`
+- Working tree: clean, everything committed
+- **Not pushed** — `git status` shows `v2-redesign` is **41 commits ahead of `origin/v2-redesign`**. `main` and `landis` were never touched, per every session instruction.
+- Every commit this session passed `tsc --noEmit` and a local USB Release build to the physical device (`00008150-000438D40A92401C`) before being reported as done, per `TESTING_PROTOCOL.md`. No EAS build was run or requested.
 
 ---
 
-## Build notes
+## Before clearing
 
-Last successful build: `npx expo run:ios -d 00008150-000438D40A92401C --configuration Release`  
-Result: Build Succeeded, 0 errors, 0 warnings. Installed on device (Jethro's iPhone 7). Launch failed only because device was locked at install time.
-
-The `--udid` flag is **not** recognised in Expo SDK 54. Use `-d` instead.
-
-Do not use `eas build`. Do not run `expo prebuild --clean`.
+Everything is safely committed locally, so `/clear` will not lose any work. However: **this branch has not been pushed to `origin/v2-redesign`**. If you want this session's work backed up remotely or visible to anyone else before clearing context, that push needs to happen explicitly — I have not done it, since pushing wasn't part of what was asked this session and it's the kind of action I check before taking.

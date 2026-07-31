@@ -8,6 +8,82 @@ to know the current version and recent history.
 
 ---
 
+## 2.0.0 — 2026-07-31
+
+**Major, not minor — this reverses decision 003 ("No Supabase for v1"),
+a named architectural decision reconfirmed multiple times throughout
+this project's history.** A version bump that size deserves to say so
+plainly rather than blend into the usual 1.x.x feature/fix rhythm.
+Optional accounts + cloud backup, Phases C and D of the accounts plan,
+shipped together — auth without a sync layer, or sync without auth, is
+an unshippable half-feature, so both land in the same release. (Phase
+A — local data-shape migration — and Phase B — Supabase project/schema
+— already shipped standalone in 1.7.0 and its own infra-only commit;
+neither changed the app's actual behavior by itself.)
+
+Accounts remain fully **optional** — every screen, every feature, works
+identically signed out, exactly as before. Nothing here changes
+behavior for anyone who never signs in.
+
+### Phase C — Sign in with Apple
+- Settings gained an **Account** section: "Sign in with Apple" when
+  signed out; signed-in email (or Apple's private-relay address if the
+  user chose Hide My Email) + Sign Out + Delete Account when signed in.
+- `com.apple.developer.applesignin` entitlement added the correct,
+  Expo-managed way — `usesAppleSignIn: true` + the `expo-apple-authentication`
+  plugin in `app.json`, regenerated automatically on every `prebuild`,
+  not a hand-edit of the gitignored entitlements file.
+- **Delete Account** is a real, server-verified deletion (guideline
+  5.1.1(v)): a Supabase Edge Function (`delete-account`) — the only
+  safe place for this, since the client can never call the service-role
+  admin API needed to delete its own auth user — removes every row
+  across all 7 synced tables for that user, then the auth user itself.
+  Double-confirmation on-device before it runs; verified directly
+  against the Supabase API afterward (not just trusting the UI) that
+  `auth.users` and all 7 tables were genuinely empty for the test
+  account, no orphaned rows.
+- One real bug caught during verification: the first delete attempt
+  showed local success (session cleared, Settings reverted) while the
+  account was still present in `auth.users` server-side — a silent
+  failure. Redeployed the Edge Function with explicit error handling
+  and step-by-step logging so a failure can't complete silently again;
+  confirmed clean on retry.
+- Apple's Sign In with Apple key is team-scoped, not per-App-ID —
+  reusing Landis's existing key was technically valid, but a dedicated
+  key was generated for Belific instead to avoid coupling the two
+  apps' credential blast radius/revocation lifecycle together, matching
+  the same separate-Supabase-project decision already made in Phase B.
+
+### Phase D — Sync layer
+- Local-first, optimistic: every local write in `storage.ts` already
+  completes and updates the UI before any network call happens; a
+  fire-and-forget push to Supabase follows via `sync.ts`, via a dynamic
+  `import('./sync')` inside `storage.ts` specifically to avoid a
+  circular static import (`sync.ts` needs `storage.ts`'s raw loaders to
+  reconcile). Signed-out (the default) or offline is a fast, silent
+  no-op — nothing ever blocks on network, same feel as before for every
+  user regardless of account status.
+- No polling timer — sync triggers only after a local write and on app
+  foreground (`AppState` transition to `active`), which is what a
+  personal, human-paced app actually needs.
+- One `runFullSync()` reconcile handles both cases from the plan
+  uniformly: a brand-new account's one-time bulk upload (remote is
+  empty, so everything local just uploads) and merging onto an
+  existing account's data on a second device (union by id, newest
+  `updatedAt` wins on a genuine conflict, local wins ties since
+  re-uploading an identical row is harmless).
+- `RoutineCompletion` syncs differently from the other six types, on
+  purpose (see Phase A's own reasoning) — no `updatedAt`, no tombstone;
+  a delete is pushed as a real row delete immediately, and the
+  reconcile pass is a plain union by `(routineId, date)`, not a
+  timestamp comparison.
+
+Sources: Apple guideline 5.1.1(v) (account deletion), guideline 4.8
+(login services — doesn't trigger here, Apple is the only login
+method offered).
+
+---
+
 ## 1.7.0 — 2026-07-31
 
 - **Phase A of optional accounts + cloud backup: local data-shape

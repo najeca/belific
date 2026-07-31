@@ -1,6 +1,10 @@
 import 'react-native-gesture-handler';
 
 require('react-native-get-random-values');
+// Supabase's JS client uses the URL constructor internally — RN's JS
+// engine (Hermes) doesn't implement it, this polyfills it globally.
+// Must load before anything imports @supabase/supabase-js.
+require('react-native-url-polyfill/auto');
 
 if (typeof global.process === 'undefined') {
   global.process = {

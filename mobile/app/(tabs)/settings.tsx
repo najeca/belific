@@ -35,6 +35,9 @@ import {
   formatDateKey,
 } from '../../lib/data';
 import { seedOwnerSchedule } from '../../lib/ownerSeed';
+import { supabase } from '../../lib/supabase';
+import { signInWithApple, signOut, deleteAccount } from '../../lib/auth';
+import type { Session } from '@supabase/supabase-js';
 import type { TimerSettings } from '../../lib/types';
 
 type SettingKey = keyof TimerSettings;
@@ -97,6 +100,8 @@ export default function SettingsScreen() {
   const [ownerVisible, setOwnerVisible] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const ownerTapCount = useRef(0);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
 
   useEffect(() => {
     async function checkPermissions() {
@@ -118,6 +123,84 @@ export default function SettingsScreen() {
     }
     checkPermissions();
   }, []);
+
+  // Accounts are entirely optional (see the accounts plan) — this just
+  // reflects whatever session already exists, never requires one. Live
+  // subscription keeps this in sync with sign-in/out/delete happening
+  // from this same screen without a manual reload.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function handleSignIn() {
+    setAuthBusy(true);
+    try {
+      await signInWithApple();
+    } catch (e) {
+      // Apple's own sheet already communicates a user-initiated
+      // cancellation — only surface a real failure.
+      const code = (e as { code?: string })?.code;
+      if (code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert('Sign in failed', 'Could not sign in with Apple. Please try again.');
+      }
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleSignOut() {
+    setAuthBusy(true);
+    try {
+      await signOut();
+    } catch {
+      Alert.alert('Error', 'Could not sign out. Please try again.');
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Delete Account',
+      'This permanently deletes your account and every synced item on the server. Data on this device is not affected. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation — irreversible and destroys server-side
+            // data, warrants more friction than a single tap.
+            Alert.alert(
+              'Are you sure?',
+              'This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete Account',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setAuthBusy(true);
+                    try {
+                      await deleteAccount();
+                    } catch {
+                      Alert.alert('Error', 'Could not delete your account. Please try again.');
+                    } finally {
+                      setAuthBusy(false);
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  }
 
   const editingMeta = editingKey
     ? POMODORO_SETTINGS.find(s => s.key === editingKey) ?? null
@@ -279,6 +362,60 @@ export default function SettingsScreen() {
               {i < POMODORO_SETTINGS.length - 1 && <View style={styles.divider} />}
             </View>
           ))}
+        </View>
+
+        {/* Account section — optional, app is fully usable signed out */}
+        <Text style={styles.sectionHeader}>Account</Text>
+        <View style={styles.card}>
+          {session ? (
+            <>
+              <View style={styles.aboutRow}>
+                <Text style={styles.aboutLabel}>Signed in as</Text>
+                <Text style={styles.aboutValue} numberOfLines={1}>
+                  {session.user.email ?? 'Apple ID'}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                style={styles.row}
+                onPress={handleSignOut}
+                disabled={authBusy}
+                activeOpacity={0.7}
+                accessibilityLabel="Sign out"
+                accessibilityRole="button"
+              >
+                <Text style={styles.rowLabel}>Sign Out</Text>
+                {authBusy && <ActivityIndicator size="small" color={Colors.textSecondary} />}
+              </TouchableOpacity>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                style={styles.dangerRow}
+                onPress={handleDeleteAccount}
+                disabled={authBusy}
+                activeOpacity={0.7}
+                accessibilityLabel="Delete account"
+                accessibilityRole="button"
+              >
+                <Ionicons name="person-remove-outline" size={18} color={Colors.danger} style={{ marginRight: 10 }} />
+                <Text style={styles.dangerText}>Delete Account</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={styles.row}
+              onPress={handleSignIn}
+              disabled={authBusy}
+              activeOpacity={0.7}
+              accessibilityLabel="Sign in with Apple"
+              accessibilityRole="button"
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="logo-apple" size={18} color={Colors.textPrimary} style={{ marginRight: 10 }} />
+                <Text style={styles.rowLabel}>Sign in with Apple</Text>
+              </View>
+              {authBusy && <ActivityIndicator size="small" color={Colors.textSecondary} />}
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Data section */}

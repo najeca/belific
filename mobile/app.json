@@ -2,7 +2,7 @@
   "expo": {
     "name": "Belific",
     "slug": "belific",
-    "version": "1.7.0",
+    "version": "2.0.0",
     "scheme": "belific",
     "orientation": "portrait",
     "icon": "./assets/belificappicon.png",
@@ -22,6 +22,7 @@
       "bundleIdentifier": "com.najeca.belific",
       "buildNumber": "1",
       "deploymentTarget": "16.4",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UNNotificationDefaultSoundName": "notification.wav"
@@ -30,6 +31,7 @@
     "plugins": [
       "expo-font",
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-notifications",
         {

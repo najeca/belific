@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, AppState, type AppStateStatus } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -9,6 +9,7 @@ import { requestPermissions } from '../lib/notifications';
 import { useTimerStore } from '../lib/store';
 import { seedDevEvents } from '../lib/devSeed';
 import { migrateToSyncableSchema } from '../lib/storage';
+import { runFullSync } from '../lib/sync';
 import { Colors } from '../lib/theme';
 
 Notifications.setNotificationHandler({
@@ -94,6 +95,7 @@ const errorStyles = StyleSheet.create({
 
 function RootLayoutInner() {
   const hydrate = useTimerStore((s) => s.hydrate);
+  const appState = useRef(AppState.currentState);
 
   useEffect(() => {
     hydrate();
@@ -104,7 +106,24 @@ function RootLayoutInner() {
       await migrateToSyncableSchema();
       await seedDevEvents();
       await requestPermissions();
+      // Catches anything the per-write fire-and-forget pushes in
+      // storage.ts missed (offline at the time, app killed mid-push,
+      // etc.) — a no-op if signed out, which is the default state.
+      runFullSync().catch(() => {});
     })();
+
+    // Reconcile again on every foreground, not just cold launch — the
+    // no-timer, no-polling trigger from the accounts plan. A background
+    // → active transition is the only other point a device is likely to
+    // have missed something (came back online, another device pushed
+    // changes while this one was backgrounded).
+    const subscription = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && next === 'active') {
+        runFullSync().catch(() => {});
+      }
+      appState.current = next;
+    });
+    return () => subscription.remove();
   }, [hydrate]);
 
   return (

@@ -60,7 +60,7 @@ interface RemoteRoutine {
 }
 interface RemoteTask {
   id: string; title: string; due_date: string | null; priority: EventPriority | null; project_key: string | null;
-  completed: boolean; completed_at: string | null; created_at: string; origin: 'dump' | null;
+  notes: string | null; completed: boolean; completed_at: string | null; created_at: string; origin: 'dump' | null;
   updated_at: string; deleted_at: string | null;
 }
 interface RemoteProject {
@@ -170,6 +170,7 @@ const taskToRemote = (t: Task) => ({
   due_date: t.dueDate ?? null,
   priority: t.priority ?? null,
   project_key: t.projectKey ?? null,
+  notes: t.notes ?? null,
   completed: t.completed,
   completed_at: t.completedAt ?? null,
   created_at: t.createdAt,
@@ -183,6 +184,7 @@ const taskFromRemote = (r: RemoteTask): Task => ({
   dueDate: r.due_date ?? undefined,
   priority: r.priority ?? undefined,
   projectKey: r.project_key ?? undefined,
+  notes: r.notes ?? undefined,
   completed: r.completed,
   completedAt: r.completed_at ?? undefined,
   createdAt: r.created_at,

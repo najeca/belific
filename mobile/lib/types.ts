@@ -173,6 +173,7 @@ export interface Task {
   dueDate?: string;
   priority?: EventPriority;
   projectKey?: string;
+  notes?: string;
   completed: boolean;
   completedAt?: string;
   createdAt: string;

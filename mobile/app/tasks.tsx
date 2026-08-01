@@ -207,16 +207,23 @@ export default function TasksScreen() {
               )}
               {item.origin === 'dump' && <Text style={styles.taskOrigin}>🧠</Text>}
 
-              <Text
-                style={[
-                  styles.taskTitle,
-                  item.completed && styles.taskTitleDone,
-                  !item.completed && item.priority === 'low' && styles.taskTitleLow,
-                ]}
-                numberOfLines={2}
-              >
-                {item.title}
-              </Text>
+              <View style={styles.taskTextCol}>
+                <Text
+                  style={[
+                    styles.taskTitle,
+                    item.completed && styles.taskTitleDone,
+                    !item.completed && item.priority === 'low' && styles.taskTitleLow,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {item.title}
+                </Text>
+                {!!item.notes && (
+                  <Text style={styles.taskNotes} numberOfLines={1}>
+                    {item.notes}
+                  </Text>
+                )}
+              </View>
 
               {!!item.dueDate && !item.completed && (
                 <Text style={styles.taskDue}>{formatDueDateKey(item.dueDate)}</Text>
@@ -339,8 +346,11 @@ const styles = StyleSheet.create({
   taskOrigin: {
     fontSize: 14,
   },
-  taskTitle: {
+  taskTextCol: {
     flex: 1,
+    justifyContent: 'center',
+  },
+  taskTitle: {
     fontSize: 15,
     color: Colors.textPrimary,
   },
@@ -349,6 +359,11 @@ const styles = StyleSheet.create({
   },
   taskTitleLow: {
     color: Colors.textSecondary,
+  },
+  taskNotes: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   taskDue: {
     fontSize: 12,

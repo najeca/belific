@@ -62,6 +62,7 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [priority, setPriority] = useState<PriorityChoice>('normal');
   const [projectKey, setProjectKey] = useState<string | undefined>(undefined);
+  const [notes, setNotes] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const isEditing = !!editTask;
@@ -77,11 +78,13 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
       setDueDate(editTask.dueDate ? parseDateKey(editTask.dueDate) : null);
       setPriority(editTask.priority ?? 'normal');
       setProjectKey(editTask.projectKey);
+      setNotes(editTask.notes ?? '');
     } else {
       setTitle(initialTitle ?? '');
       setDueDate(null);
       setPriority('normal');
       setProjectKey(undefined);
+      setNotes('');
     }
     setShowDatePicker(false);
   }, [editTask?.id, initialTitle]);
@@ -91,6 +94,7 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
     setDueDate(null);
     setPriority('normal');
     setProjectKey(undefined);
+    setNotes('');
     setShowDatePicker(false);
   }
 
@@ -135,6 +139,7 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
     if (!canSave) return;
     const priorityField: EventPriority | undefined = priority === 'normal' ? undefined : priority;
     const dueDateField = dueDate ? formatDateKey(dueDate) : undefined;
+    const notesField = notes.trim().length > 0 ? notes.trim() : undefined;
 
     if (isEditing && editTask) {
       await updateTask({
@@ -143,6 +148,7 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
         dueDate: dueDateField,
         priority: priorityField,
         projectKey,
+        notes: notesField,
       });
     } else {
       const now = new Date().toISOString();
@@ -152,6 +158,7 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
         dueDate: dueDateField,
         priority: priorityField,
         projectKey,
+        notes: notesField,
         completed: false,
         createdAt: now,
         updatedAt: now,
@@ -292,6 +299,17 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
             <Text style={styles.categoryChipText}>Add</Text>
           </TouchableOpacity>
         </View>
+
+        <Text style={styles.label}>Notes (optional)</Text>
+        <TextInput
+          style={styles.notesInput}
+          placeholder="Add more detail if you want"
+          placeholderTextColor={Colors.textSecondary}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          textAlignVertical="top"
+        />
 
         {isEditing && (
           <TouchableOpacity
@@ -452,6 +470,15 @@ const styles = StyleSheet.create({
   priorityCardDescription: {
     fontSize: 11,
     color: Colors.textSecondary,
+  },
+  notesInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    minHeight: 80,
   },
   categoryGrid: {
     flexDirection: 'row',

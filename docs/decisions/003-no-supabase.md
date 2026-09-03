@@ -3,6 +3,9 @@
 **Date:** May 2026  
 **Status:** Decided — do not change
 
+**Note:** partially superseded by [[006-optional-accounts-reverses-003]] —
+see that doc before assuming "no backend" still fully holds.
+
 ---
 
 ## Decision

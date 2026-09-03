@@ -8,6 +8,29 @@ to know the current version and recent history.
 
 ---
 
+## 2.0.1 — 2026-08-01
+
+**Retroactive entry** — this shipped in commit `99852f3` ("Add optional
+notes field to Tasks") without a version bump or changelog entry at the
+time; added now for process integrity (see `docs/decisions/` process
+notes and `docs/NEXT_PLAN.md` P0.1).
+
+- **Feature:** Task gains an optional `notes` string. Editable via a
+  multiline field in `TaskForm` ("Notes (optional)", shown for both
+  new and existing tasks), stored alongside the task's other fields.
+  The Tasks list shows it as a smaller, secondary-colored line under
+  the title (`taskNotes` style, `numberOfLines={1}`) so it reads as a
+  note, not a second task title.
+- Synced like every other `Task` field — `sync.ts`'s `RemoteTask`
+  interface, `taskToRemote`/`taskFromRemote` mappers, and a new
+  Supabase migration (`20260801004209_add_task_notes.sql`, adds a
+  nullable `notes` column to the `tasks` table) all updated together.
+  Whether this migration has actually been applied to the live
+  Belific Supabase project is tracked separately — see
+  `docs/NEXT_PLAN.md` P0.3.
+
+---
+
 ## 2.0.0 — 2026-07-31
 
 **Major, not minor — this reverses decision 003 ("No Supabase for v1"),

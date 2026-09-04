@@ -4,8 +4,6 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Modal,
-  TextInput,
   Switch,
   Alert,
   ActivityIndicator,
@@ -17,7 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Colors } from '../../lib/theme';
-import { useTimerStore } from '../../lib/store';
 import {
   clearAllData,
   loadNotificationsEnabled,
@@ -38,63 +35,14 @@ import { seedOwnerSchedule } from '../../lib/ownerSeed';
 import { supabase } from '../../lib/supabase';
 import { signInWithApple, signOut, deleteAccount } from '../../lib/auth';
 import type { Session } from '@supabase/supabase-js';
-import type { TimerSettings } from '../../lib/types';
-
-type SettingKey = keyof TimerSettings;
 
 // Read from app.json's expo.version at runtime rather than hardcoded —
 // this was previously a literal "1.0.0" string that never reflected
 // actual version bumps.
 const APP_VERSION = Constants.expoConfig?.version ?? '—';
 
-interface SettingMeta {
-  key: SettingKey;
-  label: string;
-  unit: string;
-  min: number;
-  max: number;
-}
-
-const POMODORO_SETTINGS: SettingMeta[] = [
-  { key: 'focusDuration',          label: 'Focus Duration',           unit: 'min', min: 5,  max: 90 },
-  { key: 'breakDuration',          label: 'Break Duration',           unit: 'min', min: 1,  max: 30 },
-  { key: 'longBreakDuration',      label: 'Long Break',               unit: 'min', min: 5,  max: 60 },
-  { key: 'sessionsUntilLongBreak', label: 'Sessions until long break', unit: '',    min: 1,  max: 10 },
-];
-
-function SettingRow({
-  meta,
-  value,
-  onPress,
-}: {
-  meta: SettingMeta;
-  value: number;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={styles.row}
-      onPress={onPress}
-      activeOpacity={0.7}
-      accessibilityLabel={meta.label}
-      accessibilityRole="button"
-    >
-      <Text style={styles.rowLabel}>{meta.label}</Text>
-      <View style={styles.rowRight}>
-        <Text style={styles.rowValue}>
-          {value}{meta.unit ? ` ${meta.unit}` : ''}
-        </Text>
-        <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const store = useTimerStore();
-  const [editingKey, setEditingKey] = useState<SettingKey | null>(null);
-  const [inputValue, setInputValue] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showSettingsPrompt, setShowSettingsPrompt] = useState(false);
   const [ownerVisible, setOwnerVisible] = useState(false);
@@ -202,29 +150,6 @@ export default function SettingsScreen() {
     );
   }
 
-  const editingMeta = editingKey
-    ? POMODORO_SETTINGS.find(s => s.key === editingKey) ?? null
-    : null;
-
-  function openEdit(meta: SettingMeta) {
-    setEditingKey(meta.key);
-    setInputValue(String(store[meta.key]));
-  }
-
-  function handleSave() {
-    if (!editingKey || !editingMeta) return;
-    const num = parseInt(inputValue, 10);
-    if (isNaN(num) || num < editingMeta.min || num > editingMeta.max) {
-      Alert.alert(
-        'Invalid value',
-        `Please enter a number between ${editingMeta.min} and ${editingMeta.max}.`,
-      );
-      return;
-    }
-    store.update({ [editingKey]: num });
-    setEditingKey(null);
-  }
-
   async function handleNotificationsToggle(value: boolean) {
     setNotificationsEnabled(value);
     setShowSettingsPrompt(false);
@@ -293,7 +218,7 @@ export default function SettingsScreen() {
   async function handleClearAll() {
     Alert.alert(
       'Clear All Data',
-      'This will remove all custom events and reset timer settings. This cannot be undone.',
+      'This will remove all custom events. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -301,12 +226,6 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             await clearAllData();
-            store.update({
-              focusDuration: 25,
-              breakDuration: 5,
-              longBreakDuration: 15,
-              sessionsUntilLongBreak: 4,
-            });
             Alert.alert('Done', 'All data cleared.');
           },
         },
@@ -347,21 +266,6 @@ export default function SettingsScreen() {
               <Text style={styles.settingsPromptText}>Tap to enable in Settings</Text>
             </TouchableOpacity>
           )}
-        </View>
-
-        {/* Pomodoro section */}
-        <Text style={styles.sectionHeader}>Pomodoro timer</Text>
-        <View style={styles.card}>
-          {POMODORO_SETTINGS.map((meta, i) => (
-            <View key={meta.key}>
-              <SettingRow
-                meta={meta}
-                value={store[meta.key]}
-                onPress={() => openEdit(meta)}
-              />
-              {i < POMODORO_SETTINGS.length - 1 && <View style={styles.divider} />}
-            </View>
-          ))}
         </View>
 
         {/* Account section — optional, app is fully usable signed out */}
@@ -481,55 +385,6 @@ export default function SettingsScreen() {
 
         <View style={{ height: 60 }} />
       </ScrollView>
-
-      {/* Edit modal */}
-      <Modal
-        visible={editingKey != null}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setEditingKey(null)}
-      >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={() => setEditingKey(null)}
-        >
-          <TouchableOpacity style={styles.editCard} activeOpacity={1} onPress={() => {}}>
-            <Text style={styles.editTitle}>{editingMeta?.label}</Text>
-            {editingMeta && (
-              <Text style={styles.editHint}>
-                {editingMeta.min} – {editingMeta.max}{editingMeta.unit ? ` ${editingMeta.unit}` : ''}
-              </Text>
-            )}
-            <TextInput
-              style={styles.editInput}
-              keyboardType="number-pad"
-              value={inputValue}
-              onChangeText={setInputValue}
-              selectTextOnFocus
-              autoFocus
-            />
-            <View style={styles.editButtons}>
-              <TouchableOpacity
-                style={styles.editCancelBtn}
-                onPress={() => setEditingKey(null)}
-                accessibilityLabel="Cancel"
-                accessibilityRole="button"
-              >
-                <Text style={styles.editCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.editSaveBtn}
-                onPress={handleSave}
-                accessibilityLabel="Save"
-                accessibilityRole="button"
-              >
-                <Text style={styles.editSaveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 }
@@ -575,15 +430,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     flex: 1,
   },
-  rowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  rowValue: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-  },
   settingsPromptRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -626,69 +472,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.textPrimary,
     fontWeight: '500',
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  editCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 360,
-  },
-  editTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  editHint: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 16,
-  },
-  editInput: {
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  editButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  editCancelBtn: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  editCancelText: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  editSaveBtn: {
-    flex: 1,
-    backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  editSaveText: {
-    color: Colors.onAccent,
-    fontSize: 16,
-    fontWeight: '700',
   },
 });

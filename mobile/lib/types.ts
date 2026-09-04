@@ -200,16 +200,3 @@ export interface Project {
   updatedAt: string;
   deletedAt?: string;
 }
-
-export interface TimerSettings {
-  focusDuration: number;
-  breakDuration: number;
-  longBreakDuration: number;
-  sessionsUntilLongBreak: number;
-}
-
-export type TimerPhase = 'focus' | 'break' | 'longBreak';
-
-export interface TimerStore extends TimerSettings {
-  update: (patch: Partial<TimerSettings>) => void;
-}

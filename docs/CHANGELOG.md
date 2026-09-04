@@ -8,6 +8,41 @@ to know the current version and recent history.
 
 ---
 
+## 2.1.0 — 2026-09-04
+
+**P-NAV, part 1: Focus/Pomodoro removed entirely.** Jethro found the
+4-session Pomodoro flow confusing and didn't think it'd land with other
+users either — see `docs/TIMEBOX_AND_NAV_SPEC.md`. Verified beforehand
+that `focus.tsx` and its timer state were isolated (only referenced by
+`focus.tsx` itself and `settings.tsx`'s Pomodoro config section, not any
+of the 7 synced types), so this has no Supabase/sync involvement.
+
+- Deleted `app/(tabs)/focus.tsx` and `lib/store.ts` (the Pomodoro
+  `TimerStore`/zustand store — nothing else used the `useTimerStore`
+  pattern, so the whole file went, not just its timer-specific exports).
+- Removed `TimerSettings`, `TimerPhase`, `TimerStore` from `lib/types.ts`
+  and `loadTimerSettings`/`saveTimerSettings` from `lib/storage.ts`.
+- Removed the Pomodoro config section from `settings.tsx` (the
+  `SettingRow`/`POMODORO_SETTINGS`/`SettingKey` machinery and its edit
+  modal) and the `store.update(...)` timer reset from `handleClearAll` —
+  "Clear All Data" no longer mentions resetting timer settings.
+- Removed the `useTimerStore` hydrate call from `app/_layout.tsx` (no
+  longer anything to hydrate on launch).
+- Removed the now-route-less `focus` `Tabs.Screen` entry from
+  `app/(tabs)/_layout.tsx` — required for the tab bar to still resolve
+  correctly with the screen file gone; the `settings` tab is untouched,
+  its relocation is P-NAV part 2, not part of this change.
+- **Old `belific_pomodoro` AsyncStorage key deliberately left alone** —
+  no migration to purge it, not worth the risk for a few orphaned bytes
+  on existing installs. `clearAllData()` still removes it as part of an
+  explicit user-initiated full wipe, which is unrelated to a migration
+  and stayed as-is.
+- Verified via `npx tsc --noEmit` (clean) and a grep pass confirming no
+  remaining `TimerSettings`/`TimerStore`/`useTimerStore`/`lib/store`
+  references anywhere in `app/` or `lib/`.
+
+---
+
 ## 2.0.1 — 2026-08-01
 
 **Retroactive entry** — this shipped in commit `99852f3` ("Add optional

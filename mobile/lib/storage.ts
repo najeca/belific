@@ -8,7 +8,6 @@ import type {
   Routine,
   RoutineCompletion,
   Task,
-  TimerSettings,
 } from './types';
 
 // Fire-and-forget push to Supabase after a local write — dynamic
@@ -69,23 +68,6 @@ function pruneAndHideTombstones<T extends { deletedAt?: string }>(
   const forStorage = items.filter((i) => !i.deletedAt || i.deletedAt >= cutoff);
   const visible = forStorage.filter((i) => !i.deletedAt);
   return { visible, forStorage, changed: forStorage.length !== items.length };
-}
-
-export async function loadTimerSettings(): Promise<TimerSettings | null> {
-  try {
-    const data = await AsyncStorage.getItem(KEYS.TIMER_SETTINGS);
-    return data ? (JSON.parse(data) as TimerSettings) : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function saveTimerSettings(settings: TimerSettings): Promise<void> {
-  try {
-    await AsyncStorage.setItem(KEYS.TIMER_SETTINGS, JSON.stringify(settings));
-  } catch {
-    // noop
-  }
 }
 
 // Loads raw, unfiltered rows including tombstones — only the migration

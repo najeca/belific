@@ -6,7 +6,6 @@ import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { requestPermissions } from '../lib/notifications';
-import { useTimerStore } from '../lib/store';
 import { seedDevEvents } from '../lib/devSeed';
 import { migrateToSyncableSchema } from '../lib/storage';
 import { runFullSync } from '../lib/sync';
@@ -94,11 +93,9 @@ const errorStyles = StyleSheet.create({
 });
 
 function RootLayoutInner() {
-  const hydrate = useTimerStore((s) => s.hydrate);
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
-    hydrate();
     (async () => {
       // Must run before anything else touches storage — every load/save
       // path below (and every screen's useFocusEffect) assumes updatedAt
@@ -124,7 +121,7 @@ function RootLayoutInner() {
       appState.current = next;
     });
     return () => subscription.remove();
-  }, [hydrate]);
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

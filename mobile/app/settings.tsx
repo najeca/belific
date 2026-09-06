@@ -11,29 +11,30 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import { Colors } from '../../lib/theme';
+import { Colors } from '../lib/theme';
 import {
   clearAllData,
   loadNotificationsEnabled,
   saveNotificationsEnabled,
   loadCustomEventsForDate,
-} from '../../lib/storage';
+} from '../lib/storage';
 import {
   cancelEventNotifications,
   scheduleEventNotifications,
-} from '../../lib/notifications';
+} from '../lib/notifications';
 import {
   getWeeklyEventsForDate,
   customToScheduleEvent,
   timeToMinutes,
   formatDateKey,
-} from '../../lib/data';
-import { seedOwnerSchedule } from '../../lib/ownerSeed';
-import { supabase } from '../../lib/supabase';
-import { signInWithApple, signOut, deleteAccount } from '../../lib/auth';
+} from '../lib/data';
+import { seedOwnerSchedule } from '../lib/ownerSeed';
+import { supabase } from '../lib/supabase';
+import { signInWithApple, signOut, deleteAccount } from '../lib/auth';
 import type { Session } from '@supabase/supabase-js';
 
 // Read from app.json's expo.version at runtime rather than hardcoded —
@@ -43,6 +44,7 @@ const APP_VERSION = Constants.expoConfig?.version ?? '—';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showSettingsPrompt, setShowSettingsPrompt] = useState(false);
   const [ownerVisible, setOwnerVisible] = useState(false);
@@ -240,7 +242,18 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Settings</Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Settings</Text>
+        </View>
 
         {/* Notifications section */}
         <Text style={styles.sectionHeader}>Notifications</Text>
@@ -396,13 +409,24 @@ const styles = StyleSheet.create({
   },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 8,
+    marginBottom: 20,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    marginLeft: -12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: 32,
     fontWeight: '800',
     color: Colors.textPrimary,
     letterSpacing: -0.5,
-    paddingTop: 16,
-    marginBottom: 28,
   },
   sectionHeader: {
     fontSize: 11,

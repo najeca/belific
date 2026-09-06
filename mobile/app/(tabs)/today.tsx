@@ -353,8 +353,19 @@ export default function TodayScreen() {
             <Text style={styles.title}>Today</Text>
             <Text style={styles.subtitle}>{formatHeaderDate(today)}</Text>
           </View>
-          <View style={[styles.statusPill, { backgroundColor: dayType.color + '33' }]}>
-            <Text style={[styles.statusText, { color: dayType.color }]}>{dayType.name}</Text>
+          <View style={styles.headerRight}>
+            <View style={[styles.statusPill, { backgroundColor: dayType.color + '33' }]}>
+              <Text style={[styles.statusText, { color: dayType.color }]}>{dayType.name}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push('/settings')}
+              style={styles.settingsBtn}
+              accessibilityLabel="Settings"
+              accessibilityRole="button"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="settings-outline" size={22} color={Colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -634,6 +645,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingsBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusPill: {
     paddingHorizontal: 12,

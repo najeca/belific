@@ -111,32 +111,41 @@ rather than Profile, since it's routine/quest data, not account data.
 
 ## Everything else stays inline
 
-- **Task add/edit** — a centered modal overlay on Desktop Home, whether the
-  task is new or existing. Never a separate screen. **Tasks are created only
-  in the Brain Dump pane** (pipeline: Brain Dump, task details, Plan,
-  Timebox): "Make task" on a row opens the form pre-filled and removes the
-  item on save; the "New task" button in the pane header opens it blank. The
-  centre kanban never creates tasks; clicking a card edits an existing one.
-  The form has name, duration chips, priority, label, notes, Day (a web date
-  input, min today, empty means Unscheduled) and Repeat (Does not repeat, Daily,
-  Weekly with weekday chips, Every 2 weeks, Monthly). Repeat is set here only;
-  the board never creates occurrences. Only the next occurrence exists: completing
-  a recurring task (kanban checkbox or the form's Done toggle, both through
-  `setTaskCompleted`) creates the next one. A small repeat icon marks recurring
-  cards. No past date can be chosen.
-- **Week board (the Plan)** — forward only (2.5.0). A pinned Unscheduled
-  column plus the days of the displayed week. Weeks start on Monday. The
-  current week shows today to Sunday (past days are hidden); future weeks
-  show Monday to Sunday. The header has a previous arrow (disabled on the
-  current week), a label such as "Wed 7 Oct to Sun 11 Oct" (the year is added
-  when it is not the current year), a next arrow, and a "This week" button
-  (disabled on this week). Clicking the label opens "Jump to week containing"
-  with a date input (min today). The past cannot be browsed. An unfinished
-  task from a past day shows first in the Today column with a muted "from
-  <date>" tag, only while the current week is displayed; finished past tasks
-  are not shown. "Move to day" offers Unscheduled, Today, Tomorrow and a date
-  input (min today); if the date is outside the displayed week a quiet line
-  ("Moved to Mon 2 Nov") confirms it.
+- **Brain Dump and the task editor (flow of 2026-10-05, 2.7.0)** — the
+  thing you capture IS the task. Typing in the Brain Dump pane's input and
+  pressing Enter creates a Task straight away (title only, no Day). The left
+  pane lists every incomplete task with no Day, newest first, plus any legacy
+  Brain Dump items from the phone shown the same way. Clicking anywhere on a row
+  (a small pencil appears on hover) opens the editor, a centred modal overlay,
+  never a separate screen: name, duration chips, priority, label, notes, Day (a
+  web date input, min today, empty means no Day) and Repeat (Does not repeat,
+  Daily, Weekly with weekday chips, Every 2 weeks, Monthly), plus a Done toggle
+  and delete with an inline confirm. Everything is editable at any time, before
+  or after scheduling. Opening and saving a legacy item converts it into a Task
+  in one step (nothing is lost). Giving a task a Day moves it off the left list
+  onto the board; clearing the Day (in the editor, or "Remove day" on the card)
+  brings it back. There is no "Make task" and no "New task" button. A collapsed
+  "Done today" line at the bottom of the left pane lists tasks completed today
+  (no Day), each with a checkbox so a mistaken tick can be undone. No past date
+  can be chosen. The board never creates tasks.
+  Only the next occurrence of a recurring task exists: completing one (a
+  checkbox or the Done toggle, both through `setTaskCompleted`) creates the
+  next, counted from the later of its Day and today.
+- **Week board (the Plan)** — forward only. The days of the displayed week;
+  there is no Unscheduled column (the left pane is the list of tasks with no
+  Day). Weeks start on Monday. The current week shows today to Sunday (past
+  days are hidden); future weeks show Monday to Sunday. The header has a
+  previous arrow (disabled on the current week), a label such as "Wed 7 Oct to
+  Sun 11 Oct" (the year is added when it is not the current year), a next
+  arrow, and a "This week" button (disabled on this week). Clicking the label
+  opens "Jump to week containing" with a date input (min today). The past
+  cannot be browsed. An unfinished task from a past day shows first in the
+  Today column with a muted "from <date>" tag, only while the current week is
+  displayed; finished past tasks are not shown. Clicking anywhere on a card
+  opens the same editor; the complete checkbox and the hover buttons (remove
+  day, schedule at a time, move to day) do not. "Move to day" offers Remove day,
+  Today, Tomorrow and a date input (min today); if the date is outside the
+  displayed week a quiet line ("Moved to Mon 2 Nov") confirms it.
 - **Timebox day/week** — a segmented toggle inside the Timebox pane's own
   header. Week mode mounts the same grid component day mode uses; it is
   not a separate screen.

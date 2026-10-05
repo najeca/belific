@@ -94,7 +94,6 @@ export interface ColumnItem {
 }
 
 export interface KanbanColumns {
-  unscheduled: ColumnItem[];
   days: Record<string, ColumnItem[]>;
 }
 
@@ -117,7 +116,8 @@ function compareItems(a: ColumnItem, b: ColumnItem): number {
 }
 
 // Puts tasks into the columns of the displayed week (`days`, see weekDays).
-//  - no (or malformed) dueDate: Unscheduled (always shown)
+//  - no (or malformed) dueDate: not on the board at all (those tasks are the
+//    Brain Dump list in the left pane, see thoughts.ts)
 //  - dueDate on a displayed day: that day's column
 //  - past dueDate, unfinished: the Today column, tagged overdueFrom, sorted
 //    first, but only while Today is displayed (the current week)
@@ -126,14 +126,14 @@ function compareItems(a: ColumnItem, b: ColumnItem): number {
 //    that week is displayed)
 // Deleted (tombstoned) tasks are never shown.
 export function bucketTasks(tasks: Task[], days: ColumnDay[], todayKey: string): KanbanColumns {
-  const result: KanbanColumns = { unscheduled: [], days: {} };
+  const result: KanbanColumns = { days: {} };
   for (const day of days) result.days[day.key] = [];
 
   for (const task of tasks) {
     if (task.deletedAt) continue;
     const due = task.dueDate;
     if (!isDateKey(due)) {
-      result.unscheduled.push({ task });
+      continue;
     } else if (due < todayKey) {
       if (task.completed) continue;
       if (todayKey in result.days) result.days[todayKey].push({ task, overdueFrom: due });
@@ -142,7 +142,6 @@ export function bucketTasks(tasks: Task[], days: ColumnDay[], todayKey: string):
     }
   }
 
-  result.unscheduled.sort(compareItems);
   for (const key of Object.keys(result.days)) result.days[key].sort(compareItems);
   return result;
 }

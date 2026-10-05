@@ -1,111 +1,85 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../lib/theme';
-import { createBrainDumpItem } from '../../../lib/data';
-import {
-  loadBrainDumpItems,
-  addBrainDumpItem,
-  updateBrainDumpItem,
-  deleteBrainDumpItem,
-} from '../../../lib/storage';
-import type { BrainDumpItem } from '../../../lib/types';
+import { dateKey, formatDuration } from '../../../lib/kanban';
+import { splitThoughts, rowId, type ThoughtRow } from '../../../lib/thoughts';
+import { loadBrainDumpItems, loadProjects, loadTasks } from '../../../lib/storage';
+import { convertDumpItem, createThought, setTaskCompleted } from '../../../lib/taskActions';
+import HoverPressable from './HoverPressable';
+import type { BrainDumpItem, Project, Task } from '../../../lib/types';
 
-// Desktop Brain Dump pane (decision 009): capture only, no date, no
-// scheduling here. Pinned input (Enter adds), flat list with hairline
-// dividers, click a title to edit inline (Enter saves, Escape cancels),
-// hover shows delete with an inline "Delete? Yes / No" (Alert.alert is a
-// no-op on web, so there are no native dialogs on desktop paths).
+// Desktop Brain Dump (decision 009, product flow 2c): the thing you capture IS
+// the task. Typing a thought and pressing Enter creates a Task straight away
+// (title only, no Day). The list is every incomplete task with no Day, plus any
+// legacy BrainDumpItems from the phone shown identically. Clicking anywhere on
+// a row opens the editor (name, duration, priority, label, notes, Day, Repeat);
+// giving a task a Day moves it onto the week board, clearing the Day brings it
+// back here. A collapsed "Done today" line lets a mistaken tick be undone.
 export default function BrainDumpPane({
   refreshKey,
   onChanged,
-  onMakeTask,
-  onNewTask,
+  onEditTask,
+  onEditDump,
 }: {
   refreshKey: number;
   onChanged: () => void;
-  // Opens the task modal pre-filled with this item's title. On save the
-  // Brain Dump item is deleted (promote to Task MOVES it).
-  onMakeTask: (item: BrainDumpItem) => void;
-  // Opens the same form blank. Tasks are created only from this pane.
-  onNewTask: () => void;
+  onEditTask: (task: Task) => void;
+  onEditDump: (item: BrainDumpItem) => void;
 }) {
-  const [items, setItems] = useState<BrainDumpItem[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [dumpItems, setDumpItems] = useState<BrainDumpItem[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [captureText, setCaptureText] = useState('');
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const cancelledRef = useRef(false);
+  const [doneOpen, setDoneOpen] = useState(false);
   const captureRef = useRef<TextInput>(null);
 
   const reload = useCallback(() => {
-    loadBrainDumpItems().then(setItems);
+    loadTasks().then(setTasks);
+    loadBrainDumpItems().then(setDumpItems);
+    loadProjects().then(setProjects);
   }, []);
 
   useEffect(() => {
     reload();
   }, [reload, refreshKey]);
 
+  const todayKey = dateKey(new Date());
+  const { rows, doneToday } = useMemo(() => splitThoughts(tasks, dumpItems, todayKey), [tasks, dumpItems, todayKey]);
+  const projectName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of projects) map.set(p.key, p.name);
+    return map;
+  }, [projects]);
+
   async function handleCapture() {
-    const trimmed = captureText.trim();
-    if (!trimmed) return;
-    await addBrainDumpItem(createBrainDumpItem(trimmed));
+    if (!captureText.trim()) return;
+    await createThought(captureText);
     setCaptureText('');
     onChanged();
     captureRef.current?.focus();
   }
 
-  function startEdit(item: BrainDumpItem) {
-    cancelledRef.current = false;
-    setConfirmingId(null);
-    setEditingId(item.id);
-    setEditText(item.title);
-  }
-
-  async function saveEdit(item: BrainDumpItem) {
-    if (cancelledRef.current) return;
-    const trimmed = editText.trim();
-    setEditingId(null);
-    // An emptied title keeps the old one: Brain Dump items always have text.
-    if (!trimmed || trimmed === item.title) return;
-    await updateBrainDumpItem({ ...item, title: trimmed });
+  async function tick(row: ThoughtRow) {
+    if (row.kind === 'task') await setTaskCompleted(row.task, true);
+    else await convertDumpItem(row.item, { completed: true, completedAt: new Date().toISOString() });
     onChanged();
   }
 
-  function cancelEdit() {
-    cancelledRef.current = true;
-    setEditingId(null);
-  }
-
-  async function confirmDelete(item: BrainDumpItem) {
-    setConfirmingId(null);
-    await deleteBrainDumpItem(item.id);
+  async function untick(task: Task) {
+    await setTaskCompleted(task, false);
     onChanged();
   }
-
-  const sorted = [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   return (
     <View style={styles.pane}>
-      <View style={styles.headerRow}>
-        <Text style={styles.paneLabel}>BRAIN DUMP</Text>
-        <Pressable
-          onPress={onNewTask}
-          style={styles.newTaskBtn}
-          accessibilityRole="button"
-          accessibilityLabel="New task"
-        >
-          <Ionicons name="add" size={16} color={Colors.accentText} />
-          <Text style={styles.newTaskText}>New task</Text>
-        </Pressable>
-      </View>
+      <Text style={styles.paneLabel}>BRAIN DUMP</Text>
 
       <View style={styles.captureRow}>
         <TextInput
           ref={captureRef}
           style={styles.captureInput}
-          placeholder="Capture a thought…"
+          placeholder="What needs doing?"
           placeholderTextColor={Colors.textSecondary}
           value={captureText}
           onChangeText={setCaptureText}
@@ -118,85 +92,104 @@ export default function BrainDumpPane({
           onPress={handleCapture}
           disabled={!captureText.trim()}
           accessibilityRole="button"
-          accessibilityLabel="Add to Brain Dump"
+          accessibilityLabel="Add"
         >
           <Ionicons name="add" size={20} color={Colors.onAccent} />
         </Pressable>
       </View>
 
       <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
-        {sorted.length === 0 ? (
-          <Text style={styles.empty}>Nothing on your mind. Type above and press Enter.</Text>
+        {rows.length === 0 ? (
+          <Text style={styles.empty}>Nothing waiting. Type above and press Enter; add the details later.</Text>
         ) : (
-          sorted.map((item, index) => {
-            const hovered = hoveredId === item.id;
-            const editing = editingId === item.id;
-            const confirming = confirmingId === item.id;
+          rows.map((row, index) => {
+            const id = rowId(row);
+            const task = row.kind === 'task' ? row.task : undefined;
+            const title = row.kind === 'task' ? row.task.title : row.item.title;
+            const duration = task ? formatDuration(task.durationMinutes) : undefined;
+            const label = task?.projectKey ? projectName.get(task.projectKey) : undefined;
             return (
-              <Pressable
-                key={item.id}
-                onHoverIn={() => setHoveredId(item.id)}
-                onHoverOut={() => setHoveredId((id) => (id === item.id ? null : id))}
-                style={[styles.row, index > 0 && styles.rowDivider, hovered && styles.rowHover]}
+              <HoverPressable
+                key={id}
+                onPress={() => (row.kind === 'task' ? onEditTask(row.task) : onEditDump(row.item))}
+                style={[styles.row, index > 0 && styles.rowDivider]}
+                hoverStyle={styles.rowHover}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${title}`}
               >
-                {editing ? (
-                  <TextInput
-                    style={[styles.title, styles.editInput]}
-                    value={editText}
-                    onChangeText={setEditText}
-                    onSubmitEditing={() => saveEdit(item)}
-                    onBlur={() => saveEdit(item)}
-                    onKeyPress={(e) => {
-                      if (e.nativeEvent.key === 'Escape') cancelEdit();
-                    }}
-                    autoFocus
-                    selectTextOnFocus
-                    accessibilityLabel="Edit thought"
-                  />
-                ) : (
-                  <Pressable style={styles.titleWrap} onPress={() => startEdit(item)} accessibilityRole="button">
-                    <Text style={styles.title}>{item.title}</Text>
-                  </Pressable>
-                )}
+                {(hovered) => (
+                  <>
+                <Pressable
+                  onPress={() => tick(row)}
+                  style={styles.check}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mark ${title} complete`}
+                >
+                  <Ionicons name="ellipse-outline" size={20} color={Colors.textSecondary} />
+                </Pressable>
 
-                {confirming ? (
-                  <View style={styles.confirm}>
-                    <Text style={styles.confirmText}>Delete?</Text>
-                    <Pressable onPress={() => confirmDelete(item)} accessibilityRole="button" accessibilityLabel="Confirm delete">
-                      <Text style={styles.confirmYes}>Yes</Text>
-                    </Pressable>
-                    <Pressable onPress={() => setConfirmingId(null)} accessibilityRole="button" accessibilityLabel="Cancel delete">
-                      <Text style={styles.confirmNo}>No</Text>
-                    </Pressable>
-                  </View>
-                ) : (
-                  hovered &&
-                  !editing && (
-                    <View style={styles.actions}>
-                      <Pressable
-                        onPress={() => onMakeTask(item)}
-                        style={styles.makeTaskBtn}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Make task from ${item.title}`}
-                      >
-                        <Text style={styles.makeTaskText}>Make task</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setConfirmingId(item.id)}
-                        style={styles.deleteBtn}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Delete ${item.title}`}
-                      >
-                        <Ionicons name="trash-outline" size={16} color={Colors.textSecondary} />
-                      </Pressable>
+                <View style={styles.body}>
+                  <Text style={[styles.title, task?.priority === 'low' && styles.titleLow]}>{title}</Text>
+                  {task && (task.priority === 'high' || label || duration || task.recurrence) && (
+                    <View style={styles.meta}>
+                      {task.priority === 'high' && <Ionicons name="flag" size={11} color={Colors.accentText} />}
+                      {label && <Text style={styles.metaText}>{label}</Text>}
+                      {duration && <Text style={styles.chip}>{duration}</Text>}
+                      {task.recurrence && <Ionicons name="repeat" size={13} color={Colors.textSecondary} />}
                     </View>
-                  )
+                  )}
+                </View>
+
+                {/* Affordance only: the whole row is the click target. */}
+                <View style={styles.pencil} pointerEvents="none">
+                  {hovered && <Ionicons name="pencil" size={14} color={Colors.textSecondary} />}
+                </View>
+                  </>
                 )}
-              </Pressable>
+              </HoverPressable>
             );
           })
         )}
       </ScrollView>
+
+      {doneToday.length > 0 && (
+        <View style={styles.doneSection}>
+          <Pressable
+            onPress={() => setDoneOpen((o) => !o)}
+            style={styles.doneHeader}
+            accessibilityRole="button"
+            accessibilityLabel={doneOpen ? 'Hide done today' : 'Show done today'}
+          >
+            <Ionicons name={doneOpen ? 'chevron-down' : 'chevron-forward'} size={14} color={Colors.textSecondary} />
+            <Text style={styles.doneHeaderText}>Done today ({doneToday.length})</Text>
+          </Pressable>
+          {doneOpen && (
+            <ScrollView style={styles.doneList} showsVerticalScrollIndicator={false}>
+              {doneToday.map((t) => (
+                <Pressable
+                  key={t.id}
+                  onPress={() => onEditTask(t)}
+                  style={styles.doneRow}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${t.title}`}
+                >
+                  <Pressable
+                    onPress={() => untick(t)}
+                    style={styles.check}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Mark ${t.title} incomplete`}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
+                  </Pressable>
+                  <Text style={styles.doneTitle} numberOfLines={2}>
+                    {t.title}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -211,22 +204,8 @@ const styles = StyleSheet.create({
     padding: 16,
     minWidth: 0,
   },
-  paneLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: Colors.textSecondary,
-  },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32 },
-  newTaskBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 32, borderRadius: 20 },
-  newTaskText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
-  captureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-    marginBottom: 8,
-  },
+  paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
+  captureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 8 },
   captureInput: {
     flex: 1,
     height: 40,
@@ -252,31 +231,39 @@ const styles = StyleSheet.create({
   empty: { marginTop: 12, fontSize: 14, color: Colors.textSecondary },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     minHeight: 44,
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 4,
     gap: 8,
   },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
   rowHover: { backgroundColor: Colors.background },
-  titleWrap: { flex: 1, minWidth: 0 },
-  title: { flex: 1, fontSize: 14, color: Colors.textPrimary },
-  editInput: {
-    height: 32,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.accent,
-    backgroundColor: Colors.surface,
-    outlineColor: Colors.accent,
+  check: { paddingTop: 1 },
+  body: { flex: 1, minWidth: 0 },
+  title: { fontSize: 14, color: Colors.textPrimary },
+  titleLow: { color: Colors.textSecondary },
+  meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 4 },
+  metaText: { fontSize: 12, color: Colors.textSecondary },
+  chip: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
   },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  makeTaskBtn: { paddingHorizontal: 6, paddingVertical: 4 },
-  makeTaskText: { fontSize: 12, fontWeight: '600', color: Colors.accentText },
-  deleteBtn: { padding: 6 },
-  confirm: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  confirmText: { fontSize: 13, color: Colors.textSecondary },
-  confirmYes: { fontSize: 13, fontWeight: '700', color: Colors.danger },
-  confirmNo: { fontSize: 13, fontWeight: '700', color: Colors.accentText },
+  pencil: { width: 18, paddingTop: 3, alignItems: 'center' },
+  doneSection: {
+    marginTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+    maxHeight: '40%',
+  },
+  doneHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 4 },
+  doneHeaderText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  doneList: { flexGrow: 0 },
+  doneRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, paddingHorizontal: 4 },
+  doneTitle: { flex: 1, fontSize: 13, color: Colors.textSecondary, textDecorationLine: 'line-through' },
 });

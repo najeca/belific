@@ -314,8 +314,9 @@ function EventPopover({
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture phase: a focused TextInput stops key events from bubbling.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
   async function save() {

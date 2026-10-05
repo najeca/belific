@@ -6,7 +6,9 @@ import { buildNextOccurrence, nextOccurrence, nextOccurrenceId, rootTaskId } fro
 import type { Task, WeekDay } from './types.ts';
 
 const TODAY = '2026-10-05';
-const next = (dueDate: string | undefined, recurrence: Task['recurrence'], days?: WeekDay[], today = TODAY) =>
+// `today` defaults to a date long before the Days used below, so the Day is the
+// base. Tests of the later-of rule pass `today` explicitly.
+const next = (dueDate: string | undefined, recurrence: Task['recurrence'], days?: WeekDay[], today = '2000-01-01') =>
   nextOccurrence({ dueDate, recurrence, recurrenceDays: days }, today);
 
 test('a task that does not repeat has no next occurrence', () => {
@@ -63,16 +65,49 @@ test('monthly: same day next month, clamped to the month end', () => {
 });
 
 test('a recurring task with no (or an invalid) Day counts from today', () => {
-  assert.equal(next(undefined, 'daily'), '2026-10-06');
-  assert.equal(next(undefined, 'weekly', ['Fri']), '2026-10-09');
+  assert.equal(next(undefined, 'daily', undefined, TODAY), '2026-10-06');
+  assert.equal(next(undefined, 'weekly', ['Fri'], TODAY), '2026-10-09');
   assert.equal(next(undefined, 'monthly', undefined, '2026-01-31'), '2026-02-28');
-  assert.equal(next('not a date', 'daily'), '2026-10-06');
-  assert.equal(next('2026-02-30', 'daily'), '2026-10-06');
+  assert.equal(next('not a date', 'daily', undefined, TODAY), '2026-10-06');
+  assert.equal(next('2026-02-30', 'daily', undefined, TODAY), '2026-10-06');
 });
 
-test('the result depends only on the task Day, not on today', () => {
-  assert.equal(next('2026-10-05', 'daily', undefined, '2026-10-05'), next('2026-10-05', 'daily', undefined, '2027-03-01'));
-  assert.equal(next('2026-10-05', 'weekly', ['Thu'], '2026-01-01'), next('2026-10-05', 'weekly', ['Thu'], '2030-06-06'));
+test('the count starts from the later of the Day and today', () => {
+  // a Day in the future is used as it is
+  assert.equal(next('2026-10-20', 'daily', undefined, TODAY), '2026-10-21');
+  assert.equal(next('2026-10-20', 'weekly', ['Thu'], TODAY), '2026-10-22');
+  // a Day in the past counts from today instead (2026-10-05 is a Monday)
+  assert.equal(next('2026-09-21', 'daily', undefined, TODAY), '2026-10-06');
+  assert.equal(next('2026-09-21', 'weekly', undefined, TODAY), '2026-10-12');
+  assert.equal(next('2026-09-21', 'weekly', ['Mon'], TODAY), '2026-10-12'); // a Monday task done on a Monday
+  assert.equal(next('2026-09-21', 'weekly', ['Mon', 'Thu'], TODAY), '2026-10-08');
+  assert.equal(next('2026-09-21', 'biweekly', undefined, TODAY), '2026-10-19');
+  assert.equal(next('2026-08-31', 'monthly', undefined, TODAY), '2026-11-05');
+  // the same Day as today
+  assert.equal(next(TODAY, 'daily', undefined, TODAY), '2026-10-06');
+});
+
+test('an overdue recurring task never produces a past-dated next occurrence', () => {
+  const rules: Array<{ r: NonNullable<Task['recurrence']>; days?: WeekDay[] }> = [
+    { r: 'daily' },
+    { r: 'weekly' },
+    { r: 'weekly', days: ['Mon', 'Wed', 'Fri'] },
+    { r: 'weekly', days: ['Sun'] },
+    { r: 'biweekly' },
+    { r: 'triweekly' },
+    { r: 'monthly' },
+  ];
+  const todays = ['2026-10-05', '2026-12-31', '2028-02-29', '2027-03-31'];
+  const days = ['2020-01-01', '2026-01-31', '2026-09-30', '2026-10-04', '2026-12-30', '2028-02-28'];
+  for (const today of todays) {
+    for (const { r, days: wd } of rules) {
+      for (const day of days) {
+        const n = next(day, r, wd, today)!;
+        assert.ok(n > today, `${r} ${wd ?? ''} due ${day}, completed ${today} gave ${n}`);
+      }
+      assert.ok(next(undefined, r, wd, today)! > today);
+    }
+  }
 });
 
 // Clock changes make some local days 23 or 25 hours long: results must still be

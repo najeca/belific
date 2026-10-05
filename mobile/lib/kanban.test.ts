@@ -131,13 +131,13 @@ test('formatting helpers', () => {
 const TODAY = '2026-10-05';
 const days = buildColumnDays(parseDateKey(TODAY), 14);
 
-test('bucketTasks: unscheduled, a day column, and the last visible day', () => {
+test('bucketTasks: day columns, and the last visible day; Day-less tasks are not on the board', () => {
   const cols = bucketTasks(
     [task('1'), task('2', { dueDate: '2026-10-07' }), task('3', { dueDate: '2026-10-18' })],
     days,
     TODAY,
   );
-  assert.deepEqual(cols.unscheduled.map((i) => i.task.id), ['1']);
+  assert.equal(Object.values(cols.days).flat().some((i) => i.task.id === '1'), false);
   assert.deepEqual(cols.days['2026-10-07'].map((i) => i.task.id), ['2']);
   assert.deepEqual(cols.days['2026-10-18'].map((i) => i.task.id), ['3']);
   assert.equal(Object.keys(cols.days).length, 14);
@@ -184,7 +184,6 @@ test('bucketTasks: tasks on days that are not displayed appear in no column', ()
     TODAY,
   );
   assert.equal(Object.values(cols.days).flat().length, 0);
-  assert.equal(cols.unscheduled.length, 0);
 });
 
 test('bucketTasks: a future week shows its own tasks, not overdue ones', () => {
@@ -200,11 +199,10 @@ test('bucketTasks: a future week shows its own tasks, not overdue ones', () => {
     TODAY,
   );
   assert.deepEqual(cols.days['2026-10-14'].map((i) => i.task.id), ['1']);
-  assert.deepEqual(cols.unscheduled.map((i) => i.task.id), ['3']);
   assert.equal(Object.values(cols.days).flat().length, 1);
 });
 
-test('bucketTasks: tombstones and malformed dates', () => {
+test('bucketTasks: tombstones and malformed dates are not on the board', () => {
   const cols = bucketTasks(
     [
       task('1', { deletedAt: '2026-10-04T00:00:00.000Z' }),
@@ -214,7 +212,6 @@ test('bucketTasks: tombstones and malformed dates', () => {
     days,
     TODAY,
   );
-  assert.deepEqual(cols.unscheduled.map((i) => i.task.id), ['2', '3']);
   assert.equal(Object.values(cols.days).flat().length, 0);
 });
 

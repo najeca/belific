@@ -21,12 +21,14 @@ import {
   type ColumnItem,
 } from '../../../lib/kanban';
 import { DEFAULT_TASK_MINUTES, formatMinutes, toMinutes } from '../../../lib/timebox';
+import HoverPressable from './HoverPressable';
 import { loadTasks, loadProjects, updateTask } from '../../../lib/storage';
 import { setTaskCompleted } from '../../../lib/taskActions';
 import type { Project, Task } from '../../../lib/types';
 
-// Desktop week board (decision 009, "Plan"), forward only: a pinned
-// Unscheduled column plus the days of the displayed week. The current week
+// Desktop week board (decision 009, "Plan"), forward only: the days of the
+// displayed week (tasks with no Day are the Brain Dump list in the left pane,
+// so there is no Unscheduled column here). The current week
 // shows today to Sunday (past days are hidden); future weeks show Monday to
 // Sunday; the past cannot be browsed. Day columns scroll horizontally and each
 // column scrolls vertically on its own. A task sits in the column of its
@@ -66,7 +68,6 @@ export default function KanbanPane({
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [moving, setMoving] = useState<Task | null>(null);
   const [scheduling, setScheduling] = useState<Task | null>(null);
   const [weekStart, setWeekStart] = useState(() => weekStartOf(new Date()));
@@ -122,10 +123,12 @@ export default function KanbanPane({
     // Nothing earlier than today can be chosen.
     const day = requested ? clampToToday(requested, todayKey) : undefined;
     if (day === task.dueDate) return;
-    // A time slot belongs to a day: Unscheduled drops it.
+    // A time slot belongs to a day: removing the Day drops it too.
     await updateTask({ ...task, dueDate: day, startTime: day ? task.startTime : undefined });
     // A day outside the displayed week would look like the task vanished.
     if (day && !isDayInView(day, days)) setNotice(`Moved to ${formatDayLabel(day)}`);
+    // Removing the Day sends it back to the Brain Dump list.
+    if (!day) setNotice('Back in the Brain Dump list');
     onChanged();
   }
 
@@ -143,7 +146,6 @@ export default function KanbanPane({
     onChanged();
   }
 
-  const unscheduledColumn: BoardColumn = { id: 'unscheduled', title: 'Unscheduled', items: columns.unscheduled };
   const dayColumns: BoardColumn[] = days.map((d) => ({
     id: d.key,
     title: formatDayTitle(d.key, todayKey),
@@ -163,16 +165,19 @@ export default function KanbanPane({
             <ScrollView style={styles.columnList} showsVerticalScrollIndicator={false}>
               {col.items.map((item, index) => {
                 const { task, overdueFrom } = item;
-                const hovered = hoveredId === task.id;
                 const duration = formatDuration(task.durationMinutes);
                 const label = task.projectKey ? projectName.get(task.projectKey) : undefined;
                 return (
-                  <Pressable
+                  <HoverPressable
                     key={task.id}
-                    onHoverIn={() => setHoveredId(task.id)}
-                    onHoverOut={() => setHoveredId((id) => (id === task.id ? null : id))}
-                    style={[styles.card, index > 0 && styles.cardDivider, hovered && styles.cardHover]}
+                    onPress={() => onEditTask(task)}
+                    style={[styles.card, index > 0 && styles.cardDivider]}
+                    hoverStyle={styles.cardHover}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${task.title}`}
                   >
+                    {(hovered) => (
+                      <>
                     <Pressable
                       onPress={() => toggleComplete(task)}
                       style={styles.check}
@@ -187,7 +192,7 @@ export default function KanbanPane({
                     </Pressable>
 
                     <View style={styles.cardBody}>
-                      <Pressable onPress={() => onEditTask(task)} accessibilityRole="button" accessibilityLabel={`Edit ${task.title}`}>
+                      <View>
                         <Text
                           style={[
                             styles.cardTitle,
@@ -197,7 +202,7 @@ export default function KanbanPane({
                         >
                           {task.title}
                         </Text>
-                      </Pressable>
+                      </View>
                       {(overdueFrom || label || duration || task.startTime || task.recurrence || (!task.completed && task.priority === 'high')) && (
                         <View style={styles.meta}>
                           {overdueFrom && <Text style={styles.metaText}>from {formatShortDate(overdueFrom)}</Text>}
@@ -217,6 +222,14 @@ export default function KanbanPane({
                     {hovered && (
                       <View style={styles.actions}>
                         <Pressable
+                          onPress={() => moveTo(task, undefined)}
+                          style={styles.moveBtn}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remove day from ${task.title}`}
+                        >
+                          <Ionicons name="close-circle-outline" size={16} color={Colors.textSecondary} />
+                        </Pressable>
+                        <Pressable
                           onPress={() => setScheduling(task)}
                           style={styles.moveBtn}
                           accessibilityRole="button"
@@ -234,7 +247,9 @@ export default function KanbanPane({
                         </Pressable>
                       </View>
                     )}
-                  </Pressable>
+                      </>
+                    )}
+                  </HoverPressable>
                 );
               })}
               {col.items.length === 0 && <Text style={styles.emptyColumn}>Nothing here</Text>}
@@ -315,7 +330,6 @@ export default function KanbanPane({
       {notice && <Text style={styles.notice}>{notice}</Text>}
 
       <View style={styles.boardRow}>
-        {renderColumn(unscheduledColumn)}
         <ScrollView horizontal style={styles.board} contentContainerStyle={styles.boardContent}>
           {dayColumns.map((col) => renderColumn(col))}
         </ScrollView>
@@ -329,7 +343,7 @@ export default function KanbanPane({
               Move to
             </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <MenuRow label="Unscheduled" selected={!moving.dueDate} onPress={() => moveTo(moving, undefined)} />
+              <MenuRow label="Remove day" selected={false} onPress={() => moveTo(moving, undefined)} />
               <MenuRow
                 label="Today"
                 detail={formatShortDate(todayKey)}

@@ -1,4 +1,4 @@
-// Pure recurrence maths for recurring Tasks (checkpoint 2b). NO runtime
+// Pure recurrence maths for recurring Tasks (checkpoints 2b and 2c). NO runtime
 // react-native or storage imports so `node --test` can run it; see
 // recurrence.test.ts. Only the NEXT occurrence ever exists (docs/DESIGN_VISION
 // section 2): completing a recurring task creates the next one, see
@@ -33,15 +33,19 @@ function addOneMonthClamped(d: Date): Date {
 //  - weekly with none selected: +7 days
 //  - biweekly (every 2 weeks): +14 days; triweekly: +21 days
 //  - monthly: same day of the month next month, clamped to the month end
-// A recurring task with no (or an invalid) Day counts from today. The result
-// depends only on the task's own Day, never on when it was completed, so it
-// is the same on every device.
+// The count starts from the LATER of the task's Day and today (a task with no,
+// or an invalid, Day counts from today), so the next occurrence is never in the
+// past: completing an overdue weekly task today gives the next weekday after
+// today, not a date that is already gone. Two devices completing on the same
+// day agree on the id; if they complete on different days they could create
+// two different next occurrences, which is accepted.
 export function nextOccurrence(
   task: { dueDate?: string; recurrence?: RecurrenceRule; recurrenceDays?: WeekDay[] },
   todayKey: string,
 ): string | null {
   if (!task.recurrence) return null;
-  const base = parseDateKey(isDateKey(task.dueDate) ? task.dueDate : todayKey);
+  const dayKey = isDateKey(task.dueDate) ? task.dueDate : todayKey;
+  const base = parseDateKey(dayKey > todayKey ? dayKey : todayKey);
   switch (task.recurrence) {
     case 'daily':
       return dateKey(addDays(base, 1));

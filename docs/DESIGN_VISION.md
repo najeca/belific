@@ -93,6 +93,20 @@ screen; no nav change needed to reach it.
 
 ## 2. The core pipeline: capture → promote → plan → place → review
 
+**Desktop pipeline (2026-10-05, supersedes the promote steps below on
+desktop).** On desktop there is no separate promote step: the thing you
+capture IS the task. Type a thought in the Brain Dump pane and press Enter and
+it is a Task (title only, no Day). Add the details afterwards by clicking it
+(duration, priority, label, notes, Day, Repeat); setting a Day puts it on the
+week board, clearing the Day puts it back in the Brain Dump list, and a Day
+plus a time puts it on Timebox (capture, details, plan, place). The Brain Dump
+list on desktop is therefore simply every incomplete Task with no Day (plus any
+legacy `BrainDumpItem` created on the phone, shown identically and converted
+into a Task the first time it is saved). The board never creates tasks. The
+iPhone keeps its separate Brain Dump and its promote flow described below until
+a later mobile release; desktop thoughts are Tasks, so they will appear in the
+iPhone's Tasks list once sync lands (checkpoint 5).
+
 **Corrected 2026-09-04 against real source** — the first draft of this
 section guessed a shape that fights an existing, deliberate architecture
 boundary. Verified in `mobile/lib/types.ts` and

@@ -2,27 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../lib/theme';
-import { generateId } from '../../../lib/data';
 import { DURATION_CHOICES, dateKey, isDateKey } from '../../../lib/kanban';
-import { setTaskCompleted } from '../../../lib/taskActions';
+import { convertDumpItem, setTaskCompleted } from '../../../lib/taskActions';
 import {
-  addTask,
   updateTask,
   deleteTask,
   deleteBrainDumpItem,
   loadProjects,
   addProject,
 } from '../../../lib/storage';
-import type { EventPriority, Project, RecurrenceRule, Task, WeekDay } from '../../../lib/types';
+import type { BrainDumpItem, EventPriority, Project, RecurrenceRule, Task, WeekDay } from '../../../lib/types';
 
-// Desktop task modal: a centred overlay on Desktop Home, never a new screen
-// (DESKTOP_HOME_NAV_SPEC standing rule). Create and edit share it. Web only:
-// the Day field is a plain <input type="date"> because DateTimePicker renders
-// nothing on web, and there are no Alert.alert dialogs (no-ops on web), so
-// delete confirms inline.
+// Desktop task editor: a centred overlay on Desktop Home, never a new screen
+// (DESKTOP_HOME_NAV_SPEC standing rule). It never creates tasks (a thought
+// typed in the Brain Dump pane already is a Task); it edits one, at any time,
+// before or after scheduling. It also opens a legacy BrainDumpItem from the
+// phone: saving converts it into a Task in one step and removes the item.
+// Web only: the Day field is a plain <input type="date"> because
+// DateTimePicker renders nothing on web, and there are no Alert.alert dialogs
+// (no-ops on web), so delete confirms inline.
 export type TaskModalState =
   | { mode: 'edit'; task: Task }
-  | { mode: 'new'; title?: string; dumpId?: string };
+  | { mode: 'dump'; item: BrainDumpItem };
 
 type PriorityChoice = 'normal' | EventPriority;
 
@@ -68,12 +69,13 @@ export default function TaskModal({
   onSaved: () => void;
 }) {
   const editTask = state.mode === 'edit' ? state.task : undefined;
-  const [title, setTitle] = useState(editTask?.title ?? (state.mode === 'new' ? state.title ?? '' : ''));
+  const dumpItem = state.mode === 'dump' ? state.item : undefined;
+  const [title, setTitle] = useState(editTask?.title ?? dumpItem?.title ?? '');
   const [day, setDay] = useState(editTask?.dueDate ?? '');
   const [priority, setPriority] = useState<PriorityChoice>(editTask?.priority ?? 'normal');
   const [projectKey, setProjectKey] = useState<string | undefined>(editTask?.projectKey);
   const [duration, setDuration] = useState<number | undefined>(editTask?.durationMinutes);
-  const [notes, setNotes] = useState(editTask?.notes ?? '');
+  const [notes, setNotes] = useState(editTask?.notes ?? dumpItem?.notes ?? '');
   const [projects, setProjects] = useState<Project[]>([]);
   const [addingLabel, setAddingLabel] = useState(false);
   const [labelText, setLabelText] = useState('');
@@ -97,8 +99,10 @@ export default function TaskModal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture phase: react-native-web's TextInput stops key events from
+    // bubbling, so a bubbling listener never sees Escape while a field has focus.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
   if (Platform.OS !== 'web') return null;
@@ -126,26 +130,16 @@ export default function TaskModal({
       // Completion always goes through setTaskCompleted so a recurring task
       // gets its next occurrence (built from the details just saved).
       if (done !== editTask.completed) await setTaskCompleted(updated, done);
-    } else {
-      const now = new Date().toISOString();
-      const dumpId = state.mode === 'new' ? state.dumpId : undefined;
-      await addTask({
-        id: generateId(),
-        ...fields,
-        completed: false,
-        createdAt: now,
-        updatedAt: now,
-        origin: dumpId ? 'dump' : undefined,
-      });
-      // Promote to Task MOVES the Brain Dump item (UBIQUITOUS_LANGUAGE).
-      if (dumpId) await deleteBrainDumpItem(dumpId);
+    } else if (dumpItem) {
+      // Any save converts the legacy item into a Task and removes the item.
+      await convertDumpItem(dumpItem, fields);
     }
     onSaved();
   }
 
   async function handleDelete() {
-    if (!editTask) return;
-    await deleteTask(editTask.id);
+    if (editTask) await deleteTask(editTask.id);
+    else if (dumpItem) await deleteBrainDumpItem(dumpItem.id);
     onSaved();
   }
 
@@ -172,7 +166,7 @@ export default function TaskModal({
       <View style={styles.panel} accessibilityViewIsModal>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.headingRow}>
-            <Text style={styles.heading}>{editTask ? 'Edit task' : 'New task'}</Text>
+            <Text style={styles.heading}>Edit task</Text>
             {editTask && (
               <Pressable
                 onPress={() => setDone((d) => !d)}
@@ -310,7 +304,7 @@ export default function TaskModal({
 
           <View style={styles.footer}>
             <View style={styles.footerLeft}>
-              {editTask &&
+              {(editTask || dumpItem) &&
                 (confirmingDelete ? (
                   <View style={styles.confirm}>
                     <Text style={styles.muted}>Delete?</Text>

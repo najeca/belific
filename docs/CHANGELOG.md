@@ -8,6 +8,45 @@ to know the current version and recent history.
 
 ---
 
+## 2.7.0 — 2026-10-05
+
+**Desktop Home: the thing you capture IS the task (web/Electron only; the iPhone app is unchanged).**
+
+- Typing in the Brain Dump pane and pressing Enter creates a Task straight
+  away (title only, no Day, `origin: 'dump'`). There is no form and no
+  "Make task" or "New task" button any more.
+- The left pane lists every incomplete task with no Day (newest first) plus any
+  legacy `BrainDumpItem`s, shown identically. Opening and saving a legacy item
+  converts it into a Task in one step (title, notes and creation time kept) and
+  removes the item.
+- Clicking anywhere on a row or on a kanban card (not only the title) opens
+  the editor (name, duration, priority, label, notes, Day, Repeat, Done, delete
+  with an inline confirm). Setting a Day moves a task off the left list onto
+  the board; clearing it ("Remove day" on the card, or in the editor) brings it
+  back.
+- The Unscheduled column is removed from the week board. "Move to day" now
+  offers Remove day, Today, Tomorrow and a date.
+- A collapsed "Done today" line at the bottom of the left pane lists tasks
+  completed today (no Day) with a checkbox to undo a mistaken tick.
+- Recurring tasks: the next occurrence now counts from the later of the task's
+  Day and today, so completing an overdue recurring task never produces a
+  past-dated next occurrence.
+- Fixed: hover-only buttons on rows and cards disappeared under the pointer
+  (react-native-web ends a parent's hover when the pointer enters a nested
+  pressable), so the click landed on the row instead. New `HoverPressable`
+  uses DOM `mouseenter`/`mouseleave`.
+- Fixed: Escape did not close the task or event editor while a text field had
+  focus (react-native-web's `TextInput` stops key events bubbling); the
+  listener is now in the capture phase.
+- New pure `lib/thoughts.ts` (list split, Done today, new thought, dump item
+  conversion) with 15 tests; the board tests no longer include Unscheduled. 79
+  mobile tests and 19 desktop tests pass.
+- `taskActions.ts` gains `createThought` and `convertDumpItem`. `sync.ts` and
+  the iPhone screens are untouched; new Task fields stay local only until
+  checkpoint 5.
+
+---
+
 ## 2.6.0 — 2026-10-05
 
 **Recurring tasks, set in the Brain Dump task form (web/Electron only; iOS unchanged).**

@@ -22,14 +22,14 @@ Never invent synonyms.
 | **Custom Event** | A user-created scheduled item (`CustomEvent` — title, category, start/end time, date, notes) |
 | **Template Event** | A recurring weekly-schedule or starter-routine event, not user-created — never generates a notification |
 | **Category** | The type of an event (work, fitness, cyber, etc.) — see `CATEGORIES` in `lib/data.ts` |
-| **Brain Dump** / **Dump** | The quick-capture space for spontaneous, title-only thoughts with no date/time required upfront (`BrainDumpItem`). Tab/header say "Brain Dump"; internal type name stays `BrainDumpItem`. |
+| **Brain Dump** / **Dump** | The quick-capture space for spontaneous, title-only thoughts with no date/time required upfront (`BrainDumpItem`). Tab/header say "Brain Dump"; internal type name stays `BrainDumpItem`. **On desktop (2.7.0) the Brain Dump pane is the list of Tasks with no Day**: typing a thought and pressing Enter creates a Task, and legacy `BrainDumpItem`s from the phone are listed too and converted on first save. The iPhone keeps its separate Brain Dump. |
 | **Promote** (to a Custom Event) | Scheduling a Brain Dump item via the event form — this **copies** it onto the calendar as a real `CustomEvent`; the dump item is left untouched in Dump (reversed from an earlier copy-vs-move design; see decision history in `docs/CHANGELOG.md` 1.1.0) |
 | **Promote** (to a Task) | Converting a Brain Dump item into a `Task` — this **moves** it: the Task is the item's final form, the dump item is deleted. Opposite behavior from promoting to a Custom Event — deliberate, not an inconsistency (a Task has no calendar slot to "also" occupy in Dump). |
 | **Task** | A to-do with an optional due date (no fixed time) and priority, distinct from both `CustomEvent` (always has a concrete date/start/end) and `BrainDumpItem` (no due date at all) — see `lib/types.ts`. Screen: `app/tasks.tsx`, reached from Today's "Top 3 tasks" section, not a tab. |
 | **Duration estimate** | Optional `durationMinutes` on `Task` (15, 30, 60, 120 from the chips; see `docs/DESIGN_VISION.md` §2). The block size when a Task is placed on Timebox. |
 | **Plan** (view) | Day-assignment view over a Task's `dueDate`. On desktop it is the weekly kanban (decision 009). The mobile List/Plan segmented view is deferred; not built. |
-| **Kanban** | The desktop Plan: one column per day plus an Unscheduled column. Tasks sit under the day they are planned for. |
-| **Day** | A Task's `dueDate`, redefined in decision 015 as the day the task is **planned** for, not a hard deadline. Absent means Unscheduled. |
+| **Kanban** | The desktop Plan: a forward-only week board with one column per day (no Unscheduled column: tasks with no Day are the Brain Dump list). Tasks sit under the day they are planned for. |
+| **Day** | A Task's `dueDate`, redefined in decision 015 as the day the task is **planned** for, not a hard deadline. Absent means no Day: on desktop the task is on the Brain Dump list. |
 | **Placed task** | A Task with a Day and a `startTime`, shown as a block on Timebox. Sized by `durationMinutes` (default 30). One row, never copied into a `CustomEvent`. |
 | **Label** | The UI word for a `Project`: a tag with a colour (decision 016). A Task has one. Not to be confused with a Custom Category (events only). |
 | **Quest** | The UI word for a Routine, shown in the Quests panel on desktop. Same data type, no separate "quest" table. |

@@ -27,8 +27,8 @@ export default function DesktopHome() {
           <BrainDumpPane
             refreshKey={refreshKey}
             onChanged={onChanged}
-            onMakeTask={(item) => setModal({ mode: 'new', title: item.title, dumpId: item.id })}
-            onNewTask={() => setModal({ mode: 'new' })}
+            onEditTask={(task) => setModal({ mode: 'edit', task })}
+            onEditDump={(item) => setModal({ mode: 'dump', item })}
           />
         </View>
         <View style={{ flex: 2.2, minWidth: 0 }}>

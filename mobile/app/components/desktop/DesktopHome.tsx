@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../../lib/theme';
+import BrainDumpPane from './BrainDumpPane';
 
-// Checkpoint 1 shell: three placeholder panes (decision 009). Real
-// content and the top bar land in checkpoint 2.
-function Pane({ title, note, flex }: { title: string; note: string; flex: number }) {
+// Decision 009: the three-pane workspace. Brain Dump is real; the kanban
+// and Timebox panes are placeholders until their checkpoints land. Panes
+// share one refresh counter so a change in one (a promoted Brain Dump
+// item, a moved task) shows up in the others without extra plumbing.
+function Placeholder({ title, note, flex }: { title: string; note: string; flex: number }) {
   return (
     <View style={[styles.pane, { flex }]}>
       <Text style={styles.paneLabel}>{title}</Text>
@@ -14,12 +17,17 @@ function Pane({ title, note, flex }: { title: string; note: string; flex: number
 }
 
 export default function DesktopHome() {
+  const [refreshKey, setRefreshKey] = useState(0);
+  const onChanged = useCallback(() => setRefreshKey((k) => k + 1), []);
+
   return (
     <View style={styles.root}>
       <View style={styles.body}>
-        <Pane title="BRAIN DUMP" note="Capture pane placeholder" flex={1} />
-        <Pane title="WEEK" note="Kanban pane placeholder" flex={2.2} />
-        <Pane title="TIMEBOX" note="Timebox pane placeholder" flex={1.2} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <BrainDumpPane refreshKey={refreshKey} onChanged={onChanged} />
+        </View>
+        <Placeholder title="WEEK" note="Kanban pane placeholder" flex={2.2} />
+        <Placeholder title="TIMEBOX" note="Timebox pane placeholder" flex={1.2} />
       </View>
     </View>
   );

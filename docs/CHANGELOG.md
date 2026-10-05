@@ -8,6 +8,27 @@ to know the current version and recent history.
 
 ---
 
+## 2.2.0 — 2026-10-05
+
+**Desktop Home: real Brain Dump pane (web/Electron only; iOS unchanged).**
+
+- New `app/components/desktop/BrainDumpPane.tsx` replaces the left
+  placeholder: pinned capture input (Enter adds), flat list with hairline
+  dividers, click a title to edit inline (Enter saves, Escape cancels),
+  hover shows a delete icon with an inline "Delete? Yes / No" confirm. Uses
+  the existing `storage.ts` Brain Dump functions, so deletes are tombstones
+  exactly as on iOS.
+- `DesktopHome.tsx` holds one refresh counter shared by the panes so a
+  change in one shows up in the others.
+- New top-level `desktop/` folder (Electron shell, file store, daily
+  backups, export) with its own tests; see `desktop/README.md`.
+- Verified: `tsc --noEmit` clean, iOS JS bundle export succeeds, 19
+  `node --test` tests pass, and the built desktop app was launched headless
+  and screenshotted (see `docs/sessions/2026-10-05-cp1.md`). Not device
+  tested on iOS (no iOS code path changed).
+
+---
+
 ## 2.1.1 — 2026-10-05
 
 **Storage goes through one `kv` entry point (groundwork for the Windows

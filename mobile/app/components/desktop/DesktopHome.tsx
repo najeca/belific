@@ -1,24 +1,15 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Colors } from '../../../lib/theme';
 import BrainDumpPane from './BrainDumpPane';
 import KanbanPane from './KanbanPane';
+import TimeboxPane from './TimeboxPane';
 import TaskModal, { type TaskModalState } from './TaskModal';
 
-// Decision 009: the three-pane workspace. Brain Dump and the kanban are
-// real; Timebox is a placeholder until its checkpoint lands. Panes share one
-// refresh counter so a change in one (a promoted Brain Dump item, a moved
+// Decision 009: the three-pane workspace: Brain Dump, weekly kanban and
+// Timebox. Panes share one refresh counter so a change in one (a promoted Brain Dump item, a moved
 // task) shows up in the others without extra plumbing. The task modal is a
 // centred overlay on this screen, never a new screen.
-function Placeholder({ title, note, flex }: { title: string; note: string; flex: number }) {
-  return (
-    <View style={[styles.pane, { flex }]}>
-      <Text style={styles.paneLabel}>{title}</Text>
-      <Text style={styles.paneNote}>{note}</Text>
-    </View>
-  );
-}
-
 export default function DesktopHome() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [modal, setModal] = useState<TaskModalState | null>(null);
@@ -47,7 +38,13 @@ export default function DesktopHome() {
             onEditTask={(task) => setModal({ mode: 'edit', task })}
           />
         </View>
-        <Placeholder title="TIMEBOX" note="Timebox pane placeholder" flex={1.2} />
+        <View style={{ flex: 1.2, minWidth: 0 }}>
+          <TimeboxPane
+            refreshKey={refreshKey}
+            onChanged={onChanged}
+            onEditTask={(task) => setModal({ mode: 'edit', task })}
+          />
+        </View>
       </View>
       {modal && <TaskModal state={modal} onClose={closeModal} onSaved={onSaved} />}
     </View>
@@ -57,18 +54,4 @@ export default function DesktopHome() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   body: { flex: 1, flexDirection: 'row', padding: 16, gap: 16 },
-  pane: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 16,
-  },
-  paneLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: Colors.textSecondary,
-  },
-  paneNote: { marginTop: 8, fontSize: 14, color: Colors.textSecondary },
 });

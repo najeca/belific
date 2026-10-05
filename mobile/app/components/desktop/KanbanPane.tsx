@@ -11,6 +11,7 @@ import {
   formatShortDate,
   type ColumnItem,
 } from '../../../lib/kanban';
+import { DEFAULT_TASK_MINUTES, formatMinutes, toMinutes } from '../../../lib/timebox';
 import { loadTasks, loadProjects, updateTask } from '../../../lib/storage';
 import type { Project, Task } from '../../../lib/types';
 
@@ -20,6 +21,17 @@ import type { Project, Task } from '../../../lib/types';
 // Day (Task.dueDate, decision 015). Past unfinished tasks are surfaced in
 // Today with a muted "from <date>" tag; the stored date is left alone until
 // the user moves the task (the rollover recommendation in NEXT_PLAN).
+const domTimeStyle: React.CSSProperties = {
+  height: 36,
+  padding: '0 10px',
+  borderRadius: 10,
+  border: `1px solid ${Colors.border}`,
+  background: Colors.background,
+  color: Colors.textPrimary,
+  fontSize: 14,
+  fontFamily: 'inherit',
+  outlineColor: Colors.accent,
+};
 const COLUMN_WIDTH = 248;
 const DAYS_VISIBLE = 14;
 
@@ -38,6 +50,7 @@ export default function KanbanPane({
   const [projects, setProjects] = useState<Project[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [moving, setMoving] = useState<Task | null>(null);
+  const [scheduling, setScheduling] = useState<Task | null>(null);
 
   const reload = useCallback(() => {
     loadTasks().then(setTasks);
@@ -71,6 +84,20 @@ export default function KanbanPane({
     if (day === task.dueDate) return;
     // A time slot belongs to a day: Unscheduled drops it.
     await updateTask({ ...task, dueDate: day, startTime: day ? task.startTime : undefined });
+    onChanged();
+  }
+
+  // "Schedule at": writes Task.startTime (decision 015). The block length is
+  // durationMinutes, defaulting to 30 when the task has none yet.
+  async function scheduleAt(task: Task, time: string) {
+    setScheduling(null);
+    await updateTask({ ...task, startTime: time, durationMinutes: task.durationMinutes ?? DEFAULT_TASK_MINUTES });
+    onChanged();
+  }
+
+  async function unschedule(task: Task) {
+    setScheduling(null);
+    await updateTask({ ...task, startTime: undefined });
     onChanged();
   }
 
@@ -148,12 +175,13 @@ export default function KanbanPane({
                           {task.title}
                         </Text>
                       </Pressable>
-                      {(overdueFrom || label || duration || (!task.completed && task.priority === 'high')) && (
+                      {(overdueFrom || label || duration || task.startTime || (!task.completed && task.priority === 'high')) && (
                         <View style={styles.meta}>
                           {overdueFrom && <Text style={styles.metaText}>from {formatShortDate(overdueFrom)}</Text>}
                           {!task.completed && task.priority === 'high' && (
                             <Ionicons name="flag" size={11} color={Colors.accentText} />
                           )}
+                          {task.dueDate && task.startTime && <Text style={styles.metaText}>{task.startTime}</Text>}
                           {label && <Text style={styles.metaText}>{label}</Text>}
                           {duration && <Text style={styles.chip}>{duration}</Text>}
                         </View>
@@ -161,14 +189,24 @@ export default function KanbanPane({
                     </View>
 
                     {hovered && (
-                      <Pressable
-                        onPress={() => setMoving(task)}
-                        style={styles.moveBtn}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Move ${task.title} to day`}
-                      >
-                        <Ionicons name="calendar-outline" size={16} color={Colors.textSecondary} />
-                      </Pressable>
+                      <View style={styles.actions}>
+                        <Pressable
+                          onPress={() => setScheduling(task)}
+                          style={styles.moveBtn}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Schedule ${task.title} at a time`}
+                        >
+                          <Ionicons name="time-outline" size={16} color={Colors.textSecondary} />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setMoving(task)}
+                          style={styles.moveBtn}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Move ${task.title} to day`}
+                        >
+                          <Ionicons name="calendar-outline" size={16} color={Colors.textSecondary} />
+                        </Pressable>
+                      </View>
                     )}
                   </Pressable>
                 );
@@ -201,6 +239,96 @@ export default function KanbanPane({
           </View>
         </View>
       )}
+
+      {scheduling && (
+        <SchedulePopover
+          key={scheduling.id}
+          task={scheduling}
+          onClose={() => setScheduling(null)}
+          onSchedule={(time) => scheduleAt(scheduling, time)}
+          onUnschedule={() => unschedule(scheduling)}
+        />
+      )}
+    </View>
+  );
+}
+
+// "Schedule at" popover: a time input for a task that already has a Day;
+// "Choose a day first" for one that does not. Web <input type="time">, never
+// DateTimePicker.
+function SchedulePopover({
+  task,
+  onClose,
+  onSchedule,
+  onUnschedule,
+}: {
+  task: Task;
+  onClose: () => void;
+  onSchedule: (time: string) => void;
+  onUnschedule: () => void;
+}) {
+  const [time, setTime] = useState(task.startTime ?? '09:00');
+  const valid = toMinutes(time) !== null;
+  const hasDay = !!task.dueDate;
+
+  return (
+    <View style={styles.menuOverlay}>
+      <Pressable style={styles.menuBackdrop} onPress={onClose} accessibilityLabel="Close schedule" />
+      <View style={styles.schedule}>
+        <Text style={styles.menuHeading} numberOfLines={1}>
+          Schedule at
+        </Text>
+        <Text style={styles.scheduleTask} numberOfLines={2}>
+          {task.title}
+        </Text>
+        {hasDay ? (
+          <>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              style={domTimeStyle}
+              aria-label="Start time"
+            />
+            <Text style={styles.scheduleHint}>
+              Block length {formatMinutes(task.durationMinutes ?? DEFAULT_TASK_MINUTES)}
+              {task.durationMinutes ? '' : ' (default; set a duration on the task to change it)'}
+            </Text>
+            <View style={styles.scheduleFooter}>
+              {task.startTime ? (
+                <Pressable onPress={onUnschedule} accessibilityRole="button" accessibilityLabel="Unschedule">
+                  <Text style={styles.scheduleDanger}>Unschedule</Text>
+                </Pressable>
+              ) : (
+                <View />
+              )}
+              <View style={{ flex: 1 }} />
+              <Pressable onPress={onClose} style={styles.scheduleCancel} accessibilityRole="button" accessibilityLabel="Cancel">
+                <Text style={styles.scheduleCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => valid && onSchedule(time)}
+                disabled={!valid}
+                style={[styles.scheduleSave, !valid && styles.scheduleSaveDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Save schedule"
+              >
+                <Text style={styles.scheduleSaveText}>Save</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.scheduleHint}>Choose a day first. Use the calendar icon to move this task onto a day.</Text>
+            <View style={styles.scheduleFooter}>
+              <View style={{ flex: 1 }} />
+              <Pressable onPress={onClose} style={styles.scheduleCancel} accessibilityRole="button" accessibilityLabel="Close">
+                <Text style={styles.scheduleCancelText}>Close</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+      </View>
     </View>
   );
 }
@@ -278,7 +406,25 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.border,
   },
+  actions: { flexDirection: 'row', alignItems: 'center' },
   moveBtn: { padding: 4 },
+  schedule: {
+    width: 260,
+    padding: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  scheduleTask: { fontSize: 14, color: Colors.textPrimary, marginBottom: 10 },
+  scheduleHint: { marginTop: 8, fontSize: 12, color: Colors.textSecondary },
+  scheduleFooter: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
+  scheduleDanger: { fontSize: 13, fontWeight: '600', color: Colors.danger },
+  scheduleCancel: { paddingHorizontal: 10, height: 34, justifyContent: 'center' },
+  scheduleCancelText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
+  scheduleSave: { paddingHorizontal: 16, height: 34, justifyContent: 'center', borderRadius: 12, backgroundColor: Colors.accent },
+  scheduleSaveDisabled: { opacity: 0.4 },
+  scheduleSaveText: { fontSize: 13, fontWeight: '700', color: Colors.onAccent },
   menuOverlay: {
     position: 'absolute',
     top: 0,

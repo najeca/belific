@@ -8,6 +8,38 @@ to know the current version and recent history.
 
 ---
 
+## 2.4.0 — 2026-10-05
+
+**Desktop Home: Timebox day pane (web/Electron only; iOS UI unchanged).**
+
+- New `TimeboxPane.tsx` replaces the last placeholder: an hourly grid from
+  06:00 to 23:00, scrolled to the current hour on open, with previous and
+  next day buttons, a "Today" button and a date dropdown (web date input) to
+  jump to any day.
+- It draws the day's events (same sources as the Calendar tab: the weekly
+  template plus custom events, with category colours) and **placed tasks**
+  (a Task whose Day is this day and that has a `startTime`; height from
+  `durationMinutes`, default 30). One row per task, never copied.
+- Overlapping items sit side by side; items crossing midnight or outside
+  the visible hours are clamped, and items entirely outside are listed in a
+  line above the grid instead of disappearing. A quiet line shows the day's
+  scheduled time (the union of all blocks, so overlaps are not double
+  counted).
+- Kanban cards get a hover "Schedule at" action (time input; "Choose a day
+  first" when the task has no Day; "Unschedule" clears `startTime`) and show
+  their time. Clicking a placed task opens the task modal. Clicking a custom
+  event opens an inline editor (title, start and end time inputs, delete with
+  an inline confirm; edits that one occurrence only).
+- New pure helpers `lib/timebox.ts` with 18 tests (layout maths, overlap
+  columns, clamping, midnight crossing, scheduled-time union, task items).
+- `startTime` and `durationMinutes` remain local only until migration 2.
+- Verified: `tsc --noEmit` clean, iOS JS bundle export succeeds, 37 mobile
+  and 19 desktop tests pass, and the built desktop app was driven headless
+  and checked against the data files and screenshots. Not device tested on
+  iOS.
+
+---
+
 ## 2.3.0 — 2026-10-05
 
 **Desktop Home: weekly kanban and task modal (web/Electron only; iOS UI unchanged).**

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Colors } from '../../../lib/theme';
 import { generateId } from '../../../lib/data';
-import { DURATION_CHOICES, isDateKey } from '../../../lib/kanban';
+import { DURATION_CHOICES, dateKey, isDateKey } from '../../../lib/kanban';
 import {
   addTask,
   updateTask,
@@ -20,7 +20,7 @@ import type { EventPriority, Project, Task } from '../../../lib/types';
 // delete confirms inline.
 export type TaskModalState =
   | { mode: 'edit'; task: Task }
-  | { mode: 'new'; title?: string; dueDate?: string; dumpId?: string };
+  | { mode: 'new'; title?: string; dumpId?: string };
 
 type PriorityChoice = 'normal' | EventPriority;
 
@@ -53,7 +53,7 @@ export default function TaskModal({
 }) {
   const editTask = state.mode === 'edit' ? state.task : undefined;
   const [title, setTitle] = useState(editTask?.title ?? (state.mode === 'new' ? state.title ?? '' : ''));
-  const [day, setDay] = useState(editTask?.dueDate ?? (state.mode === 'new' ? state.dueDate ?? '' : ''));
+  const [day, setDay] = useState(editTask?.dueDate ?? '');
   const [priority, setPriority] = useState<PriorityChoice>(editTask?.priority ?? 'normal');
   const [projectKey, setProjectKey] = useState<string | undefined>(editTask?.projectKey);
   const [duration, setDuration] = useState<number | undefined>(editTask?.durationMinutes);
@@ -63,6 +63,9 @@ export default function TaskModal({
   const [labelText, setLabelText] = useState('');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [saving, setSaving] = useState(false);
+  // No past dates can be chosen. A task that already has a past Day keeps it
+  // until the user changes it.
+  const todayKey = dateKey(new Date());
 
   useEffect(() => {
     loadProjects().then(setProjects);
@@ -159,7 +162,11 @@ export default function TaskModal({
             <input
               type="date"
               value={isDateKey(day) ? day : ''}
-              onChange={(e) => setDay(e.target.value)}
+              min={todayKey}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '' || (isDateKey(v) && v >= todayKey)) setDay(v);
+              }}
               style={domInputStyle}
               aria-label="Day"
             />

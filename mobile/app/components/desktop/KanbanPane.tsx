@@ -38,12 +38,10 @@ const DAYS_VISIBLE = 14;
 export default function KanbanPane({
   refreshKey,
   onChanged,
-  onNewTask,
   onEditTask,
 }: {
   refreshKey: number;
   onChanged: () => void;
-  onNewTask: (dueDate?: string) => void;
   onEditTask: (task: Task) => void;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -101,13 +99,12 @@ export default function KanbanPane({
     onChanged();
   }
 
-  const boardColumns: Array<{ id: string; title: string; items: ColumnItem[]; newDay?: string; isToday?: boolean }> = [
+  const boardColumns: Array<{ id: string; title: string; items: ColumnItem[]; isToday?: boolean }> = [
     { id: 'unscheduled', title: 'Unscheduled', items: columns.unscheduled },
     ...days.map((d) => ({
       id: d.key,
       title: formatDayTitle(d.key, todayKey),
       items: columns.days[d.key] ?? [],
-      newDay: d.key,
       isToday: d.key === todayKey,
     })),
     ...(columns.later.length > 0 ? [{ id: 'later', title: 'Later', items: columns.later }] : []),
@@ -125,16 +122,6 @@ export default function KanbanPane({
                 {col.title}
               </Text>
               <Text style={styles.count}>{col.items.length > 0 ? col.items.length : ''}</Text>
-              {col.id !== 'later' && (
-                <Pressable
-                  onPress={() => onNewTask(col.newDay)}
-                  style={styles.addBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Add task to ${col.title}`}
-                >
-                  <Ionicons name="add" size={18} color={Colors.accentText} />
-                </Pressable>
-              )}
             </View>
 
             <ScrollView style={styles.columnList} showsVerticalScrollIndicator={false}>
@@ -384,7 +371,6 @@ const styles = StyleSheet.create({
   columnTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
   columnTitleToday: { color: Colors.accentText },
   count: { flex: 1, fontSize: 12, color: Colors.textSecondary },
-  addBtn: { padding: 4 },
   columnList: { flex: 1 },
   emptyColumn: { paddingVertical: 12, fontSize: 12, color: Colors.textSecondary },
   card: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 8, paddingHorizontal: 4 },

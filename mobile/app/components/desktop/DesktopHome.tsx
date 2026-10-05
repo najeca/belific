@@ -28,13 +28,13 @@ export default function DesktopHome() {
             refreshKey={refreshKey}
             onChanged={onChanged}
             onMakeTask={(item) => setModal({ mode: 'new', title: item.title, dumpId: item.id })}
+            onNewTask={() => setModal({ mode: 'new' })}
           />
         </View>
         <View style={{ flex: 2.2, minWidth: 0 }}>
           <KanbanPane
             refreshKey={refreshKey}
             onChanged={onChanged}
-            onNewTask={(dueDate) => setModal({ mode: 'new', dueDate })}
             onEditTask={(task) => setModal({ mode: 'edit', task })}
           />
         </View>

@@ -20,12 +20,15 @@ export default function BrainDumpPane({
   refreshKey,
   onChanged,
   onMakeTask,
+  onNewTask,
 }: {
   refreshKey: number;
   onChanged: () => void;
   // Opens the task modal pre-filled with this item's title. On save the
   // Brain Dump item is deleted (promote to Task MOVES it).
   onMakeTask: (item: BrainDumpItem) => void;
+  // Opens the same form blank. Tasks are created only from this pane.
+  onNewTask: () => void;
 }) {
   const [items, setItems] = useState<BrainDumpItem[]>([]);
   const [captureText, setCaptureText] = useState('');
@@ -85,7 +88,18 @@ export default function BrainDumpPane({
 
   return (
     <View style={styles.pane}>
-      <Text style={styles.paneLabel}>BRAIN DUMP</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.paneLabel}>BRAIN DUMP</Text>
+        <Pressable
+          onPress={onNewTask}
+          style={styles.newTaskBtn}
+          accessibilityRole="button"
+          accessibilityLabel="New task"
+        >
+          <Ionicons name="add" size={16} color={Colors.accentText} />
+          <Text style={styles.newTaskText}>New task</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.captureRow}>
         <TextInput
@@ -203,6 +217,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     color: Colors.textSecondary,
   },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32 },
+  newTaskBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 32, borderRadius: 20 },
+  newTaskText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
   captureRow: {
     flexDirection: 'row',
     alignItems: 'center',

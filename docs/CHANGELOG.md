@@ -8,6 +8,22 @@ to know the current version and recent history.
 
 ---
 
+## 2.4.1 — 2026-10-05
+
+**Desktop Home: tasks are created only from the Brain Dump pane (web/Electron only; iOS unchanged).**
+
+- Removed the "+" from every kanban column header. The kanban no longer
+  creates tasks; clicking a card still edits an existing one.
+- Brain Dump pane header gets a "New task" button that opens the task form
+  blank. "Make task" on a row still opens it pre-filled and removes the item
+  on save.
+- The task form's Day field (create and edit) is a web date input with
+  `min` set to today: past dates cannot be chosen. A task that already has a
+  past Day keeps it until the user changes it.
+- Verified: `tsc --noEmit` clean, iOS JS bundle export succeeds, tests pass.
+
+---
+
 ## 2.4.0 — 2026-10-05
 
 **Desktop Home: Timebox day pane (web/Electron only; iOS UI unchanged).**

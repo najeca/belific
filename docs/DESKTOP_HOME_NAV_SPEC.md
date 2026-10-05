@@ -112,7 +112,14 @@ rather than Profile, since it's routine/quest data, not account data.
 ## Everything else stays inline
 
 - **Task add/edit** — a centered modal overlay on Desktop Home, whether the
-  task is new or existing. Never a separate screen.
+  task is new or existing. Never a separate screen. **Tasks are created only
+  in the Brain Dump pane** (pipeline: Brain Dump, task details, Plan,
+  Timebox): "Make task" on a row opens the form pre-filled and removes the
+  item on save; the "New task" button in the pane header opens it blank. The
+  centre kanban never creates tasks; clicking a card edits an existing one.
+  The form has name, duration chips, priority, label, notes, Day (a web date
+  input, min today, empty means Unscheduled) and, from 2.6.0, Repeat. No past
+  date can be chosen.
 - **Timebox day/week** — a segmented toggle inside the Timebox pane's own
   header. Week mode mounts the same grid component day mode uses; it is
   not a separate screen.

@@ -8,6 +8,32 @@ to know the current version and recent history.
 
 ---
 
+## 2.5.0 — 2026-10-05
+
+**Desktop Home: forward-only week board (web/Electron only; iOS unchanged).**
+
+- Replaced the rolling 14 day board with a week board: a pinned Unscheduled
+  column plus the days of the displayed week (Monday based, one constant).
+  The current week shows today to Sunday; future weeks show Monday to Sunday.
+  No past days or weeks can be shown or chosen.
+- Week header: previous arrow (disabled on the current week), a label such
+  as "Wed 7 Oct to Sun 11 Oct" (year added when not the current year; weeks
+  across a month or year read correctly), next arrow, a "This week" button,
+  and a "Jump to week containing" date input (min today). Arrows have 44px
+  hit areas and are keyboard focusable.
+- Removed the "Later" column.
+- Overdue stays as decided: an unfinished task with a past Day shows first
+  in Today with a "from <date>" tag, only while the current week is shown.
+- "Move to day": Unscheduled, Today, Tomorrow and a date input (min today),
+  with a quiet "Moved to Mon 2 Nov" line when the target is outside the
+  displayed week.
+- Pure helpers (`weekStartOf`, `addWeeks`, `weekDays`, `formatWeekLabel`,
+  `clampToToday`, `isDayInView`) with tests, including month, year and leap
+  boundaries and clock changes in five time zones. 49 mobile tests pass.
+- Timebox day navigation is unchanged.
+
+---
+
 ## 2.4.1 — 2026-10-05
 
 **Desktop Home: tasks are created only from the Brain Dump pane (web/Electron only; iOS unchanged).**

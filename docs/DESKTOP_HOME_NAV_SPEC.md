@@ -120,6 +120,19 @@ rather than Profile, since it's routine/quest data, not account data.
   The form has name, duration chips, priority, label, notes, Day (a web date
   input, min today, empty means Unscheduled) and, from 2.6.0, Repeat. No past
   date can be chosen.
+- **Week board (the Plan)** — forward only (2.5.0). A pinned Unscheduled
+  column plus the days of the displayed week. Weeks start on Monday. The
+  current week shows today to Sunday (past days are hidden); future weeks
+  show Monday to Sunday. The header has a previous arrow (disabled on the
+  current week), a label such as "Wed 7 Oct to Sun 11 Oct" (the year is added
+  when it is not the current year), a next arrow, and a "This week" button
+  (disabled on this week). Clicking the label opens "Jump to week containing"
+  with a date input (min today). The past cannot be browsed. An unfinished
+  task from a past day shows first in the Today column with a muted "from
+  <date>" tag, only while the current week is displayed; finished past tasks
+  are not shown. "Move to day" offers Unscheduled, Today, Tomorrow and a date
+  input (min today); if the date is outside the displayed week a quiet line
+  ("Moved to Mon 2 Nov") confirms it.
 - **Timebox day/week** — a segmented toggle inside the Timebox pane's own
   header. Week mode mounts the same grid component day mode uses; it is
   not a separate screen.

@@ -3,24 +3,36 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../lib/theme';
 import {
+  addDays,
+  addWeeks,
   bucketTasks,
-  buildColumnDays,
+  clampToToday,
   dateKey,
+  formatDayLabel,
   formatDayTitle,
   formatDuration,
   formatShortDate,
+  formatWeekLabel,
+  isDateKey,
+  isDayInView,
+  parseDateKey,
+  weekDays,
+  weekStartOf,
   type ColumnItem,
 } from '../../../lib/kanban';
 import { DEFAULT_TASK_MINUTES, formatMinutes, toMinutes } from '../../../lib/timebox';
 import { loadTasks, loadProjects, updateTask } from '../../../lib/storage';
 import type { Project, Task } from '../../../lib/types';
 
-// Desktop weekly kanban (decision 009, "Plan"): an Unscheduled column plus a
-// rolling 14 days from today. Columns scroll horizontally as a board and each
-// scrolls vertically on its own. A task sits in the column of its planned
-// Day (Task.dueDate, decision 015). Past unfinished tasks are surfaced in
-// Today with a muted "from <date>" tag; the stored date is left alone until
-// the user moves the task (the rollover recommendation in NEXT_PLAN).
+// Desktop week board (decision 009, "Plan"), forward only: a pinned
+// Unscheduled column plus the days of the displayed week. The current week
+// shows today to Sunday (past days are hidden); future weeks show Monday to
+// Sunday; the past cannot be browsed. Day columns scroll horizontally and each
+// column scrolls vertically on its own. A task sits in the column of its
+// planned Day (Task.dueDate, decision 015). In the current week, unfinished
+// tasks from past days are surfaced first in Today with a muted "from <date>"
+// tag; the stored date is left alone until the user moves the task. This
+// pane never creates tasks (they are created in the Brain Dump pane).
 const domTimeStyle: React.CSSProperties = {
   height: 36,
   padding: '0 10px',
@@ -32,8 +44,15 @@ const domTimeStyle: React.CSSProperties = {
   fontFamily: 'inherit',
   outlineColor: Colors.accent,
 };
-const COLUMN_WIDTH = 248;
-const DAYS_VISIBLE = 14;
+const COLUMN_WIDTH = 224;
+const NAV_SIZE = 44;
+
+interface BoardColumn {
+  id: string;
+  title: string;
+  items: ColumnItem[];
+  isToday?: boolean;
+}
 
 export default function KanbanPane({
   refreshKey,
@@ -49,6 +68,9 @@ export default function KanbanPane({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [moving, setMoving] = useState<Task | null>(null);
   const [scheduling, setScheduling] = useState<Task | null>(null);
+  const [weekStart, setWeekStart] = useState(() => weekStartOf(new Date()));
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     loadTasks().then(setTasks);
@@ -60,8 +82,27 @@ export default function KanbanPane({
   }, [reload, refreshKey]);
 
   const todayKey = dateKey(new Date());
-  const days = useMemo(() => buildColumnDays(new Date(), DAYS_VISIBLE), [todayKey]);
+  const currentWeekStart = weekStartOf(parseDateKey(todayKey));
+  // Never earlier than this week, even if the app stays open past Sunday.
+  const shownWeekStart = weekStart.getTime() < currentWeekStart.getTime() ? currentWeekStart : weekStart;
+  const atCurrentWeek = shownWeekStart.getTime() === currentWeekStart.getTime();
+  const days = useMemo(() => weekDays(shownWeekStart, todayKey), [shownWeekStart.getTime(), todayKey]);
   const columns = useMemo(() => bucketTasks(tasks, days, todayKey), [tasks, days, todayKey]);
+  const weekLabel = formatWeekLabel(days, new Date().getFullYear());
+  const tomorrowKey = dateKey(addDays(parseDateKey(todayKey), 1));
+
+  // The "Moved to ..." line clears itself.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  function changeWeek(delta: number) {
+    setJumpOpen(false);
+    if (delta < 0 && atCurrentWeek) return;
+    setWeekStart(addWeeks(shownWeekStart, delta));
+  }
   const projectName = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of projects) map.set(p.key, p.name);
@@ -77,11 +118,15 @@ export default function KanbanPane({
     onChanged();
   }
 
-  async function moveTo(task: Task, day: string | undefined) {
+  async function moveTo(task: Task, requested: string | undefined) {
     setMoving(null);
+    // Nothing earlier than today can be chosen.
+    const day = requested ? clampToToday(requested, todayKey) : undefined;
     if (day === task.dueDate) return;
     // A time slot belongs to a day: Unscheduled drops it.
     await updateTask({ ...task, dueDate: day, startTime: day ? task.startTime : undefined });
+    // A day outside the displayed week would look like the task vanished.
+    if (day && !isDayInView(day, days)) setNotice(`Moved to ${formatDayLabel(day)}`);
     onChanged();
   }
 
@@ -99,23 +144,15 @@ export default function KanbanPane({
     onChanged();
   }
 
-  const boardColumns: Array<{ id: string; title: string; items: ColumnItem[]; isToday?: boolean }> = [
-    { id: 'unscheduled', title: 'Unscheduled', items: columns.unscheduled },
-    ...days.map((d) => ({
-      id: d.key,
-      title: formatDayTitle(d.key, todayKey),
-      items: columns.days[d.key] ?? [],
-      isToday: d.key === todayKey,
-    })),
-    ...(columns.later.length > 0 ? [{ id: 'later', title: 'Later', items: columns.later }] : []),
-  ];
+  const unscheduledColumn: BoardColumn = { id: 'unscheduled', title: 'Unscheduled', items: columns.unscheduled };
+  const dayColumns: BoardColumn[] = days.map((d) => ({
+    id: d.key,
+    title: formatDayTitle(d.key, todayKey),
+    items: columns.days[d.key] ?? [],
+    isToday: d.key === todayKey,
+  }));
 
-  return (
-    <View style={styles.pane}>
-      <Text style={styles.paneLabel}>WEEK</Text>
-
-      <ScrollView horizontal style={styles.board} contentContainerStyle={styles.boardContent}>
-        {boardColumns.map((col) => (
+  const renderColumn = (col: BoardColumn) => (
           <View key={col.id} style={styles.column}>
             <View style={styles.columnHeader}>
               <Text style={[styles.columnTitle, col.isToday && styles.columnTitleToday]} numberOfLines={1}>
@@ -201,8 +238,86 @@ export default function KanbanPane({
               {col.items.length === 0 && <Text style={styles.emptyColumn}>Nothing here</Text>}
             </ScrollView>
           </View>
-        ))}
-      </ScrollView>
+  );
+
+  return (
+    <View style={styles.pane}>
+      <Text style={styles.paneLabel}>WEEK</Text>
+
+      <View style={styles.weekNav}>
+        <Pressable
+          onPress={() => changeWeek(-1)}
+          disabled={atCurrentWeek}
+          style={[styles.navBtn, atCurrentWeek && styles.navBtnDisabled]}
+          accessibilityRole="button"
+          accessibilityLabel="Previous week"
+          accessibilityState={{ disabled: atCurrentWeek }}
+        >
+          <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
+        </Pressable>
+        <Pressable
+          onPress={() => setJumpOpen((o) => !o)}
+          style={styles.weekLabelBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Jump to week"
+        >
+          <Text style={styles.weekLabel} numberOfLines={1}>
+            {weekLabel}
+          </Text>
+          <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
+        </Pressable>
+        <Pressable
+          onPress={() => changeWeek(1)}
+          style={styles.navBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Next week"
+        >
+          <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
+        </Pressable>
+        <View style={{ flex: 1 }} />
+        <Pressable
+          onPress={() => {
+            setJumpOpen(false);
+            setWeekStart(currentWeekStart);
+          }}
+          disabled={atCurrentWeek}
+          style={[styles.thisWeekBtn, atCurrentWeek && styles.navBtnDisabled]}
+          accessibilityRole="button"
+          accessibilityLabel="Go to this week"
+          accessibilityState={{ disabled: atCurrentWeek }}
+        >
+          <Text style={styles.thisWeekText}>This week</Text>
+        </Pressable>
+      </View>
+
+      {jumpOpen && (
+        <View style={styles.jump}>
+          <Text style={styles.menuHeading}>Jump to week containing</Text>
+          <input
+            type="date"
+            min={todayKey}
+            value=""
+            onChange={(e) => {
+              const v = e.target.value;
+              if (isDateKey(v) && v >= todayKey) {
+                setWeekStart(weekStartOf(parseDateKey(v)));
+                setJumpOpen(false);
+              }
+            }}
+            style={domTimeStyle}
+            aria-label="Jump to week containing"
+          />
+        </View>
+      )}
+
+      {notice && <Text style={styles.notice}>{notice}</Text>}
+
+      <View style={styles.boardRow}>
+        {renderColumn(unscheduledColumn)}
+        <ScrollView horizontal style={styles.board} contentContainerStyle={styles.boardContent}>
+          {dayColumns.map((col) => renderColumn(col))}
+        </ScrollView>
+      </View>
 
       {moving && (
         <View style={styles.menuOverlay}>
@@ -213,15 +328,32 @@ export default function KanbanPane({
             </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               <MenuRow label="Unscheduled" selected={!moving.dueDate} onPress={() => moveTo(moving, undefined)} />
-              {days.map((d) => (
-                <MenuRow
-                  key={d.key}
-                  label={formatDayTitle(d.key, todayKey)}
-                  detail={d.key === todayKey || formatDayTitle(d.key, todayKey) === 'Tomorrow' ? formatShortDate(d.key) : undefined}
-                  selected={moving.dueDate === d.key}
-                  onPress={() => moveTo(moving, d.key)}
+              <MenuRow
+                label="Today"
+                detail={formatShortDate(todayKey)}
+                selected={moving.dueDate === todayKey}
+                onPress={() => moveTo(moving, todayKey)}
+              />
+              <MenuRow
+                label="Tomorrow"
+                detail={formatShortDate(tomorrowKey)}
+                selected={moving.dueDate === tomorrowKey}
+                onPress={() => moveTo(moving, tomorrowKey)}
+              />
+              <View style={styles.menuDate}>
+                <Text style={styles.menuRowText}>Pick a date</Text>
+                <input
+                  type="date"
+                  min={todayKey}
+                  value=""
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (isDateKey(v) && v >= todayKey) moveTo(moving, v);
+                  }}
+                  style={domTimeStyle}
+                  aria-label="Move to date"
                 />
-              ))}
+              </View>
             </ScrollView>
           </View>
         </View>
@@ -351,8 +483,35 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
-  board: { flex: 1, marginTop: 12 },
+  weekNav: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  navBtn: { width: NAV_SIZE, height: NAV_SIZE, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
+  navBtnDisabled: { opacity: 0.35 },
+  weekLabelBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: NAV_SIZE, flexShrink: 1 },
+  weekLabel: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
+  thisWeekBtn: {
+    paddingHorizontal: 14,
+    height: NAV_SIZE,
+    justifyContent: 'center',
+    borderRadius: 14,
+  },
+  thisWeekText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
+  jump: {
+    position: 'absolute',
+    top: 92,
+    left: 16,
+    zIndex: 30,
+    padding: 12,
+    gap: 6,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  notice: { fontSize: 12, color: Colors.textSecondary, marginBottom: 4 },
+  boardRow: { flex: 1, flexDirection: 'row', marginTop: 4 },
+  board: { flex: 1 },
   boardContent: { flexGrow: 1 },
+  menuDate: { paddingHorizontal: 14, paddingVertical: 8, gap: 6 },
   column: {
     width: COLUMN_WIDTH,
     paddingRight: 12,

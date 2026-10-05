@@ -4,7 +4,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addDays,
+  addWeeks,
   bucketTasks,
+  clampToToday,
+  formatWeekLabel,
+  isDayInView,
+  weekDays,
+  weekStartOf,
   buildColumnDays,
   dateKey,
   formatDayLabel,
@@ -134,7 +140,7 @@ test('bucketTasks: unscheduled, a day column, and the last visible day', () => {
   assert.deepEqual(cols.unscheduled.map((i) => i.task.id), ['1']);
   assert.deepEqual(cols.days['2026-10-07'].map((i) => i.task.id), ['2']);
   assert.deepEqual(cols.days['2026-10-18'].map((i) => i.task.id), ['3']);
-  assert.equal(cols.later.length, 0);
+  assert.equal(Object.keys(cols.days).length, 14);
 });
 
 test('bucketTasks: unfinished past tasks surface in Today first, with their original date', () => {
@@ -171,13 +177,31 @@ test('bucketTasks: finished past tasks do not appear; finished current ones sort
   assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['3', '4', '2']);
 });
 
-test('bucketTasks: beyond the window goes to Later, sorted by date', () => {
+test('bucketTasks: tasks on days that are not displayed appear in no column', () => {
   const cols = bucketTasks(
     [task('1', { dueDate: '2026-12-01' }), task('2', { dueDate: '2026-10-19' }), task('3', { dueDate: '2027-01-01' })],
     days,
     TODAY,
   );
-  assert.deepEqual(cols.later.map((i) => i.task.id), ['2', '1', '3']);
+  assert.equal(Object.values(cols.days).flat().length, 0);
+  assert.equal(cols.unscheduled.length, 0);
+});
+
+test('bucketTasks: a future week shows its own tasks, not overdue ones', () => {
+  const future = weekDays(weekStartOf(parseDateKey('2026-10-14')), TODAY);
+  const cols = bucketTasks(
+    [
+      task('1', { dueDate: '2026-10-14' }),
+      task('2', { dueDate: '2026-10-02' }), // overdue: only in the current week's Today column
+      task('3'),
+      task('4', { dueDate: '2026-10-07' }), // a different week
+    ],
+    future,
+    TODAY,
+  );
+  assert.deepEqual(cols.days['2026-10-14'].map((i) => i.task.id), ['1']);
+  assert.deepEqual(cols.unscheduled.map((i) => i.task.id), ['3']);
+  assert.equal(Object.values(cols.days).flat().length, 1);
 });
 
 test('bucketTasks: tombstones and malformed dates', () => {
@@ -214,3 +238,94 @@ test('bucketTasks works across a month boundary', () => {
   assert.deepEqual(cols.days['2026-11-02'].map((i) => i.task.id), ['1']);
   assert.deepEqual(cols.days['2026-10-31'].map((i) => i.task.id), ['2']);
 });
+
+// --- week board ---
+
+test('weekStartOf is Monday based', () => {
+  assert.equal(dateKey(weekStartOf(parseDateKey('2026-10-05'))), '2026-10-05'); // Monday
+  assert.equal(dateKey(weekStartOf(parseDateKey('2026-10-07'))), '2026-10-05'); // Wednesday
+  assert.equal(dateKey(weekStartOf(parseDateKey('2026-10-11'))), '2026-10-05'); // Sunday belongs to the week before
+  assert.equal(dateKey(weekStartOf(parseDateKey('2026-10-12'))), '2026-10-12');
+  assert.equal(dateKey(weekStartOf(parseDateKey('2027-01-01'))), '2026-12-28'); // across the year
+  assert.equal(dateKey(weekStartOf(parseDateKey('2028-03-01'))), '2028-02-28'); // across a leap day
+  assert.equal(weekStartOf(new Date(2026, 9, 7, 23, 59)).getHours(), 0);
+});
+
+test('addWeeks adds whole calendar weeks', () => {
+  assert.equal(dateKey(addWeeks(parseDateKey('2026-10-05'), 1)), '2026-10-12');
+  assert.equal(dateKey(addWeeks(parseDateKey('2026-12-28'), 1)), '2027-01-04');
+  assert.equal(dateKey(addWeeks(parseDateKey('2026-10-05'), 4)), '2026-11-02');
+});
+
+test('weekDays: the current week runs from today to Sunday, future weeks are the full week', () => {
+  const current = weekDays(weekStartOf(parseDateKey('2026-10-07')), '2026-10-07');
+  assert.deepEqual(current.map((d) => d.key), ['2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11']);
+  const monday = weekDays(weekStartOf(parseDateKey('2026-10-05')), '2026-10-05');
+  assert.equal(monday.length, 7);
+  const sunday = weekDays(weekStartOf(parseDateKey('2026-10-11')), '2026-10-11');
+  assert.deepEqual(sunday.map((d) => d.key), ['2026-10-11']);
+  const future = weekDays(parseDateKey('2026-10-12'), '2026-10-07');
+  assert.equal(future.length, 7);
+  assert.equal(future[0].key, '2026-10-12');
+  assert.equal(future[6].key, '2026-10-18');
+});
+
+test('weekDays crosses months, years and leap days', () => {
+  const month = weekDays(parseDateKey('2026-10-26'), '2026-10-01').map((d) => d.key);
+  assert.deepEqual(month, ['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01']);
+  const year = weekDays(parseDateKey('2026-12-28'), '2026-12-01').map((d) => d.key);
+  assert.deepEqual(year.slice(3), ['2026-12-31', '2027-01-01', '2027-01-02', '2027-01-03']);
+  const leap = weekDays(parseDateKey('2028-02-28'), '2028-02-01').map((d) => d.key);
+  assert.deepEqual(leap.slice(0, 3), ['2028-02-28', '2028-02-29', '2028-03-01']);
+});
+
+test('formatWeekLabel', () => {
+  const cur = weekDays(weekStartOf(parseDateKey('2026-10-07')), '2026-10-07');
+  assert.equal(formatWeekLabel(cur, 2026), 'Wed 7 Oct to Sun 11 Oct');
+  const monthSpan = weekDays(parseDateKey('2026-10-26'), '2026-10-07');
+  assert.equal(formatWeekLabel(monthSpan, 2026), 'Mon 26 Oct to Sun 1 Nov');
+  const yearSpan = weekDays(parseDateKey('2026-12-28'), '2026-10-07');
+  assert.equal(formatWeekLabel(yearSpan, 2026), 'Mon 28 Dec 2026 to Sun 3 Jan 2027');
+  const nextYear = weekDays(parseDateKey('2027-01-11'), '2026-10-07');
+  assert.equal(formatWeekLabel(nextYear, 2026), 'Mon 11 Jan 2027 to Sun 17 Jan 2027');
+  const leapSpan = weekDays(parseDateKey('2028-02-28'), '2028-02-01');
+  assert.equal(formatWeekLabel(leapSpan, 2028), 'Mon 28 Feb to Sun 5 Mar');
+  const sundayOnly = weekDays(weekStartOf(parseDateKey('2026-10-11')), '2026-10-11');
+  assert.equal(formatWeekLabel(sundayOnly, 2026), 'Sun 11 Oct to Sun 11 Oct');
+  assert.equal(formatWeekLabel([], 2026), '');
+});
+
+test('clampToToday and isDayInView', () => {
+  assert.equal(clampToToday('2026-10-01', '2026-10-05'), '2026-10-05');
+  assert.equal(clampToToday('2026-10-05', '2026-10-05'), '2026-10-05');
+  assert.equal(clampToToday('2026-11-02', '2026-10-05'), '2026-11-02');
+  assert.equal(clampToToday('not a date', '2026-10-05'), '2026-10-05');
+  assert.equal(clampToToday('2026-02-30', '2026-10-05'), '2026-10-05');
+  const view = weekDays(weekStartOf(parseDateKey('2026-10-07')), '2026-10-07');
+  assert.equal(isDayInView('2026-10-09', view), true);
+  assert.equal(isDayInView('2026-11-02', view), false);
+});
+
+// Week arithmetic must not skip or repeat a Monday when clocks change.
+const WEEK_ZONES = ['Europe/London', 'America/New_York', 'Australia/Lord_Howe', 'Pacific/Auckland', 'Asia/Kolkata'];
+for (const tz of WEEK_ZONES) {
+  test(`weeks are seven calendar days across clock changes in ${tz}`, () => {
+    const previous = process.env.TZ;
+    process.env.TZ = tz;
+    try {
+      let start = weekStartOf(new Date(2026, 2, 20, 12));
+      for (let i = 0; i < 40; i++) {
+        const next = addWeeks(start, 1);
+        assert.equal(next.getDay(), 1, `${dateKey(next)} is not a Monday`);
+        assert.equal(next.getHours(), 0);
+        const gap = Math.round((Date.UTC(next.getFullYear(), next.getMonth(), next.getDate()) - Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) / 86_400_000);
+        assert.equal(gap, 7);
+        assert.equal(dateKey(weekStartOf(addDays(next, 6))), dateKey(next));
+        start = next;
+      }
+    } finally {
+      if (previous === undefined) delete process.env.TZ;
+      else process.env.TZ = previous;
+    }
+  });
+}

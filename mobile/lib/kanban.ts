@@ -96,9 +96,6 @@ export interface ColumnItem {
 export interface KanbanColumns {
   unscheduled: ColumnItem[];
   days: Record<string, ColumnItem[]>;
-  // Planned beyond the last visible day. Shown only when non-empty so a
-  // far-future task never disappears from the board.
-  later: ColumnItem[];
 }
 
 // Order inside a column: unfinished first (carried-over tasks, then High
@@ -119,18 +116,18 @@ function compareItems(a: ColumnItem, b: ColumnItem): number {
   return a.task.createdAt.localeCompare(b.task.createdAt);
 }
 
-// Puts tasks into kanban columns.
-//  - no (or malformed) dueDate: Unscheduled
-//  - dueDate inside the visible days: that day's column
-//  - past dueDate, unfinished: Today, tagged overdueFrom, sorted first
-//  - past dueDate, finished: not shown (columns start today)
-//  - dueDate after the last visible day: Later
-// Deleted (tombstoned) tasks are never shown. `days` must be consecutive
-// and start at today (see buildColumnDays).
+// Puts tasks into the columns of the displayed week (`days`, see weekDays).
+//  - no (or malformed) dueDate: Unscheduled (always shown)
+//  - dueDate on a displayed day: that day's column
+//  - past dueDate, unfinished: the Today column, tagged overdueFrom, sorted
+//    first, but only while Today is displayed (the current week)
+//  - past dueDate, finished: not shown
+//  - dueDate on a day that is not displayed: not in any column (it shows when
+//    that week is displayed)
+// Deleted (tombstoned) tasks are never shown.
 export function bucketTasks(tasks: Task[], days: ColumnDay[], todayKey: string): KanbanColumns {
-  const result: KanbanColumns = { unscheduled: [], days: {}, later: [] };
+  const result: KanbanColumns = { unscheduled: [], days: {} };
   for (const day of days) result.days[day.key] = [];
-  const lastKey = days.length > 0 ? days[days.length - 1].key : todayKey;
 
   for (const task of tasks) {
     if (task.deletedAt) continue;
@@ -140,15 +137,62 @@ export function bucketTasks(tasks: Task[], days: ColumnDay[], todayKey: string):
     } else if (due < todayKey) {
       if (task.completed) continue;
       if (todayKey in result.days) result.days[todayKey].push({ task, overdueFrom: due });
-    } else if (due > lastKey) {
-      result.later.push({ task });
     } else if (due in result.days) {
       result.days[due].push({ task });
     }
   }
 
   result.unscheduled.sort(compareItems);
-  result.later.sort((a, b) => (a.task.dueDate ?? '').localeCompare(b.task.dueDate ?? '') || compareItems(a, b));
   for (const key of Object.keys(result.days)) result.days[key].sort(compareItems);
   return result;
+}
+
+// --- Forward only week board (checkpoint 2b) ---
+
+// Weeks start on Monday. One constant, one place.
+export const WEEK_STARTS_ON = 1;
+
+// Local midnight of the Monday on or before `d`.
+export function weekStartOf(d: Date): Date {
+  const back = (d.getDay() - WEEK_STARTS_ON + 7) % 7;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
+}
+
+export function addWeeks(d: Date, n: number): Date {
+  return addDays(d, n * 7);
+}
+
+// The days of the week starting at `weekStart` that may be shown: Monday to
+// Sunday, minus any day before today. The current week therefore runs from
+// today to Sunday; future weeks are the full seven days.
+export function weekDays(weekStart: Date, todayKey: string): ColumnDay[] {
+  const days: ColumnDay[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(weekStart, i);
+    const key = dateKey(date);
+    if (key >= todayKey) days.push({ key, date });
+  }
+  return days;
+}
+
+// "Wed 7 Oct to Sun 11 Oct". The year is added to both ends when either end
+// is not in the current year (so a week across New Year reads
+// "Mon 28 Dec 2026 to Sun 3 Jan 2027").
+export function formatWeekLabel(days: ColumnDay[], currentYear: number): string {
+  if (days.length === 0) return '';
+  const first = days[0];
+  const last = days[days.length - 1];
+  const withYear = first.date.getFullYear() !== currentYear || last.date.getFullYear() !== currentYear;
+  const fmt = (d: ColumnDay) => (withYear ? `${formatDayLabel(d.key)} ${d.date.getFullYear()}` : formatDayLabel(d.key));
+  return `${fmt(first)} to ${fmt(last)}`;
+}
+
+// Nothing earlier than today can be chosen: anything before today (or not a
+// real date) becomes today.
+export function clampToToday(key: string, todayKey: string): string {
+  return isDateKey(key) && key >= todayKey ? key : todayKey;
+}
+
+export function isDayInView(key: string, days: ColumnDay[]): boolean {
+  return days.some((d) => d.key === key);
 }

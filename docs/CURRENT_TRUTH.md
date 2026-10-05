@@ -6,7 +6,7 @@ Last verified: 2026-10-05 against branch `v2-redesign`.
 
 ## Shipped
 - **iOS 2.1.0** (per Jethro, live on the App Store): Today, Brain Dump and Calendar tabs; Tasks and Settings as pushed screens; local notifications; optional Sign in with Apple plus Supabase sync (7 tables).
-- **Desktop (app version 2.4.0, checkpoints 0 to 3 done)**: an Electron shell in `desktop/` loads the Expo web export over `app://`, stores data as files in the main process with a daily backup (newest 14), and shows three real panes: Brain Dump, a weekly kanban (Unscheduled plus 14 days) with a task modal, and a Timebox day grid (events plus placed tasks, "Schedule at" from kanban cards). Signed out, local only. No drag and drop yet (checkpoint 4). Run it with `npm run desktop` in `desktop/`. Decisions 010, 011, 015 and 016 are proposed but built against.
+- **Desktop (app version 2.5.0, checkpoints 0 to 3 done plus the 2b corrections)**: an Electron shell in `desktop/` loads the Expo web export over `app://`, stores data as files in the main process with a daily backup (newest 14), and shows three real panes: Brain Dump, a forward-only week board (pinned Unscheduled plus the displayed week; tasks are created only from Brain Dump) with a task form, and a Timebox day grid (events plus placed tasks, "Schedule at" from kanban cards). Signed out, local only. No drag and drop yet (checkpoint 4). Run it with `npm run desktop` in `desktop/`. Decisions 010, 011, 015 and 016 are proposed but built against.
 
 ## Backend
 - Supabase ref `uucycebkpgwbktdytxvr`. Status on 2026-10-05: **paused or gone** (the host did not resolve). Jethro to restore from the dashboard and note the restore deadline.

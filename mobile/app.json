@@ -52,6 +52,10 @@
     "owner": "jetmakes",
     "android": {
       "package": "com.belific.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
     }
   }
 }

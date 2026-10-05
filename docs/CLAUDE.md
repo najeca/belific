@@ -121,3 +121,21 @@ Run /workflow/session-close
 integration that no longer exists in this codebase (`react-native-webview`
 isn't even a dependency). Do not follow it; flag it to Jethro rather
 than acting on it.
+
+
+## Desktop app vs. marketing website (do not conflate)
+
+Two separate, unrelated things share the word "web" in this project:
+
+- **The Windows desktop app** ships as an installable `.exe`: the shared
+  Expo/React Native codebase exported with `expo export --platform web`,
+  then wrapped in Electron or Tauri (decision 009). The web export is an
+  internal build step, never the shipped artifact. It is never opened in
+  a browser by an end user and never has a public URL.
+- **The marketing website** is a separate static site (see the
+  `belific-landing` design canvas) whose job is to advertise the app and
+  link to downloads. It shares no code with the app and is not built from
+  the Expo web export.
+
+If a task is ambiguous about which of these it means, ask before building
+either one.

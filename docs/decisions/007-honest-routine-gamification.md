@@ -3,6 +3,8 @@
 **Date:** 2026-09-02
 **Status:** Decided — supersedes the unapproved gamification drafts
 
+**Note:** the visual-language flag below is resolved by [[008-louder-gamification-visual-override]] — see that doc. Every other rule in this decision (no loss-framing, no shadows, no randomized rewards, silent streak resets) still stands.
+
 ---
 
 ## Decision

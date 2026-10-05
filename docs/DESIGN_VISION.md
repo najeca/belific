@@ -10,11 +10,13 @@ doc adds something new rather than restating an already-decided spec, it's
 marked **PROPOSED** — read those as my recommendation, not a locked
 decision, until Jethro confirms.
 
-A companion clickable prototype (Claude Design canvas) is being built
-alongside this doc and will be linked here once published. The prototype
-shows the visual/interaction detail; this doc is the words-and-structure
-version Claude Code builds from directly. They should never disagree — if
-they do, this doc is out of date and needs fixing, not the prototype.
+Companion clickable prototype (Claude Design canvas):
+https://claude.ai/artifact/5JLoeWRwkGL9Qkpmq2f5Hj — covers Today, Tasks·Plan,
+Today (mobile), and the desktop three-pane Desktop Home (nav/dropdown detail
+in `docs/DESKTOP_HOME_NAV_SPEC.md`). The prototype shows the
+visual/interaction detail; this doc is the words-and-structure version
+Claude Code builds from directly. They should never disagree — if they do,
+this doc is out of date and needs fixing, not the prototype.
 
 ---
 
@@ -134,6 +136,8 @@ duration estimate on `Task` (e.g. a chip: 15m / 30m / 1h / 2h+), added so
 that once a Task is later placed on Timebox it can default to a
 reasonably-sized block instead of an arbitrary one. Not required — a Task
 with no duration just gets placed with a default/resizable block.
+
+**Also new, this round — recurring Tasks (2026-09-28):** `Task` gains the same optional `recurrence`/`recurrenceDays` fields Routines just gained (see `ROUTINE_GAMIFICATION_SPEC.md` §4) and `CustomEvent` already has — same `RecurrenceRule` union, no new type. This is specifically for recurring commitments that do **not** belong in Routines because they're not on a fixed, predictable schedule (e.g. laundry, shampoo — confirmed with Jethro as Tasks, not Routines, precisely because an irregular schedule can't hold a streak). A recurring Task carries no streak, no checklist, it simply regenerates its next occurrence (new `dueDate`) once the current one is completed — decide the exact regeneration mechanics during implementation (whether that's on completion, like a fresh row, or materialized ahead of time like `CustomEvent`'s recurring series already is); flag back if that choice needs Jethro's input rather than an engineering default.
 
 **Plan** — **PROPOSED, new.** A day-assignment view over `Task.dueDate` —
 the "Kanban-like" piece, translated to a phone rather than literal
@@ -306,13 +310,24 @@ drifts past what's actually approved:
    any committed spec. Confirm this is the right shape before Claude Code
    builds it, or send correction and I'll revise this doc + the prototype
    together.
-2. Duration-chip increments on Task (15m/30m/1h/2h+ or something else) —
-   placeholder until finalized.
-3. `docs/UBIQUITOUS_LANGUAGE.md` cleanup (drop stale Pomodoro/Session
-   terms, update the streak warning to point at decision 007 instead of
-   contradicting it, add Task/Plan/duration/vacation-mode/quest-step
-   terms) — small, mechanical, not blocking anything else, can land
-   whenever convenient.
+2. **Resolved 2026-09-14** — duration-chip increments on Task: 15m / 30m /
+   1h / 2h+. Build to this.
+3. **Done** — `docs/UBIQUITOUS_LANGUAGE.md` cleanup landed 2026-09-04
+   (stale Pomodoro/Session terms dropped, streak warning updated to point
+   at decision 007, Task/Plan/duration/vacation-mode/quest-step terms
+   added).
+
+**Still open as of 2026-09-14:** item 1 (the Plan view) — Jethro is
+re-reviewing the clickable prototype before this is locked in for Claude
+Code to build. Don't start on Plan until that's confirmed.
+
+**Also new as of 2026-09-14:** Belific's dev machine changed from the Mac
+to a Windows PC. Native iOS builds (Xcode, CocoaPods, on-device testing)
+are Mac-only — that's a hard platform constraint, not a tooling gap — so
+rule 6's local build gate and rule 1's "no EAS" default need a decision
+on how iOS testing happens going forward now that there's no Mac in the
+loop day-to-day. Flagged, not resolved — see the conversation, not
+settled in this doc yet.
 
 ---
 
@@ -371,3 +386,6 @@ existing form, not a new screen.
   Pomodoro/Session as real terms post-removal; its streak warning predates
   and now contradicts decision 007) — flagged, not yet fixed
 - `docs/NEXT_PLAN.md` — build sequencing across all of the above
+- `docs/DESKTOP_HOME_NAV_SPEC.md` — desktop three-pane home nav: the two
+  top-bar dropdowns, the Quest panel, and the three real pages (Labels,
+  Settings, Progress)

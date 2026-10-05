@@ -9,6 +9,15 @@ and shippable independently — do them in the order below, full build gate
 wanting routines to read as a quest made of steps, not a single toggle —
 see the reasoning in §0 for why this comes first and what it changes.
 
+**Addendum 2026-09-28:** streaks/XP may now use a dedicated brighter accent (`xpGold`/`xpGoldText`) instead of the plain muted palette for the streak/XP display specifically — see [[docs/decisions/008-louder-gamification-visual-override]]. The "no flame icon, no partial-progress meter" content rules below are unchanged; only the color/weight of the streak and XP display is affected.
+
+**Addendum 2026-09-28 (2):** the XP multiplier scope, left open by decision 008, is confirmed by Jethro: **per routine**, not account-wide. Each routine carries its own deterministic multiplier derived from its own streak (e.g. Morning routine at 14 days shows its own `×1.14`; Evening wind-down at 3 days shows its own `×1.03`, independently). Completing a routine awards XP at that routine's own rate — there is no single shared account-wide multiplier and no pooled/averaged rate across routines. Formula, XP totals, and any account-level/level-badge meaning are still undecided and not yet specced here; this addendum locks the multiplier's scope only.
+
+**Addendum 2026-09-28 (3):** §3's on-open interrupting modal is replaced, per Jethro's direction. Nothing pops up unprompted on app foreground anymore — drop that trigger entirely. In its place: a quiet badge/indicator on whatever nav element represents routines/quests (exact placement depends on the platform's nav structure, still being settled), present whenever §3 step 3's same "real, un-actioned content today" check is true, absent when it isn't. Tapping it opens the exact same status content already specced in §3 (plain checkmark/empty-circle rows, tap a row to toggle, same handler as the existing Routines toggle) as a view the user opens on purpose, not one that interrupts them. This is still squarely inside decision 007's no-dark-patterns rule, if anything it's gentler than the modal it replaces: no forced interruption, no countdown, one consistent indicator, not a color-coded urgency scale. Because nothing fires automatically anymore, the "Show routine check-in when app opens" Settings toggle and the `lastCheckInShownDate` frequency guard are both dropped, there's nothing left to gate.
+
+
+**Addendum 2026-09-28 (4):** Routines gain optional non-daily recurrence (see new §4 below) — confirmed with Jethro using real examples (hair care on Thu/Sun, not every day). Irregular-schedule items (laundry, shampoo) are confirmed to stay as recurring Tasks, not Routines, specifically because a streak only makes sense against a fixed, predictable schedule; an irregular one has nothing to be "consecutive" against.
+
 ---
 
 ## 0. Routine checklist ("quest") model — build before everything else
@@ -235,6 +244,72 @@ Store `lastCheckInShownDate` locally (not synced — it's a per-device
 display-dedup flag, not user data). Reset naturally each day. This is what
 keeps it from becoming "annoying," which was Jethro's own stated concern —
 build the guard as a real requirement, not an afterthought.
+
+---
+
+## 4. Non-daily routine recurrence
+
+### Why this exists
+Not every Routine is daily. Some things belong to the same "streak-worthy
+habit with steps" family as Morning routine, but only happen on specific
+days, e.g. hair care (condition hair, shave face, as two `RoutineStep`s
+under one Routine) on Thursdays and Sundays only. This section extends
+Routine to support that, reusing the exact recurrence mechanism already
+shipped for `CustomEvent` (`mobile/lib/types.ts`'s `RecurrenceRule` and
+`recurrenceDays`) rather than inventing a second one.
+
+**Explicitly confirmed out of scope for this mechanism:** anything on an
+irregular or unpredictable schedule (laundry, shampoo — done on whatever
+day suits that week, not the same day or days every time). Those stay
+recurring **Tasks** (see the companion note in `DESIGN_VISION.md` §2),
+not Routines, on purpose: a streak is only meaningful against a fixed,
+predictable schedule. An irregular one has no "consecutive" to count.
+
+### Data — `mobile/lib/types.ts`
+```typescript
+export interface Routine {
+  id: string;
+  title: string;
+  timeOfDay: TimeOfDay;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  // New, both optional — absent (or 'daily') is today's existing
+  // behavior, completely unchanged. Reuses CustomEvent's own
+  // RecurrenceRule/WeekDay types, not a new union.
+  recurrence?: RecurrenceRule;       // 'daily' | 'weekly' | 'biweekly' | 'triweekly' | 'monthly'
+  recurrenceDays?: WeekDay[];        // which days, for weekly/biweekly/triweekly — absent for daily/monthly
+}
+```
+Needs a Supabase migration (two new nullable columns on `routines`,
+mirroring the `add_task_notes` pattern at
+`mobile/supabase/migrations/20260801004209_add_task_notes.sql`) since
+`Routine` is one of the synced types.
+
+### Behavior
+- A routine with `recurrence` absent or `'daily'`: unchanged, shows and is
+  completable every day, exactly like today.
+- A routine with `recurrence: 'weekly' | 'biweekly' | 'triweekly'` and
+  `recurrenceDays` set: only appears on Today and in the Routines list on
+  those weekdays. On any other day it simply isn't shown — not shown as
+  pending, not shown as missed, absent entirely, same "roll over silently"
+  philosophy as everything else in this app.
+- A routine with `recurrence: 'monthly'`: appears once, on a fixed day of
+  the month (decide the exact day-of-month source during implementation,
+  e.g. day-of-month it was created on, or a field to add if that's not
+  enough — flag back to Jethro if this needs a real choice rather than an
+  assumption).
+
+### Streak — extends `computeRoutineStreak` (§1), doesn't replace it
+"Consecutive" for a non-daily routine means consecutive **scheduled
+occurrences**, not consecutive calendar days — walking backward, skip any
+date that isn't one of this routine's scheduled days, exactly the same
+principle already used to skip vacation-paused days rather than counting
+them as a gap (§2). Hair care completed every Thu and Sun for three
+straight weeks is a streak of 6 (occurrences), not measured in calendar
+days at all. Still fully derived, no new stored count, same function,
+same signature shape, just fed which days are "in scope" for this
+particular routine before walking backward.
 
 ---
 

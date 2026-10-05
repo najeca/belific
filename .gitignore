@@ -37,10 +37,6 @@ mobile/.eas/
 # Metro cache
 mobile/.metro-health-check*
 
-docs/seed-data/
-docs/OPUS_PLAN_REVIEW_BRIEF.md
-docs/OPUS_PLAN_REVIEW.md
-
 # Personal data and local-only planning material (repo is public)
 docs/seed-data/
 docs/OPUS_PLAN_REVIEW_BRIEF.md

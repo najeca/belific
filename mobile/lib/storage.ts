@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { kv } from './kv';
 import { backfillUpdatedAt, backfillCreatedAndUpdatedAt } from './migrations';
 import type {
   BrainDumpItem,
@@ -75,7 +75,7 @@ function pruneAndHideTombstones<T extends { deletedAt?: string }>(
 // caller wants loadCustomEvents.
 export async function loadCustomEventsRaw(): Promise<CustomEvent[]> {
   try {
-    const data = await AsyncStorage.getItem(KEYS.CUSTOM_EVENTS);
+    const data = await kv.getItem(KEYS.CUSTOM_EVENTS);
     return data ? (JSON.parse(data) as CustomEvent[]) : [];
   } catch {
     return [];
@@ -91,7 +91,7 @@ export async function loadCustomEvents(): Promise<CustomEvent[]> {
 
 export async function saveCustomEvents(events: CustomEvent[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.CUSTOM_EVENTS, JSON.stringify(events));
+    await kv.setItem(KEYS.CUSTOM_EVENTS, JSON.stringify(events));
   } catch {
     // noop
   }
@@ -161,7 +161,7 @@ export async function loadCustomEventsForDate(dateKey: string): Promise<CustomEv
 
 export async function loadNotificationsEnabled(): Promise<boolean> {
   try {
-    const data = await AsyncStorage.getItem(KEYS.NOTIFICATIONS_ENABLED);
+    const data = await kv.getItem(KEYS.NOTIFICATIONS_ENABLED);
     return data === null ? true : data === 'true';
   } catch {
     return true;
@@ -170,7 +170,7 @@ export async function loadNotificationsEnabled(): Promise<boolean> {
 
 export async function saveNotificationsEnabled(enabled: boolean): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.NOTIFICATIONS_ENABLED, String(enabled));
+    await kv.setItem(KEYS.NOTIFICATIONS_ENABLED, String(enabled));
   } catch {
     // noop
   }
@@ -178,7 +178,7 @@ export async function saveNotificationsEnabled(enabled: boolean): Promise<void> 
 
 export async function loadBrainDumpItemsRaw(): Promise<BrainDumpItem[]> {
   try {
-    const data = await AsyncStorage.getItem(KEYS.BRAIN_DUMP);
+    const data = await kv.getItem(KEYS.BRAIN_DUMP);
     return data ? (JSON.parse(data) as BrainDumpItem[]) : [];
   } catch {
     return [];
@@ -194,7 +194,7 @@ export async function loadBrainDumpItems(): Promise<BrainDumpItem[]> {
 
 export async function saveBrainDumpItems(items: BrainDumpItem[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.BRAIN_DUMP, JSON.stringify(items));
+    await kv.setItem(KEYS.BRAIN_DUMP, JSON.stringify(items));
   } catch {
     // noop
   }
@@ -256,7 +256,7 @@ export async function shouldShowStarterRoutine(): Promise<boolean> {
 
 export async function loadCustomCategoriesRaw(): Promise<CustomCategory[]> {
   try {
-    const data = await AsyncStorage.getItem(KEYS.CUSTOM_CATEGORIES);
+    const data = await kv.getItem(KEYS.CUSTOM_CATEGORIES);
     return data ? (JSON.parse(data) as CustomCategory[]) : [];
   } catch {
     return [];
@@ -274,7 +274,7 @@ export async function loadCustomCategories(): Promise<CustomCategory[]> {
 
 export async function saveCustomCategories(categories: CustomCategory[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.CUSTOM_CATEGORIES, JSON.stringify(categories));
+    await kv.setItem(KEYS.CUSTOM_CATEGORIES, JSON.stringify(categories));
   } catch {
     // noop
   }
@@ -291,7 +291,7 @@ export async function addCustomCategory(category: CustomCategory): Promise<void>
 
 export async function loadRoutinesRaw(): Promise<Routine[]> {
   try {
-    const data = await AsyncStorage.getItem(KEYS.ROUTINES);
+    const data = await kv.getItem(KEYS.ROUTINES);
     return data ? (JSON.parse(data) as Routine[]) : [];
   } catch {
     return [];
@@ -307,7 +307,7 @@ export async function loadRoutines(): Promise<Routine[]> {
 
 export async function saveRoutines(routines: Routine[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.ROUTINES, JSON.stringify(routines));
+    await kv.setItem(KEYS.ROUTINES, JSON.stringify(routines));
   } catch {
     // noop
   }
@@ -358,7 +358,7 @@ export async function deleteRoutine(id: string): Promise<void> {
 
 export async function loadRoutineCompletions(): Promise<RoutineCompletion[]> {
   try {
-    const data = await AsyncStorage.getItem(KEYS.ROUTINE_COMPLETIONS);
+    const data = await kv.getItem(KEYS.ROUTINE_COMPLETIONS);
     const all = data ? (JSON.parse(data) as RoutineCompletion[]) : [];
     // Prune-on-load: nothing in the app ever reads completions older than
     // this (no streaks, no history view, by design), so there's no reason
@@ -377,7 +377,7 @@ export async function loadRoutineCompletions(): Promise<RoutineCompletion[]> {
 
 export async function saveRoutineCompletions(completions: RoutineCompletion[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.ROUTINE_COMPLETIONS, JSON.stringify(completions));
+    await kv.setItem(KEYS.ROUTINE_COMPLETIONS, JSON.stringify(completions));
   } catch {
     // noop
   }
@@ -402,7 +402,7 @@ export async function deleteRoutineCompletion(routineId: string, date: string): 
 
 export async function loadTasksRaw(): Promise<Task[]> {
   try {
-    const data = await AsyncStorage.getItem(KEYS.TASKS);
+    const data = await kv.getItem(KEYS.TASKS);
     return data ? (JSON.parse(data) as Task[]) : [];
   } catch {
     return [];
@@ -418,7 +418,7 @@ export async function loadTasks(): Promise<Task[]> {
 
 export async function saveTasks(tasks: Task[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.TASKS, JSON.stringify(tasks));
+    await kv.setItem(KEYS.TASKS, JSON.stringify(tasks));
   } catch {
     // noop
   }
@@ -457,7 +457,7 @@ export async function deleteTask(id: string): Promise<void> {
 
 export async function loadProjectsRaw(): Promise<Project[]> {
   try {
-    const data = await AsyncStorage.getItem(KEYS.PROJECTS);
+    const data = await kv.getItem(KEYS.PROJECTS);
     return data ? (JSON.parse(data) as Project[]) : [];
   } catch {
     return [];
@@ -473,7 +473,7 @@ export async function loadProjects(): Promise<Project[]> {
 
 export async function saveProjects(projects: Project[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.PROJECTS, JSON.stringify(projects));
+    await kv.setItem(KEYS.PROJECTS, JSON.stringify(projects));
   } catch {
     // noop
   }
@@ -488,7 +488,7 @@ export async function addProject(project: Project): Promise<void> {
 
 export async function clearAllData(): Promise<void> {
   try {
-    await AsyncStorage.multiRemove([
+    await kv.multiRemove([
       KEYS.CUSTOM_EVENTS,
       KEYS.TIMER_SETTINGS,
       KEYS.FIRST_LAUNCH,
@@ -516,7 +516,7 @@ export async function clearAllData(): Promise<void> {
 // no-ops immediately after the first real run.
 export async function migrateToSyncableSchema(): Promise<void> {
   try {
-    const already = await AsyncStorage.getItem(KEYS.SCHEMA_MIGRATED_V2);
+    const already = await kv.getItem(KEYS.SCHEMA_MIGRATED_V2);
     if (already === 'true') return;
 
     const migrationTimestamp = new Date().toISOString();
@@ -551,7 +551,7 @@ export async function migrateToSyncableSchema(): Promise<void> {
     const migratedCategories = backfillCreatedAndUpdatedAt(categories, migrationTimestamp);
     await saveCustomCategories(migratedCategories);
 
-    await AsyncStorage.setItem(KEYS.SCHEMA_MIGRATED_V2, 'true');
+    await kv.setItem(KEYS.SCHEMA_MIGRATED_V2, 'true');
     // Counts only, never titles/content — for one-time confirmation via
     // device console that this ran and touched the expected rows.
     console.log(

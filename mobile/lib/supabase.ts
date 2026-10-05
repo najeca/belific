@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { kv } from './kv';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -10,7 +10,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// AsyncStorage-backed session persistence — same storage the rest of
+// kv-backed session persistence (AsyncStorage on iOS, the desktop file
+// store on Windows) — same storage the rest of
 // the app already uses (storage.ts), so the signed-in session survives
 // app restarts exactly like every other local store. Accounts are
 // optional (see the accounts plan) — this client is only ever touched
@@ -18,7 +19,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // on app launch requires a session to exist.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: kv,
     autoRefreshToken: true,
     persistSession: true,
     // No web OAuth redirect flow — Sign in with Apple's native sheet

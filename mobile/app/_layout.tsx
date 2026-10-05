@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, AppState, type AppStateStatus } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, AppState, Platform, type AppStateStatus } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -102,7 +102,9 @@ function RootLayoutInner() {
       // already exists on every row.
       await migrateToSyncableSchema();
       await seedDevEvents();
-      await requestPermissions();
+      // Desktop notifications are the Electron main process's job (decision
+      // 017); expo-notifications has no scheduler on web.
+      if (Platform.OS !== 'web') await requestPermissions();
       // Catches anything the per-write fire-and-forget pushes in
       // storage.ts missed (offline at the time, app killed mid-push,
       // etc.) — a no-op if signed out, which is the default state.

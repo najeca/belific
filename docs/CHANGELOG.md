@@ -8,6 +8,25 @@ to know the current version and recent history.
 
 ---
 
+## 2.1.1 — 2026-10-05
+
+**Storage goes through one `kv` entry point (groundwork for the Windows
+desktop app, decision 011). No behaviour change on iOS.**
+
+- New `mobile/lib/kv.ts`: `getItem` / `setItem` / `removeItem` /
+  `multiRemove`. On the desktop app the Electron preload provides a
+  file-backed store (`globalThis.belificDesktop.kv`); everywhere else,
+  including iOS, it is plain AsyncStorage as before.
+- `storage.ts`, `ownerSeed.ts`, `devSeed.ts` and the Supabase client's
+  session storage now call `kv` instead of AsyncStorage directly. Same
+  keys, same values.
+- `_layout.tsx` skips `requestPermissions()` on web (expo-notifications has
+  no scheduler there; desktop notifications are decision 017).
+- Verified: `tsc --noEmit` clean and an iOS JS bundle export succeeds. Not
+  device tested on iOS.
+
+---
+
 ## 2.1.0 — 2026-09-04
 
 **P-NAV, part 1: Focus/Pomodoro removed entirely.** Jethro found the

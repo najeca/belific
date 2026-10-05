@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { kv } from './kv';
 import type { CustomEvent } from './types';
 import { formatDateKey } from './data';
 
@@ -7,7 +7,7 @@ const DEV_SEED_KEY = 'belific_dev_seed_v1';
 export async function seedDevEvents(): Promise<void> {
   if (!__DEV__) return;
 
-  const already = await AsyncStorage.getItem(DEV_SEED_KEY);
+  const already = await kv.getItem(DEV_SEED_KEY);
   if (already === 'true') return;
 
   const today = formatDateKey(new Date());
@@ -35,9 +35,9 @@ export async function seedDevEvents(): Promise<void> {
     updatedAt: new Date().toISOString(),
   }));
 
-  const existing = await AsyncStorage.getItem('belific_custom_events');
+  const existing = await kv.getItem('belific_custom_events');
   const parsed: CustomEvent[] = existing ? (JSON.parse(existing) as CustomEvent[]) : [];
   const merged = [...parsed, ...events];
-  await AsyncStorage.setItem('belific_custom_events', JSON.stringify(merged));
-  await AsyncStorage.setItem(DEV_SEED_KEY, 'true');
+  await kv.setItem('belific_custom_events', JSON.stringify(merged));
+  await kv.setItem(DEV_SEED_KEY, 'true');
 }

@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { kv } from './kv';
 import { loadCustomEvents, saveCustomEvents } from './storage';
 import { formatDateKey } from './data';
 import type { CustomEvent } from './types';
@@ -182,7 +182,7 @@ const DAY_TEMPLATES: Record<number, RawEvent[]> = {
 };
 
 export async function seedOwnerSchedule(): Promise<void> {
-  const alreadySeeded = await AsyncStorage.getItem(OWNER_SEED_KEY);
+  const alreadySeeded = await kv.getItem(OWNER_SEED_KEY);
   if (alreadySeeded === 'true') return;
 
   const today = new Date();
@@ -224,5 +224,5 @@ export async function seedOwnerSchedule(): Promise<void> {
   const newEvents = seedEvents.filter((e) => !existingIds.has(e.id));
 
   await saveCustomEvents([...existing, ...newEvents]);
-  await AsyncStorage.setItem(OWNER_SEED_KEY, 'true');
+  await kv.setItem(OWNER_SEED_KEY, 'true');
 }

@@ -170,6 +170,9 @@ export interface RoutineCompletion {
 export interface Task {
   id: string;
   title: string;
+  // The day the task is PLANNED for ("Day" in the UI, decision 015), not a
+  // hard deadline. Absent means Unscheduled. The desktop kanban moves tasks
+  // between days by changing this; iOS still reads it as before.
   dueDate?: string;
   priority?: EventPriority;
   projectKey?: string;
@@ -177,6 +180,16 @@ export interface Task {
   completed: boolean;
   completedAt?: string;
   createdAt: string;
+  // Desktop planning fields (decision 015). LOCAL ONLY until migration 2
+  // lands (checkpoint 5): sync.ts does not map them yet, so they are not
+  // uploaded and a newer remote row would overwrite them. Desktop stays
+  // signed out until then.
+  // Estimated size in minutes (chips write 15, 30, 60, 120). Also the
+  // Timebox block height; absent means 30 when placed.
+  durationMinutes?: number;
+  // 'HH:mm'. A task with a dueDate AND a startTime is "placed" and shows as
+  // a block on Timebox for that day. One row, never copied into an event.
+  startTime?: string;
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';

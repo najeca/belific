@@ -2,11 +2,14 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../../lib/theme';
 import BrainDumpPane from './BrainDumpPane';
+import KanbanPane from './KanbanPane';
+import TaskModal, { type TaskModalState } from './TaskModal';
 
-// Decision 009: the three-pane workspace. Brain Dump is real; the kanban
-// and Timebox panes are placeholders until their checkpoints land. Panes
-// share one refresh counter so a change in one (a promoted Brain Dump
-// item, a moved task) shows up in the others without extra plumbing.
+// Decision 009: the three-pane workspace. Brain Dump and the kanban are
+// real; Timebox is a placeholder until its checkpoint lands. Panes share one
+// refresh counter so a change in one (a promoted Brain Dump item, a moved
+// task) shows up in the others without extra plumbing. The task modal is a
+// centred overlay on this screen, never a new screen.
 function Placeholder({ title, note, flex }: { title: string; note: string; flex: number }) {
   return (
     <View style={[styles.pane, { flex }]}>
@@ -18,17 +21,35 @@ function Placeholder({ title, note, flex }: { title: string; note: string; flex:
 
 export default function DesktopHome() {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [modal, setModal] = useState<TaskModalState | null>(null);
   const onChanged = useCallback(() => setRefreshKey((k) => k + 1), []);
+  const closeModal = useCallback(() => setModal(null), []);
+  const onSaved = useCallback(() => {
+    setModal(null);
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   return (
     <View style={styles.root}>
       <View style={styles.body}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <BrainDumpPane refreshKey={refreshKey} onChanged={onChanged} />
+          <BrainDumpPane
+            refreshKey={refreshKey}
+            onChanged={onChanged}
+            onMakeTask={(item) => setModal({ mode: 'new', title: item.title, dumpId: item.id })}
+          />
         </View>
-        <Placeholder title="WEEK" note="Kanban pane placeholder" flex={2.2} />
+        <View style={{ flex: 2.2, minWidth: 0 }}>
+          <KanbanPane
+            refreshKey={refreshKey}
+            onChanged={onChanged}
+            onNewTask={(dueDate) => setModal({ mode: 'new', dueDate })}
+            onEditTask={(task) => setModal({ mode: 'edit', task })}
+          />
+        </View>
         <Placeholder title="TIMEBOX" note="Timebox pane placeholder" flex={1.2} />
       </View>
+      {modal && <TaskModal state={modal} onClose={closeModal} onSaved={onSaved} />}
     </View>
   );
 }

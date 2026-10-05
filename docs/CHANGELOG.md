@@ -8,6 +8,37 @@ to know the current version and recent history.
 
 ---
 
+## 2.3.0 — 2026-10-05
+
+**Desktop Home: weekly kanban and task modal (web/Electron only; iOS UI unchanged).**
+
+- `Task` gains optional `durationMinutes` and `startTime` (decision 015), and
+  `dueDate` is now documented as the planned Day. **Local only**: `sync.ts`
+  is untouched, so these fields are not uploaded until migration 2
+  (checkpoint 5). Desktop stays signed out until then. iOS ignores them.
+- New `KanbanPane.tsx`: an Unscheduled column plus 14 days from today,
+  horizontal board scroll, each column scrolling on its own. Cards show
+  title, High priority flag, label name and duration; finished tasks stay in
+  their column, struck through, sorted last. Unfinished past tasks appear in
+  Today first with a muted "from <date>" tag, and their stored date is left
+  alone. A "Later" column appears only when a task is dated beyond day 14.
+- New `TaskModal.tsx`: centred overlay for create and edit (title, Day via a
+  web date input, priority, label, duration chips, notes, inline delete
+  confirm). A "+ Label" link creates a label inline. Brain Dump rows get a
+  hover "Make task" action that opens it pre-filled; saving moves the item
+  (the Brain Dump item is deleted, the Task is marked `origin: 'dump'`).
+- New pure helpers `lib/kanban.ts` with 19 tests (`npm test` in `mobile/`),
+  including month, year and leap boundaries and clock changes in six time
+  zones.
+- `tsconfig.json`: `allowImportingTsExtensions` so the test file can import
+  with an explicit `.ts` extension, as Node requires. No source file uses it.
+- Verified: `tsc --noEmit` clean, iOS JS bundle export succeeds, 19 mobile
+  and 19 desktop tests pass, and the built desktop app was driven headless
+  (create, Make task, move, complete, delete, with the results checked in
+  the data files). Not device tested on iOS.
+
+---
+
 ## 2.2.0 — 2026-10-05
 
 **Desktop Home: real Brain Dump pane (web/Electron only; iOS unchanged).**

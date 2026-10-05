@@ -19,9 +19,13 @@ import type { BrainDumpItem } from '../../../lib/types';
 export default function BrainDumpPane({
   refreshKey,
   onChanged,
+  onMakeTask,
 }: {
   refreshKey: number;
   onChanged: () => void;
+  // Opens the task modal pre-filled with this item's title. On save the
+  // Brain Dump item is deleted (promote to Task MOVES it).
+  onMakeTask: (item: BrainDumpItem) => void;
 }) {
   const [items, setItems] = useState<BrainDumpItem[]>([]);
   const [captureText, setCaptureText] = useState('');
@@ -154,14 +158,24 @@ export default function BrainDumpPane({
                 ) : (
                   hovered &&
                   !editing && (
-                    <Pressable
-                      onPress={() => setConfirmingId(item.id)}
-                      style={styles.deleteBtn}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Delete ${item.title}`}
-                    >
-                      <Ionicons name="trash-outline" size={16} color={Colors.textSecondary} />
-                    </Pressable>
+                    <View style={styles.actions}>
+                      <Pressable
+                        onPress={() => onMakeTask(item)}
+                        style={styles.makeTaskBtn}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Make task from ${item.title}`}
+                      >
+                        <Text style={styles.makeTaskText}>Make task</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setConfirmingId(item.id)}
+                        style={styles.deleteBtn}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Delete ${item.title}`}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={Colors.textSecondary} />
+                      </Pressable>
+                    </View>
                   )
                 )}
               </Pressable>
@@ -240,6 +254,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     outlineColor: Colors.accent,
   },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  makeTaskBtn: { paddingHorizontal: 6, paddingVertical: 4 },
+  makeTaskText: { fontSize: 12, fontWeight: '600', color: Colors.accentText },
   deleteBtn: { padding: 6 },
   confirm: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   confirmText: { fontSize: 13, color: Colors.textSecondary },

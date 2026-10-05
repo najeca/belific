@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../lib/theme';
 import { generateId } from '../../../lib/data';
 import { DURATION_CHOICES, dateKey, isDateKey } from '../../../lib/kanban';
+import { setTaskCompleted } from '../../../lib/taskActions';
 import {
   addTask,
   updateTask,
@@ -11,7 +13,7 @@ import {
   loadProjects,
   addProject,
 } from '../../../lib/storage';
-import type { EventPriority, Project, Task } from '../../../lib/types';
+import type { EventPriority, Project, RecurrenceRule, Task, WeekDay } from '../../../lib/types';
 
 // Desktop task modal: a centred overlay on Desktop Home, never a new screen
 // (DESKTOP_HOME_NAV_SPEC standing rule). Create and edit share it. Web only:
@@ -23,6 +25,20 @@ export type TaskModalState =
   | { mode: 'new'; title?: string; dumpId?: string };
 
 type PriorityChoice = 'normal' | EventPriority;
+
+// Repeat choices in the form. (triweekly exists in the type but is not offered.)
+type RepeatChoice = 'none' | Exclude<RecurrenceRule, 'triweekly'>;
+
+const REPEATS: Array<{ key: RepeatChoice; label: string }> = [
+  { key: 'none', label: 'Does not repeat' },
+  { key: 'daily', label: 'Daily' },
+  { key: 'weekly', label: 'Weekly' },
+  { key: 'biweekly', label: 'Every 2 weeks' },
+  { key: 'monthly', label: 'Monthly' },
+];
+
+// Monday first for display.
+const WEEKDAY_CHOICES: WeekDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const PRIORITIES: Array<{ key: PriorityChoice; label: string }> = [
   { key: 'normal', label: 'Normal' },
@@ -63,6 +79,11 @@ export default function TaskModal({
   const [labelText, setLabelText] = useState('');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [repeat, setRepeat] = useState<RepeatChoice>(
+    editTask?.recurrence && editTask.recurrence !== 'triweekly' ? editTask.recurrence : 'none',
+  );
+  const [repeatDays, setRepeatDays] = useState<WeekDay[]>(editTask?.recurrenceDays ?? []);
+  const [done, setDone] = useState(editTask?.completed ?? false);
   // No past dates can be chosen. A task that already has a past Day keeps it
   // until the user changes it.
   const todayKey = dateKey(new Date());
@@ -95,10 +116,16 @@ export default function TaskModal({
       projectKey,
       notes: notes.trim().length > 0 ? notes.trim() : undefined,
       durationMinutes: duration,
+      recurrence: repeat === 'none' ? undefined : repeat,
+      recurrenceDays: repeat === 'weekly' && repeatDays.length > 0 ? repeatDays : undefined,
     };
     if (editTask) {
       // A time slot only makes sense on a day: clearing the Day unplaces it.
-      await updateTask({ ...editTask, ...fields, startTime: dueDate ? editTask.startTime : undefined });
+      const updated: Task = { ...editTask, ...fields, startTime: dueDate ? editTask.startTime : undefined };
+      await updateTask(updated);
+      // Completion always goes through setTaskCompleted so a recurring task
+      // gets its next occurrence (built from the details just saved).
+      if (done !== editTask.completed) await setTaskCompleted(updated, done);
     } else {
       const now = new Date().toISOString();
       const dumpId = state.mode === 'new' ? state.dumpId : undefined;
@@ -144,7 +171,25 @@ export default function TaskModal({
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
       <View style={styles.panel} accessibilityViewIsModal>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-          <Text style={styles.heading}>{editTask ? 'Edit task' : 'New task'}</Text>
+          <View style={styles.headingRow}>
+            <Text style={styles.heading}>{editTask ? 'Edit task' : 'New task'}</Text>
+            {editTask && (
+              <Pressable
+                onPress={() => setDone((d) => !d)}
+                style={styles.doneBtn}
+                accessibilityRole="button"
+                accessibilityState={{ checked: done }}
+                accessibilityLabel={done ? 'Mark as not done' : 'Mark as done'}
+              >
+                <Ionicons
+                  name={done ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={done ? Colors.accent : Colors.textSecondary}
+                />
+                <Text style={styles.doneText}>Done</Text>
+              </Pressable>
+            )}
+          </View>
 
           <TextInput
             style={styles.titleInput}
@@ -157,26 +202,16 @@ export default function TaskModal({
             accessibilityLabel="Task title"
           />
 
-          <Text style={styles.label}>Day</Text>
-          <View style={styles.dayRow}>
-            <input
-              type="date"
-              value={isDateKey(day) ? day : ''}
-              min={todayKey}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === '' || (isDateKey(v) && v >= todayKey)) setDay(v);
-              }}
-              style={domInputStyle}
-              aria-label="Day"
-            />
-            {day ? (
-              <Pressable onPress={() => setDay('')} accessibilityRole="button" accessibilityLabel="Clear day">
-                <Text style={styles.link}>No day</Text>
-              </Pressable>
-            ) : (
-              <Text style={styles.muted}>Unscheduled</Text>
-            )}
+          <Text style={styles.label}>Duration</Text>
+          <View style={styles.chips}>
+            {DURATION_CHOICES.map((d) => (
+              <Chip
+                key={d.minutes}
+                label={d.label}
+                selected={duration === d.minutes}
+                onPress={() => setDuration(duration === d.minutes ? undefined : d.minutes)}
+              />
+            ))}
           </View>
 
           <Text style={styles.label}>Priority</Text>
@@ -211,18 +246,6 @@ export default function TaskModal({
             )}
           </View>
 
-          <Text style={styles.label}>Duration</Text>
-          <View style={styles.chips}>
-            {DURATION_CHOICES.map((d) => (
-              <Chip
-                key={d.minutes}
-                label={d.label}
-                selected={duration === d.minutes}
-                onPress={() => setDuration(duration === d.minutes ? undefined : d.minutes)}
-              />
-            ))}
-          </View>
-
           <Text style={styles.label}>Notes</Text>
           <TextInput
             style={styles.notesInput}
@@ -233,6 +256,57 @@ export default function TaskModal({
             multiline
             accessibilityLabel="Notes"
           />
+
+          <Text style={styles.label}>Day</Text>
+          <View style={styles.dayRow}>
+            <input
+              type="date"
+              value={isDateKey(day) ? day : ''}
+              min={todayKey}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '' || (isDateKey(v) && v >= todayKey)) setDay(v);
+              }}
+              style={domInputStyle}
+              aria-label="Day"
+            />
+            {day ? (
+              <Pressable onPress={() => setDay('')} accessibilityRole="button" accessibilityLabel="Clear day">
+                <Text style={styles.link}>No day</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.muted}>Unscheduled</Text>
+            )}
+          </View>
+
+          <Text style={styles.label}>Repeat</Text>
+          <View style={styles.chips}>
+            {REPEATS.map((r) => (
+              <Chip key={r.key} label={r.label} selected={repeat === r.key} onPress={() => setRepeat(r.key)} />
+            ))}
+          </View>
+          {repeat === 'weekly' && (
+            <View style={[styles.chips, styles.weekdayRow]}>
+              {WEEKDAY_CHOICES.map((w) => (
+                <Chip
+                  key={w}
+                  label={w}
+                  selected={repeatDays.includes(w)}
+                  onPress={() => setRepeatDays((prev) => (prev.includes(w) ? prev.filter((x) => x !== w) : [...prev, w]))}
+                />
+              ))}
+            </View>
+          )}
+          {repeat !== 'none' && (
+            <Text style={styles.hint}>
+              {repeat === 'weekly' && repeatDays.length === 0
+                ? 'Every 7 days from the Day.'
+                : repeat === 'weekly'
+                  ? 'On the selected days.'
+                  : 'The next one is created when you complete this one.'}
+              {!day ? ' With no Day, it counts from today.' : ''}
+            </Text>
+          )}
 
           <View style={styles.footer}>
             <View style={styles.footerLeft}>
@@ -314,7 +388,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   content: { padding: 20 },
-  heading: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 12 },
+  headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  heading: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  doneBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: 36 },
+  doneText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  weekdayRow: { marginTop: 8 },
+  hint: { marginTop: 6, fontSize: 12, color: Colors.textSecondary },
   titleInput: {
     height: 40,
     paddingHorizontal: 12,

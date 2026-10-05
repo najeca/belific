@@ -118,8 +118,12 @@ rather than Profile, since it's routine/quest data, not account data.
   item on save; the "New task" button in the pane header opens it blank. The
   centre kanban never creates tasks; clicking a card edits an existing one.
   The form has name, duration chips, priority, label, notes, Day (a web date
-  input, min today, empty means Unscheduled) and, from 2.6.0, Repeat. No past
-  date can be chosen.
+  input, min today, empty means Unscheduled) and Repeat (Does not repeat, Daily,
+  Weekly with weekday chips, Every 2 weeks, Monthly). Repeat is set here only;
+  the board never creates occurrences. Only the next occurrence exists: completing
+  a recurring task (kanban checkbox or the form's Done toggle, both through
+  `setTaskCompleted`) creates the next one. A small repeat icon marks recurring
+  cards. No past date can be chosen.
 - **Week board (the Plan)** — forward only (2.5.0). A pinned Unscheduled
   column plus the days of the displayed week. Weeks start on Monday. The
   current week shows today to Sunday (past days are hidden); future weeks

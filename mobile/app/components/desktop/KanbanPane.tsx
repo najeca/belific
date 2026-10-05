@@ -22,6 +22,7 @@ import {
 } from '../../../lib/kanban';
 import { DEFAULT_TASK_MINUTES, formatMinutes, toMinutes } from '../../../lib/timebox';
 import { loadTasks, loadProjects, updateTask } from '../../../lib/storage';
+import { setTaskCompleted } from '../../../lib/taskActions';
 import type { Project, Task } from '../../../lib/types';
 
 // Desktop week board (decision 009, "Plan"), forward only: a pinned
@@ -109,12 +110,10 @@ export default function KanbanPane({
     return map;
   }, [projects]);
 
+  // Completion always goes through the shared function so a recurring task
+  // gets its next occurrence. The board itself never creates tasks.
   async function toggleComplete(task: Task) {
-    await updateTask({
-      ...task,
-      completed: !task.completed,
-      completedAt: !task.completed ? new Date().toISOString() : undefined,
-    });
+    await setTaskCompleted(task, !task.completed);
     onChanged();
   }
 
@@ -199,7 +198,7 @@ export default function KanbanPane({
                           {task.title}
                         </Text>
                       </Pressable>
-                      {(overdueFrom || label || duration || task.startTime || (!task.completed && task.priority === 'high')) && (
+                      {(overdueFrom || label || duration || task.startTime || task.recurrence || (!task.completed && task.priority === 'high')) && (
                         <View style={styles.meta}>
                           {overdueFrom && <Text style={styles.metaText}>from {formatShortDate(overdueFrom)}</Text>}
                           {!task.completed && task.priority === 'high' && (
@@ -208,6 +207,9 @@ export default function KanbanPane({
                           {task.dueDate && task.startTime && <Text style={styles.metaText}>{task.startTime}</Text>}
                           {label && <Text style={styles.metaText}>{label}</Text>}
                           {duration && <Text style={styles.chip}>{duration}</Text>}
+                          {task.recurrence && (
+                            <Ionicons name="repeat" size={13} color={Colors.textSecondary} accessibilityLabel="Repeats" />
+                          )}
                         </View>
                       )}
                     </View>

@@ -8,6 +8,39 @@ to know the current version and recent history.
 
 ---
 
+## 2.6.0 — 2026-10-05
+
+**Recurring tasks, set in the Brain Dump task form (web/Electron only; iOS unchanged).**
+
+- `Task` gains optional `recurrence` and `recurrenceDays` (the same types
+  `CustomEvent` uses). **Local only** until the sync migration (checkpoint
+  5).
+- The task form has a Repeat control: Does not repeat (default), Daily,
+  Weekly (with weekday chips; none selected means every 7 days), Every 2
+  weeks, Monthly. The form fields are now in the order name, duration,
+  priority, label, notes, Day, Repeat. Edit mode has a Done toggle.
+- Only the next occurrence exists. New `lib/taskActions.ts`
+  `setTaskCompleted` is the single place a task is completed: when a
+  recurring task is completed it creates the next one with the id
+  `${rootId}:${nextDueDate}` (same name, duration, priority, label, notes and
+  repeat settings, not completed), and does nothing if a task with that id
+  already exists, live or deleted. Creation is serialised so a double click
+  cannot duplicate it. Un-completing never removes an occurrence already
+  created. The kanban checkbox and the form's Done toggle both call it; the
+  board never creates occurrences.
+- New pure `lib/recurrence.ts` `nextOccurrence`: daily +1 day; weekly with
+  weekdays the next selected weekday; weekly with none +7; every 2 weeks +14;
+  monthly the same day next month, clamped to the month end. A recurring
+  task with no Day counts from today. The result depends only on the task's
+  own Day. 15 tests (month-end clamping, leap years, year boundaries, weekday
+  sets, clock changes in five time zones); 64 mobile tests pass.
+- Recurring cards show a small repeat icon.
+- Checkpoint 5 to-do: the iOS app must complete tasks through
+  `setTaskCompleted` once sync lands, or a recurring task completed on the
+  phone will never create its next occurrence.
+
+---
+
 ## 2.5.0 — 2026-10-05
 
 **Desktop Home: forward-only week board (web/Electron only; iOS unchanged).**

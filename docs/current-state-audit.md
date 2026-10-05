@@ -1,4 +1,5 @@
 # Current State Audit — Belific
+> **HISTORICAL, 2026-07-30. Superseded by `docs/CURRENT_TRUTH.md`.** This page predates Supabase accounts and sync, the 2.1.0 navigation, and the desktop work. It is kept for the record only. Do not rely on it for current state.
 > Last updated: 2026-07-30 (v2 restructuring, Phase 4)
 
 ---

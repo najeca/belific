@@ -1,8 +1,8 @@
 // Pure, storage-agnostic backfill logic for migrateToSyncableSchema
 // (storage.ts). Deliberately has zero AsyncStorage/React Native
-// dependency so it can be unit-tested directly with plain arrays — see
-// migrations.test.ts, run with `node lib/migrations.test.ts` (Node 26+
-// runs .ts natively, no test runner needed).
+// dependency so it can be unit-tested directly with plain arrays. No test
+// file exists for it yet; tests run with `node --test` (Node 26+ runs .ts
+// natively, no test runner needed).
 
 // Backfills `updatedAt` from `createdAt` (falling back to a shared
 // migration timestamp when neither exists) — used for types that

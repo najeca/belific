@@ -27,7 +27,7 @@ Right now a Routine is a single tap-to-toggle unit — one row, one
 complete/incomplete state. Jethro wants routines to read more like a quest:
 a routine is made of steps, and the routine itself is only "done" when
 every step is checked. This is a real data model change, not a visual one,
-and everything below (streak, vacation mode, the open-app modal) reads
+and everything below (streak, vacation mode, the routine status view) reads
 "was this routine completed today" — so this comes first.
 
 ### Data — `mobile/lib/types.ts`
@@ -50,12 +50,18 @@ checked, and removed the moment any step is unchecked again — same fully-
 reversible convention already documented for `RoutineCompletion` (real
 delete, no tombstone).
 
+**Where "step 2 is checked today" lives (added 2026-10-05):** a second new
+synced table, `routine_step_checks`, keyed `(user_id, step_id, date)` with a
+tombstone, so unchecking is reversible and syncs. `RoutineCompletion` is then
+derived: written when the last active step for a date is checked, removed when
+any is unchecked. See `docs/OPUS_PLAN_REVIEW.md` section 4, migration 4.
+
 A routine with **zero steps behaves exactly like today** — tap-to-toggle
 the whole thing, no checklist shown. Don't force every existing routine to
 gain steps; this is additive, not a migration of existing data.
 
 ### This is bigger than it looks — sequence it deliberately
-`RoutineStep` becomes an **8th synced table** (new Supabase migration +
+`RoutineStep` becomes an **8th synced table** (and `routine_step_checks` a 9th) (new Supabase migration +
 `sync.ts` wiring, same shape as the existing 7, but still a new table, not
 a single added column like `add_task_notes`). Don't start this in parallel
 with P1 (Phase D sync verification) — land it after P1 closes, so a new
@@ -106,12 +112,12 @@ export function computeRoutineStreak(
 On the Today screen's Routines section and on the Routines list, show the
 count next to each routine — small, muted-secondary-color text
 (`accentText` or `textSecondary`, per the existing palette), e.g. `12 days`.
-**No flame icon, no fire emoji, no bright badge** — see decision 007's
-visual-language note. If a quiet dot-row (last 7 days, filled/unfilled
-circles) fits the existing hairline-divider list aesthetic better than a
-bare number, that's a reasonable alternative — either way, stay inside the
-locked palette (`design-identity/SKILL.md`), no new colors introduced for
-this.
+**No flame icon, no fire emoji.** Colour and weight of streak and XP
+elements follow decision 008 (`xpGold` / `xpGoldText`, scoped to
+gamification UI only); everything else stays in the locked palette. If a
+quiet dot-row (last 7 days, filled/unfilled circles) fits the
+hairline-divider list aesthetic better than a bare number, that's a
+reasonable alternative.
 
 A streak of 0 or 1 shows nothing extra (no point making a brand-new routine
 feel like it's already "behind"). Threshold for showing the count at all:
@@ -159,22 +165,21 @@ export interface Routine {
 This needs a Supabase migration (new nullable `active_during_vacation`
 boolean column on `routines`, mirroring the `add_task_notes` pattern from
 `20260801004209_add_task_notes.sql`) since `Routine` is one of the 7 synced
-types. `VacationRange` itself: decide during implementation whether it's
-worth syncing (multi-device relevant if Jethro ever uses Belific on two
-devices) or can stay local-only for now — if syncing, it needs its own
-migration; if local-only, document that choice in the CHANGELOG entry so
-it's not mistaken for an oversight later.
+types. `VacationRange` **syncs** (decided 2026-10-05, because desktop and phone
+share one dataset): it lives in a single-row `user_settings` table
+(`vacation_start`, `vacation_end`, last write wins). See
+`docs/OPUS_PLAN_REVIEW.md` section 4, migration 3.
 
 ### Behavior
 - While the global toggle is active (`today` falls inside the range):
   - Routines with `activeDuringVacation` not true: streak math treats every
     day in range as a skip (see `computeRoutineStreak` above), the open-app
-    modal (§3) doesn't surface them, and Today's Routines section either
+    status view (§3) doesn't surface them, and Today's Routines section either
     hides them or visually de-emphasizes them (de-emphasize, don't hide —
     Jethro should still be able to see and manually complete a "paused"
     routine if he wants to, vacation mode is a default, not a lock).
   - Routines with `activeDuringVacation: true` behave completely normally —
-    full streak accounting, shows in the modal, no visual change.
+    full streak accounting, shows in the status view, no visual change.
 - Ending vacation (toggle off, or `endDate` passes): paused routines simply
   resume normal accounting from that point. No "welcome back" moment needed,
   keep this quiet.
@@ -201,19 +206,16 @@ inventing something new.
 
 ---
 
-## 3. Open-app status modal
+## 3. Routine status view (replaces the open-app modal)
 
-### Trigger
-On app foreground (same `AppState` → `active` transition `sync.ts` already
-listens for — reuse that hook rather than adding a second listener), check:
-1. Is the "show on open" setting enabled? (Settings toggle, default **on**.)
-2. Has this already been shown today (local date, not UTC)? If yes, skip.
-3. Build the list: routines in the current time-of-day bucket, plus earlier
-   buckets today, **excluding** any currently vacation-paused (per §2).
-   Include both done and not-yet-done — this is a status summary, not just
-   a "what's missing" list.
-4. If the list is empty (no routines exist yet, or truly nothing scheduled
-   for today) — don't show anything. Only show when there's real content.
+**The original modal design was removed by addendum 3 (2026-09-28).** There
+is no trigger on app foreground, no Settings toggle and no
+`lastCheckInShownDate`. In its place, a quiet badge on the routines/quests nav
+element is present whenever there is real, un-actioned content today (same
+check as the original step 3: routines in the current time-of-day bucket plus
+earlier buckets today, excluding vacation-paused routines, only when the list
+is not empty), and absent otherwise. Tapping it opens the status content
+below, as a view the user opens on purpose.
 
 ### Content
 Plain status, matching the existing empty-state/status tone already used
@@ -232,18 +234,6 @@ existing Routines tap-to-toggle — don't fork the logic). A plain "Close" or
 tap-outside dismisses. No countdown, no "X hours left," no color signaling
 urgency — checked vs. unchecked is the only state, using the same
 checkmark/empty-circle visual already established.
-
-### Settings
-One toggle: **"Show routine check-in when app opens"** — default on,
-Settings screen, near where other display toggles would sit. Turning it off
-doesn't lose anything; the same information is still on Today, just not
-interrupting on open.
-
-### Frequency guard
-Store `lastCheckInShownDate` locally (not synced — it's a per-device
-display-dedup flag, not user data). Reset naturally each day. This is what
-keeps it from becoming "annoying," which was Jethro's own stated concern —
-build the guard as a real requirement, not an afterthought.
 
 ---
 
@@ -322,8 +312,10 @@ particular routine before walking backward.
    the remaining pieces, ship and verify next.
 2. Vacation mode (data model + migration + Settings UI + streak
    integration) — depends on §1's streak function accepting vacation ranges.
-3. Open-app modal — depends on both (needs to know vacation-paused state to
-   exclude routines correctly).
+3. Routine status badge and view (§3, replaces the old modal) — depends on
+   both (needs to know vacation-paused state to exclude routines correctly).
+4. XP and levels — decision 014 (proposed). Not part of the original scope;
+   decided separately, built after the desktop daily driver checkpoints.
 
 Each gets its own version bump + CHANGELOG entry (rule 2) and its own full
 build gate (rule 6) — `tsc --noEmit`, local Release build, real on-device

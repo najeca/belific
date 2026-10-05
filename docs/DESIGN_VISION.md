@@ -159,23 +159,26 @@ onto Brain Dump:
 - Assigning a `dueDate` here is what makes a Task show up on Calendar's
   day-detail list. It does not give it a time of day.
 
-**Place** (Timebox, already specced in `TIMEBOX_AND_NAV_SPEC.md`): a Task
-with a `dueDate` can be placed onto that day's hourly grid — this is the
-existing promote-to-`CustomEvent` action, just reachable from Timebox
-directly instead of only from the Brain Dump/event form. Placing it uses
-the Task's duration estimate (if set) to size the initial block; dragging
-still resizes it same as any other event. A Task with a due date but not
-yet placed simply doesn't appear on Timebox for that day — it still shows
-on Calendar's day-detail list and on the Tasks list. Not every task needs
-a time slot.
+**Place** (Timebox, see `TIMEBOX_AND_NAV_SPEC.md` and decision 015): a Task is
+placed on the hourly grid by giving it a time of day, not by copying it into
+a `CustomEvent`. A Task's `dueDate` now means the **planned day** ("Day" in
+the UI), and two optional fields, `startTime` ('HH:mm') and
+`durationMinutes`, make it appear on Timebox for that day. There is only one
+row, so completing, rescheduling or deleting it can never leave a second copy
+behind or double count. The duration chips (15m / 30m / 1h / 2h+) write 15,
+30, 60 and 120 minutes, and a block with no duration defaults to 30. A Task
+with a Day but no `startTime` does not appear on Timebox; it still shows on
+the kanban, Calendar's day list and the Tasks list. Not every task needs a
+time slot. `CustomEvent` stays for fixed commitments (shifts, appointments).
+Promoting a Brain Dump item straight to a `CustomEvent` still copies.
 
 **Review** (Calendar, unchanged): month-level browsing, reading the same
 `CustomEvent` data Timebox places onto — no change here at all.
 
-**Data model impact — smaller than the first draft assumed:** one new
-optional field (`Task.duration`), no new table, no change to
-`BrainDumpItem`, no change to the promote semantics. "Plan" is a new view,
-not a new type.
+**Data model impact:** two new optional fields on `Task`
+(`durationMinutes`, `startTime`) and one on `Project` later (`color`), no new
+table for the pipeline, no change to `BrainDumpItem`, no change to the
+promote semantics. "Plan" is a new view, not a new type.
 
 ---
 
@@ -260,14 +263,14 @@ capture mechanism — if Jethro wants to note something for after a trip,
 that's what Brain Dump/a dated Task are already for; vacation mode doesn't
 grow a fourth way to jot things down.
 
-### 5.4 Open-app status modal
-Per spec §3 — fires on foreground (reusing `sync.ts`'s AppState hook),
-default on, once-per-local-day, skipped entirely if there's nothing real to
-show. Plain status list (routine name, checked/unchecked steps or the bare
-toggle for stepless routines), tap a row to toggle inline, tap outside or
-"Close" to dismiss. No countdown, no color-coded urgency, no "streak at
-risk" language anywhere in this — the entire feature is a status summary,
-not a nudge.
+### 5.4 Open-app status (superseded)
+
+**Superseded by `ROUTINE_GAMIFICATION_SPEC.md` addendum 3 (2026-09-28).**
+There is no modal on app open, no Settings toggle and no
+`lastCheckInShownDate`. Instead a quiet badge on the routines/quests nav
+element appears when there is real, un-actioned content today; tapping it
+opens a plain status list (checked / unchecked rows, tap to toggle). No
+countdown, no urgency colour, no "streak at risk" language.
 
 ---
 
@@ -305,29 +308,15 @@ drifts past what's actually approved:
 
 ## 8. Open items / needs Jethro's confirmation
 
-1. §2's "Plan" view (List/Plan segmented control on the existing Tasks
-   screen, day-pager, "Move to…" date scroller) is **new** — not yet in
-   any committed spec. Confirm this is the right shape before Claude Code
-   builds it, or send correction and I'll revise this doc + the prototype
-   together.
-2. **Resolved 2026-09-14** — duration-chip increments on Task: 15m / 30m /
-   1h / 2h+. Build to this.
-3. **Done** — `docs/UBIQUITOUS_LANGUAGE.md` cleanup landed 2026-09-04
-   (stale Pomodoro/Session terms dropped, streak warning updated to point
-   at decision 007, Task/Plan/duration/vacation-mode/quest-step terms
-   added).
-
-**Still open as of 2026-09-14:** item 1 (the Plan view) — Jethro is
-re-reviewing the clickable prototype before this is locked in for Claude
-Code to build. Don't start on Plan until that's confirmed.
-
-**Also new as of 2026-09-14:** Belific's dev machine changed from the Mac
-to a Windows PC. Native iOS builds (Xcode, CocoaPods, on-device testing)
-are Mac-only — that's a hard platform constraint, not a tooling gap — so
-rule 6's local build gate and rule 1's "no EAS" default need a decision
-on how iOS testing happens going forward now that there's no Mac in the
-loop day-to-day. Flagged, not resolved — see the conversation, not
-settled in this doc yet.
+1. **Plan view.** On desktop the weekly kanban is decided (decision 009,
+   `DESKTOP_HOME_NAV_SPEC.md`). The mobile Plan view described in section 2
+   (List/Plan segmented control, day pager, "Move to..." scroller) is
+   **deferred**: do not build it on mobile until Jethro confirms.
+2. **Resolved 2026-09-14**: duration chips 15m / 30m / 1h / 2h+.
+3. **Done**: `UBIQUITOUS_LANGUAGE.md` cleanup (2026-09-04).
+4. **iOS build gate on Windows**: the dev machine is now Windows, and native
+   iOS builds are Mac only. See decision 018 (proposed) for the gate that
+   runs on Windows and when a real device build is still needed.
 
 ---
 

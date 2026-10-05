@@ -15,7 +15,7 @@ don't land as one giant diff even though they're related:
 
 ---
 
-## 1. Remove Focus/Pomodoro entirely
+## 1. Remove Focus/Pomodoro entirely — DONE (2.1.0)
 
 - Delete `app/(tabs)/focus.tsx`.
 - Remove `TimerSettings`, `TimerStore` from `lib/types.ts`.
@@ -29,7 +29,7 @@ don't land as one giant diff even though they're related:
   purge it. It's a few bytes of orphaned local data for existing installs,
   not worth the risk of a migration bug for something this low-stakes.
 
-## 2. Move Settings off the tab bar
+## 2. Move Settings off the tab bar — DONE (2.1.0)
 
 - Remove the `settings` `Tabs.Screen` entry from `app/(tabs)/_layout.tsx`.
 - Relocate `settings.tsx` out of the `(tabs)` route group into the parent
@@ -44,6 +44,12 @@ don't land as one giant diff even though they're related:
   how you get there changes.
 
 ## 3. New Timebox tab (replaces Focus's slot)
+
+**Update 2026-10-05:** Timebox renders `CustomEvent`s **and placed Tasks**
+(a Task with a `dueDate` and a `startTime`, sized by `durationMinutes`,
+default 30; decision 015). Placing a task never copies it. The desktop pane
+is built first (`OPUS_PLAN_REVIEW.md` section 5, checkpoint 3); the mobile
+tab follows later.
 
 **Relationship to the existing Calendar tab:** Timebox is not a
 replacement for Calendar — Calendar's month grid + day-detail list stays
@@ -69,10 +75,12 @@ model — it reads the same events Calendar already reads.
 ### Phase 2 (once Phase 1 is verified on-device)
 - Drag-to-reposition: long-press + drag a block to a new time slot,
   updates that event's `start`/`end` on drop (same fields Calendar's edit
-  form already writes to — no new fields). Use
-  `react-native-gesture-handler` (already a dependency, see
-  `IOS_BUILD_NOTES.md` #8) rather than introducing a second gesture
-  library.
+  form already writes to — no new fields). On
+  mobile use `react-native-gesture-handler` (already a dependency, see
+  `IOS_BUILD_NOTES.md` #8). **Desktop drag is a different mechanism**:
+  react-native-gesture-handler is not the right tool for dragging between
+  panes on web, so checkpoint 4 starts with a short spike (dnd-kit versus a
+  hand-written pointer hook) before any drag code.
 - A day's total scheduled hours (sum of that day's event durations),
   shown at the top of the Timebox view — the "8 tasks, 7 hours" pattern
   from Ellie. Small, derived, no storage change.

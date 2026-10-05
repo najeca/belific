@@ -5,10 +5,12 @@ Claude Code, Cursor, any AI agent working on this repo.
 Read this before touching any file.
 
 ## What Belific is
-A calm, focused productivity app for managing daily schedules and
-tasks, with a Pomodoro timer and a quick-capture inbox. The mobile
-app (`mobile/`) is a **fully native** Expo/React Native app — it does
-not wrap or load any web page. A separate legacy PWA web app still
+A calm, focused productivity app: quick-capture Brain Dump, Tasks, a
+planning view and an hourly Timebox, plus routines. One Expo/React
+Native codebase (`mobile/`) ships as a **fully native iOS app** and,
+in progress, a Windows desktop app (Electron wrapping the web
+export, see the last section). The iOS app does not wrap or load any
+web page. Current state lives in `docs/CURRENT_TRUTH.md`. A separate legacy PWA web app still
 lives at the repo root (`index.html`, `css/`, `js/`, `sw.js`,
 deployed at https://najeca.github.io/belific/); it is a distinct,
 older artifact and shares no code or data with `mobile/`.
@@ -24,7 +26,8 @@ older artifact and shares no code or data with `mobile/`.
 
 ## Mobile stack
 - Expo SDK 54, React Native 0.81.5
-- expo-router ~6.0.23, 5 tabs: Today, Inbox, Calendar, Focus, Settings
+- expo-router ~6.0.23, 3 tabs: Today, Brain Dump (`inbox.tsx`), Calendar.
+  Settings and Tasks are pushed screens (Focus/Pomodoro was removed in 2.1.0)
 - No WebView, no `react-native-webview` dependency
 - expo-notifications for local notifications only (see Notifications
   below) — expo-font manually linked (autolinking skips it, see
@@ -39,19 +42,29 @@ older artifact and shares no code or data with `mobile/`.
    001 is superseded; see the design-identity skill and
    `mobile/lib/` for the current architecture)
 2. Notifications are local only — no server needed
-   (expo-notifications scheduled on-device); see [[002-local-notifications-only]]
-3. No auth, no database, no Supabase — see [[003-no-supabase]].
-   Covers custom events, timer settings, and Brain Dump items alike;
-   all AsyncStorage, all on-device.
+   (expo-notifications scheduled on-device on iOS; the Electron main
+   process schedules them on desktop, decision 017); see
+   [[002-local-notifications-only]]
+3. Optional accounts: Sign in with Apple plus Supabase sync, see
+   [[006-optional-accounts-reverses-003]] (003 is partly superseded).
+   Local-only use stays fully supported; a signed-out user never
+   touches the network.
 4. Import/polyfill order in mobile/index.js:
    react-native-gesture-handler → react-native-get-random-values →
    process → Buffer → expo-router/entry
    (gesture-handler must be the very first import per its own setup
    requirement, ahead of the rest of the polyfill chain)
-5. Bottom tab bar only — never hamburger menu (iOS HIG compliance)
+5. On mobile: bottom tab bar only — never hamburger menu (iOS HIG compliance)
 6. babel.config.js must exist in mobile/ (without it Metro bundle crashes on launch)
 7. useSafeAreaInsets() — never hardcoded paddingTop
-8. Touch targets minimum 44×44pt
+8. Touch targets minimum 44×44pt (mobile)
+9. Desktop rules (react-native-web): never `Alert.alert` (a no-op on web)
+   or `@react-native-community/datetimepicker` (renders nothing on web)
+   on a desktop path; use inline confirmations and web date/time inputs.
+   No app data in `localStorage`; desktop data goes through
+   `mobile/lib/kv.ts` (decision 011).
+10. This repository is PUBLIC. Never commit `docs/seed-data/`, `.env`,
+    personal schedules or device identifiers.
 
 ## Design identity
 Sage/cream "Quiet Function" theme — see
@@ -86,7 +99,7 @@ Run `bash .claude/skills/workflow/security-review/scripts/security-scan.sh`
 - Zero console.log of sensitive values
 - useSafeAreaInsets() — never hardcoded paddingTop
 - Touch targets minimum 44×44pt
-- docs/current-state-audit.md updated
+- docs/CURRENT_TRUTH.md updated
 
 ## Toyota Yaris philosophy
 Simplest solution always. No abstractions beyond what the task requires.
@@ -95,13 +108,14 @@ If three similar lines exist, that is fine. Do not extract prematurely.
 ## Domain language
 See docs/UBIQUITOUS_LANGUAGE.md for the full glossary — rewritten to
 match the current mobile codebase (Custom Event / Template Event /
-Category / Brain Dump, no streak concept anywhere). Belific — always
+Category / Brain Dump / Task / Routine). Belific — always
 capitalised exactly this way.
 
 ## Session protocol
 Opening message every session:
-Read docs/current-state-audit.md, docs/architecture.md,
-docs/UBIQUITOUS_LANGUAGE.md, and docs/CLAUDE.md, then summarise.
+Read docs/CURRENT_TRUTH.md, docs/UBIQUITOUS_LANGUAGE.md and
+docs/CLAUDE.md, then summarise. (architecture.md and
+current-state-audit.md are historical, July 2026.)
 
 Closing message every session:
 Run /workflow/session-close
@@ -129,7 +143,7 @@ Two separate, unrelated things share the word "web" in this project:
 
 - **The Windows desktop app** ships as an installable `.exe`: the shared
   Expo/React Native codebase exported with `expo export --platform web`,
-  then wrapped in Electron or Tauri (decision 009). The web export is an
+  then wrapped in Electron (decisions 009 and 010). The web export is an
   internal build step, never the shipped artifact. It is never opened in
   a browser by an end user and never has a public URL.
 - **The marketing website** is a separate static site (see the

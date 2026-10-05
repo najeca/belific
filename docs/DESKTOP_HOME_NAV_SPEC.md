@@ -11,11 +11,11 @@ https://claude.ai/artifact/5JLoeWRwkGL9Qkpmq2f5Hj — artboards
 `DESIGN_VISION.md`: prototype and this doc should never disagree — if they
 do, fix this doc, not the prototype.
 
-No desktop codebase exists yet — decision 009's Electron/Tauri wrapper
-around `expo export --platform web` hasn't been scaffolded. This spec is
-the target behavior for whenever that build starts; unlike
-`TIMEBOX_AND_NAV_SPEC.md` it doesn't reference real file paths, since none
-exist yet.
+**Build status (2026-10-05):** the desktop shell is being built under
+`docs/OPUS_PLAN_REVIEW.md` section 5 (Electron, decision 010). The build order
+there governs what gets built first: Brain Dump, kanban and Timebox come
+before the dropdowns and the three pages described below. Real file paths
+now exist under `mobile/app/components/desktop/`.
 
 ---
 
@@ -48,13 +48,16 @@ same interaction as the account menu on amazon.com or ebay.com: compact,
 closes on outside click, never pushes page content). Three rows:
 
 - **Today's routines** — opens the existing inline Quest panel (a
-  right-side overlay on Desktop Home), showing the Morning/Night routine
-  checklists with streak tags. Unchanged from `ROUTINE_GAMIFICATION_SPEC.md`.
-- **Recurring quests** — opens the same inline Quest panel, switched to
-  the recurring-quest list, with a "+ New quest" inline form (name,
-  cadence — Daily/Weekly/Biweekly/Monthly — and an XP stepper). **This
-  add-flow is new, not in any prior spec — confirm before Claude Code
-  builds it as real functionality rather than prototype-only.**
+  right-side overlay on Desktop Home), showing the Morning, Afternoon and
+  Evening routine checklists (the stored `TimeOfDay` values; the prototype
+  said "Night", the data model says Evening) with streak tags. Unchanged from `ROUTINE_GAMIFICATION_SPEC.md`.
+- **Recurring quests** — a quest is a Routine (decision G11 in the
+  review). This row opens the same inline Quest panel switched to the
+  routines that have a recurrence (Routine `recurrence` and
+  `recurrenceDays`, `ROUTINE_GAMIFICATION_SPEC.md` §4). The "+ New quest"
+  form is the existing `RoutineForm` fields (name, time of day,
+  recurrence), not a separate type. The XP stepper is deferred to decision
+  014. Irregular chores stay recurring **Tasks**, not quests.
 - **Progress** — navigates to a real standalone page (below). The only
   Quests-menu row that leaves Desktop Home.
 
@@ -81,19 +84,24 @@ See `Dropdown-States-Spec.dc.html` in the prototype for the closed / open
 Reached only through the dropdowns above, never any other way. Each opens
 with a small breadcrumb + "← Back" link to Desktop Home.
 
-**Labels** — full CRUD: list with per-label task counts, add (name +
-6-swatch picker from the locked label palette), edit color, delete (warns
-when tasks are still attached — their other labels are unaffected, nothing
-on Timebox or Plan changes). Color is decorative only; it never drives
-priority or scheduling.
+**Labels** — a Label is a Project plus a colour (decision 016). A task has
+**one** label. Full CRUD: list with per-label task counts, add (name +
+6-swatch picker; the swatches are palette keys defined once in
+`mobile/lib/theme.ts` as `LABEL_SWATCHES`), edit colour, delete (a
+tombstone; tasks keep the key and readers treat an unknown key as "no
+label"; the delete confirmation warns when tasks are still attached).
+Colour is decorative, except that a placed task's Timebox block uses its
+label colour. It never drives priority or scheduling.
 
 **Settings** — Account (avatar, name, email — editable), Notifications
-(task reminders / routine check-ins / weekly summary email — three
-independent toggles), Account actions (Log out). Built fresh this round;
+(event starts / task starts, independent toggles, plus an opt-in "start
+with Windows"; decision 017. **The weekly summary email is removed**: it
+contradicts the earlier removal of the weekly summary and no email
+infrastructure exists), Account actions (Log out). Built fresh this round;
 there was no prior desktop Settings screen to reuse.
 
 **Progress** — level ring with weekly / longest-streak / lifetime XP
-stats, an XP history feed (source, amount, when), and a streak calendar
+stats (the XP parts wait for decision 014), an XP history feed (source, amount, when), and a streak calendar
 (month grid — full / partial / missed days). This is the fuller form of
 the "streak-milestone log" decision 009 sketched as living inside the
 profile hub — it's now its own page, reached from the Quests dropdown
@@ -109,8 +117,9 @@ rather than Profile, since it's routine/quest data, not account data.
   header. Week mode mounts the same grid component day mode uses; it is
   not a separate screen.
 - **Quest panel** (Today's routines / Recurring quests) — a right-side
-  overlay on Desktop Home, per above. Always shows the Level/XP module at
-  the top regardless of which view is active inside it.
+  overlay on Desktop Home, per above. The Level/XP module at
+  the top is **hidden until decision 014 (XP) ships**; once it does it
+  shows regardless of which view is active inside the panel.
 
 ---
 

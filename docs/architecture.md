@@ -160,6 +160,16 @@ Full details: `docs/IOS_BUILD_NOTES.md`
 
 ---
 
+## Sync (current, added 2026-10-06)
+
+This page is historical, but sync is summarised here because it did not exist when it was written. Optional accounts sync 7 tables to Supabase (`custom_events`, `brain_dump_items`, `routines`, `routine_completions`, `tasks`, `projects`, `custom_categories`), composite keys `(user_id, id|key)`, an owner-only RLS policy on each.
+
+- **Write path:** `storage.ts` saves under `storageLock` and queues the row in the persisted outbox (`lib/outbox.ts`), only while signed in. `lib/sync.ts` drains it 1.5 s later in batches of 500.
+- **Read path:** `lib/syncEngine.ts` probes the schema, pulls each table in pages of 1000 (by `server_updated_at` cursor once migration 1 is applied, otherwise in full), and merges under the same lock with the rules in `lib/syncCore.ts`.
+- **Rules:** the last change to reach the server wins; deletes always win; local only fields survive a server that lacks their columns.
+- **Triggers:** launch, sign in, foreground, every 120 s while active, after each write.
+- Details and the reasoning: `docs/decisions/013-sync-model.md` and `docs/sessions/2026-10-06-cp5.md`.
+
 ## Related Notes
 - [[current-state-audit]]
 - [[UBIQUITOUS_LANGUAGE]]

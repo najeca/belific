@@ -8,6 +8,33 @@ to know the current version and recent history.
 
 ---
 
+## 2.9.0 — 2026-10-06
+
+**Sync hardening (checkpoint 5, decision 013). Shared by the iPhone and the desktop; the desktop stays signed out.**
+
+- Every local write is queued in a persisted outbox (survives restarts,
+  one entry per row, retried with backoff, never blocks the UI) and pushed
+  in batches of up to 500 with every server error checked and recorded.
+- A storage lock stops a sync from overwriting a write made while it was
+  waiting on the network.
+- Pulls are paginated (no more 1,000 row cap) and, once migration 1 is
+  applied, incremental by a server-set `server_updated_at` cursor.
+- Conflicts: the last change to reach the server wins; deletes always win
+  over edits; timestamps are compared as times, not strings.
+- Un-completing a routine on one device is no longer undone by another, and
+  routine completions are no longer pruned after 90 days.
+- Durations, Timebox times, repeat settings and label colours now sync (after
+  migration 2). Until then a pull never erases them.
+- The iPhone completes tasks through the same function as the desktop, so a
+  repeating task made on the desktop creates its next occurrence on the phone.
+- Sync status (idle, syncing, offline, error with the last error) is recorded;
+  the desktop shows one quiet line in the Brain Dump pane.
+- New migrations (not applied yet): `20261006120000_sync_hardening.sql`,
+  `20261006120100_task_pipeline.sql`, with manual rollback, backup and
+  verification scripts in `mobile/supabase/rollback/`.
+- The delete-account function answers CORS for the desktop app's origin only
+  (not deployed).
+
 ## 2.8.4 — 2026-10-06
 
 **Desktop Home: optional and short durations (checkpoint 4.4, web/Electron only; the iPhone app is unchanged).**

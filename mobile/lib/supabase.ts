@@ -1,4 +1,4 @@
-import { kv } from './kv';
+import { authStorage } from './kv';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -10,8 +10,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// kv-backed session persistence (AsyncStorage on iOS, the desktop file
-// store on Windows) — same storage the rest of
+// Session persistence (AsyncStorage on iOS, an encrypted file on Windows via
+// safeStorage, see authStorage in kv.ts) — same storage the rest of
 // the app already uses (storage.ts), so the signed-in session survives
 // app restarts exactly like every other local store. Accounts are
 // optional (see the accounts plan) — this client is only ever touched
@@ -19,12 +19,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // on app launch requires a session to exist.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: kv,
+    storage: authStorage,
     autoRefreshToken: true,
     persistSession: true,
     // No web OAuth redirect flow — Sign in with Apple's native sheet
     // returns an identity token directly, exchanged via
     // signInWithIdToken (see auth.ts). Never a URL to detect.
     detectSessionInUrl: false,
+    // The desktop signs in through the system browser with PKCE (decision
+    // 012). iOS keeps the default; its native sheet uses signInWithIdToken.
+    flowType: globalThis.belificDesktop ? 'pkce' : 'implicit',
   },
 });

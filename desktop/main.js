@@ -2,13 +2,16 @@
 // Belific desktop shell (decisions 009, 010, 011). Loads the static Expo web
 // export from mobile/dist through a privileged app:// protocol (never
 // file://, never a public URL) and owns the app's data on disk.
-const { app, BrowserWindow, Menu, protocol, net, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, protocol, net, ipcMain, dialog, shell, safeStorage } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { KvStore } = require('./src/kvstore');
 const { backupNow, dayStamp } = require('./src/backups');
 const { resolveAssetPath } = require('./src/assetPath');
+const { AuthGate, checkAuthorizeUrl, SCHEME } = require('./src/authLink');
+const { SecureStore } = require('./src/secureStore');
+const { ensureFirstSigninBackup } = require('./src/firstSignin');
 
 const IS_DEV = process.argv.includes('--dev');
 const DEV_URL = 'http://localhost:8081/';
@@ -30,6 +33,8 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let store;
+let secure;
+const authGate = new AuthGate(SUPABASE_HOST);
 let mainWindow = null;
 let backupTimer = null;
 
@@ -75,9 +80,76 @@ function registerIpc() {
   ipcMain.handle('kv:setItem', guard((key, value) => store.setItem(key, value)));
   ipcMain.handle('kv:removeItem', guard((key) => store.removeItem(key)));
   ipcMain.handle('kv:multiRemove', guard((keys) => store.multiRemove(keys)));
+  // The Supabase session (decision 012): encrypted with safeStorage, memory
+  // only if encryption is unavailable.
+  ipcMain.handle('secure:getItem', guard((key) => secure.getItem(String(key))));
+  ipcMain.handle('secure:setItem', guard((key, value) => secure.setItem(String(key), value)));
+  ipcMain.handle('secure:removeItem', guard((key) => secure.removeItem(String(key))));
+  ipcMain.handle('auth:status', guard(() => ({ persistent: secure.persistent })));
+  ipcMain.handle('auth:begin', guard((url) => beginSignIn(url)));
+  ipcMain.handle('auth:cancel', guard(() => authGate.cancel()));
+  ipcMain.handle('desktop:exportData', guard(() => exportData()));
+  ipcMain.handle('desktop:openBackups', guard(() => openBackupsFolder()));
   ipcMain.on('desktop:version', (event) => {
     event.returnValue = trustedSender(event) ? appVersion() : '';
   });
+}
+
+// Opens the Apple sign in page in the SYSTEM browser, never in the app
+// window. Refuses any URL that is not the Belific Supabase authorize URL, and
+// takes the one-time "pre-signin" backup before the very first sign in.
+async function beginSignIn(url) {
+  if (!checkAuthorizeUrl(String(url), SUPABASE_HOST)) return { ok: false, reason: 'refused' };
+  try {
+    const { data, backups } = paths();
+    await ensureFirstSigninBackup({
+      kv: store,
+      backup: (label, now) => backupNow(data, backups, now, 14, label),
+    });
+  } catch (err) {
+    log(`pre-signin backup failed: ${err.stack || err}`);
+    return { ok: false, reason: 'backup-failed' };
+  }
+  if (!authGate.begin(String(url))) return { ok: false, reason: 'refused' };
+  try {
+    await shell.openExternal(String(url));
+  } catch {
+    authGate.cancel();
+    return { ok: false, reason: 'no-browser' };
+  }
+  return { ok: true };
+}
+
+// A belific:// link, from the first launch arguments or a second instance.
+// Only the exact callback of a sign in started in this run is forwarded; the
+// link itself is never logged.
+function handleDeepLink(raw) {
+  const result = authGate.accept(raw);
+  if (!result.ok) {
+    log(`auth link ignored (${result.reason})`);
+    if (result.reason === 'provider-error' && mainWindow) mainWindow.webContents.send('auth:callback', { error: true });
+    return;
+  }
+  if (mainWindow) {
+    mainWindow.webContents.send('auth:callback', { code: result.code, flowId: result.flowId });
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+}
+
+function linkFromArgv(argv) {
+  return (argv || []).find((a) => typeof a === 'string' && a.toLowerCase().startsWith(`${SCHEME}://`));
+}
+
+function registerProtocolClient() {
+  // Tests set this so they never touch the real Windows protocol registration.
+  if (process.env.BELIFIC_NO_PROTOCOL_REGISTER === '1') return;
+  if (process.defaultApp) {
+    // Dev mode (electron.exe main.js): Windows needs the script path too.
+    if (process.argv.length >= 2) app.setAsDefaultProtocolClient(SCHEME, process.execPath, [path.resolve(process.argv[1])]);
+  } else {
+    app.setAsDefaultProtocolClient(SCHEME);
+  }
 }
 
 function registerAppProtocol() {
@@ -118,6 +190,11 @@ async function exportData() {
   }
 }
 
+function openBackupsFolder() {
+  fs.mkdirSync(paths().backups, { recursive: true });
+  return shell.openPath(paths().backups);
+}
+
 function buildMenu() {
   const template = [
     {
@@ -126,10 +203,7 @@ function buildMenu() {
         { label: 'Export data…', click: () => exportData() },
         {
           label: 'Open backups folder',
-          click: () => {
-            fs.mkdirSync(paths().backups, { recursive: true });
-            shell.openPath(paths().backups);
-          },
+          click: () => openBackupsFolder(),
         },
         { type: 'separator' },
         { role: 'quit' },
@@ -193,7 +267,9 @@ function createWindow() {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    const link = linkFromArgv(argv);
+    if (link) handleDeepLink(link);
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
@@ -202,10 +278,22 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     const { data } = paths();
     store = new KvStore(data, (err, context) => log(`kv error (${context}): ${err.stack || err}`));
+    secure = new SecureStore(
+      store,
+      {
+        isAvailable: () => process.env.BELIFIC_FORCE_NO_SAFESTORAGE !== '1' && safeStorage.isEncryptionAvailable(),
+        encrypt: (text) => safeStorage.encryptString(text),
+        decrypt: (buf) => safeStorage.decryptString(buf),
+      },
+      (err, context) => log(`secure store error (${context}): ${err.message}`),
+    );
     registerIpc();
+    registerProtocolClient();
     if (!IS_DEV) registerAppProtocol();
     buildMenu();
     createWindow();
+    const launchLink = linkFromArgv(process.argv);
+    if (launchLink) handleDeepLink(launchLink);
     runBackup();
     backupTimer = setInterval(runBackup, 24 * 60 * 60 * 1000);
   });

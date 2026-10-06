@@ -30,11 +30,13 @@ export default function BrainDumpPane({
   onChanged,
   onEditTask,
   onEditDump,
+  onOpenSettings,
 }: {
   refreshKey: number;
   onChanged: () => void;
   onEditTask: (task: Task) => void;
   onEditDump: (item: BrainDumpItem) => void;
+  onOpenSettings?: () => void;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [dumpItems, setDumpItems] = useState<BrainDumpItem[]>([]);
@@ -227,13 +229,14 @@ export default function BrainDumpPane({
         </View>
       )}
 
-      <SyncLine />
+      <SyncLine onPress={onOpenSettings} />
     </View>
   );
 }
 
-// One quiet line about sync (checkpoint 5, decision 013 item 6). The desktop
-// stays signed out until checkpoint 6, so today it reads "Local only".
+// One quiet line about sync (checkpoint 5, decision 013 item 6). Signed out it reads
+// "Local only · not signed in". It is also the account line: clicking it
+// opens the small Settings modal (checkpoint 6).
 // Problems show in the danger colour only while the last error is under a day
 // old.
 export function syncLineText(s: PublicSyncStatus, now: number): { text: string; warn: boolean } {
@@ -247,14 +250,16 @@ export function syncLineText(s: PublicSyncStatus, now: number): { text: string; 
   return { text: s.pending > 0 ? `${s.pending} change${s.pending === 1 ? '' : 's'} waiting` : 'Synced', warn: false };
 }
 
-function SyncLine() {
+function SyncLine({ onPress }: { onPress?: () => void }) {
   const [status, setStatus] = useState<PublicSyncStatus>(getSyncStatus);
   useEffect(() => subscribeSyncStatus(setStatus), []);
   const { text, warn } = syncLineText(status, Date.now());
   return (
-    <Text style={[styles.syncLine, warn && styles.syncLineWarn]} numberOfLines={1} accessibilityLabel="Sync status">
-      {text}
-    </Text>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Account and sync settings">
+      <Text style={[styles.syncLine, warn && styles.syncLineWarn]} numberOfLines={1}>
+        {text}
+      </Text>
+    </Pressable>
   );
 }
 

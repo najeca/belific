@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
 import BrainDumpPane from './BrainDumpPane';
@@ -6,6 +6,8 @@ import KanbanPane from './KanbanPane';
 import TimeboxPane from './TimeboxPane';
 import TaskModal, { type TaskModalState } from './TaskModal';
 import DragProvider from './DragProvider';
+import SettingsModal from './SettingsModal';
+import { listenForAuthCallbacks } from '../../lib/desktopAuth';
 
 // Decision 009: the three-pane workspace: Brain Dump, weekly kanban and
 // Timebox. Panes share one refresh counter so a change in one (a promoted Brain Dump item, a moved
@@ -15,6 +17,9 @@ import DragProvider from './DragProvider';
 export default function DesktopHome() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [modal, setModal] = useState<TaskModalState | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Validated sign in callbacks from the main process (decision 012).
+  useEffect(() => listenForAuthCallbacks(), []);
   const onChanged = useCallback(() => setRefreshKey((k) => k + 1), []);
   // Closing also refreshes: a label colour changed in the editor is saved
   // straight away, even when the task edit is cancelled.
@@ -37,6 +42,7 @@ export default function DesktopHome() {
             onChanged={onChanged}
             onEditTask={(task) => setModal({ mode: 'edit', task })}
             onEditDump={(item) => setModal({ mode: 'dump', item })}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         </View>
         <View style={{ flex: 2.2, minWidth: 0 }}>
@@ -54,6 +60,7 @@ export default function DesktopHome() {
           />
         </View>
       </View>
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {modal && <TaskModal state={modal} onClose={closeModal} onSaved={onSaved} />}
     </View>
     </DragProvider>

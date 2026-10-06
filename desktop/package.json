@@ -7,7 +7,8 @@
   "scripts": {
     "desktop": "node scripts/build-web.js && electron .",
     "desktop:dev": "electron . --dev",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "test:real:cp6": "electron test/real/cp6.js"
   },
   "devDependencies": {
     "electron": "44.5.1",

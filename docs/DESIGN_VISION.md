@@ -107,6 +107,14 @@ iPhone keeps its separate Brain Dump and its promote flow described below until
 a later mobile release; desktop thoughts are Tasks, so they will appear in the
 iPhone's Tasks list once sync lands (checkpoint 5).
 
+**Desktop pipeline by drag (2.8.0, checkpoint 4).** Plan and place are also
+direct manipulation: drag a Brain Dump row onto a day column (plan) or onto a
+Timebox slot (plan and place in one move), drag cards between days, drag a
+block to a new time or stretch its bottom edge, and drag anything back onto the
+Brain Dump pane to take its Day and time away. Timebox moves snap to 30
+minutes. Past days never accept a drop. The rules are in
+`DESKTOP_HOME_NAV_SPEC.md` (Drag and drop) and decision 019.
+
 **Corrected 2026-09-04 against real source** — the first draft of this
 section guessed a shape that fights an existing, deliberate architecture
 boundary. Verified in `mobile/lib/types.ts` and

@@ -15,7 +15,8 @@ do, fix this doc, not the prototype.
 `docs/OPUS_PLAN_REVIEW.md` section 5 (Electron, decision 010). The build order
 there governs what gets built first: Brain Dump, kanban and Timebox come
 before the dropdowns and the three pages described below. Real file paths
-now exist under `mobile/app/components/desktop/`.
+now exist under `mobile/components/desktop/` (moved out of `mobile/app/` in
+2.8.0 so they are no longer router routes and never reach the iOS bundle).
 
 ---
 
@@ -146,6 +147,25 @@ rather than Profile, since it's routine/quest data, not account data.
   day, schedule at a time, move to day) do not. "Move to day" offers Remove day,
   Today, Tomorrow and a date input (min today); if the date is outside the
   displayed week a quiet line ("Moved to Mon 2 Nov") confirms it.
+- **Drag and drop (2.8.0, checkpoint 4, decision 019)** — pointer based, mouse
+  only. A left row dropped on a day column gets that Day (no modal); dropped on
+  the Timebox it gets the Timebox's day and the 30 minute slot under the
+  pointer (no duration means 30 minutes; an existing duration is kept). A card
+  dropped on another day changes its Day and keeps its time; dropped on the
+  left pane it loses its Day and time. A Timebox block moves up or down and
+  resizes from its bottom edge, both in 30 minute steps inside 06:00 to 23:00
+  (minimum 30 minutes); dropped on a day column it keeps that Day and loses its
+  time; dropped on the left pane it loses both. A past day rejects a drop with
+  a muted "Past day" note on the lifted card. While dragging: the lifted card
+  has a soft shadow, the target column or the left pane is highlighted, the
+  Timebox shows a dashed slot with "10:30 to 11:00". At the left or right edge
+  of the board the board first scrolls sideways; at the end of its scroll a
+  quiet strip appears and, after about 600 ms, the week changes (repeating
+  while held; never before this week). The wheel scrolls panes during a drag,
+  and holding near a pane's top or bottom edge scrolls it. Escape, or a drop
+  outside any target, leaves the item where it was. A press only becomes a
+  drag after 5 px, so a click still opens the editor; the checkbox and the
+  hover buttons never start a drag. Events (CustomEvents) are not draggable.
 - **Timebox day/week** — a segmented toggle inside the Timebox pane's own
   header. Week mode mounts the same grid component day mode uses; it is
   not a separate screen.

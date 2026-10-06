@@ -8,6 +8,33 @@ to know the current version and recent history.
 
 ---
 
+## 2.8.0 — 2026-10-06
+
+**Desktop Home: drag and drop (checkpoint 4, web/Electron only; the iPhone app is unchanged).**
+
+- Drag a Brain Dump row onto a day column to give it that Day, or onto a
+  Timebox slot to give it the Timebox's day and that 30 minute slot (a task
+  with no duration gets 30 minutes; an existing duration is kept). Legacy
+  Brain Dump items convert into Tasks on drop.
+- Drag a card to another day (it keeps its time), or onto the Brain Dump pane
+  to clear its Day and time.
+- Drag a Timebox block up or down to change its time, or its bottom edge to
+  change its duration, in 30 minute steps kept inside 06:00 to 23:00 (minimum
+  30 minutes). Drag a block onto a day column (sets the Day, clears the time)
+  or onto the Brain Dump pane (clears both).
+- Past days reject a drop with a quiet "Past day" note. Escape or a drop
+  outside any target leaves the item where it was. A click still opens the
+  editor; the checkbox, keyboard focus and the hover actions are unchanged.
+- Holding a drag at the left or right edge of the week board scrolls the
+  board sideways, then changes the week after a short dwell (never before this
+  week). The wheel and edge auto scroll work during a drag.
+- Faint half hour lines on the Timebox grid.
+- Under the hood: pointer events, not HTML5 drag and drop (decision 019);
+  pure maths in `lib/drag.ts`; the desktop panes moved from
+  `app/components/desktop` to `components/desktop` behind
+  `DesktopEntry.web.tsx`, so the iOS bundle no longer contains any desktop
+  code.
+
 ## 2.7.0 — 2026-10-05
 
 **Desktop Home: the thing you capture IS the task (web/Electron only; the iPhone app is unchanged).**

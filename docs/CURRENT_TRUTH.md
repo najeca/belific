@@ -2,11 +2,11 @@
 
 Update this at every session close. It replaces `current-state-audit.md` and `architecture.md` (both historical, July 2026) in the session protocol.
 
-Last verified: 2026-10-05 against branch `v2-redesign`.
+Last verified: 2026-10-06 against branch `v2-redesign`.
 
 ## Shipped
 - **iOS 2.1.0** (per Jethro, live on the App Store): Today, Brain Dump and Calendar tabs; Tasks and Settings as pushed screens; local notifications; optional Sign in with Apple plus Supabase sync (7 tables).
-- **Desktop (app version 2.7.0, checkpoints 0 to 3 plus the 2b and 2c corrections)**: an Electron shell in `desktop/` loads the Expo web export over `app://`, stores data as files in the main process with a daily backup (newest 14), and shows three real panes. **Brain Dump**: the thing you capture IS the task (Enter creates a Task); the pane lists incomplete tasks with no Day plus any legacy Brain Dump items (converted on first save), with a collapsed "Done today". **Week board**: forward-only, days only (no Unscheduled column); clicking a row or card opens the editor (name, duration, priority, label, notes, Day, Repeat). **Timebox** day grid (events plus placed tasks, "Schedule at" from cards). Signed out, local only. No drag and drop yet (checkpoint 4). Run it with `npm run desktop` in `desktop/`. Decisions 010, 011, 015 and 016 are proposed but built against.
+- **Desktop (app version 2.8.0, checkpoints 0 to 4 plus the 2b and 2c corrections)**: an Electron shell in `desktop/` loads the Expo web export over `app://`, stores data as files in the main process with a daily backup (newest 14), and shows three real panes. **Brain Dump**: the thing you capture IS the task (Enter creates a Task); the pane lists incomplete tasks with no Day plus any legacy Brain Dump items (converted on first save), with a collapsed "Done today". **Week board**: forward-only, days only (no Unscheduled column); clicking a row or card opens the editor (name, duration, priority, label, notes, Day, Repeat). **Timebox** day grid (events plus placed tasks, "Schedule at" from cards, faint half hour lines). **Drag and drop** (checkpoint 4, pointer events, decision 019): rows to days or Timebox slots, cards between days, cards and blocks back to the left pane, block move and resize in 30 minute steps, edge dwell week change, Escape cancels. Signed out, local only. Desktop UI lives in `mobile/components/desktop/` behind `DesktopEntry.web.tsx`; none of it is in the iOS bundle. Run it with `npm run desktop` in `desktop/`. Decisions 010, 011, 015, 016 and 019 are proposed but built against.
 
 ## Backend
 - Supabase ref `uucycebkpgwbktdytxvr`. Status on 2026-10-05: **paused or gone** (the host did not resolve). Jethro to restore from the dashboard and note the restore deadline.
@@ -14,14 +14,14 @@ Last verified: 2026-10-05 against branch `v2-redesign`.
 - Sync: never verified end to end. Known data loss paths are listed in `OPUS_PLAN_REVIEW.md` section 2.2 (V7a to V7i). Do not build new synced features on it until checkpoint 5.
 
 ## Not built
-Drag and drop on desktop, label colour and the Labels page, sync of `durationMinutes`, `startTime`, `recurrence` and `recurrenceDays` (local only until migration 2), routine steps, streaks, vacation, XP, Progress, desktop Settings, Google sign in, desktop notifications, tray, installer. The Timebox tab on mobile and the mobile Plan view are not built (deferred).
+Label colour and the Labels page, sync of `durationMinutes`, `startTime`, `recurrence` and `recurrenceDays` (local only until migration 2), routine steps, streaks, vacation, XP, Progress, desktop Settings, Google sign in, desktop notifications, tray, installer. The Timebox tab on mobile and the mobile Plan view are not built (deferred).
 
 ## Decisions
 - 001 superseded. 002, 004, 005, 006, 007 (visuals overridden by 008), 008 and 009 active. 003 partly superseded by 006.
-- 010 to 018 are **proposed** (`docs/decisions/`), awaiting Jethro's confirmation. Checkpoints 1 to 3 build on 010, 011, 015 and 016.
+- 010 to 019 are **proposed** (`docs/decisions/`), awaiting Jethro's confirmation. Checkpoints 1 to 4 build on 010, 011, 015, 016 and 019.
 
 ## Build plan
-`docs/OPUS_PLAN_REVIEW.md` section 5. Checkpoints 0 to 3 are done (session entries in `docs/sessions/2026-10-05-cp0.md` to `cp3.md`). Next is checkpoint 4 (drag and drop), which starts with a short spike on the drag mechanism.
+`docs/OPUS_PLAN_REVIEW.md` section 5. Checkpoints 0 to 4 are done (session entries in `docs/sessions/2026-10-05-cp0.md` to `cp3.md` and `2026-10-06-cp4.md`). Next is checkpoint 5 (sync hardening), which is blocked on the Supabase restore.
 
 ## Still pending
 - **Checkpoint 5 to-do (desktop thoughts are Tasks):** desktop thoughts are Tasks, so after sync they appear in the iPhone's Tasks list, while the iPhone keeps its separate Brain Dump (`BrainDumpItem` and its screens, unchanged) until a later mobile release. Legacy Brain Dump items on desktop are converted to Tasks on first save, so the same thought never lives in two places on one device.

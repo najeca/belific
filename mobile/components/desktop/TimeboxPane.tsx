@@ -20,6 +20,7 @@ import {
   type TimeboxItem,
 } from '../../lib/timebox';
 import { domNode, useDrag } from './DragProvider';
+import { filterTasks, type TaskFilter } from '../../lib/taskFilter';
 import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
 import usePaneScroll from './usePaneScroll';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -66,9 +67,11 @@ const domTimeStyle: React.CSSProperties = {
 export default function TimeboxPane({
   refreshKey,
   onChanged,
+  filter,
 }: {
   refreshKey: number;
   onChanged: () => void;
+  filter: TaskFilter;
 }) {
   const [day, setDay] = useState(() => parseDateKey(dateKey(new Date())));
   const [events, setEvents] = useState<CustomEvent[]>([]);
@@ -173,7 +176,8 @@ export default function TimeboxPane({
       map.set(`event:${e.id}`, { kind: 'event', event: e, custom: c });
       list.push({ id: `event:${e.id}`, startMin: s, endMin: en });
     }
-    for (const t of tasks) {
+    // The filter hides tasks (not events) from the Timebox too.
+    for (const t of filterTasks(tasks, filter)) {
       if (t.deletedAt || t.dueDate !== key) continue;
       const item = taskToItem(t);
       if (!item) continue;
@@ -182,7 +186,7 @@ export default function TimeboxPane({
       list.push({ ...item, id: `task:${t.id}` });
     }
     return { sources: map, items: list };
-  }, [day, key, events, categories, tasks]);
+  }, [day, key, events, categories, tasks, filter]);
 
   const layout = useMemo(() => layoutItems(items), [items]);
   const total = totalScheduledMinutes(items);

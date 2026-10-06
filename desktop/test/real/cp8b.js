@@ -13,6 +13,7 @@ const C = require('./common');
 process.env.BELIFIC_NO_PROTOCOL_REGISTER = '1';
 const PHASE = process.env.BELIFIC_PHASE || '1';
 const userData = C.isolate();
+console.log(`USERDATA ${userData}`);
 const SHOTS = process.env.BELIFIC_SHOTS || '';
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -47,8 +48,13 @@ async function run() {
         t('c', 'Charlie', { dueDate: today }),
         t('d', 'Delta', { dueDate: today }),
         t('p', 'Placed one', { dueDate: today, startTime: '09:30', durationMinutes: 60 }),
+        t('p2', 'Placed two', { dueDate: today, startTime: '10:30', durationMinutes: 30 }),
         t('l', 'Left one'),
       ]),
+    );
+    fs.writeFileSync(
+      path.join(dataDir, 'belific_custom_events.kv'),
+      JSON.stringify([{ id: 'ev1', title: 'Team sync', category: 'work', icon: '📅', start: '14:00', end: '15:00', notes: '', date: today, isCustom: true, updatedAt: '2026-10-01T00:00:00.000Z' }]),
     );
     fs.writeFileSync(
       path.join(dataDir, 'belific_projects.kv'),
@@ -241,6 +247,10 @@ async function run() {
   check('Escape cancels a rename', !!taskNamed('Delta two') && !taskNamed('zzz'));
 
   // ---- 5. expand in place: notes and subtasks ----
+  // (completed tasks are hidden by default, so show them while this runs)
+  await click(q('[aria-label="Filter"]'));
+  await click(inPopover('[aria-label="Show complete"]'));
+  await key('Escape');
   await click(inCard('Charlie', '[aria-label="Subtasks 0/0"]'));
   check('clicking the subtask counter expands the card in place', await js(`!!${inCard('Charlie', '[aria-label^="Add subtask to"]')}`));
   await click(inCard('Charlie', '[aria-label^="Add subtask to"]'));
@@ -289,6 +299,78 @@ async function run() {
   const legacyTasks = read('belific_tasks').filter((x) => x.title === 'Legacy phone thought' && !x.deletedAt);
   check('the legacy item became exactly one Task, with the edit', legacyTasks.length === 1 && read('belific_tasks').filter((x) => !x.deletedAt).length === tasksBefore + 1);
   check('the legacy item is gone and not left in the list', read('belific_brain_dump').filter((x) => !x.deletedAt).length === 0 && ((await body()).match(/Legacy phone thought/g) || []).length === 1);
+
+
+  // ---- 8. drag a task onto another card: only after the 300 ms highlight ----
+  const dragOnto = async (fromExpr, toExpr, holdMs, release = true) => {
+    const a = await rectOf(fromExpr);
+    const b = await rectOf(toExpr);
+    if (!a || !b) throw new Error('drag endpoints missing');
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y });
+    mouse('mouseDown', a.x, a.y);
+    for (let i = 1; i <= 12; i++) {
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(a.x + ((b.x - a.x) * i) / 12), y: Math.round(a.y + ((b.y - a.y) * i) / 12), modifiers: ['leftButtonDown'] });
+      await C.sleep(15);
+    }
+    await C.sleep(holdMs);
+    if (release) {
+      mouse('mouseUp', b.x, b.y);
+      await C.sleep(500);
+    }
+    return b;
+  };
+  const rawTask = (title) => read('belific_tasks').find((x) => x.title === title);
+  await dragOnto(inCard('Bravo', '[aria-label="Title Bravo"]'), q(cardSel('Delta two')), 40);
+  check('a quick release over a card is a normal Day drop: no subtask, nothing deleted', !(taskNamed('Delta two').subtasks || []).length && !!taskNamed('Bravo') && !rawTask('Bravo').deletedAt);
+  const dropPoint = await dragOnto(inCard('Bravo', '[aria-label="Title Bravo"]'), q(cardSel('Delta two')), 500, false);
+  check('hovering the card body shows the "Add as subtask" highlight', (await body()).includes('Add as subtask'));
+  check('the highlight is not a modal', await noNewOverlay());
+  mouse('mouseUp', dropPoint.x, dropPoint.y);
+  await C.sleep(100);
+  await C.waitFor(() => (taskNamed('Delta two').subtasks || []).some((x) => x.title === 'Bravo'), 8000).catch(() => {});
+  check('after the dwell, releasing adds the dragged task as a subtask and tombstones it', (taskNamed('Delta two').subtasks || []).some((x) => x.title === 'Bravo') && !taskNamed('Bravo') && !!rawTask('Bravo').deletedAt);
+  check('the host Day did not change', taskNamed('Delta two').dueDate === today);
+  check('"Added to Delta two. Undo" shows', (await body()).includes('Added to Delta two'));
+  await click(q('[aria-label="Undo add as subtask"]'));
+  await C.waitFor(() => !!taskNamed('Bravo'), 8000).catch(() => {});
+  check('Undo restores both: the subtask is gone and Bravo is back', !!taskNamed('Bravo') && !(taskNamed('Delta two').subtasks || []).some((x) => x.title === 'Bravo') && taskNamed('Bravo').projectKey === 'home');
+
+  // ---- 9. filter ----
+  await click(q('[aria-label="Filter (1)"]'));
+  await click(inPopover('[aria-label="Show complete"]'));
+  await key('Escape');
+  await click(q('[aria-label="Filter"]'));
+  check('the Filter dropdown opens beside the header', await popover());
+  await shot('filter-dropdown');
+  await click(inPopover('[aria-label="Filter label Work"]'));
+  check('the button shows a count: Filter (1)', await js(`!!${q('[aria-label="Filter (1)"]')}`));
+  await C.sleep(400);
+  const text1 = await body();
+  check('only tasks with the ticked label show in the board and left list', !text1.includes('Charlie') && !text1.includes('Bravo') && text1.includes('Alpha') && text1.includes('Legacy phone thought'));
+  check('Timebox tasks are filtered too (an unlabelled placed task is hidden)', !(await js(`!!${q('[data-block-id="p2"]')}`)));
+  check('events are not filtered', text1.includes('Team sync'));
+  await click(inPopover('[aria-label="Filter no label"]'));
+  check('adding "No label" gives Filter (2)', await js(`!!${q('[aria-label="Filter (2)"]')}`));
+  await C.sleep(400);
+  check('"No label" shows the unlabelled task and block again', (await body()).includes('Delta two') && (await js(`!!${q('[data-block-id="p2"]')}`)));
+  await key('Escape');
+  // completed tasks are hidden unless Show complete is on
+  await click(inCard('Delta two', '[aria-label="Mark Delta two complete"]'));
+  await C.sleep(600);
+  check('a completed task is hidden by default', !(await js(`!!${q(cardSel('Delta two'))}`)));
+  await click(q('[aria-label="Filter (2)"]'));
+  await click(inPopover('[aria-label="Show complete"]'));
+  check('Show complete counts: Filter (3)', await js(`!!${q('[aria-label="Filter (3)"]')}`));
+  await C.sleep(500);
+  check('Show complete brings the completed task back', await js(`!!${q(cardSel('Delta two'))}`));
+  await click(inPopover('[aria-label="Clear filter"]'));
+  check('Clear resets the filter (no count)', await js(`!!${q('[aria-label="Filter"]')}`));
+  await click(inPopover('[aria-label="Filter label Work"]'));
+  await click(inPopover('[aria-label="Filter no label"]'));
+  check('the final filter is Work plus No label: Filter (2)', await js(`!!${q('[aria-label="Filter (2)"]')}`));
+  await key('Escape');
+  await C.sleep(600);
+  check('no overlay at the end of the whole run', await noNewOverlay());
 
   const failed = summary();
   app.exit(failed ? 1 : 0);

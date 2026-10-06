@@ -28,6 +28,10 @@ Deviations and additions:
 - **Time zone:** items are planned in the computer's local time. If the zone changes while the app runs, the next data send or tick (within 2 minutes) re-plans them.
 - **Still unverified:** that a toast appears on this Windows version from the installed app (the checks capture the Notification call in the main process, not the screen); toasts from an unpackaged `npm run desktop` run may not show because Windows ties them to the installed shortcut's id; Start with Windows after a real reboot. The try-it steps are in the cp7 session note.
 
+## Update (2026-10-07, checkpoint 8.2, app 2.12.0): per task lead time
+- **Replaces "fires at the start time" for tasks.** `Task.reminderMinutes` (undefined = default, -1 = off, 0 or more = minutes before) is carried in the payload for placed tasks. The scheduler fires a placed task at `start - lead` ("Starts in 10 minutes", or "Starting now" for 0), skips a task set to off, and skips a lead that is already in the past. The 48 hour window applies to the notification time. Dedupe, cancel on change and the late-timer rules are unchanged. Events still fire at their start time. Options: None, At start time, 5, 10, 30 minutes, 1 hour before; the bell on a card is filled when set to something other than the default and crossed when off.
+- The iPhone is unchanged and ignores the field (it round-trips it once the third migration is applied).
+
 ## Related Notes
 - [[docs/OPUS_PLAN_REVIEW]]
 - [[docs/decisions/009-desktop-platform-and-auth]]

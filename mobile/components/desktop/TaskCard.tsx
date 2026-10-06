@@ -110,6 +110,9 @@ export default function TaskCard({
         accessibilityRole="button"
         accessibilityLabel={`Task ${task.title}`}
         accessibilityState={{ expanded }}
+        // The board finds the card under a dragged task through this (a legacy
+        // phone item is not a real task yet, so it is never a drop host).
+        {...(task.id.startsWith('dump:') ? {} : ({ dataSet: { taskCard: task.id } } as object))}
       >
         {(hovered) => (
           <>
@@ -559,7 +562,7 @@ const styles = StyleSheet.create({
   chipTextMuted: { color: Colors.textSecondary },
   from: { fontSize: 12, color: Colors.textSecondary },
   controls: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 28 },
-  icon: { width: 26, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8, flexDirection: 'row' },
+  icon: { width: 24, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8, flexDirection: 'row' },
   iconWithText: { height: 28, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', borderRadius: 8, flexDirection: 'row', gap: 3 },
   counter: { fontSize: 11, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   controlOpen: { backgroundColor: Colors.background },

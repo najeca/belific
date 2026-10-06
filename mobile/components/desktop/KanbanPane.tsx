@@ -3,33 +3,28 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import {
-  addDays,
   addWeeks,
   bucketTasks,
-  clampToToday,
   dateKey,
-  formatDayLabel,
   formatDayTitle,
-  formatDuration,
-  formatShortDate,
   formatWeekLabel,
   isDateKey,
-  isDayInView,
   parseDateKey,
   weekDays,
   weekStartOf,
   type ColumnItem,
 } from '../../lib/kanban';
 import TaskCard from './TaskCard';
+import FilterButton from './FilterButton';
+import { filterTasks, type TaskFilter } from '../../lib/taskFilter';
 import { opsForTask } from './taskOps';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { stepWeekStart, taskDuration } from '../../lib/drag';
-import { loadTasks, updateTask } from '../../lib/storage';
+import { loadTasks } from '../../lib/storage';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
-import { setTaskCompleted } from '../../lib/taskActions';
 import type { Project, Task } from '../../lib/types';
 
 // Desktop week board (decision 009, "Plan"), forward only: the days of the
@@ -57,7 +52,7 @@ const domTimeStyle: React.CSSProperties = {
   fontFamily: DESKTOP_FONT_FAMILY,
   outlineColor: Colors.accent,
 };
-const COLUMN_WIDTH = 224;
+const COLUMN_WIDTH = 256;
 const NAV_SIZE = 44;
 
 interface BoardColumn {
@@ -70,9 +65,13 @@ interface BoardColumn {
 export default function KanbanPane({
   refreshKey,
   onChanged,
+  filter,
+  onFilterChange,
 }: {
   refreshKey: number;
   onChanged: () => void;
+  filter: TaskFilter;
+  onFilterChange: (next: TaskFilter) => void;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -98,9 +97,10 @@ export default function KanbanPane({
   const shownWeekStart = weekStart.getTime() < currentWeekStart.getTime() ? currentWeekStart : weekStart;
   const atCurrentWeek = shownWeekStart.getTime() === currentWeekStart.getTime();
   const days = useMemo(() => weekDays(shownWeekStart, todayKey), [shownWeekStart.getTime(), todayKey]);
-  const columns = useMemo(() => bucketTasks(tasks, days, todayKey), [tasks, days, todayKey]);
+  // The filter (labels, no label, show complete) applies to tasks only.
+  const shownTasks = useMemo(() => filterTasks(tasks, filter), [tasks, filter]);
+  const columns = useMemo(() => bucketTasks(shownTasks, days, todayKey), [shownTasks, days, todayKey]);
   const weekLabel = formatWeekLabel(days, new Date().getFullYear());
-  const tomorrowKey = dateKey(addDays(parseDateKey(todayKey), 1));
 
   // The drag layer asks for the latest week through these.
   const weekRef = useRef({ shownWeekStart, currentWeekStart, atCurrentWeek });
@@ -153,11 +153,6 @@ export default function KanbanPane({
     if (delta < 0 && atCurrentWeek) return;
     setWeekStart(addWeeks(shownWeekStart, delta));
   }
-  const projectName = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of projects) map.set(p.key, p.name);
-    return map;
-  }, [projects]);
 
 
 
@@ -196,6 +191,7 @@ export default function KanbanPane({
                     overdueFrom={overdueFrom}
                     divider={index > 0}
                     dragging={drag?.item.id === task.id}
+                    dropHighlight={drag?.mode === 'move' && drag.subtaskHost === task.id}
                     nodeRef={sourceRef(`card:${task.id}`, () => ({
                       kind: 'card',
                       task,
@@ -246,6 +242,7 @@ export default function KanbanPane({
           <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
         </Pressable>
         <View style={{ flex: 1 }} />
+        <FilterButton filter={filter} labels={projects} onChange={onFilterChange} />
         <Pressable
           onPress={() => {
             setJumpOpen(false);
@@ -333,7 +330,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  notice: { fontSize: 12, color: Colors.textSecondary, marginBottom: 4 },
   boardRow: { flex: 1, flexDirection: 'row', marginTop: 4, position: 'relative' },
   edge: {
     position: 'absolute',
@@ -348,7 +344,6 @@ const styles = StyleSheet.create({
   edgeTint: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: Colors.accent, opacity: 0.1 },
   board: { flex: 1 },
   boardContent: { flexGrow: 1 },
-  menuDate: { paddingHorizontal: 14, paddingVertical: 8, gap: 6 },
   column: {
     width: COLUMN_WIDTH,
     paddingRight: 12,
@@ -434,8 +429,4 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textTransform: 'uppercase',
   },
-  menuRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, minHeight: 36 },
-  menuRowText: { flex: 1, fontSize: 14, color: Colors.textPrimary },
-  menuRowTextSelected: { fontWeight: '700', color: Colors.accentText },
-  menuRowDetail: { fontSize: 12, color: Colors.textSecondary },
 });

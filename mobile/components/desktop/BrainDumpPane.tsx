@@ -2,15 +2,15 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { dateKey, formatDuration } from '../../lib/kanban';
-import { splitThoughts, rowId, type ThoughtRow } from '../../lib/thoughts';
+import { dateKey } from '../../lib/kanban';
+import { splitThoughts, rowId } from '../../lib/thoughts';
 import { loadBrainDumpItems, loadTasks } from '../../lib/storage';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
-import { shortRepeat } from '../../lib/repeat';
 import { getSyncStatus, subscribeSyncStatus, type PublicSyncStatus } from '../../lib/sync';
-import { convertDumpItem, createThought, setTaskCompleted } from '../../lib/taskActions';
+import { createThought, setTaskCompleted } from '../../lib/taskActions';
 import TaskCard from './TaskCard';
+import { matchesLabels, type TaskFilter } from '../../lib/taskFilter';
 import { dumpAsTask, opsForDump, opsForTask } from './taskOps';
 import { useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
@@ -30,10 +30,12 @@ export default function BrainDumpPane({
   refreshKey,
   onChanged,
   onOpenSettings,
+  filter,
 }: {
   refreshKey: number;
   onChanged: () => void;
   onOpenSettings?: () => void;
+  filter: TaskFilter;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [dumpItems, setDumpItems] = useState<BrainDumpItem[]>([]);
@@ -61,12 +63,18 @@ export default function BrainDumpPane({
   }, [reload, refreshKey]);
 
   const todayKey = dateKey(new Date());
-  const { rows, doneToday } = useMemo(() => splitThoughts(tasks, dumpItems, todayKey), [tasks, dumpItems, todayKey]);
-  const projectName = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of projects) map.set(p.key, p.name);
-    return map;
-  }, [projects]);
+  // Only the label part of the filter applies here: the list already holds
+  // just incomplete tasks, and Done today keeps its own line. A legacy phone
+  // item has no label, so it shows with "No label" or with no label filter.
+  const { rows, doneToday } = useMemo(
+    () =>
+      splitThoughts(
+        tasks.filter((t) => matchesLabels(t, filter)),
+        dumpItems.filter((i) => matchesLabels({}, filter)),
+        todayKey,
+      ),
+    [tasks, dumpItems, todayKey, filter],
+  );
 
   async function handleCapture() {
     if (!captureText.trim()) return;
@@ -128,6 +136,7 @@ export default function BrainDumpPane({
                 onChanged={onChanged}
                 divider={index > 0}
                 dragging={drag?.item.id === id}
+                dropHighlight={drag?.mode === 'move' && drag.subtaskHost === id}
                 nodeRef={sourceRef(`row:${id}`, () => ({
                   kind: 'row',
                   task: row.kind === 'task' ? row.task : undefined,

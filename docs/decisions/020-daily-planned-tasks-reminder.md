@@ -15,6 +15,9 @@
 - **How:** the main process owns it, like the other notifications (`desktop/src/scheduler.js`). It is planned from the next 48 hours of data the page sends; the count is recomputed whenever data changes, so a task added or completed before 09:00 changes the count. If the app is not running at 09:00 (or the computer was asleep more than 3 hours past it) that day's reminder is skipped, never shown late.
 - **Not on iOS.** The iPhone is unchanged. If this is liked, an iOS version can follow in a later release.
 
+## Update (2026-10-07, checkpoint 8.2, app 2.12.0)
+A planned task whose reminder is set to None (`reminderMinutes` -1) is left out of the grouped count. A task with no start time ignores the lead options (they are disabled in its dropdown, which shows the quiet note "Reminds at your daily reminder time"); only Default and None apply to it.
+
 ## Related Notes
 - [[docs/decisions/017-desktop-notifications]]
 - [[docs/decisions/002-local-notifications-only]]

@@ -8,6 +8,21 @@ to know the current version and recent history.
 
 ---
 
+## 2.12.0 — 2026-10-07
+
+**Edit tasks on the card, not in a pop up (checkpoint 8.2, decision 021). Desktop only; the iPhone is unchanged.**
+
+- The big task editor is gone. A task card (board and left list) now carries its own controls: click the title to rename it in place; a duration chip at the top right; and a row of small icons for complete, repeat, subtasks (with a counter such as 0/4), priority, reminder and the label. Each icon opens a small dropdown beside it, never a full screen, so many tasks can be edited in a row.
+- Clicking the card body expands it in place to show notes and the subtasks list. Subtasks can be added (Enter adds the next), renamed, ticked, reordered with a handle and deleted. Ticking the last subtask completes the task, ticking the task ticks them all, and unticking one reopens a completed task. A repeating task's next occurrence carries its subtasks, unticked.
+- The label dropdown has a search field, create from the typed text, suggestions, and rename, colour and delete (with the same rules as before). Priority, duration (None, quick chips, Custom hours and minutes), repeat (with its plain summary line) and the new reminder (None, at start, 5, 10, 30 minutes or 1 hour before) are small dropdowns too. Move to day is a calendar icon with its own dropdown. Delete is in a small overflow menu with the inline confirm.
+- Clicking a placed task on the Timebox opens a small popover with the same controls, plus Remove time. Events keep their editor.
+- Dragging a task onto another task's card and holding it there for about 300 ms shows "Add as subtask"; releasing then adds it as a subtask (with "Added to X. Undo" for 6 seconds). Releasing earlier, or on a column or between cards, is the normal Day drop.
+- New Filter button beside the week label: pick labels, "No label" and "Show complete" (completed tasks are hidden by default). It filters the board, the left list and the Timebox tasks (not events), and is remembered across restarts.
+- Per task reminders: the desktop notifies a placed task the chosen number of minutes before it starts, or not at all when set to None. The grouped daily reminder skips tasks set to None.
+- New sync columns `tasks.subtasks` and `tasks.reminder_minutes` (migration written, not applied). Until it is applied the app keeps both locally and syncs everything else as before.
+
+---
+
 ## 2.11.2 — 2026-10-06
 
 **Desktop sign out only ends this computer's session (checkpoint 6.1 follow-up). The iPhone is unchanged.**

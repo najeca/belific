@@ -1,13 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
 import BrainDumpPane from './BrainDumpPane';
 import KanbanPane from './KanbanPane';
 import TimeboxPane from './TimeboxPane';
-import TaskModal, { type TaskModalState } from './TaskModal';
 import DragProvider from './DragProvider';
 import SettingsModal from './SettingsModal';
 import AccountChoiceModal from './AccountChoiceModal';
+import { kv } from '../../lib/kv';
+import { loadLabels } from '../../lib/labels';
+import { EMPTY_FILTER, FILTER_KEY, parseFilter, pruneFilter, serializeFilter, type TaskFilter } from '../../lib/taskFilter';
 import { listenForAuthCallbacks, refreshRevokePending, restoreAccountChoice, retryPendingRevoke } from '../../lib/desktopAuth';
 import { sendNotifyPayload } from '../../lib/desktopNotify';
 import { runFullSync, subscribeSyncStatus } from '../../lib/sync';
@@ -19,7 +21,8 @@ import { runFullSync, subscribeSyncStatus } from '../../lib/sync';
 // and drop between the three panes (checkpoint 4).
 export default function DesktopHome() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const [modal, setModal] = useState<TaskModalState | null>(null);
+  const [filter, setFilterState] = useState<TaskFilter>(EMPTY_FILTER);
+  const [labelKeys, setLabelKeys] = useState<string[] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Validated sign in callbacks from the main process (decision 012).
   useEffect(() => listenForAuthCallbacks(), []);
@@ -59,16 +62,24 @@ export default function DesktopHome() {
     };
   }, []);
   const onChanged = useCallback(() => setRefreshKey((k) => k + 1), []);
-  // Closing also refreshes: a label colour changed in the editor is saved
-  // straight away, even when the task edit is cancelled.
-  const closeModal = useCallback(() => {
-    setModal(null);
-    setRefreshKey((k) => k + 1);
+  // The filter is UI state, never synced: remembered while the app runs and, in
+  // the main process store (kv), across relaunch.
+  useEffect(() => {
+    kv.getItem(FILTER_KEY)
+      .then((raw) => setFilterState(parseFilter(raw)))
+      .catch(() => {});
   }, []);
-  const onSaved = useCallback(() => {
-    setModal(null);
-    setRefreshKey((k) => k + 1);
+  useEffect(() => {
+    loadLabels()
+      .then((l) => setLabelKeys(l.map((p) => p.key)))
+      .catch(() => {});
+  }, [refreshKey]);
+  const setFilter = useCallback((next: TaskFilter) => {
+    setFilterState(next);
+    kv.setItem(FILTER_KEY, serializeFilter(next)).catch(() => {});
   }, []);
+  // A label that was deleted since no longer counts.
+  const effectiveFilter = useMemo(() => (labelKeys ? pruneFilter(filter, labelKeys) : filter), [filter, labelKeys]);
 
   return (
     <DragProvider onChanged={onChanged}>
@@ -79,21 +90,22 @@ export default function DesktopHome() {
             refreshKey={refreshKey}
             onChanged={onChanged}
             onOpenSettings={() => setSettingsOpen(true)}
+            filter={effectiveFilter}
           />
         </View>
         <View style={{ flex: 2.2, minWidth: 0 }}>
-          <KanbanPane refreshKey={refreshKey} onChanged={onChanged} />
+          <KanbanPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} onFilterChange={setFilter} />
         </View>
         <View style={{ flex: 1.2, minWidth: 0 }}>
           <TimeboxPane
             refreshKey={refreshKey}
             onChanged={onChanged}
+            filter={effectiveFilter}
           />
         </View>
       </View>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <AccountChoiceModal />
-      {modal && <TaskModal state={modal} onClose={closeModal} onSaved={onSaved} />}
     </View>
     </DragProvider>
   );

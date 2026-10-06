@@ -11,7 +11,7 @@
     "test:real:cp6": "electron test/real/cp6.js",
     "dist": "node scripts/dist.js",
     "test:real:cp7": "node test/real/run-cp7.js",
-    "test:real:cp8b": "electron test/real/cp8b.js",
+    "test:real:cp8b": "node test/real/run-cp8b.js",
     "test:real:cp7:installer": "node test/real/run-cp7.js --installer"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
 import { dateKey } from '../../lib/kanban';
 import {
@@ -21,9 +21,10 @@ import {
   type Rect,
   type Zone,
 } from '../../lib/drag';
-import { updateTask } from '../../lib/storage';
+import { loadTasksRaw, updateTask } from '../../lib/storage';
+import { UNDO_MS, dwellArmed, nextDwell, resolveCardRelease, type DwellState, type SubtaskDropPlan } from '../../lib/subtasks';
 import { closePopover } from './Popover';
-import { convertDumpItem } from '../../lib/taskActions';
+import { convertDumpItem, dropAsSubtask, undoDropAsSubtaskPlan } from '../../lib/taskActions';
 import type { BrainDumpItem, Task } from '../../lib/types';
 
 // Desktop drag and drop (checkpoint 4, decision 019): hand written pointer
@@ -63,6 +64,9 @@ export interface DragState {
   edge: -1 | 0 | 1;
   // Resize only: the snapped duration so far.
   resizeDuration?: number;
+  // The id of the task card the pointer has hovered for about 300 ms, with the
+  // "Add as subtask" highlight showing. Only then does a release add a subtask.
+  subtaskHost: string | null;
 }
 
 type ZoneReg =
@@ -101,6 +105,20 @@ function rectOf(node: HTMLElement): Rect {
   return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
 }
 
+// The id of the task card under the pointer (not the dragged one), or null.
+// Cards carry data-task-card; legacy phone items and Timebox blocks do not.
+function cardUnder(x: number, y: number, draggedId: string, allowed: boolean): string | null {
+  if (!allowed) return null;
+  for (const el of document.elementsFromPoint(x, y)) {
+    const card = (el as Element).closest('[data-task-card]');
+    if (!card) continue;
+    const id = (card as HTMLElement).dataset.taskCard ?? null;
+    if (id && id !== draggedId) return id;
+    if (id === draggedId) continue;
+  }
+  return null;
+}
+
 // The DOM node behind a react-native-web View or ScrollView ref.
 export function domNode(ref: unknown): HTMLElement | null {
   if (!ref) return null;
@@ -134,6 +152,9 @@ export default function DragProvider({ children, onChanged }: { children: React.
   // Set while the pointer is at a board edge that can still scroll sideways.
   const sideScroll = useRef<-1 | 0 | 1>(0);
   const frame = useRef<number | null>(null);
+  const dwell = useRef<DwellState>({ hostId: null, since: 0 });
+  const [undo, setUndo] = useState<{ plan: SubtaskDropPlan; hostTitle: string } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTick = useRef(0);
   const getters = useRef(new Map<string, (e: PointerEvent) => DragItem | null>());
   const refCache = useRef(new Map<string, (node: unknown) => void>());
@@ -169,7 +190,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
     if (p.mode === 'resize') {
       const gridTop = p.gridNode ? rectOf(p.gridNode).top : 0;
       const duration = resizedDuration(p.startMin ?? 0, yToMinutes(y, gridTop));
-      const next: DragState = { mode: 'resize', item: p.item, x, y, target: null, accepted: true, edge: 0, resizeDuration: duration };
+      const next: DragState = { mode: 'resize', item: p.item, x, y, target: null, accepted: true, edge: 0, resizeDuration: duration, subtaskHost: null };
       last.current = next;
       setDrag(next);
       return;
@@ -186,6 +207,10 @@ export default function DragProvider({ children, onChanged }: { children: React.
     }
     if (edge === 0) armed.current = null;
     else if (!armed.current || armed.current.dir !== edge) armed.current = { dir: edge, at: performance.now() };
+    // Hovering another task's card for 300 ms arms "Add as subtask".
+    const hid = cardUnder(x, y, p.item.id, !!p.item.task);
+    const at = performance.now();
+    dwell.current = nextDwell(dwell.current, hid, at);
     const next: DragState = {
       mode: 'move',
       item: p.item,
@@ -194,6 +219,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
       target,
       accepted: target ? canDrop(target, todayKey) : false,
       edge,
+      subtaskHost: dwellArmed(dwell.current, hid, at) ? hid : null,
     };
     last.current = next;
     setDrag(next);
@@ -232,6 +258,12 @@ export default function DragProvider({ children, onChanged }: { children: React.
       armed.current = { dir: a.dir, at: performance.now() };
       moved = true;
     }
+    // The highlight appears after the dwell even if the pointer stays still.
+    if (p.mode === 'move' && p.item.task) {
+      const hid = cardUnder(x, y, p.item.id, true);
+      const armedNow = dwellArmed(dwell.current, hid, performance.now());
+      if (armedNow !== (last.current?.subtaskHost != null)) moved = true;
+    }
     if (moved) update();
     frame.current = requestAnimationFrame(tick);
   }, [update]);
@@ -254,6 +286,8 @@ export default function DragProvider({ children, onChanged }: { children: React.
       document.body.style.cursor = '';
       const state = last.current;
       last.current = null;
+      const dwellAtRelease = dwell.current;
+      dwell.current = { hostId: null, since: 0 };
       setDrag(null);
       if (!p || !p.active) return;
       // The click that follows a real drag must not open the editor.
@@ -263,14 +297,14 @@ export default function DragProvider({ children, onChanged }: { children: React.
       };
       window.addEventListener('click', swallow, true);
       setTimeout(() => window.removeEventListener('click', swallow, true), 0);
-      if (commit && state) void commitDrop(p, state);
+      if (commit && state) void commitDrop(p, state, dwellAtRelease);
     },
     // The listeners below are stable (declared with useCallback over refs).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
-  async function commitDrop(p: Pending, state: DragState) {
+  async function commitDrop(p: Pending, state: DragState, dwellAtRelease: DwellState) {
     const todayKey = dateKey(new Date());
     if (p.mode === 'resize') {
       const task = p.item.task;
@@ -278,6 +312,27 @@ export default function DragProvider({ children, onChanged }: { children: React.
       await updateTask({ ...task, durationMinutes: state.resizeDuration });
       onChangedRef.current();
       return;
+    }
+    // Dropping on a card's own body, after the highlight showed, adds a subtask.
+    // Anything else (a column, between cards, a release too early) is a Day drop.
+    if (p.item.task) {
+      const hovered = cardUnder(pointer.current.x, pointer.current.y, p.item.id, true);
+      const outcome = resolveCardRelease(dwellAtRelease, hovered, p.item.id, performance.now());
+      if (outcome.kind === 'subtask') {
+        const all = await loadTasksRaw();
+        const host = all.find((t) => t.id === outcome.hostId && !t.deletedAt);
+        const dragged = all.find((t) => t.id === p.item.id && !t.deletedAt);
+        if (host && dragged) {
+          const plan = await dropAsSubtask(host, dragged);
+          if (plan) {
+            setUndo({ plan, hostTitle: host.title });
+            if (undoTimer.current) clearTimeout(undoTimer.current);
+            undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
+            onChangedRef.current();
+            return;
+          }
+        }
+      }
     }
     if (!state.target || !state.accepted) return;
     const { task, item } = p.item;
@@ -358,6 +413,16 @@ export default function DragProvider({ children, onChanged }: { children: React.
 
   useEffect(() => () => finish(false), [finish]);
 
+  async function undoSubtask() {
+    const u = undo;
+    setUndo(null);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    if (u) {
+      await undoDropAsSubtaskPlan(u.plan);
+      onChangedRef.current();
+    }
+  }
+
   const sourceRef = useCallback(
     (key: string, getItem: (e: PointerEvent) => DragItem | null) => {
       getters.current.set(key, getItem);
@@ -427,6 +492,16 @@ export default function DragProvider({ children, onChanged }: { children: React.
     <DragContext.Provider value={api}>
       {children}
       {drag && drag.mode === 'move' && <LiftedCard drag={drag} />}
+      {undo && (
+        <View style={styles.undoBar} accessibilityLiveRegion="polite">
+          <Text style={styles.undoText} numberOfLines={1}>
+            Added to {undo.hostTitle}.
+          </Text>
+          <Pressable onPress={undoSubtask} accessibilityRole="button" accessibilityLabel="Undo add as subtask">
+            <Text style={styles.undoLink}>Undo</Text>
+          </Pressable>
+        </View>
+      )}
     </DragContext.Provider>
   );
 }
@@ -437,7 +512,8 @@ export default function DragProvider({ children, onChanged }: { children: React.
 function LiftedCard({ drag }: { drag: DragState }) {
   const t = drag.target;
   let hint: string | null = null;
-  if (t && !drag.accepted) hint = 'Past day';
+  if (drag.subtaskHost) hint = 'Add as subtask';
+  else if (t && !drag.accepted) hint = 'Past day';
   else if (t?.kind === 'slot') hint = slotLabel(t.startMin, drag.item.duration);
   return (
     <View pointerEvents="none" style={[styles.lifted, { left: drag.x + 12, top: drag.y + 10 }]}>
@@ -450,6 +526,25 @@ function LiftedCard({ drag }: { drag: DragState }) {
 }
 
 const styles = StyleSheet.create({
+  undoBar: {
+    position: 'fixed' as 'absolute',
+    bottom: 20,
+    left: '50%' as unknown as number,
+    transform: [{ translateX: '-50%' as unknown as number }],
+    zIndex: 900,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    boxShadow: '0 6px 18px rgba(38, 37, 31, 0.14)',
+  },
+  undoText: { fontSize: 13, color: Colors.textPrimary, maxWidth: 320 },
+  undoLink: { fontSize: 13, fontWeight: '700', color: Colors.accentText },
   lifted: {
     position: 'fixed' as 'absolute',
     zIndex: 1000,

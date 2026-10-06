@@ -4,16 +4,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   REPEAT_CHOICES,
+  SHORT_MONTH_NOTE,
   WEEKDAY_SET,
   WEEKEND_SET,
+  WEEK_ORDER,
   alignToDays,
+  alignToMonthDay,
+  allSeven,
+  defaultMonthDay,
   effectiveDays,
   formatDayList,
+  initialDays,
   monthDayOf,
   ordinal,
+  parseMonthDay,
   repeatKindOf,
+  repeatLabel,
   repeatSummary,
   resolveRepeat,
+  ruleFor,
   shortRepeat,
   toggleDay,
 } from './repeat.ts';
@@ -28,9 +37,61 @@ const WFS: WeekDay[] = ['Wed', 'Fri', 'Sun'];
 
 const nx = (task: Partial<Task>, today: string) => nextOccurrence(task, today);
 
-test('choices never say a bare Weekly', () => {
-  assert.deepEqual(REPEAT_CHOICES.map((c) => c.label), ['Does not repeat', 'Every day', 'Specific days', 'Every 2 weeks', 'Monthly']);
-  assert.ok(!REPEAT_CHOICES.some((c) => c.label === 'Weekly'));
+test('four choices: Does not repeat, Weekly, Every 2 weeks, Monthly', () => {
+  assert.deepEqual(REPEAT_CHOICES.map((c) => c.label), ['Does not repeat', 'Weekly', 'Every 2 weeks', 'Monthly']);
+});
+
+test('seven days on Weekly become Daily, and back', () => {
+  let days: WeekDay[] = [...WEEKDAY_SET];
+  assert.equal(repeatLabel('weekly', days), 'Weekly');
+  assert.equal(ruleFor('weekly', days), 'weekly');
+  days = toggleDay(toggleDay(days, 'Sat'), 'Sun');
+  assert.equal(allSeven(days), true);
+  assert.equal(repeatLabel('weekly', days), 'Daily');
+  assert.equal(ruleFor('weekly', days), 'daily');
+  assert.equal(repeatSummary('weekly', days, MON, null), 'Repeats every day');
+  const saved = resolveRepeat('weekly', days, MON, null)!;
+  assert.equal(saved.recurrence, 'daily');
+  assert.equal(saved.recurrenceDays, undefined);
+  assert.equal(saved.dueDate, MON);
+  days = toggleDay(days, 'Wed');
+  assert.equal(repeatLabel('weekly', days), 'Weekly');
+  assert.equal(resolveRepeat('weekly', days, MON, null)!.recurrence, 'weekly');
+  // A stored daily task opens as Weekly with all seven chips on (shown Daily)
+  assert.equal(repeatKindOf('daily'), 'weekly');
+  assert.deepEqual(initialDays({ recurrence: 'daily' }, MON), WEEK_ORDER);
+});
+
+test('Every 2 weeks with all seven days stays Every 2 weeks', () => {
+  assert.equal(repeatLabel('biweekly', WEEK_ORDER), 'Every 2 weeks');
+  assert.equal(ruleFor('biweekly', WEEK_ORDER), 'biweekly');
+  const r = resolveRepeat('biweekly', WEEK_ORDER, MON, null)!;
+  assert.equal(r.recurrence, 'biweekly');
+  assert.deepEqual(r.recurrenceDays, WEEK_ORDER);
+  assert.equal(repeatSummary('biweekly', WEEK_ORDER, MON, null), 'Repeats every day of every other week');
+  // Next occurrence: every day of the on week, then skips a week
+  const t = { dueDate: SUN, recurrence: 'biweekly' as const, recurrenceDays: WEEK_ORDER };
+  assert.equal(nx({ ...t, dueDate: MON }, MON), '2026-10-06');
+  assert.equal(nx({ dueDate: '2026-10-04', recurrence: 'biweekly', recurrenceDays: WEEK_ORDER }, '2026-10-04'), '2026-10-12');
+});
+
+test('saving is disabled with no days or an invalid month day', () => {
+  assert.equal(resolveRepeat('weekly', [], MON, null), null);
+  assert.equal(resolveRepeat('biweekly', [], MON, null), null);
+  assert.equal(repeatSummary('weekly', [], MON, null), 'Choose at least one day');
+  assert.equal(resolveRepeat('monthly', [], MON, null), null);
+  assert.equal(repeatSummary('monthly', [], MON, null), 'Enter a day from 1 to 31');
+});
+
+test('the Day of the month field accepts 1 to 31 only', () => {
+  assert.equal(parseMonthDay('1'), 1);
+  assert.equal(parseMonthDay(' 31 '), 31);
+  assert.equal(parseMonthDay('07'), 7);
+  for (const bad of ['', '0', '32', '2.5', '-1', 'x', '1e1', '100']) assert.equal(parseMonthDay(bad), null, bad);
+  assert.equal(defaultMonthDay({ dueDate: '2026-10-14' }), 14);
+  assert.equal(defaultMonthDay({ dueDate: '2026-10-14', recurrenceMonthDay: 3 }), 3);
+  assert.equal(defaultMonthDay({}), 1);
+  assert.equal(defaultMonthDay(undefined), 1);
 });
 
 test('multiple weekday selection, in week order', () => {
@@ -112,7 +173,7 @@ test('legacy values', () => {
   // a legacy weekly with no days repeats on its Day's weekday, even done late
   assert.equal(nx({ dueDate: MON, recurrence: 'weekly' }, MON), '2026-10-12');
   assert.equal(nx({ dueDate: MON, recurrence: 'weekly' }, WED), '2026-10-12');
-  assert.equal(repeatKindOf('weekly'), 'days');
+  assert.equal(repeatKindOf('weekly'), 'weekly');
   assert.equal(repeatKindOf('triweekly'), 'biweekly');
   assert.equal(repeatKindOf(undefined), 'none');
   assert.equal(shortRepeat({ recurrence: 'weekly', dueDate: WED }, MON), 'Wed');
@@ -123,49 +184,51 @@ test('legacy values', () => {
   assert.equal(shortRepeat({}, MON), undefined);
 });
 
-test('the Day moves to the next chosen weekday on or after it', () => {
+test('the Day moves to the next chosen weekday, or month day, on or after it', () => {
   assert.equal(alignToDays(MON, WFS), WED);
   assert.equal(alignToDays(WED, WFS), WED);
   assert.equal(alignToDays('2026-10-12', ['Sun']), '2026-10-18');
-  const r = resolveRepeat('days', WFS, MON, MON)!;
+  const r = resolveRepeat('weekly', WFS, MON, null)!;
   assert.equal(r.dueDate, WED);
   assert.equal(r.movedFrom, MON);
   assert.deepEqual(r.recurrenceDays, WFS);
   // Day-less stays Day-less
-  assert.equal(resolveRepeat('days', WFS, undefined, MON)!.dueDate, undefined);
-  // No day chosen: incomplete
-  assert.equal(resolveRepeat('days', [], MON, MON), null);
-  assert.equal(resolveRepeat('biweekly', [], MON, MON), null);
-  // Monthly stores the date number
-  assert.equal(resolveRepeat('monthly', [], '2026-10-14', MON)!.recurrenceMonthDay, 14);
-  assert.equal(resolveRepeat('monthly', [], '2027-02-28', MON, 31)!.recurrenceMonthDay, 31);
-  assert.equal(resolveRepeat('monthly', [], '2027-03-15', MON, 31)!.recurrenceMonthDay, 15);
-  assert.equal(resolveRepeat('none', WFS, MON, MON)!.recurrence, undefined);
+  assert.equal(resolveRepeat('weekly', WFS, undefined, null)!.dueDate, undefined);
+  assert.equal(resolveRepeat('monthly', [], undefined, 14)!.dueDate, undefined);
+  // Monthly: same month if still ahead, else next month, clamped
+  assert.equal(alignToMonthDay('2026-10-05', 14), '2026-10-14');
+  assert.equal(alignToMonthDay('2026-10-14', 14), '2026-10-14');
+  assert.equal(alignToMonthDay('2026-10-15', 1), '2026-11-01');
+  assert.equal(alignToMonthDay('2027-02-10', 31), '2027-02-28');
+  const m = resolveRepeat('monthly', [], '2026-10-15', 1)!;
+  assert.equal(m.dueDate, '2026-11-01');
+  assert.equal(m.recurrenceMonthDay, 1);
+  assert.equal(resolveRepeat('none', WFS, MON, null)!.recurrence, undefined);
 });
 
 test('summary text says exactly what will happen', () => {
-  assert.equal(repeatSummary('none', [], MON, MON), 'Does not repeat');
-  assert.equal(repeatSummary('daily', [], MON, MON), 'Repeats every day');
-  assert.equal(repeatSummary('days', WFS, WED, MON), 'Repeats every Wed, Fri and Sun');
-  assert.equal(repeatSummary('days', WFS, MON, MON), 'Repeats every Wed, Fri and Sun, starts Wed 7 Oct');
-  assert.equal(repeatSummary('days', WFS, undefined, MON), 'Repeats every Wed, Fri and Sun');
-  assert.equal(repeatSummary('days', [], MON, MON), 'Choose at least one day');
-  assert.equal(repeatSummary('days', WEEKDAY_SET, MON, MON), 'Repeats every weekday (Mon to Fri)');
-  assert.equal(repeatSummary('days', WEEKEND_SET, undefined, MON), 'Repeats every weekend (Sat and Sun)');
-  assert.equal(repeatSummary('biweekly', ['Mon', 'Thu'], MON, MON), 'Repeats every other week on Mon and Thu');
-  assert.equal(repeatSummary('monthly', [], '2026-10-14', MON), 'Repeats on the 14th of every month');
-  assert.equal(
-    repeatSummary('monthly', [], '2026-10-31', MON),
-    'Repeats on the 31st of every month (the last day in shorter months)',
-  );
-  assert.equal(repeatSummary('monthly', [], undefined, MON), 'Repeats on the 5th of every month, counted from today (no Day set)');
-  for (const kind of ['days', 'biweekly'] as const) assert.ok(!/Weekly/.test(repeatSummary(kind, WFS, MON, MON)));
+  assert.equal(repeatSummary('none', [], MON, null), 'Does not repeat');
+  assert.equal(repeatSummary('weekly', WFS, WED, null), 'Repeats every Wed, Fri and Sun');
+  assert.equal(repeatSummary('weekly', WFS, MON, null), 'Repeats every Wed, Fri and Sun, starts Wed 7 Oct');
+  assert.equal(repeatSummary('weekly', WFS, undefined, null), 'Repeats every Wed, Fri and Sun');
+  assert.equal(repeatSummary('weekly', WEEKDAY_SET, MON, null), 'Repeats every weekday (Mon to Fri)');
+  assert.equal(repeatSummary('weekly', WEEKEND_SET, undefined, null), 'Repeats every weekend (Sat and Sun)');
+  assert.equal(repeatSummary('biweekly', ['Mon', 'Thu'], MON, null), 'Repeats every other week on Mon and Thu');
+  assert.equal(repeatSummary('monthly', [], '2026-10-01', 1), 'Repeats on the 1st of every month');
+  assert.equal(repeatSummary('monthly', [], undefined, 1), 'Repeats on the 1st of every month');
+  assert.equal(repeatSummary('monthly', [], '2026-10-05', 1), 'Repeats on the 1st of every month, starts Sun 1 Nov');
+  assert.equal(repeatSummary('monthly', [], undefined, 31), `Repeats on the 31st of every month. ${SHORT_MONTH_NOTE}`);
+  assert.equal(repeatSummary('monthly', [], undefined, 28), 'Repeats on the 28th of every month');
+  assert.equal(repeatSummary('monthly', [], undefined, 29).endsWith(SHORT_MONTH_NOTE), true);
+  for (const kind of ['weekly', 'biweekly'] as const) assert.ok(!/Weekly/.test(repeatSummary(kind, WFS, MON, null)));
 });
 
 test('ordinals', () => {
-  assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 31].map(ordinal), [
-    '1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '31st',
+  assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 24, 30, 31].map(ordinal), [
+    '1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '24th', '30th', '31st',
   ]);
   assert.equal(monthDayOf({ recurrenceMonthDay: 31, dueDate: '2027-02-28' }, MON), 31);
-  assert.equal(monthDayOf({ recurrenceMonthDay: 31, dueDate: '2027-02-27' }, MON), 27);
+  // Since 4.3 the stored number always wins (it is an explicit field)
+  assert.equal(monthDayOf({ recurrenceMonthDay: 31, dueDate: '2027-02-27' }, MON), 31);
+  assert.equal(monthDayOf({ dueDate: '2027-02-27' }, MON), 27);
 });

@@ -128,15 +128,19 @@ rather than Profile, since it's routine/quest data, not account data.
   never a separate screen: name, duration (quick chips 30m, 1h, 2h plus Custom:
   hours 0 to 24 and minutes 0 or 30, minimum 30 minutes, 24h only with 0
   minutes; an older stored value such as 15m shows as is until changed),
-  priority, label (with the selected label's eight colour swatches), notes, Day (a
-  web date input, min today, empty means no Day) and Repeat (Does not repeat,
-  Every day, Specific days, Every 2 weeks, Monthly; Specific days and Every 2
-  weeks show seven day chips, any combination, at least one, plus Weekdays and
-  Weekends; a summary line underneath always says exactly what will happen,
-  for example "Repeats every Wed, Fri and Sun, starts Wed 14 Oct" when the Day
-  moves to the first chosen weekday on or after it; "Weekly" is never shown;
-  Monthly repeats on the Day's date number, the last day in shorter months),
-  plus a Done toggle
+  priority, label (ten one-tap suggestions such as Work or Health until a label
+  with that name exists, "+ Label" for a custom name, names unique ignoring
+  case; the selected label shows its eight colour swatches plus Rename and
+  Delete label, which tombstones it and moves its tasks to a same-named label
+  or clears them), notes, Day (a
+  web date input, min today, empty means no Day) and Repeat (2.8.3: Does not
+  repeat, Weekly, Every 2 weeks, Monthly. Weekly and Every 2 weeks show seven
+  day chips, 1 to 7 of them, plus Weekdays and Weekends; Weekly with all seven
+  reads Daily, Every 2 weeks never does. Monthly has one "Day of the month"
+  field, 1 to 31. A summary line underneath always says exactly what will
+  happen, for example "Repeats every Wed, Fri and Sun, starts Wed 14 Oct" or
+  "Repeats on the 31st of every month. In shorter months it falls on the last
+  day."), plus a Done toggle
   and delete with an inline confirm. Everything is editable at any time, before
   or after scheduling. Opening and saving a legacy item converts it into a Task
   in one step (nothing is lost). Giving a task a Day moves it off the left list

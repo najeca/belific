@@ -464,8 +464,8 @@ export async function loadProjectsRaw(): Promise<Project[]> {
   }
 }
 
-// No delete path exists for Project yet — see loadCustomCategories'
-// identical situation above.
+// Hides tombstoned labels (deleteProject, desktop, checkpoint 4.3) from every
+// reader, including the iPhone's Tasks filter and Task form picker.
 export async function loadProjects(): Promise<Project[]> {
   const all = await loadProjectsRaw();
   return all.filter((p) => !p.deletedAt);
@@ -484,6 +484,35 @@ export async function addProject(project: Project): Promise<void> {
   const stamped = { ...project, updatedAt: new Date().toISOString() };
   await saveProjects([...existing, stamped]);
   pushLater((sync) => sync.pushProject(stamped));
+}
+
+// A real edit (a rename): stamps updatedAt and pushes, like addProject.
+// Desktop only today (checkpoint 4.3); the iPhone has no project edit path.
+export async function updateProject(updated: Project): Promise<void> {
+  const existing = await loadProjectsRaw();
+  const stamped = { ...updated, updatedAt: new Date().toISOString() };
+  await saveProjects(existing.map((p) => (p.key === updated.key ? stamped : p)));
+  pushLater((sync) => sync.pushProject(stamped));
+}
+
+// Tombstoned, not removed outright (same as deleteTask): deletedAt and
+// updatedAt are set and the row is pushed, so the delete wins the sync merge
+// and reaches other devices. loadProjects hides it everywhere. Desktop only
+// today (checkpoint 4.3); callers move or clear the tasks that used it.
+export async function deleteProject(key: string): Promise<void> {
+  const existing = await loadProjectsRaw();
+  const now = new Date().toISOString();
+  let tombstoned: Project | undefined;
+  const merged = existing.map((p) => {
+    if (p.key !== key) return p;
+    tombstoned = { ...p, deletedAt: now, updatedAt: now };
+    return tombstoned;
+  });
+  await saveProjects(merged);
+  if (tombstoned) {
+    const row = tombstoned;
+    pushLater((sync) => sync.pushProject(row));
+  }
 }
 
 export async function clearAllData(): Promise<void> {

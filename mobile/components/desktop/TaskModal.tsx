@@ -11,16 +11,20 @@ import {
   joinDuration,
   splitDuration,
 } from '../../lib/duration';
-import { LABEL_COLORS, labelColor, nextColorKey } from '../../lib/labelColors';
-import { loadLabels, setLabelColor } from '../../lib/labels';
+import { LABEL_COLORS, labelColor } from '../../lib/labelColors';
+import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
+import { availableSuggestions, findLabelByName } from '../../lib/labelRules';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import {
   REPEAT_CHOICES,
   WEEKDAY_SET,
   WEEKEND_SET,
   WEEK_ORDER,
-  effectiveDays,
+  defaultMonthDay,
+  initialDays,
+  parseMonthDay,
   repeatKindOf,
+  repeatLabel,
   repeatSummary,
   resolveRepeat,
   sameDays,
@@ -33,7 +37,7 @@ import {
   updateTask,
   deleteTask,
   deleteBrainDumpItem,
-  addProject,
+  loadTasks,
 } from '../../lib/storage';
 import type { BrainDumpItem, EventPriority, Project, Task, WeekDay } from '../../lib/types';
 
@@ -112,16 +116,24 @@ export default function TaskModal({
   // No past dates can be chosen. A task that already has a past Day keeps it
   // until the user changes it.
   const todayKey = dateKey(new Date());
-  // Repeat (checkpoint 4.2). An older weekly task with no days shows the
+  // Repeat (checkpoints 4.2, 4.3). A stored daily task opens as Weekly with all
+  // seven days (shown as Daily); an older weekly task with no days shows the
   // weekday of its Day, which is what it has always repeated on.
   const [repeat, setRepeat] = useState<RepeatKind>(repeatKindOf(editTask?.recurrence));
-  const [repeatDays, setRepeatDays] = useState<WeekDay[]>(() => {
-    const kind = repeatKindOf(editTask?.recurrence);
-    return editTask && (kind === 'days' || kind === 'biweekly') ? effectiveDays(editTask, todayKey) : [];
-  });
+  const [repeatDays, setRepeatDays] = useState<WeekDay[]>(() => initialDays(editTask, todayKey));
+  const [monthDayText, setMonthDayText] = useState(() => String(defaultMonthDay(editTask)));
+  // Label management (checkpoint 4.3).
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [renaming, setRenaming] = useState(false);
+  const [renameText, setRenameText] = useState('');
+  const [confirmingLabelDelete, setConfirmingLabelDelete] = useState(false);
+  const [labelNote, setLabelNote] = useState<{ text: string; warn?: boolean } | null>(null);
+
+  const reloadLabels = () => loadLabels().then(setProjects);
 
   useEffect(() => {
     loadLabels().then(setProjects);
+    loadTasks().then(setAllTasks);
   }, []);
 
   useEffect(() => {
@@ -138,16 +150,17 @@ export default function TaskModal({
   if (Platform.OS !== 'web') return null;
 
   const dayOrNone = isDateKey(day) ? day : undefined;
-  const resolved = resolveRepeat(repeat, repeatDays, dayOrNone, todayKey, editTask?.recurrenceMonthDay);
-  const summary = repeatSummary(repeat, repeatDays, dayOrNone, todayKey, editTask?.recurrenceMonthDay);
-  // A day based repeat needs at least one day.
+  const monthDay = parseMonthDay(monthDayText);
+  const resolved = resolveRepeat(repeat, repeatDays, dayOrNone, monthDay);
+  const summary = repeatSummary(repeat, repeatDays, dayOrNone, monthDay);
+  // Weekly and Every 2 weeks need at least one day; Monthly a day 1 to 31.
   const canSave = title.trim().length > 0 && !saving && resolved !== null;
 
   function chooseRepeat(kind: RepeatKind) {
     setRepeat(kind);
     // Switching to a day based repeat with nothing chosen starts from the
     // weekday of the Day, if there is one.
-    if ((kind === 'days' || kind === 'biweekly') && repeatDays.length === 0 && dayOrNone) {
+    if ((kind === 'weekly' || kind === 'biweekly') && repeatDays.length === 0 && dayOrNone) {
       setRepeatDays([weekdayOf(dayOrNone)]);
     }
   }
@@ -198,24 +211,48 @@ export default function TaskModal({
     onSaved();
   }
 
+  // Creates a label (custom or suggested) and selects it. A name that already
+  // exists (trimmed, case insensitive) selects the existing label instead.
+  async function addLabelNamed(name: string) {
+    const result = await createLabel(name);
+    if (!result) return;
+    await reloadLabels();
+    setProjectKey(result.label.key);
+    setRenaming(false);
+    setConfirmingLabelDelete(false);
+    setLabelNote(result.created ? null : { text: `Using the existing label "${result.label.name}"` });
+  }
+
   async function handleAddLabel() {
     const name = labelText.trim();
-    if (!name) return;
-    const now = new Date().toISOString();
-    // A new label takes the next free palette colour; the swatches under the
-    // label chips (shown for the selected label) can change it.
-    const project: Project = {
-      key: `project-${Date.now().toString(36)}`,
-      name,
-      createdAt: now,
-      updatedAt: now,
-      colorKey: nextColorKey(projects),
-    };
-    await addProject(project);
-    setProjects((prev) => [...prev, project]);
-    setProjectKey(project.key);
     setLabelText('');
     setAddingLabel(false);
+    if (name) await addLabelNamed(name);
+  }
+
+  async function handleRename(key: string) {
+    const problem = await renameLabel(key, renameText);
+    if (problem) {
+      setLabelNote({ text: problem, warn: true });
+      return;
+    }
+    setRenaming(false);
+    setLabelNote(null);
+    await reloadLabels();
+  }
+
+  // Deletes the selected label (a tombstone). Its tasks move to another label
+  // with the same name, or lose their label; this task follows the same rule.
+  async function handleDeleteLabel(key: string, name: string) {
+    const { movedTo, count } = await deleteLabel(key);
+    setConfirmingLabelDelete(false);
+    setProjectKey(movedTo);
+    await reloadLabels();
+    loadTasks().then(setAllTasks);
+    const what = count === 1 ? '1 task' : `${count} tasks`;
+    setLabelNote({
+      text: count === 0 ? `Deleted "${name}"` : movedTo ? `Deleted "${name}"; ${what} moved to the other "${name}"` : `Deleted "${name}"; ${what} now have no label`,
+    });
   }
 
   return (
@@ -317,7 +354,12 @@ export default function TaskModal({
                 label={p.name}
                 dot={labelColor(p.colorKey)?.edge}
                 selected={projectKey === p.key}
-                onPress={() => setProjectKey(p.key)}
+                onPress={() => {
+                  setProjectKey(p.key);
+                  setRenaming(false);
+                  setConfirmingLabelDelete(false);
+                  setLabelNote(null);
+                }}
               />
             ))}
             {addingLabel ? (
@@ -339,6 +381,15 @@ export default function TaskModal({
             )}
           </View>
 
+          {availableSuggestions(projects).length > 0 && (
+            <View style={[styles.chips, styles.suggestRow]}>
+              <Text style={styles.suggestLabel}>Suggested</Text>
+              {availableSuggestions(projects).map((name) => (
+                <Chip key={name} label={`+ ${name}`} selected={false} onPress={() => addLabelNamed(name)} a11y={`Add label ${name}`} />
+              ))}
+            </View>
+          )}
+
           {selectedLabel && (
             <View style={styles.swatches}>
               {LABEL_COLORS.map((c) => {
@@ -357,6 +408,75 @@ export default function TaskModal({
                 );
               })}
             </View>
+          )}
+          {selectedLabel && (
+            <View style={styles.labelActions}>
+              {renaming ? (
+                <TextInput
+                  style={styles.labelInput}
+                  value={renameText}
+                  onChangeText={setRenameText}
+                  onSubmitEditing={() => handleRename(selectedLabel.key)}
+                  // Keep the field open after Enter so a rejected name can be fixed.
+                  blurOnSubmit={false}
+                  onBlur={() => setRenaming(false)}
+                  autoFocus
+                  accessibilityLabel={`Rename ${selectedLabel.name}`}
+                />
+              ) : confirmingLabelDelete ? (
+                <View style={styles.confirm}>
+                  <Text style={styles.muted}>
+                    Delete this label?{' '}
+                    {(() => {
+                      const n = countTasksWithLabel(allTasks, selectedLabel.key);
+                      const other = findLabelByName(projects, selectedLabel.name, selectedLabel.key);
+                      if (n === 0) return 'No tasks use it.';
+                      const used = n === 1 ? '1 task uses it' : `${n} tasks use it`;
+                      return other ? `${used}; they move to the other "${other.name}".` : `${used}; they will have no label.`;
+                    })()}
+                  </Text>
+                  <Pressable
+                    onPress={() => handleDeleteLabel(selectedLabel.key, selectedLabel.name)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Confirm delete label"
+                  >
+                    <Text style={styles.confirmYes}>Yes</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setConfirmingLabelDelete(false)} accessibilityRole="button" accessibilityLabel="Cancel delete label">
+                    <Text style={styles.confirmNo}>No</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <>
+                  <Pressable
+                    onPress={() => {
+                      setRenameText(selectedLabel.name);
+                      setRenaming(true);
+                      setLabelNote(null);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Rename label ${selectedLabel.name}`}
+                  >
+                    <Text style={styles.link}>Rename</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setConfirmingLabelDelete(true);
+                      setLabelNote(null);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete label ${selectedLabel.name}`}
+                  >
+                    <Text style={styles.dangerLink}>Delete label</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
+          {labelNote && (
+            <Text style={[styles.hint, labelNote.warn && styles.hintWarn]} accessibilityLabel="Label note">
+              {labelNote.text}
+            </Text>
           )}
 
           <Text style={styles.label}>Notes</Text>
@@ -395,10 +515,32 @@ export default function TaskModal({
           <Text style={styles.label}>Repeat</Text>
           <View style={styles.chips}>
             {REPEAT_CHOICES.map((r) => (
-              <Chip key={r.kind} label={r.label} selected={repeat === r.kind} onPress={() => chooseRepeat(r.kind)} />
+              <Chip
+                key={r.kind}
+                // Weekly reads Daily while all seven days are on.
+                label={repeat === r.kind ? repeatLabel(r.kind, repeatDays) : r.label}
+                selected={repeat === r.kind}
+                onPress={() => chooseRepeat(r.kind)}
+                a11y={`Repeat ${r.label}`}
+              />
             ))}
           </View>
-          {(repeat === 'days' || repeat === 'biweekly') && (
+          {repeat === 'monthly' && (
+            <View style={styles.monthRow}>
+              <Text style={styles.muted}>Day of the month</Text>
+              <input
+                type="number"
+                min={1}
+                max={31}
+                step={1}
+                value={monthDayText}
+                onChange={(e) => setMonthDayText(e.target.value)}
+                style={{ ...domInputStyle, width: 72 }}
+                aria-label="Day of the month"
+              />
+            </View>
+          )}
+          {(repeat === 'weekly' || repeat === 'biweekly') && (
             <>
               <View style={[styles.chips, styles.weekdayRow]}>
                 {WEEK_ORDER.map((w) => (
@@ -468,12 +610,15 @@ function Chip({
   selected,
   onPress,
   dot,
+  a11y,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
   // A label's colour, shown as a small dot before its name.
   dot?: string;
+  // Accessible name when it should differ from the visible text.
+  a11y?: string;
 }) {
   return (
     <Pressable
@@ -481,6 +626,7 @@ function Chip({
       style={[styles.chip, dot !== undefined && styles.chipWithDot, selected && styles.chipSelected]}
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      accessibilityLabel={a11y}
     >
       {dot && <View style={[styles.dot, { backgroundColor: dot }, selected && styles.dotSelected]} />}
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
@@ -524,6 +670,11 @@ const styles = StyleSheet.create({
   weekdayRow: { marginTop: 8 },
   hint: { marginTop: 6, fontSize: 12, color: Colors.textSecondary },
   hintWarn: { color: Colors.danger },
+  suggestRow: { marginTop: 8 },
+  suggestLabel: { fontSize: 12, color: Colors.textSecondary },
+  labelActions: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 8 },
+  dangerLink: { fontSize: 13, fontWeight: '600', color: Colors.danger },
+  monthRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
   linkOn: { textDecorationLine: 'underline' },
   titleInput: {
     height: 40,

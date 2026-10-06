@@ -8,6 +8,28 @@ to know the current version and recent history.
 
 ---
 
+## 2.8.3 — 2026-10-06
+
+**Desktop Home: simpler Repeat, ready made labels, label rename and delete (checkpoint 4.3, web/Electron only; the iPhone app is unchanged).**
+
+- Repeat is now Does not repeat, Weekly, Every 2 weeks, Monthly. Weekly and
+  Every 2 weeks take 1 to 7 day chips (Weekdays and Weekends shortcuts kept).
+  Weekly with all seven days reads Daily ("Repeats every day") and is stored
+  as the existing daily kind; untick a day and it is Weekly again. Every 2
+  weeks always stays Every 2 weeks.
+- Monthly has one "Day of the month" field (1 to 31, default the Day's date,
+  else 1): "Repeats on the 1st of every month", with "In shorter months it
+  falls on the last day." for 29 to 31. A Day on another date moves to the next
+  matching date ("starts Sun 1 Nov").
+- Ten suggested labels (Work, Study, Health, Fitness, Home, Errands, Money,
+  Social, Admin, Personal) can be added with one tap; each disappears once a
+  label with that name exists.
+- Label names are unique (trimmed, case insensitive): creating an existing
+  name selects that label. The selected label can be renamed (Enter saves;
+  duplicates are rejected) or deleted with an inline confirm that says how
+  many tasks use it. Deleting is a tombstone; its tasks move to another label
+  with the same name, or lose their label.
+
 ## 2.8.2 — 2026-10-06
 
 **Desktop Home: time by drag only, clearer Repeat, matching numbers (checkpoint 4.2, web/Electron only; the iPhone app is unchanged).**

@@ -13,6 +13,24 @@ export interface KvStore {
   multiRemove(keys: string[]): Promise<void>;
 }
 
+// Desktop settings kept in the main process (decisions 017 and 020).
+export interface DesktopSettings {
+  notifyEvents: boolean;
+  notifyTasks: boolean;
+  dailyReminder: boolean;
+  dailyTime: string;
+  closeToTray: boolean;
+  startWithWindows: boolean;
+  trayNoteShown: boolean;
+}
+
+// The next 48 hours of notifiable items, sent to the main process.
+export interface NotifyPayload {
+  events: Array<{ id: string; title: string; icon: string; start: number }>;
+  placed: Array<{ id: string; title: string; start: number; completed: boolean }>;
+  planned: Array<{ dueDate: string; completed: boolean; startTime?: string }>;
+}
+
 // What desktop/preload.js exposes (decisions 010, 012, 017). Everything but
 // `kv` and `version` is optional so older shells still type check.
 export interface BelificDesktop {
@@ -25,6 +43,14 @@ export interface BelificDesktop {
     begin(url: string): Promise<{ ok: boolean; reason?: string }>;
     cancel(): Promise<void>;
     onCallback(listener: (payload: { code?: string; flowId?: string | null; error?: boolean }) => void): () => void;
+  };
+  settings: {
+    get(): Promise<DesktopSettings>;
+    set(partial: Partial<DesktopSettings>): Promise<DesktopSettings>;
+  };
+  notify: {
+    update(payload: NotifyPayload): Promise<void>;
+    onTick(listener: () => void): () => void;
   };
   actions: {
     exportData(): Promise<void>;

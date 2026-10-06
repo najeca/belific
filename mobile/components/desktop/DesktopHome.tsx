@@ -8,6 +8,8 @@ import TaskModal, { type TaskModalState } from './TaskModal';
 import DragProvider from './DragProvider';
 import SettingsModal from './SettingsModal';
 import { listenForAuthCallbacks } from '../../lib/desktopAuth';
+import { sendNotifyPayload } from '../../lib/desktopNotify';
+import { runFullSync, subscribeSyncStatus } from '../../lib/sync';
 
 // Decision 009: the three-pane workspace: Brain Dump, weekly kanban and
 // Timebox. Panes share one refresh counter so a change in one (a promoted Brain Dump item, a moved
@@ -20,6 +22,32 @@ export default function DesktopHome() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Validated sign in callbacks from the main process (decision 012).
   useEffect(() => listenForAuthCallbacks(), []);
+  // Notifications (decision 017): tell the main process what is coming up in
+  // the next 48 hours whenever data changes, after a sync, and every minute
+  // (so a day change is picked up). While the window is hidden in the tray the
+  // main process asks for a sync and a resend now and then.
+  useEffect(() => {
+    sendNotifyPayload();
+  }, [refreshKey]);
+  useEffect(() => {
+    const interval = setInterval(sendNotifyPayload, 60 * 1000);
+    let lastSuccess: string | null = null;
+    const unsubscribe = subscribeSyncStatus((s) => {
+      if (s.lastSuccessAt !== lastSuccess) {
+        lastSuccess = s.lastSuccessAt;
+        sendNotifyPayload();
+      }
+    });
+    const offTick = globalThis.belificDesktop?.notify.onTick(() => {
+      runFullSync().catch(() => {});
+      sendNotifyPayload();
+    });
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+      offTick?.();
+    };
+  }, []);
   const onChanged = useCallback(() => setRefreshKey((k) => k + 1), []);
   // Closing also refreshes: a label colour changed in the editor is saved
   // straight away, even when the task edit is cancelled.

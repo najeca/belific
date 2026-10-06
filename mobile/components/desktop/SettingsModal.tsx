@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Switch } from 'react-native';
 import { Colors } from '../../lib/theme';
 import { getSyncStatus, runFullSync, subscribeSyncStatus, type PublicSyncStatus } from '../../lib/sync';
 import {
@@ -13,6 +13,8 @@ import {
   type AuthUiState,
 } from '../../lib/desktopAuth';
 import { syncLineText } from './BrainDumpPane';
+import { DESKTOP_FONT_FAMILY } from './desktopFont';
+import type { DesktopSettings } from '../../lib/kv';
 
 // A small desktop Settings modal (checkpoint 6), opened from the account line
 // at the bottom of the Brain Dump pane. Quiet Function and minimal: this is
@@ -26,6 +28,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [prefs, setPrefs] = useState<DesktopSettings | null>(null);
 
   const refreshAccount = useCallback(async () => {
     try {
@@ -39,12 +42,22 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     refreshAccount();
   }, [refreshAccount]);
+  useEffect(() => {
+    globalThis.belificDesktop?.settings.get().then(setPrefs).catch(() => {});
+  }, []);
   useEffect(() => subscribeAuthUi(setUi), []);
   useEffect(() => subscribeSyncStatus(setStatus), []);
   // A finished sign in changes the account line without this modal acting.
   useEffect(() => {
     if (!ui.busy) refreshAccount();
   }, [ui.busy, status.signedIn, refreshAccount]);
+
+  function setPref(partial: Partial<DesktopSettings>) {
+    const bridge = globalThis.belificDesktop?.settings;
+    if (!bridge) return;
+    setPrefs((p) => (p ? { ...p, ...partial } : p));
+    bridge.set(partial).then(setPrefs).catch(() => {});
+  }
 
   const signedIn = account !== null;
   const desktop = globalThis.belificDesktop;
@@ -164,6 +177,39 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             </Pressable>
           </View>
 
+          {prefs && (
+            <>
+              <Text style={styles.section}>Notifications</Text>
+              <ToggleRow label="Event starts" value={prefs.notifyEvents} onChange={(v) => setPref({ notifyEvents: v })} />
+              <ToggleRow label="Tasks placed on the Timebox" value={prefs.notifyTasks} onChange={(v) => setPref({ notifyTasks: v })} />
+              <ToggleRow label="Daily reminder of tasks planned for today" value={prefs.dailyReminder} onChange={(v) => setPref({ dailyReminder: v })} />
+              {prefs.dailyReminder && (
+                <View style={styles.timeRow}>
+                  <Text style={styles.body}>Remind me at</Text>
+                  <input
+                    type="time"
+                    value={prefs.dailyTime}
+                    onChange={(e) => {
+                      if (/^d{2}:d{2}$/.test(e.target.value)) setPref({ dailyTime: e.target.value });
+                    }}
+                    style={domTimeStyle}
+                    aria-label="Daily reminder time"
+                  />
+                </View>
+              )}
+              <Text style={styles.hint}>
+                One quiet notification per day for tasks with a Day but no time. Event and task notifications fire at their start time.
+              </Text>
+
+              <Text style={styles.section}>Window</Text>
+              <ToggleRow label="Close to the system tray" value={prefs.closeToTray} onChange={(v) => setPref({ closeToTray: v })} />
+              <ToggleRow label="Start with Windows" value={prefs.startWithWindows} onChange={(v) => setPref({ startWithWindows: v })} />
+              <Text style={styles.hint}>
+                Closing the window keeps Belific in the tray so reminders still arrive. Quit from the tray icon or File, Quit.
+              </Text>
+            </>
+          )}
+
           <Text style={styles.section}>Data</Text>
           <View style={styles.row}>
             <Pressable onPress={() => desktop?.actions.exportData()} accessibilityRole="button" style={styles.btn}>
@@ -179,7 +225,36 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <View style={styles.toggleRow}>
+      <Text style={[styles.body, { flex: 1 }]}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: Colors.border, true: Colors.accent }}
+        thumbColor={Colors.surface}
+        accessibilityLabel={label}
+      />
+    </View>
+  );
+}
+
+const domTimeStyle: React.CSSProperties = {
+  height: 36,
+  padding: '0 10px',
+  borderRadius: 10,
+  border: `1px solid ${Colors.border}`,
+  background: Colors.background,
+  color: Colors.textPrimary,
+  fontSize: 14,
+  fontFamily: DESKTOP_FONT_FAMILY,
+  outlineColor: Colors.accent,
+};
+
 const styles = StyleSheet.create({
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 36, marginTop: 4 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(38, 37, 31, 0.35)' },
   panel: { width: 460, maxWidth: '92%', maxHeight: '90%', backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.border },

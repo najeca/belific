@@ -2,7 +2,21 @@
 // Belific desktop shell (decisions 009, 010, 011). Loads the static Expo web
 // export from mobile/dist through a privileged app:// protocol (never
 // file://, never a public URL) and owns the app's data on disk.
-const { app, BrowserWindow, Menu, protocol, net, ipcMain, dialog, shell, safeStorage } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  Notification,
+  Tray,
+  nativeImage,
+  powerMonitor,
+  protocol,
+  net,
+  ipcMain,
+  dialog,
+  shell,
+  safeStorage,
+} = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -12,11 +26,18 @@ const { resolveAssetPath } = require('./src/assetPath');
 const { AuthGate, checkAuthorizeUrl, SCHEME } = require('./src/authLink');
 const { SecureStore } = require('./src/secureStore');
 const { ensureFirstSigninBackup } = require('./src/firstSignin');
+const { Scheduler } = require('./src/scheduler');
+const { DEFAULTS, loadSettings, saveSettings, sanitize, loginItemOptions } = require('./src/settings');
 
 const IS_DEV = process.argv.includes('--dev');
 const DEV_URL = 'http://localhost:8081/';
 const APP_ORIGIN = 'app://belific/';
-const EXPORT_DIR = path.join(__dirname, '..', 'mobile', 'dist');
+// Packaged by electron-builder the web export sits beside app.asar in resources/web.
+const EXPORT_DIR = app.isPackaged ? path.join(process.resourcesPath, 'web') : path.join(__dirname, '..', 'mobile', 'dist');
+const APP_USER_MODEL_ID = 'com.najeca.belific.desktop';
+const ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
+const TRAY_ICON_PATH = path.join(__dirname, 'assets', 'tray.png');
+const HIDDEN_TICK_MS = 120 * 1000;
 const SUPABASE_HOST = 'https://uucycebkpgwbktdytxvr.supabase.co';
 const CSP = [
   "default-src 'self'",
@@ -24,6 +45,10 @@ const CSP = [
   "img-src 'self' data:",
   `connect-src 'self' ${SUPABASE_HOST}`,
 ].join('; ');
+
+// Windows only shows toast notifications for an app that has an AppUserModelID
+// (decision 017). The installer's shortcut carries the same id.
+app.setAppUserModelId(APP_USER_MODEL_ID);
 
 // Dev must never touch real data (the dev seed writes fake events).
 if (IS_DEV) app.setPath('userData', app.getPath('userData') + '-dev');
@@ -37,6 +62,11 @@ let secure;
 const authGate = new AuthGate(SUPABASE_HOST);
 let mainWindow = null;
 let backupTimer = null;
+let tray = null;
+let settings = { ...DEFAULTS };
+let scheduler = null;
+let hiddenTick = null;
+let quitting = false;
 
 function paths() {
   const userData = app.getPath('userData');
@@ -88,6 +118,9 @@ function registerIpc() {
   ipcMain.handle('auth:status', guard(() => ({ persistent: secure.persistent })));
   ipcMain.handle('auth:begin', guard((url) => beginSignIn(url)));
   ipcMain.handle('auth:cancel', guard(() => authGate.cancel()));
+  ipcMain.handle('settings:get', guard(() => settings));
+  ipcMain.handle('settings:set', guard((partial) => changeSettings(partial)));
+  ipcMain.handle('notify:update', guard((payload) => scheduler.update(payload)));
   ipcMain.handle('desktop:exportData', guard(() => exportData()));
   ipcMain.handle('desktop:openBackups', guard(() => openBackupsFolder()));
   ipcMain.on('desktop:version', (event) => {
@@ -195,6 +228,83 @@ function openBackupsFolder() {
   return shell.openPath(paths().backups);
 }
 
+// ----- notifications, tray and window (decision 017, checkpoint 7) -----
+
+function showWindow() {
+  if (!mainWindow) {
+    createWindow(true);
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function showToast({ title, body, kind }) {
+  if (!Notification.isSupported()) {
+    log('notifications are not supported here');
+    return;
+  }
+  const toast = new Notification({ title, body, icon: ICON_PATH, silent: false });
+  toast.on('click', showWindow);
+  toast.show();
+  log(`toast shown (${kind})`);
+}
+
+function quitApp() {
+  quitting = true;
+  app.quit();
+}
+
+function createTray() {
+  if (tray) return;
+  const image = nativeImage.createFromPath(TRAY_ICON_PATH);
+  tray = new Tray(image);
+  tray.setToolTip('Belific');
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Open Belific', click: () => showWindow() },
+      { type: 'separator' },
+      { label: 'Quit Belific', click: () => quitApp() },
+    ]),
+  );
+  tray.on('click', () => showWindow());
+}
+
+function applyLoginItem() {
+  // Never write the Windows startup entry from an unpackaged (dev or test) run.
+  if (!app.isPackaged || process.env.BELIFIC_NO_LOGIN_ITEM === '1') return;
+  try {
+    app.setLoginItemSettings(loginItemOptions(settings.startWithWindows, process.execPath));
+  } catch (err) {
+    log(`login item failed: ${err.message}`);
+  }
+}
+
+async function changeSettings(partial) {
+  const before = settings;
+  settings = sanitize(partial, settings);
+  await saveSettings(store, settings);
+  scheduler.setSettings(settings);
+  if (before.startWithWindows !== settings.startWithWindows) applyLoginItem();
+  return settings;
+}
+
+// Closing the window keeps Belific running in the tray so timers survive.
+function onWindowClose(event) {
+  if (quitting || !settings.closeToTray) return;
+  event.preventDefault();
+  mainWindow.hide();
+  if (!settings.trayNoteShown) {
+    changeSettings({ trayNoteShown: true }).catch((err) => log(`settings save failed: ${err.message}`));
+    showToast({
+      kind: 'tray-note',
+      title: 'Belific is still running',
+      body: 'It stays in the system tray so your reminders keep working. Quit from the tray icon, or change this in Settings.',
+    });
+  }
+}
+
 function buildMenu() {
   const template = [
     {
@@ -206,7 +316,7 @@ function buildMenu() {
           click: () => openBackupsFolder(),
         },
         { type: 'separator' },
-        { role: 'quit' },
+        { label: 'Quit Belific', accelerator: 'Ctrl+Q', click: () => quitApp() },
       ],
     },
     {
@@ -234,8 +344,11 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function createWindow() {
+function createWindow(visible = true) {
+  const startHidden = !visible || (process.argv.includes('--hidden') && settings.closeToTray);
   mainWindow = new BrowserWindow({
+    show: !startHidden,
+    icon: ICON_PATH,
     width: 1440,
     height: 900,
     minWidth: 1024,
@@ -258,6 +371,11 @@ function createWindow() {
     if (url.startsWith('https://')) shell.openExternal(url);
     return { action: 'deny' };
   });
+  mainWindow.on('close', onWindowClose);
+  // Windows logoff or shutdown must never be blocked by close-to-tray.
+  mainWindow.on('session-end', () => {
+    quitting = true;
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -270,12 +388,10 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', (_event, argv) => {
     const link = linkFromArgv(argv);
     if (link) handleDeepLink(link);
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
+    showWindow();
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     const { data } = paths();
     store = new KvStore(data, (err, context) => log(`kv error (${context}): ${err.stack || err}`));
     secure = new SecureStore(
@@ -287,19 +403,41 @@ if (!app.requestSingleInstanceLock()) {
       },
       (err, context) => log(`secure store error (${context}): ${err.message}`),
     );
+    settings = await loadSettings(store);
+    scheduler = new Scheduler({ settings, notify: showToast, log });
     registerIpc();
     registerProtocolClient();
     if (!IS_DEV) registerAppProtocol();
     buildMenu();
+    createTray();
     createWindow();
+    applyLoginItem();
     const launchLink = linkFromArgv(process.argv);
     if (launchLink) handleDeepLink(launchLink);
     runBackup();
     backupTimer = setInterval(runBackup, 24 * 60 * 60 * 1000);
+    // While the window is hidden in the tray the page does not poll, so ask it
+    // to sync and resend the notification payload now and then.
+    hiddenTick = setInterval(() => {
+      if (mainWindow && !mainWindow.isVisible()) mainWindow.webContents.send('notify:tick');
+    }, HIDDEN_TICK_MS);
+    // After sleep, timers that should have fired are fired (or dropped if late).
+    powerMonitor.on('resume', () => {
+      scheduler.refresh();
+      if (mainWindow) mainWindow.webContents.send('notify:tick');
+    });
+  });
+
+  app.on('before-quit', () => {
+    quitting = true;
+    if (scheduler) scheduler.stop();
+    if (hiddenTick) clearInterval(hiddenTick);
   });
 
   app.on('window-all-closed', () => {
+    // With close-to-tray the window is hidden, not closed, so this only runs
+    // when closing really means quitting.
     if (backupTimer) clearInterval(backupTimer);
-    app.quit();
+    if (quitting || !settings.closeToTray) app.quit();
   });
 }

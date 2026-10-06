@@ -1,6 +1,6 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from './supabase';
-import { runFullSync } from './sync';
+import { onSignedIn, onSignedOut } from './sync';
 
 // Sign in with Apple is the only login method (see the accounts plan) —
 // deliberately no other social login, which per Apple guideline 4.8
@@ -25,17 +25,18 @@ export async function signInWithApple(): Promise<void> {
   });
   if (error) throw error;
 
-  // One call handles both the brand-new-account bulk upload (nothing
-  // remote yet, so everything local just uploads) and merging onto an
-  // existing account's data (union by id, newest updatedAt wins) — see
-  // runFullSync's own comment. Never awaited by the caller's UI: sign-in
-  // itself already succeeded, this just runs in the background.
-  runFullSync().catch(() => {});
+  // Turns sync on and runs the first full pass: local rows the server lacks
+  // are uploaded, the account's rows are downloaded, same-id rows follow the
+  // rules in lib/syncCore.ts (checkpoint 5). Never awaited by the caller's UI:
+  // sign-in itself already succeeded, this just runs in the background.
+  onSignedIn().catch(() => {});
 }
 
 export async function signOut(): Promise<void> {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+  // Stop queueing and forget the queue and cursors (local data is kept).
+  await onSignedOut();
 }
 
 // Guideline 5.1.1(v): account creation requires in-app account
@@ -45,11 +46,14 @@ export async function signOut(): Promise<void> {
 // requires the service-role admin API, which must never ship in the
 // app) — this invokes the delete-account Edge Function instead, which
 // deletes every row across all 7 synced tables for this user, then
-// the auth user itself, in that order, atomically.
+// the auth user itself, in that order. Not one transaction: if a table
+// fails it stops early, and the on delete cascade on user_id covers the
+// rest once the auth user goes (gap V7i).
 export async function deleteAccount(): Promise<void> {
   const { error } = await supabase.functions.invoke('delete-account');
   if (error) throw error;
   // The account no longer exists server-side — drop the now-invalid
   // local session too.
   await supabase.auth.signOut();
+  await onSignedOut();
 }

@@ -10,14 +10,14 @@ import type {
   Task,
 } from './types';
 
-// Fire-and-forget push to Supabase after a local write — dynamic
-// import breaks what would otherwise be a circular static import
-// (sync.ts imports the raw loaders/savers from this file). Never
-// awaited by callers; a signed-out user (the default) or offline
-// device just no-ops inside sync.ts itself.
-function pushLater(run: (sync: typeof import('./sync')) => void): void {
-  import('./sync').then(run).catch(() => {});
-}
+import { storageLock } from './lock';
+import { queueCompletionAdd, queueCompletionDelete, queueRows } from './outbox';
+
+// Sync (checkpoint 5, decision 013): every read, modify, write below runs
+// inside storageLock, the same lock the sync merge takes, so a pull can never
+// overwrite a write made while it waited on the network (V7b). Each write is
+// queued in the persisted outbox (lib/outbox.ts) inside that same lock; the
+// outbox is drained by lib/sync.ts. Nothing here talks to the network.
 
 const KEYS = {
   CUSTOM_EVENTS: 'belific_custom_events',
@@ -33,21 +33,11 @@ const KEYS = {
   SCHEMA_MIGRATED_V2: 'belific_schema_migrated_v2',
 } as const;
 
-const COMPLETION_RETENTION_DAYS = 90;
 // How long a tombstoned (soft-deleted) row is kept around before being
 // pruned for real — long enough that a device which hasn't synced in a
 // while still gets a chance to see the delete before the row vanishes
 // from the source of truth entirely.
 const TOMBSTONE_RETENTION_DAYS = 90;
-
-function dateKeyDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 function isoDaysAgo(days: number): string {
   const d = new Date();
@@ -84,8 +74,8 @@ export async function loadCustomEventsRaw(): Promise<CustomEvent[]> {
 
 export async function loadCustomEvents(): Promise<CustomEvent[]> {
   const all = await loadCustomEventsRaw();
-  const { visible, forStorage, changed } = pruneAndHideTombstones(all);
-  if (changed) await saveCustomEvents(forStorage);
+  const { visible, changed } = pruneAndHideTombstones(all);
+  if (changed) await storageLock.run(async () => saveCustomEvents(pruneAndHideTombstones(await loadCustomEventsRaw()).forStorage));
   return visible;
 }
 
@@ -97,61 +87,71 @@ export async function saveCustomEvents(events: CustomEvent[]): Promise<void> {
   }
 }
 
-export async function addCustomEvent(event: CustomEvent): Promise<void> {
-  const existing = await loadCustomEventsRaw();
-  const stamped = { ...event, updatedAt: new Date().toISOString() };
-  await saveCustomEvents([...existing, stamped]);
-  pushLater((sync) => sync.pushCustomEvent(stamped));
+export function addCustomEvent(event: CustomEvent): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadCustomEventsRaw();
+    const stamped = { ...event, updatedAt: new Date().toISOString() };
+    await saveCustomEvents([...existing, stamped]);
+    await queueRows('custom_events', [stamped]);
+  });
 }
 
 // Bulk variant for materialized recurring series — one load/save round
 // trip instead of one per occurrence.
-export async function addCustomEvents(events: CustomEvent[]): Promise<void> {
-  const existing = await loadCustomEventsRaw();
-  const now = new Date().toISOString();
-  const stamped = events.map((e) => ({ ...e, updatedAt: now }));
-  await saveCustomEvents([...existing, ...stamped]);
-  pushLater((sync) => stamped.forEach((e) => sync.pushCustomEvent(e)));
+export function addCustomEvents(events: CustomEvent[]): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadCustomEventsRaw();
+    const now = new Date().toISOString();
+    const stamped = events.map((e) => ({ ...e, updatedAt: now }));
+    await saveCustomEvents([...existing, ...stamped]);
+    await queueRows('custom_events', stamped);
+  });
 }
 
 // Removes one occurrence plus every other row sharing its seriesId with
 // a date on or after it — "this and all future occurrences". Tombstoned
 // (deletedAt set), not removed outright — see CustomEvent.deletedAt.
-export async function deleteCustomEventSeriesFrom(seriesId: string, fromDate: string): Promise<void> {
-  const existing = await loadCustomEventsRaw();
-  const now = new Date().toISOString();
-  const affected: CustomEvent[] = [];
-  const merged = existing.map((e) => {
-    if (e.seriesId === seriesId && e.date >= fromDate) {
-      const tombstoned = { ...e, deletedAt: now, updatedAt: now };
-      affected.push(tombstoned);
-      return tombstoned;
-    }
-    return e;
+export function deleteCustomEventSeriesFrom(seriesId: string, fromDate: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadCustomEventsRaw();
+    const now = new Date().toISOString();
+    const affected: CustomEvent[] = [];
+    const merged = existing.map((e) => {
+      if (e.seriesId === seriesId && e.date >= fromDate) {
+        const tombstoned = { ...e, deletedAt: now, updatedAt: now };
+        affected.push(tombstoned);
+        return tombstoned;
+      }
+      return e;
+    });
+    await saveCustomEvents(merged);
+    await queueRows('custom_events', affected);
   });
-  await saveCustomEvents(merged);
-  pushLater((sync) => affected.forEach((e) => sync.pushCustomEvent(e)));
 }
 
 // Tombstoned, not removed outright — see CustomEvent.deletedAt.
-export async function deleteCustomEvent(id: string): Promise<void> {
-  const existing = await loadCustomEventsRaw();
-  const now = new Date().toISOString();
-  let tombstoned: CustomEvent | undefined;
-  const merged = existing.map((e) => {
-    if (e.id !== id) return e;
-    tombstoned = { ...e, deletedAt: now, updatedAt: now };
-    return tombstoned;
+export function deleteCustomEvent(id: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadCustomEventsRaw();
+    const now = new Date().toISOString();
+    let tombstoned: CustomEvent | undefined;
+    const merged = existing.map((e) => {
+      if (e.id !== id) return e;
+      tombstoned = { ...e, deletedAt: now, updatedAt: now };
+      return tombstoned;
+    });
+    await saveCustomEvents(merged);
+    if (tombstoned) await queueRows('custom_events', [tombstoned]);
   });
-  await saveCustomEvents(merged);
-  if (tombstoned) pushLater((sync) => sync.pushCustomEvent(tombstoned!));
 }
 
-export async function updateCustomEvent(updated: CustomEvent): Promise<void> {
-  const existing = await loadCustomEventsRaw();
-  const stamped = { ...updated, updatedAt: new Date().toISOString() };
-  await saveCustomEvents(existing.map((e) => (e.id === updated.id ? stamped : e)));
-  pushLater((sync) => sync.pushCustomEvent(stamped));
+export function updateCustomEvent(updated: CustomEvent): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadCustomEventsRaw();
+    const stamped = { ...updated, updatedAt: new Date().toISOString() };
+    await saveCustomEvents(existing.map((e) => (e.id === updated.id ? stamped : e)));
+    await queueRows('custom_events', [stamped]);
+  });
 }
 
 export async function loadCustomEventsForDate(dateKey: string): Promise<CustomEvent[]> {
@@ -187,8 +187,8 @@ export async function loadBrainDumpItemsRaw(): Promise<BrainDumpItem[]> {
 
 export async function loadBrainDumpItems(): Promise<BrainDumpItem[]> {
   const all = await loadBrainDumpItemsRaw();
-  const { visible, forStorage, changed } = pruneAndHideTombstones(all);
-  if (changed) await saveBrainDumpItems(forStorage);
+  const { visible, changed } = pruneAndHideTombstones(all);
+  if (changed) await storageLock.run(async () => saveBrainDumpItems(pruneAndHideTombstones(await loadBrainDumpItemsRaw()).forStorage));
   return visible;
 }
 
@@ -200,32 +200,38 @@ export async function saveBrainDumpItems(items: BrainDumpItem[]): Promise<void> 
   }
 }
 
-export async function addBrainDumpItem(item: BrainDumpItem): Promise<void> {
-  const existing = await loadBrainDumpItemsRaw();
-  const stamped = { ...item, updatedAt: new Date().toISOString() };
-  await saveBrainDumpItems([...existing, stamped]);
-  pushLater((sync) => sync.pushBrainDumpItem(stamped));
+export function addBrainDumpItem(item: BrainDumpItem): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadBrainDumpItemsRaw();
+    const stamped = { ...item, updatedAt: new Date().toISOString() };
+    await saveBrainDumpItems([...existing, stamped]);
+    await queueRows('brain_dump_items', [stamped]);
+  });
 }
 
-export async function updateBrainDumpItem(updated: BrainDumpItem): Promise<void> {
-  const existing = await loadBrainDumpItemsRaw();
-  const stamped = { ...updated, updatedAt: new Date().toISOString() };
-  await saveBrainDumpItems(existing.map((i) => (i.id === updated.id ? stamped : i)));
-  pushLater((sync) => sync.pushBrainDumpItem(stamped));
+export function updateBrainDumpItem(updated: BrainDumpItem): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadBrainDumpItemsRaw();
+    const stamped = { ...updated, updatedAt: new Date().toISOString() };
+    await saveBrainDumpItems(existing.map((i) => (i.id === updated.id ? stamped : i)));
+    await queueRows('brain_dump_items', [stamped]);
+  });
 }
 
 // Tombstoned, not removed outright — see BrainDumpItem.deletedAt.
-export async function deleteBrainDumpItem(id: string): Promise<void> {
-  const existing = await loadBrainDumpItemsRaw();
-  const now = new Date().toISOString();
-  let tombstoned: BrainDumpItem | undefined;
-  const merged = existing.map((i) => {
-    if (i.id !== id) return i;
-    tombstoned = { ...i, deletedAt: now, updatedAt: now };
-    return tombstoned;
+export function deleteBrainDumpItem(id: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadBrainDumpItemsRaw();
+    const now = new Date().toISOString();
+    let tombstoned: BrainDumpItem | undefined;
+    const merged = existing.map((i) => {
+      if (i.id !== id) return i;
+      tombstoned = { ...i, deletedAt: now, updatedAt: now };
+      return tombstoned;
+    });
+    await saveBrainDumpItems(merged);
+    if (tombstoned) await queueRows('brain_dump_items', [tombstoned]);
   });
-  await saveBrainDumpItems(merged);
-  if (tombstoned) pushLater((sync) => sync.pushBrainDumpItem(tombstoned!));
 }
 
 // Whether to show starter/example content in place of an empty state —
@@ -280,11 +286,13 @@ export async function saveCustomCategories(categories: CustomCategory[]): Promis
   }
 }
 
-export async function addCustomCategory(category: CustomCategory): Promise<void> {
-  const existing = await loadCustomCategoriesRaw();
-  const stamped = { ...category, updatedAt: new Date().toISOString() };
-  await saveCustomCategories([...existing, stamped]);
-  pushLater((sync) => sync.pushCustomCategory(stamped));
+export function addCustomCategory(category: CustomCategory): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadCustomCategoriesRaw();
+    const stamped = { ...category, updatedAt: new Date().toISOString() };
+    await saveCustomCategories([...existing, stamped]);
+    await queueRows('custom_categories', [stamped]);
+  });
 }
 
 // --- Routines ---
@@ -300,8 +308,8 @@ export async function loadRoutinesRaw(): Promise<Routine[]> {
 
 export async function loadRoutines(): Promise<Routine[]> {
   const all = await loadRoutinesRaw();
-  const { visible, forStorage, changed } = pruneAndHideTombstones(all);
-  if (changed) await saveRoutines(forStorage);
+  const { visible, changed } = pruneAndHideTombstones(all);
+  if (changed) await storageLock.run(async () => saveRoutines(pruneAndHideTombstones(await loadRoutinesRaw()).forStorage));
   return visible;
 }
 
@@ -313,42 +321,48 @@ export async function saveRoutines(routines: Routine[]): Promise<void> {
   }
 }
 
-export async function addRoutine(routine: Routine): Promise<void> {
-  const existing = await loadRoutinesRaw();
-  const stamped = { ...routine, updatedAt: new Date().toISOString() };
-  await saveRoutines([...existing, stamped]);
-  pushLater((sync) => sync.pushRoutine(stamped));
+export function addRoutine(routine: Routine): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadRoutinesRaw();
+    const stamped = { ...routine, updatedAt: new Date().toISOString() };
+    await saveRoutines([...existing, stamped]);
+    await queueRows('routines', [stamped]);
+  });
 }
 
-export async function updateRoutine(updated: Routine): Promise<void> {
-  const existing = await loadRoutinesRaw();
-  const stamped = { ...updated, updatedAt: new Date().toISOString() };
-  await saveRoutines(existing.map((r) => (r.id === updated.id ? stamped : r)));
-  pushLater((sync) => sync.pushRoutine(stamped));
+export function updateRoutine(updated: Routine): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadRoutinesRaw();
+    const stamped = { ...updated, updatedAt: new Date().toISOString() };
+    await saveRoutines(existing.map((r) => (r.id === updated.id ? stamped : r)));
+    await queueRows('routines', [stamped]);
+  });
 }
 
 // Tombstoned, not removed outright — see Routine.deletedAt.
-export async function deleteRoutine(id: string): Promise<void> {
-  const existing = await loadRoutinesRaw();
-  const now = new Date().toISOString();
-  let tombstoned: Routine | undefined;
-  const merged = existing.map((r) => {
-    if (r.id !== id) return r;
-    tombstoned = { ...r, deletedAt: now, updatedAt: now };
-    return tombstoned;
+export function deleteRoutine(id: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadRoutinesRaw();
+    const now = new Date().toISOString();
+    let tombstoned: Routine | undefined;
+    const merged = existing.map((r) => {
+      if (r.id !== id) return r;
+      tombstoned = { ...r, deletedAt: now, updatedAt: now };
+      return tombstoned;
+    });
+    await saveRoutines(merged);
+    if (tombstoned) await queueRows('routines', [tombstoned]);
+    // A deleted routine's completion history is meaningless on its own
+    // (nothing displays it — no streak/history view exists), so it's
+    // cleaned up here rather than left as orphaned rows. Completions are
+    // never tombstoned (see the section comment below) — a real removal
+    // here is correct, not an inconsistency. Remote deletes are pushed
+    // per-row below, same as deleteRoutineCompletion does individually.
+    const completions = await loadRoutineCompletions();
+    const toRemove = completions.filter((c) => c.routineId === id);
+    await saveRoutineCompletions(completions.filter((c) => c.routineId !== id));
+    for (const c of toRemove) await queueCompletionDelete(c.routineId, c.date);
   });
-  await saveRoutines(merged);
-  if (tombstoned) pushLater((sync) => sync.pushRoutine(tombstoned!));
-  // A deleted routine's completion history is meaningless on its own
-  // (nothing displays it — no streak/history view exists), so it's
-  // cleaned up here rather than left as orphaned rows. Completions are
-  // never tombstoned (see the section comment below) — a real removal
-  // here is correct, not an inconsistency. Remote deletes are pushed
-  // per-row below, same as deleteRoutineCompletion does individually.
-  const completions = await loadRoutineCompletions();
-  const toRemove = completions.filter((c) => c.routineId === id);
-  await saveRoutineCompletions(completions.filter((c) => c.routineId !== id));
-  pushLater((sync) => toRemove.forEach((c) => sync.pushRoutineCompletionDelete(c.routineId, c.date)));
 }
 
 // --- Routine completions ---
@@ -359,17 +373,10 @@ export async function deleteRoutine(id: string): Promise<void> {
 export async function loadRoutineCompletions(): Promise<RoutineCompletion[]> {
   try {
     const data = await kv.getItem(KEYS.ROUTINE_COMPLETIONS);
-    const all = data ? (JSON.parse(data) as RoutineCompletion[]) : [];
-    // Prune-on-load: nothing in the app ever reads completions older than
-    // this (no streaks, no history view, by design), so there's no reason
-    // to let this grow forever. Only re-saves when something was actually
-    // pruned.
-    const cutoff = dateKeyDaysAgo(COMPLETION_RETENTION_DAYS);
-    const pruned = all.filter((c) => c.date >= cutoff);
-    if (pruned.length !== all.length) {
-      await saveRoutineCompletions(pruned);
-    }
-    return pruned;
+    // Never pruned (checkpoint 5, gap G2): completions are the history that
+    // streaks and XP will read, and the old 90 day prune made the sync
+    // re-download them on every pass. About 3,650 small rows a year.
+    return data ? (JSON.parse(data) as RoutineCompletion[]) : [];
   } catch {
     return [];
   }
@@ -383,19 +390,23 @@ export async function saveRoutineCompletions(completions: RoutineCompletion[]): 
   }
 }
 
-export async function addRoutineCompletion(routineId: string, date: string): Promise<void> {
-  const existing = await loadRoutineCompletions();
-  const completedAt = new Date().toISOString();
-  await saveRoutineCompletions([...existing, { routineId, date, completedAt }]);
-  pushLater((sync) => sync.pushRoutineCompletionAdd(routineId, date, completedAt));
+export function addRoutineCompletion(routineId: string, date: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadRoutineCompletions();
+    const completedAt = new Date().toISOString();
+    await saveRoutineCompletions([...existing, { routineId, date, completedAt }]);
+    await queueCompletionAdd({ routineId, date, completedAt });
+  });
 }
 
-export async function deleteRoutineCompletion(routineId: string, date: string): Promise<void> {
-  const existing = await loadRoutineCompletions();
-  await saveRoutineCompletions(
-    existing.filter((c) => !(c.routineId === routineId && c.date === date)),
-  );
-  pushLater((sync) => sync.pushRoutineCompletionDelete(routineId, date));
+export function deleteRoutineCompletion(routineId: string, date: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadRoutineCompletions();
+    await saveRoutineCompletions(
+      existing.filter((c) => !(c.routineId === routineId && c.date === date)),
+    );
+    await queueCompletionDelete(routineId, date);
+  });
 }
 
 // --- Tasks ---
@@ -411,8 +422,8 @@ export async function loadTasksRaw(): Promise<Task[]> {
 
 export async function loadTasks(): Promise<Task[]> {
   const all = await loadTasksRaw();
-  const { visible, forStorage, changed } = pruneAndHideTombstones(all);
-  if (changed) await saveTasks(forStorage);
+  const { visible, changed } = pruneAndHideTombstones(all);
+  if (changed) await storageLock.run(async () => saveTasks(pruneAndHideTombstones(await loadTasksRaw()).forStorage));
   return visible;
 }
 
@@ -424,32 +435,38 @@ export async function saveTasks(tasks: Task[]): Promise<void> {
   }
 }
 
-export async function addTask(task: Task): Promise<void> {
-  const existing = await loadTasksRaw();
-  const stamped = { ...task, updatedAt: new Date().toISOString() };
-  await saveTasks([...existing, stamped]);
-  pushLater((sync) => sync.pushTask(stamped));
+export function addTask(task: Task): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadTasksRaw();
+    const stamped = { ...task, updatedAt: new Date().toISOString() };
+    await saveTasks([...existing, stamped]);
+    await queueRows('tasks', [stamped]);
+  });
 }
 
-export async function updateTask(updated: Task): Promise<void> {
-  const existing = await loadTasksRaw();
-  const stamped = { ...updated, updatedAt: new Date().toISOString() };
-  await saveTasks(existing.map((t) => (t.id === updated.id ? stamped : t)));
-  pushLater((sync) => sync.pushTask(stamped));
+export function updateTask(updated: Task): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadTasksRaw();
+    const stamped = { ...updated, updatedAt: new Date().toISOString() };
+    await saveTasks(existing.map((t) => (t.id === updated.id ? stamped : t)));
+    await queueRows('tasks', [stamped]);
+  });
 }
 
 // Tombstoned, not removed outright — see Task.deletedAt.
-export async function deleteTask(id: string): Promise<void> {
-  const existing = await loadTasksRaw();
-  const now = new Date().toISOString();
-  let tombstoned: Task | undefined;
-  const merged = existing.map((t) => {
-    if (t.id !== id) return t;
-    tombstoned = { ...t, deletedAt: now, updatedAt: now };
-    return tombstoned;
+export function deleteTask(id: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadTasksRaw();
+    const now = new Date().toISOString();
+    let tombstoned: Task | undefined;
+    const merged = existing.map((t) => {
+      if (t.id !== id) return t;
+      tombstoned = { ...t, deletedAt: now, updatedAt: now };
+      return tombstoned;
+    });
+    await saveTasks(merged);
+    if (tombstoned) await queueRows('tasks', [tombstoned]);
   });
-  await saveTasks(merged);
-  if (tombstoned) pushLater((sync) => sync.pushTask(tombstoned!));
 }
 
 // --- Projects ---
@@ -479,40 +496,70 @@ export async function saveProjects(projects: Project[]): Promise<void> {
   }
 }
 
-export async function addProject(project: Project): Promise<void> {
-  const existing = await loadProjectsRaw();
-  const stamped = { ...project, updatedAt: new Date().toISOString() };
-  await saveProjects([...existing, stamped]);
-  pushLater((sync) => sync.pushProject(stamped));
+export function addProject(project: Project): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadProjectsRaw();
+    const stamped = { ...project, updatedAt: new Date().toISOString() };
+    await saveProjects([...existing, stamped]);
+    await queueRows('projects', [stamped]);
+  });
 }
 
 // A real edit (a rename): stamps updatedAt and pushes, like addProject.
 // Desktop only today (checkpoint 4.3); the iPhone has no project edit path.
-export async function updateProject(updated: Project): Promise<void> {
-  const existing = await loadProjectsRaw();
-  const stamped = { ...updated, updatedAt: new Date().toISOString() };
-  await saveProjects(existing.map((p) => (p.key === updated.key ? stamped : p)));
-  pushLater((sync) => sync.pushProject(stamped));
+export function updateProject(updated: Project): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadProjectsRaw();
+    const stamped = { ...updated, updatedAt: new Date().toISOString() };
+    await saveProjects(existing.map((p) => (p.key === updated.key ? stamped : p)));
+    await queueRows('projects', [stamped]);
+  });
 }
 
 // Tombstoned, not removed outright (same as deleteTask): deletedAt and
 // updatedAt are set and the row is pushed, so the delete wins the sync merge
 // and reaches other devices. loadProjects hides it everywhere. Desktop only
 // today (checkpoint 4.3); callers move or clear the tasks that used it.
-export async function deleteProject(key: string): Promise<void> {
-  const existing = await loadProjectsRaw();
-  const now = new Date().toISOString();
-  let tombstoned: Project | undefined;
-  const merged = existing.map((p) => {
-    if (p.key !== key) return p;
-    tombstoned = { ...p, deletedAt: now, updatedAt: now };
-    return tombstoned;
+export function deleteProject(key: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadProjectsRaw();
+    const now = new Date().toISOString();
+    let tombstoned: Project | undefined;
+    const merged = existing.map((p) => {
+      if (p.key !== key) return p;
+      tombstoned = { ...p, deletedAt: now, updatedAt: now };
+      return tombstoned;
+    });
+    await saveProjects(merged);
+    if (tombstoned) await queueRows('projects', [tombstoned]);
   });
-  await saveProjects(merged);
-  if (tombstoned) {
-    const row = tombstoned;
-    pushLater((sync) => sync.pushProject(row));
-  }
+}
+
+// Applies a change to several projects at once under the lock and queues the
+// changed ones. `stamp` sets updatedAt (a real edit, e.g. a recolour); the
+// desktop's lazy colour fill passes false (a silent fill, checkpoint 4.1).
+export function patchProjects(
+  change: (projects: Project[]) => Project[],
+  opts: { stamp: boolean },
+): Promise<Project[]> {
+  return storageLock.run(async () => {
+    const before = await loadProjectsRaw();
+    const after = change(before);
+    const now = new Date().toISOString();
+    const beforeByKey = new Map(before.map((p) => [p.key, JSON.stringify(p)]));
+    const changed: Project[] = [];
+    const result = after.map((p) => {
+      if (beforeByKey.get(p.key) === JSON.stringify(p)) return p;
+      const row = opts.stamp ? { ...p, updatedAt: now } : p;
+      changed.push(row);
+      return row;
+    });
+    if (changed.length > 0) {
+      await saveProjects(result);
+      await queueRows('projects', changed);
+    }
+    return result;
+  });
 }
 
 export async function clearAllData(): Promise<void> {
@@ -529,6 +576,17 @@ export async function clearAllData(): Promise<void> {
       KEYS.TASKS,
       KEYS.PROJECTS,
       KEYS.SCHEMA_MIGRATED_V2,
+      // Sync bookkeeping (lib/outbox.ts, lib/syncEngine.ts META): with the
+      // data gone, the next sync must start from a full pass again.
+      'belific_sync_outbox',
+      'belific_sync_caps',
+      'belific_sync_seen_completions',
+      'belific_sync_cursor_custom_events',
+      'belific_sync_cursor_brain_dump_items',
+      'belific_sync_cursor_routines',
+      'belific_sync_cursor_tasks',
+      'belific_sync_cursor_projects',
+      'belific_sync_cursor_custom_categories',
     ]);
   } catch {
     // noop
@@ -543,54 +601,56 @@ export async function clearAllData(): Promise<void> {
 // never rewrites ids, never touches rows that already have updatedAt,
 // and never removes anything. Safe to call on every app launch; it
 // no-ops immediately after the first real run.
-export async function migrateToSyncableSchema(): Promise<void> {
-  try {
-    const already = await kv.getItem(KEYS.SCHEMA_MIGRATED_V2);
-    if (already === 'true') return;
+export function migrateToSyncableSchema(): Promise<void> {
+  return storageLock.run(async () => {
+    try {
+      const already = await kv.getItem(KEYS.SCHEMA_MIGRATED_V2);
+      if (already === 'true') return;
 
-    const migrationTimestamp = new Date().toISOString();
+      const migrationTimestamp = new Date().toISOString();
 
-    // CustomEvent never had a createdAt field to fall back to — the
-    // `item.createdAt ?? migrationTimestamp` inside backfillUpdatedAt
-    // resolves straight to migrationTimestamp for it, same function as
-    // the three types that do have createdAt, no separate case needed.
-    const events = await loadCustomEventsRaw();
-    const migratedEvents = backfillUpdatedAt(events, migrationTimestamp);
-    await saveCustomEvents(migratedEvents);
+      // CustomEvent never had a createdAt field to fall back to — the
+      // `item.createdAt ?? migrationTimestamp` inside backfillUpdatedAt
+      // resolves straight to migrationTimestamp for it, same function as
+      // the three types that do have createdAt, no separate case needed.
+      const events = await loadCustomEventsRaw();
+      const migratedEvents = backfillUpdatedAt(events, migrationTimestamp);
+      await saveCustomEvents(migratedEvents);
 
-    const dumpItems = await loadBrainDumpItemsRaw();
-    const migratedDump = backfillUpdatedAt(dumpItems, migrationTimestamp);
-    await saveBrainDumpItems(migratedDump);
+      const dumpItems = await loadBrainDumpItemsRaw();
+      const migratedDump = backfillUpdatedAt(dumpItems, migrationTimestamp);
+      await saveBrainDumpItems(migratedDump);
 
-    const routines = await loadRoutinesRaw();
-    const migratedRoutines = backfillUpdatedAt(routines, migrationTimestamp);
-    await saveRoutines(migratedRoutines);
+      const routines = await loadRoutinesRaw();
+      const migratedRoutines = backfillUpdatedAt(routines, migrationTimestamp);
+      await saveRoutines(migratedRoutines);
 
-    const tasks = await loadTasksRaw();
-    const migratedTasks = backfillUpdatedAt(tasks, migrationTimestamp);
-    await saveTasks(migratedTasks);
+      const tasks = await loadTasksRaw();
+      const migratedTasks = backfillUpdatedAt(tasks, migrationTimestamp);
+      await saveTasks(migratedTasks);
 
-    // Project/CustomCategory had no timestamps at all — both fields
-    // backfilled together.
-    const projects = await loadProjectsRaw();
-    const migratedProjects = backfillCreatedAndUpdatedAt(projects, migrationTimestamp);
-    await saveProjects(migratedProjects);
+      // Project/CustomCategory had no timestamps at all — both fields
+      // backfilled together.
+      const projects = await loadProjectsRaw();
+      const migratedProjects = backfillCreatedAndUpdatedAt(projects, migrationTimestamp);
+      await saveProjects(migratedProjects);
 
-    const categories = await loadCustomCategoriesRaw();
-    const migratedCategories = backfillCreatedAndUpdatedAt(categories, migrationTimestamp);
-    await saveCustomCategories(migratedCategories);
+      const categories = await loadCustomCategoriesRaw();
+      const migratedCategories = backfillCreatedAndUpdatedAt(categories, migrationTimestamp);
+      await saveCustomCategories(migratedCategories);
 
-    await kv.setItem(KEYS.SCHEMA_MIGRATED_V2, 'true');
-    // Counts only, never titles/content — for one-time confirmation via
-    // device console that this ran and touched the expected rows.
-    console.log(
-      `[migrateToSyncableSchema] done — events:${migratedEvents.length} dump:${migratedDump.length} ` +
-        `routines:${migratedRoutines.length} tasks:${migratedTasks.length} projects:${migratedProjects.length} ` +
-        `categories:${migratedCategories.length}`,
-    );
-  } catch {
-    // noop — if this fails, it retries next launch since the flag is
-    // only set on success, and every write above is independently safe
-    // to redo (backfill-if-missing is idempotent).
-  }
+      await kv.setItem(KEYS.SCHEMA_MIGRATED_V2, 'true');
+      // Counts only, never titles/content — for one-time confirmation via
+      // device console that this ran and touched the expected rows.
+      console.log(
+        `[migrateToSyncableSchema] done — events:${migratedEvents.length} dump:${migratedDump.length} ` +
+          `routines:${migratedRoutines.length} tasks:${migratedTasks.length} projects:${migratedProjects.length} ` +
+          `categories:${migratedCategories.length}`,
+      );
+    } catch {
+      // noop — if this fails, it retries next launch since the flag is
+      // only set on success, and every write above is independently safe
+      // to redo (backfill-if-missing is idempotent).
+    }
+  });
 }

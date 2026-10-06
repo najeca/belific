@@ -577,3 +577,19 @@ export const TABLE_SPECS: Record<TimestampedTable, TableSpec> = {
     fromRemote: (r) => clean(categoryFromRemote(r)) as unknown as Record<string, unknown>,
   },
 };
+
+// Splits an upload batch into groups with identical column sets. PostgREST
+// sends one column list per request and fills a column a row leaves out with
+// NULL, so mixing a live row (no deleted_at) with a tombstone in one request
+// would clear deleted_at on the live row's server copy. Order is kept within
+// each group.
+export function groupByColumns(rows: Record<string, unknown>[]): Record<string, unknown>[][] {
+  const groups = new Map<string, Record<string, unknown>[]>();
+  for (const row of rows) {
+    const sig = Object.keys(row).sort().join(',');
+    const list = groups.get(sig);
+    if (list) list.push(row);
+    else groups.set(sig, [row]);
+  }
+  return [...groups.values()];
+}

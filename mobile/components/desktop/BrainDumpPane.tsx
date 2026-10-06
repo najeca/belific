@@ -8,6 +8,7 @@ import { loadBrainDumpItems, loadTasks } from '../../lib/storage';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { shortRepeat } from '../../lib/repeat';
+import { getSyncStatus, subscribeSyncStatus, type PublicSyncStatus } from '../../lib/sync';
 import { convertDumpItem, createThought, setTaskCompleted } from '../../lib/taskActions';
 import HoverPressable from './HoverPressable';
 import { useDrag } from './DragProvider';
@@ -225,7 +226,35 @@ export default function BrainDumpPane({
           )}
         </View>
       )}
+
+      <SyncLine />
     </View>
+  );
+}
+
+// One quiet line about sync (checkpoint 5, decision 013 item 6). The desktop
+// stays signed out until checkpoint 6, so today it reads "Local only".
+// Problems show in the danger colour only while the last error is under a day
+// old.
+export function syncLineText(s: PublicSyncStatus, now: number): { text: string; warn: boolean } {
+  if (!s.signedIn || s.state === 'signed-out') return { text: 'Local only · not signed in', warn: false };
+  if (s.state === 'syncing') return { text: 'Syncing…', warn: false };
+  if (s.state === 'offline') return { text: `Offline · ${s.pending} change${s.pending === 1 ? '' : 's'} waiting`, warn: false };
+  if (s.state === 'error') {
+    const recent = s.lastErrorAt !== null && now - Date.parse(s.lastErrorAt) < 24 * 60 * 60 * 1000;
+    return { text: `Sync problem: ${s.lastError ?? 'unknown'}`, warn: recent };
+  }
+  return { text: s.pending > 0 ? `${s.pending} change${s.pending === 1 ? '' : 's'} waiting` : 'Synced', warn: false };
+}
+
+function SyncLine() {
+  const [status, setStatus] = useState<PublicSyncStatus>(getSyncStatus);
+  useEffect(() => subscribeSyncStatus(setStatus), []);
+  const { text, warn } = syncLineText(status, Date.now());
+  return (
+    <Text style={[styles.syncLine, warn && styles.syncLineWarn]} numberOfLines={1} accessibilityLabel="Sync status">
+      {text}
+    </Text>
   );
 }
 
@@ -305,5 +334,7 @@ const styles = StyleSheet.create({
   doneHeaderText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
   doneList: { flexGrow: 0 },
   doneRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, paddingHorizontal: 4 },
+  syncLine: { marginTop: 8, fontSize: 11, color: Colors.textSecondary },
+  syncLineWarn: { color: Colors.danger },
   doneTitle: { flex: 1, fontSize: 13, color: Colors.textSecondary, textDecorationLine: 'line-through' },
 });

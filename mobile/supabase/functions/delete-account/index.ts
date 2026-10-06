@@ -19,13 +19,43 @@ const SYNCED_TABLES = [
   'custom_categories',
 ] as const;
 
+// CORS (checkpoint 5, review section 4): only the Windows desktop app's own
+// origin may call this from a page. The iPhone calls it from native code,
+// which sends no Origin and needs no CORS at all, so no browser origin is
+// allowed and there is no wildcard. Any other Origin gets no
+// Access-Control-Allow-Origin header, so a browser refuses the response.
+const ALLOWED_ORIGINS = ['app://belific'];
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin');
+  if (!origin || !ALLOWED_ORIGINS.includes(origin)) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Max-Age': '600',
+    Vary: 'Origin',
+  };
+}
+
+function json(req: Request, body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(req) },
+  });
+}
+
 Deno.serve(async (req: Request) => {
+  // Preflight: answered before any auth, never touches data.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders(req) });
+  }
   console.log('[delete-account] invoked');
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.log('[delete-account] missing Authorization header');
-      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401 });
+      return json(req, { error: 'Missing Authorization header' }, 401);
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -35,7 +65,7 @@ Deno.serve(async (req: Request) => {
       `[delete-account] env present: url=${!!supabaseUrl} anon=${!!anonKey} service=${!!serviceRoleKey}`,
     );
     if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: 'Server misconfigured: missing env vars' }), { status: 500 });
+      return json(req, { error: 'Server misconfigured: missing env vars' }, 500);
     }
 
     // Verifies the caller's own JWT — identifies exactly one real,
@@ -47,7 +77,7 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     console.log(`[delete-account] getUser -> user=${user?.id ?? 'none'} error=${userError?.message ?? 'none'}`);
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: `Unauthorized: ${userError?.message ?? 'no user'}` }), { status: 401 });
+      return json(req, { error: `Unauthorized: ${userError?.message ?? 'no user'}` }, 401);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -56,22 +86,19 @@ Deno.serve(async (req: Request) => {
       const { error } = await adminClient.from(table).delete().eq('user_id', user.id);
       console.log(`[delete-account] delete ${table} -> ${error ? error.message : 'ok'}`);
       if (error) {
-        return new Response(JSON.stringify({ error: `Failed deleting ${table}: ${error.message}` }), { status: 500 });
+        return json(req, { error: `Failed deleting ${table}: ${error.message}` }, 500);
       }
     }
 
     const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id);
     console.log(`[delete-account] deleteUser(${user.id}) -> ${deleteUserError ? deleteUserError.message : 'ok'}`);
     if (deleteUserError) {
-      return new Response(JSON.stringify({ error: deleteUserError.message }), { status: 500 });
+      return json(req, { error: deleteUserError.message }, 500);
     }
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json(req, { success: true }, 200);
   } catch (e) {
     console.error('[delete-account] unhandled exception', e);
-    return new Response(JSON.stringify({ error: `Unhandled: ${e instanceof Error ? e.message : String(e)}` }), { status: 500 });
+    return json(req, { error: `Unhandled: ${e instanceof Error ? e.message : String(e)}` }, 500);
   }
 });

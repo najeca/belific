@@ -1,4 +1,4 @@
-import { addProject, deleteProject, loadProjectsRaw, loadTasks, saveProjects, updateProject, updateTask } from './storage';
+import { addProject, deleteProject, loadTasks, patchProjects, updateProject, updateTask } from './storage';
 import { assignMissingColors, nextColorKey } from './labelColors';
 import { deletedLabelTarget, findLabelByName, renameProblem } from './labelRules';
 import type { Project } from './types';
@@ -6,21 +6,18 @@ import type { Project } from './types';
 // Desktop only (imported only from components/desktop, so never by the
 // iPhone app, which keeps calling loadProjects). Labels with their colours:
 // any live label without a colorKey gets the next free palette colour on
-// first read, saved straight away as a silent local fill (updatedAt is not
-// touched and nothing is pushed to sync; colorKey is local only until
-// checkpoint 5).
+// first read. A silent fill: updatedAt is not touched (checkpoint 4.1), but
+// since checkpoint 5 the colour syncs (projects.color_key), so the filled
+// rows are queued like any other change.
 export async function loadLabels(): Promise<Project[]> {
-  const raw = await loadProjectsRaw();
-  const { projects, changed } = assignMissingColors(raw);
-  if (changed) await saveProjects(projects);
+  const projects = await patchProjects((raw) => assignMissingColors(raw).projects, { stamp: false });
   return projects.filter((p) => !p.deletedAt);
 }
 
-// Changes one label's colour. Same local only write: no updatedAt change and
-// no sync push, because the colour is not a synced field yet.
+// Changes one label's colour: a real edit since checkpoint 5 (stamped and
+// synced like a rename).
 export async function setLabelColor(key: string, colorKey: string): Promise<void> {
-  const raw = await loadProjectsRaw();
-  await saveProjects(raw.map((p) => (p.key === key ? { ...p, colorKey } : p)));
+  await patchProjects((raw) => raw.map((p) => (p.key === key ? { ...p, colorKey } : p)), { stamp: true });
 }
 
 // Creates a label, or returns the existing one with the same name (trimmed,

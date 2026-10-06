@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, AppState, Platform, type AppStateStatus } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -8,7 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { requestPermissions } from '../lib/notifications';
 import { seedDevEvents } from '../lib/devSeed';
 import { migrateToSyncableSchema } from '../lib/storage';
-import { runFullSync } from '../lib/sync';
+import { runFullSync, startSyncLoop } from '../lib/sync';
 import { Colors } from '../lib/theme';
 
 Notifications.setNotificationHandler({
@@ -93,8 +93,6 @@ const errorStyles = StyleSheet.create({
 });
 
 function RootLayoutInner() {
-  const appState = useRef(AppState.currentState);
-
   useEffect(() => {
     (async () => {
       // Must run before anything else touches storage — every load/save
@@ -105,24 +103,14 @@ function RootLayoutInner() {
       // Desktop notifications are the Electron main process's job (decision
       // 017); expo-notifications has no scheduler on web.
       if (Platform.OS !== 'web') await requestPermissions();
-      // Catches anything the per-write fire-and-forget pushes in
-      // storage.ts missed (offline at the time, app killed mid-push,
-      // etc.) — a no-op if signed out, which is the default state.
+      // Pull, merge and push the outbox (checkpoint 5) — a no-op if signed
+      // out, which is the default state.
       runFullSync().catch(() => {});
     })();
 
-    // Reconcile again on every foreground, not just cold launch — the
-    // no-timer, no-polling trigger from the accounts plan. A background
-    // → active transition is the only other point a device is likely to
-    // have missed something (came back online, another device pushed
-    // changes while this one was backgrounded).
-    const subscription = AppState.addEventListener('change', (next: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && next === 'active') {
-        runFullSync().catch(() => {});
-      }
-      appState.current = next;
-    });
-    return () => subscription.remove();
+    // Foreground, every 120 s while active, and shortly after each local
+    // write (lib/sync.ts startSyncLoop, decision 013 item 5).
+    return startSyncLoop();
   }, []);
 
   return (

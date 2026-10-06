@@ -36,8 +36,8 @@ import {
   addRoutineCompletion,
   deleteRoutineCompletion,
   loadTasks,
-  updateTask,
 } from '../../lib/storage';
+import { setTaskCompleted } from '../../lib/taskActions';
 import { scheduleEventNotifications } from '../../lib/notifications';
 import AddEventModal from '../components/AddEventModal';
 import RoutineFormModal from '../components/RoutineForm';
@@ -237,7 +237,9 @@ export default function TodayScreen() {
       completed: !task.completed,
       completedAt: !task.completed ? new Date().toISOString() : undefined,
     };
-    await updateTask(updated);
+    // Through the shared function (checkpoint 5), so a recurring task made
+    // on the desktop creates its next occurrence when ticked here too.
+    await setTaskCompleted(task, !task.completed);
     setTopTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
   }
 

@@ -13,7 +13,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../lib/theme';
 import { sortTasksForDisplay, STARTER_TOP_TASKS, generateId } from '../lib/data';
-import { loadTasks, addTask, updateTask, loadProjects, shouldShowStarterRoutine } from '../lib/storage';
+import { loadTasks, addTask, loadProjects, shouldShowStarterRoutine } from '../lib/storage';
+import { setTaskCompleted } from '../lib/taskActions';
 import TaskFormModal from './components/TaskForm';
 import type { Project, Task } from '../lib/types';
 
@@ -55,11 +56,9 @@ export default function TasksScreen() {
   }
 
   async function toggleTask(task: Task) {
-    await updateTask({
-      ...task,
-      completed: !task.completed,
-      completedAt: !task.completed ? new Date().toISOString() : undefined,
-    });
+    // Through the shared function (checkpoint 5), so a recurring task made
+    // on the desktop creates its next occurrence when ticked here too.
+    await setTaskCompleted(task, !task.completed);
     loadTasks().then(setTasks);
   }
 

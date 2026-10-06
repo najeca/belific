@@ -6,6 +6,7 @@ import {
   backoffMs,
   cursorQueryFrom,
   enqueue,
+  groupByColumns,
   maxServerTime,
   mergeCompletions,
   mergeRows,
@@ -179,4 +180,14 @@ test('project mapper: colour key both ways', () => {
   assert.equal('color_key' in projectToRemote(p, { serverUpdatedAt: true, taskPipeline: false }), false);
   assert.equal(projectFromRemote({ key: 'p', name: 'W', created_at: T1, updated_at: T1, deleted_at: null, color_key: 'sky' }).colorKey, 'sky');
   assert.equal(projectFromRemote({ key: 'p', name: 'W', created_at: T1, updated_at: T1, deleted_at: null }).colorKey, undefined);
+});
+
+test('an upload batch is split by column set, so a live row never sits next to a tombstone', () => {
+  const live = { id: 'a', title: 'x', updated_at: T1 };
+  const dead = { id: 'b', title: 'y', updated_at: T1, deleted_at: T2 };
+  const live2 = { id: 'c', title: 'z', updated_at: T1 };
+  const groups = groupByColumns([live, dead, live2]);
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups[0].map((r) => r.id), ['a', 'c']);
+  assert.deepEqual(groups[1].map((r) => r.id), ['b']);
 });

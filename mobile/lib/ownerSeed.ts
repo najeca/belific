@@ -1,5 +1,5 @@
 import { kv } from './kv';
-import { loadCustomEvents, saveCustomEvents } from './storage';
+import { addCustomEvents, loadCustomEventsRaw } from './storage';
 import { formatDateKey } from './data';
 import type { CustomEvent } from './types';
 
@@ -219,10 +219,13 @@ export async function seedOwnerSchedule(): Promise<void> {
     });
   }
 
-  const existing = await loadCustomEvents();
+  // Raw rows, so local tombstones are kept and a deleted seed row is not
+  // re-created (V7h). addCustomEvents saves under the storage lock and
+  // queues the new rows for sync like any other write.
+  const existing = await loadCustomEventsRaw();
   const existingIds = new Set(existing.map((e) => e.id));
   const newEvents = seedEvents.filter((e) => !existingIds.has(e.id));
 
-  await saveCustomEvents([...existing, ...newEvents]);
+  if (newEvents.length > 0) await addCustomEvents(newEvents);
   await kv.setItem(OWNER_SEED_KEY, 'true');
 }

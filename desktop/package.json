@@ -8,10 +8,66 @@
     "desktop": "node scripts/build-web.js && electron .",
     "desktop:dev": "electron . --dev",
     "test": "node --test \"test/*.test.js\"",
-    "test:real:cp6": "electron test/real/cp6.js"
+    "test:real:cp6": "electron test/real/cp6.js",
+    "dist": "node scripts/dist.js",
+    "test:real:cp7": "node test/real/run-cp7.js",
+    "test:real:cp7:installer": "node test/real/run-cp7.js --installer"
   },
   "devDependencies": {
     "electron": "44.5.1",
     "electron-builder": "26.15.3"
-  }
+  },
+  "build": {
+    "appId": "com.najeca.belific.desktop",
+    "productName": "Belific",
+    "copyright": "Belific",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../mobile/dist",
+        "to": "web"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "artifactName": "Belific-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Belific"
+    },
+    "protocols": [
+      {
+        "name": "Belific sign in",
+        "schemes": [
+          "belific"
+        ]
+      }
+    ],
+    "publish": null
+  },
+  "author": "Belific"
 }

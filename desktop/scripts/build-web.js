@@ -10,4 +10,4 @@ const result = spawnSync('npx', ['expo', 'export', '--platform', 'web'], {
   stdio: 'inherit',
   shell: true,
 });
-process.exit(result.status === null ? 1 : result.status);
+process.exitCode = result.status === null ? 1 : result.status;

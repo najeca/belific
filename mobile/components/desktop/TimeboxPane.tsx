@@ -20,6 +20,7 @@ import {
 } from '../../lib/timebox';
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
+import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { slotLabel, taskDuration, yToMinutes } from '../../lib/drag';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
@@ -36,7 +37,8 @@ import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task } from '
 // It draws that day's CustomEvents (category colours, same sources the
 // Calendar tab reads) AND placed Tasks (a Task with this Day and a
 // startTime, decision 015). One row per task: nothing is copied. Tasks are
-// placed from the kanban card's "Schedule at" or by drag (checkpoint 4): the
+// placed ONLY by dragging them here (checkpoint 4; the card's "Schedule at"
+// was removed in 4.2, so a time is never typed): the
 // grid is a drop target (30 minute slots), a task block can be dragged to a
 // new time, onto a day column or back to the Brain Dump list, and its bottom
 // edge resizes it in 30 minute steps. Events are not draggable.
@@ -54,7 +56,7 @@ const domTimeStyle: React.CSSProperties = {
   background: Colors.background,
   color: Colors.textPrimary,
   fontSize: 14,
-  fontFamily: 'inherit',
+  fontFamily: DESKTOP_FONT_FAMILY,
   outlineColor: Colors.accent,
 };
 
@@ -327,9 +329,12 @@ export default function TimeboxPane({
                       accessibilityRole="button"
                       accessibilityLabel={`Task ${t.title}`}
                     >
-                      <Text style={[styles.blockTitle, t.completed && styles.blockTitleDone]} numberOfLines={1}>
-                        {t.title}
-                      </Text>
+                      <View style={styles.blockTitleRow}>
+                        <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone]} numberOfLines={1}>
+                          {t.title}
+                        </Text>
+                        {t.recurrence && <Ionicons name="repeat" size={12} color={Colors.textSecondary} accessibilityLabel="Repeats" />}
+                      </View>
                       {resizing !== undefined ? (
                         <Text style={styles.blockSnap}>{slotLabel(startMin, resizing)}</Text>
                       ) : (
@@ -559,7 +564,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, marginTop: 8 },
   grid: { position: 'relative' },
   hourRow: { position: 'absolute', left: 0, right: 0, height: 0, flexDirection: 'row', alignItems: 'center' },
-  hourLabel: { width: GUTTER, fontSize: 11, color: Colors.textSecondary },
+  // 12/500 with tabular figures so the hours line up in a column.
+  hourLabel: { width: GUTTER, fontSize: 12, fontWeight: '500', color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   hourLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: Colors.border },
   halfLine: { position: 'absolute', left: GUTTER, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: Colors.border, opacity: 0.5 },
   dragging: { opacity: 0.35 },
@@ -588,6 +594,8 @@ const styles = StyleSheet.create({
   block: { flex: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
   taskBlock: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.accent },
   blockTitle: { fontSize: 12, lineHeight: 16, fontWeight: '600', color: Colors.textPrimary },
+  blockTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  blockTitleFlex: { flexShrink: 1 },
   blockTitleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   blockTime: { fontSize: 11, color: Colors.textSecondary },
   overlay: {

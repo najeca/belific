@@ -197,6 +197,10 @@ export interface Task {
   // (checkpoint 5), like durationMinutes and startTime.
   recurrence?: RecurrenceRule;
   recurrenceDays?: WeekDay[];
+  // Monthly only (checkpoint 4.2): the date number it repeats on (1 to 31),
+  // clamped to shorter months, so a 31st stays the 31st after February.
+  // LOCAL ONLY until checkpoint 5 (migration 2), like the fields above.
+  recurrenceMonthDay?: number;
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';

@@ -4,7 +4,8 @@
 // section 2): completing a recurring task creates the next one, see
 // taskActions.ts. Dates are local 'YYYY-MM-DD' keys.
 import type { RecurrenceRule, Task, WeekDay } from './types.ts';
-import { WEEKDAYS, addDays, dateKey, isDateKey, parseDateKey } from './kanban.ts';
+import { WEEKDAYS, addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
+import { effectiveDays, monthDayOf } from './repeat.ts';
 
 // The chain's root id is the part before the first ':'. Existing ids (UUID v4
 // or a Date.now() based string) never contain one, and every generated
@@ -20,19 +21,40 @@ export function nextOccurrenceId(id: string, nextDueDate: string): string {
   return `${rootTaskId(id)}:${nextDueDate}`;
 }
 
-// Same day of the month next month, clamped to that month's last day
-// (31 Jan becomes 28 Feb, or 29 in a leap year).
-function addOneMonthClamped(d: Date): Date {
-  const lastOfNext = new Date(d.getFullYear(), d.getMonth() + 2, 0).getDate();
-  return new Date(d.getFullYear(), d.getMonth() + 1, Math.min(d.getDate(), lastOfNext));
+// Day `monthDay` of the month that contains `year/month`, clamped to its
+// last day (31 becomes 28 Feb, or 29 in a leap year).
+function clampedMonthDay(year: number, month: number, monthDay: number): Date {
+  const last = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(monthDay, last));
+}
+
+// The first chosen weekday strictly after `base` in a week that is "on" for a
+// repeat every `period` weeks, counted from the week of `anchor` (Monday
+// based). period 1 is every week.
+function nextChosenDay(base: Date, days: WeekDay[], anchor: Date, period: number): Date {
+  const anchorWeek = weekStartOf(anchor).getTime();
+  for (let i = 1; i <= 7 * period + 7; i++) {
+    const candidate = addDays(base, i);
+    if (!days.includes(WEEKDAYS[candidate.getDay()] as WeekDay)) continue;
+    // Calendar weeks between the two Mondays (rounded: clocks changing make a
+    // week 167 or 169 hours).
+    const weeks = Math.round((weekStartOf(candidate).getTime() - anchorWeek) / (7 * 24 * 60 * 60 * 1000));
+    if (((weeks % period) + period) % period === 0) return candidate;
+  }
+  return addDays(base, 7 * period);
 }
 
 // The Day of the next occurrence, or null if the task does not repeat.
 //  - daily: +1 day
-//  - weekly with weekdays: the next selected weekday after the current Day
-//  - weekly with none selected: +7 days
-//  - biweekly (every 2 weeks): +14 days; triweekly: +21 days
-//  - monthly: same day of the month next month, clamped to the month end
+//  - weekly (Specific days): the next chosen weekday
+//  - biweekly (Every 2 weeks): the next chosen weekday in an "on" week; the
+//    week of the task's Day is "on", then every other week. triweekly: every
+//    third week, same rule (never offered by an editor; kept for old data).
+//  - weekly or biweekly with no days chosen (older data): the weekday of the
+//    task's Day
+//  - monthly: the next date with its recurrenceMonthDay (or the Day's date
+//    number), clamped to shorter months
+// Every "next" is STRICTLY AFTER the base.
 // The count starts from the LATER of the task's Day and today (a task with no,
 // or an invalid, Day counts from today), so the next occurrence is never in the
 // past: completing an overdue weekly task today gives the next weekday after
@@ -40,30 +62,28 @@ function addOneMonthClamped(d: Date): Date {
 // day agree on the id; if they complete on different days they could create
 // two different next occurrences, which is accepted.
 export function nextOccurrence(
-  task: { dueDate?: string; recurrence?: RecurrenceRule; recurrenceDays?: WeekDay[] },
+  task: { dueDate?: string; recurrence?: RecurrenceRule; recurrenceDays?: WeekDay[]; recurrenceMonthDay?: number },
   todayKey: string,
 ): string | null {
   if (!task.recurrence) return null;
   const dayKey = isDateKey(task.dueDate) ? task.dueDate : todayKey;
   const base = parseDateKey(dayKey > todayKey ? dayKey : todayKey);
+  const anchor = parseDateKey(dayKey);
   switch (task.recurrence) {
     case 'daily':
       return dateKey(addDays(base, 1));
-    case 'weekly': {
-      const wanted = task.recurrenceDays ?? [];
-      if (wanted.length === 0) return dateKey(addDays(base, 7));
-      for (let i = 1; i <= 7; i++) {
-        const candidate = addDays(base, i);
-        if (wanted.includes(WEEKDAYS[candidate.getDay()] as WeekDay)) return dateKey(candidate);
-      }
-      return dateKey(addDays(base, 7));
-    }
+    case 'weekly':
+      return dateKey(nextChosenDay(base, effectiveDays(task, todayKey), anchor, 1));
     case 'biweekly':
-      return dateKey(addDays(base, 14));
+      return dateKey(nextChosenDay(base, effectiveDays(task, todayKey), anchor, 2));
     case 'triweekly':
-      return dateKey(addDays(base, 21));
-    case 'monthly':
-      return dateKey(addOneMonthClamped(base));
+      return dateKey(nextChosenDay(base, effectiveDays(task, todayKey), anchor, 3));
+    case 'monthly': {
+      const md = monthDayOf(task, todayKey);
+      const sameMonth = clampedMonthDay(base.getFullYear(), base.getMonth(), md);
+      if (sameMonth.getTime() > base.getTime()) return dateKey(sameMonth);
+      return dateKey(clampedMonthDay(base.getFullYear(), base.getMonth() + 1, md));
+    }
     default:
       return null;
   }
@@ -85,6 +105,7 @@ export function buildNextOccurrence(task: Task, todayKey: string, nowIso: string
     durationMinutes: task.durationMinutes,
     recurrence: task.recurrence,
     recurrenceDays: task.recurrenceDays,
+    recurrenceMonthDay: task.recurrenceMonthDay,
     completed: false,
     createdAt: nowIso,
     updatedAt: nowIso,

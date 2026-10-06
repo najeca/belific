@@ -20,8 +20,8 @@ import {
   weekStartOf,
   type ColumnItem,
 } from '../../lib/kanban';
-import { DEFAULT_TASK_MINUTES, formatMinutes, toMinutes } from '../../lib/timebox';
 import HoverPressable from './HoverPressable';
+import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { stepWeekStart, taskDuration } from '../../lib/drag';
@@ -53,7 +53,7 @@ const domTimeStyle: React.CSSProperties = {
   background: Colors.background,
   color: Colors.textPrimary,
   fontSize: 14,
-  fontFamily: 'inherit',
+  fontFamily: DESKTOP_FONT_FAMILY,
   outlineColor: Colors.accent,
 };
 const COLUMN_WIDTH = 224;
@@ -78,7 +78,6 @@ export default function KanbanPane({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [moving, setMoving] = useState<Task | null>(null);
-  const [scheduling, setScheduling] = useState<Task | null>(null);
   const [weekStart, setWeekStart] = useState(() => weekStartOf(new Date()));
   const [jumpOpen, setJumpOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -190,20 +189,6 @@ export default function KanbanPane({
     onChanged();
   }
 
-  // "Schedule at": writes Task.startTime (decision 015). The block length is
-  // durationMinutes, defaulting to 30 when the task has none yet.
-  async function scheduleAt(task: Task, time: string) {
-    setScheduling(null);
-    await updateTask({ ...task, startTime: time, durationMinutes: task.durationMinutes ?? DEFAULT_TASK_MINUTES });
-    onChanged();
-  }
-
-  async function unschedule(task: Task) {
-    setScheduling(null);
-    await updateTask({ ...task, startTime: undefined });
-    onChanged();
-  }
-
   const dayColumns: BoardColumn[] = days.map((d) => ({
     id: d.key,
     title: formatDayTitle(d.key, todayKey),
@@ -300,14 +285,6 @@ export default function KanbanPane({
                           accessibilityLabel={`Remove day from ${task.title}`}
                         >
                           <Ionicons name="close-circle-outline" size={16} color={Colors.textSecondary} />
-                        </Pressable>
-                        <Pressable
-                          onPress={() => setScheduling(task)}
-                          style={styles.moveBtn}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Schedule ${task.title} at a time`}
-                        >
-                          <Ionicons name="time-outline" size={16} color={Colors.textSecondary} />
                         </Pressable>
                         <Pressable
                           onPress={() => setMoving(task)}
@@ -454,95 +431,6 @@ export default function KanbanPane({
         </View>
       )}
 
-      {scheduling && (
-        <SchedulePopover
-          key={scheduling.id}
-          task={scheduling}
-          onClose={() => setScheduling(null)}
-          onSchedule={(time) => scheduleAt(scheduling, time)}
-          onUnschedule={() => unschedule(scheduling)}
-        />
-      )}
-    </View>
-  );
-}
-
-// "Schedule at" popover: a time input for a task that already has a Day;
-// "Choose a day first" for one that does not. Web <input type="time">, never
-// DateTimePicker.
-function SchedulePopover({
-  task,
-  onClose,
-  onSchedule,
-  onUnschedule,
-}: {
-  task: Task;
-  onClose: () => void;
-  onSchedule: (time: string) => void;
-  onUnschedule: () => void;
-}) {
-  const [time, setTime] = useState(task.startTime ?? '09:00');
-  const valid = toMinutes(time) !== null;
-  const hasDay = !!task.dueDate;
-
-  return (
-    <View style={styles.menuOverlay}>
-      <Pressable style={styles.menuBackdrop} onPress={onClose} accessibilityLabel="Close schedule" />
-      <View style={styles.schedule}>
-        <Text style={styles.menuHeading} numberOfLines={1}>
-          Schedule at
-        </Text>
-        <Text style={styles.scheduleTask} numberOfLines={2}>
-          {task.title}
-        </Text>
-        {hasDay ? (
-          <>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              style={domTimeStyle}
-              aria-label="Start time"
-            />
-            <Text style={styles.scheduleHint}>
-              Block length {formatMinutes(task.durationMinutes ?? DEFAULT_TASK_MINUTES)}
-              {task.durationMinutes ? '' : ' (default; set a duration on the task to change it)'}
-            </Text>
-            <View style={styles.scheduleFooter}>
-              {task.startTime ? (
-                <Pressable onPress={onUnschedule} accessibilityRole="button" accessibilityLabel="Unschedule">
-                  <Text style={styles.scheduleDanger}>Unschedule</Text>
-                </Pressable>
-              ) : (
-                <View />
-              )}
-              <View style={{ flex: 1 }} />
-              <Pressable onPress={onClose} style={styles.scheduleCancel} accessibilityRole="button" accessibilityLabel="Cancel">
-                <Text style={styles.scheduleCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => valid && onSchedule(time)}
-                disabled={!valid}
-                style={[styles.scheduleSave, !valid && styles.scheduleSaveDisabled]}
-                accessibilityRole="button"
-                accessibilityLabel="Save schedule"
-              >
-                <Text style={styles.scheduleSaveText}>Save</Text>
-              </Pressable>
-            </View>
-          </>
-        ) : (
-          <>
-            <Text style={styles.scheduleHint}>Choose a day first. Use the calendar icon to move this task onto a day.</Text>
-            <View style={styles.scheduleFooter}>
-              <View style={{ flex: 1 }} />
-              <Pressable onPress={onClose} style={styles.scheduleCancel} accessibilityRole="button" accessibilityLabel="Close">
-                <Text style={styles.scheduleCancelText}>Close</Text>
-              </Pressable>
-            </View>
-          </>
-        )}
-      </View>
     </View>
   );
 }
@@ -635,7 +523,8 @@ const styles = StyleSheet.create({
   },
   columnTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
   columnTitleToday: { color: Colors.accentText },
-  count: { flex: 1, fontSize: 12, color: Colors.textSecondary },
+  // Same size and weight as the day title beside it (it read thin at 12/400).
+  count: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   columnList: { flex: 1 },
   columnTarget: { backgroundColor: Colors.background, borderRadius: 10, outlineWidth: 1, outlineStyle: 'solid', outlineColor: Colors.accent },
   dragging: { opacity: 0.4 },
@@ -654,7 +543,8 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 4 },
   metaText: { fontSize: 12, color: Colors.textSecondary },
   chip: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '500',
     color: Colors.textSecondary,
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -664,23 +554,6 @@ const styles = StyleSheet.create({
   },
   actions: { flexDirection: 'row', alignItems: 'center' },
   moveBtn: { padding: 4 },
-  schedule: {
-    width: 260,
-    padding: 16,
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  scheduleTask: { fontSize: 14, color: Colors.textPrimary, marginBottom: 10 },
-  scheduleHint: { marginTop: 8, fontSize: 12, color: Colors.textSecondary },
-  scheduleFooter: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
-  scheduleDanger: { fontSize: 13, fontWeight: '600', color: Colors.danger },
-  scheduleCancel: { paddingHorizontal: 10, height: 34, justifyContent: 'center' },
-  scheduleCancelText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-  scheduleSave: { paddingHorizontal: 16, height: 34, justifyContent: 'center', borderRadius: 12, backgroundColor: Colors.accent },
-  scheduleSaveDisabled: { opacity: 0.4 },
-  scheduleSaveText: { fontSize: 13, fontWeight: '700', color: Colors.onAccent },
   menuOverlay: {
     position: 'absolute',
     top: 0,

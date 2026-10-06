@@ -43,9 +43,11 @@ test('weekly with weekdays: the next selected weekday after the Day', () => {
   assert.equal(next('2028-02-25', 'weekly', ['Tue']), '2028-02-29'); // across a leap day
 });
 
-test('every 2 weeks: +14 days (weekdays are ignored); every 3 weeks: +21', () => {
+test('every 2 weeks with no days: the weekday of the Day, every other week (+14)', () => {
   assert.equal(next('2026-10-05', 'biweekly'), '2026-10-19');
-  assert.equal(next('2026-10-05', 'biweekly', ['Fri']), '2026-10-19');
+  // With days (checkpoint 4.2): the Day's own week is an "on" week, so a
+  // Monday task repeating on Fri comes back that Friday.
+  assert.equal(next('2026-10-05', 'biweekly', ['Fri']), '2026-10-09');
   assert.equal(next('2026-12-23', 'biweekly'), '2027-01-06');
   assert.equal(next('2028-02-20', 'biweekly'), '2028-03-05');
   assert.equal(next('2026-10-05', 'triweekly'), '2026-10-26');
@@ -82,7 +84,8 @@ test('the count starts from the later of the Day and today', () => {
   assert.equal(next('2026-09-21', 'weekly', ['Mon'], TODAY), '2026-10-12'); // a Monday task done on a Monday
   assert.equal(next('2026-09-21', 'weekly', ['Mon', 'Thu'], TODAY), '2026-10-08');
   assert.equal(next('2026-09-21', 'biweekly', undefined, TODAY), '2026-10-19');
-  assert.equal(next('2026-08-31', 'monthly', undefined, TODAY), '2026-11-05');
+  // Monthly keeps its date number (checkpoint 4.2): the 31st done late is the 31st.
+  assert.equal(next('2026-08-31', 'monthly', undefined, TODAY), '2026-10-31');
   // the same Day as today
   assert.equal(next(TODAY, 'daily', undefined, TODAY), '2026-10-06');
 });

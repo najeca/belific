@@ -8,6 +8,34 @@ to know the current version and recent history.
 
 ---
 
+## 2.8.2 — 2026-10-06
+
+**Desktop Home: time by drag only, clearer Repeat, matching numbers (checkpoint 4.2, web/Electron only; the iPhone app is unchanged).**
+
+- The kanban card's "Schedule at" clock and its time popover are gone. A task
+  gets a time only by being dragged onto the Timebox, and loses it by being
+  dragged off. Move to day (Remove day, Today, Tomorrow, a date) is unchanged.
+- Repeat in the task editor: Does not repeat, Every day, Specific days, Every 2
+  weeks, Monthly. Specific days and Every 2 weeks take any mix of the seven day
+  chips (at least one), with Weekdays and Weekends shortcuts. A summary line
+  always says exactly what will happen ("Repeats every Wed, Fri and Sun",
+  "Repeats every other week on Mon and Thu", "Repeats on the 14th of every
+  month"), including "starts Wed 14 Oct" when the Day moves to the first
+  chosen weekday. "Weekly" is never shown.
+- Completing a repeating task creates the next one on the next chosen day
+  strictly after the later of its Day and today. Every 2 weeks counts from the
+  week of the task's Day. Monthly keeps its date number (a new local only
+  `recurrenceMonthDay`), so a 31st stays the 31st after a short month and a
+  late completion no longer shifts the date. Older weekly tasks with no days
+  repeat on their Day's weekday.
+- Brain Dump rows show a short repeat form ("Wed Fri Sun"); Timebox blocks now
+  show the repeat mark cards already had.
+- Numbers: the Day, jump-to-week, move-to-date and duration fields used Times
+  New Roman (they inherited the page's default font); they now use the app's
+  font. Timebox hour labels, column counts and duration chips are slightly
+  larger and heavier so figures match the letters beside them; hour labels and
+  counts use tabular figures.
+
 ## 2.8.1 — 2026-10-06
 
 **Desktop Home: label colours and custom durations (checkpoint 4.1, web/Electron only; the iPhone app is unchanged).**

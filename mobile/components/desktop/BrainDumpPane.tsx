@@ -7,6 +7,7 @@ import { splitThoughts, rowId, type ThoughtRow } from '../../lib/thoughts';
 import { loadBrainDumpItems, loadTasks } from '../../lib/storage';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
+import { shortRepeat } from '../../lib/repeat';
 import { convertDumpItem, createThought, setTaskCompleted } from '../../lib/taskActions';
 import HoverPressable from './HoverPressable';
 import { useDrag } from './DragProvider';
@@ -164,7 +165,12 @@ export default function BrainDumpPane({
                         </View>
                       )}
                       {duration && <Text style={styles.chip}>{duration}</Text>}
-                      {task.recurrence && <Ionicons name="repeat" size={13} color={Colors.textSecondary} />}
+                      {task.recurrence && (
+                        <View style={styles.labelTag} accessibilityLabel={`Repeats ${shortRepeat(task, todayKey)}`}>
+                          <Ionicons name="repeat" size={13} color={Colors.textSecondary} />
+                          <Text style={styles.metaText}>{shortRepeat(task, todayKey)}</Text>
+                        </View>
+                      )}
                     </View>
                   )}
                 </View>
@@ -279,7 +285,8 @@ const styles = StyleSheet.create({
   labelTag: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   chip: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '500',
     color: Colors.textSecondary,
     paddingHorizontal: 6,
     paddingVertical: 1,

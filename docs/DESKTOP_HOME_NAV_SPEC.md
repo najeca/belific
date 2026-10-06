@@ -130,7 +130,13 @@ rather than Profile, since it's routine/quest data, not account data.
   minutes; an older stored value such as 15m shows as is until changed),
   priority, label (with the selected label's eight colour swatches), notes, Day (a
   web date input, min today, empty means no Day) and Repeat (Does not repeat,
-  Daily, Weekly with weekday chips, Every 2 weeks, Monthly), plus a Done toggle
+  Every day, Specific days, Every 2 weeks, Monthly; Specific days and Every 2
+  weeks show seven day chips, any combination, at least one, plus Weekdays and
+  Weekends; a summary line underneath always says exactly what will happen,
+  for example "Repeats every Wed, Fri and Sun, starts Wed 14 Oct" when the Day
+  moves to the first chosen weekday on or after it; "Weekly" is never shown;
+  Monthly repeats on the Day's date number, the last day in shorter months),
+  plus a Done toggle
   and delete with an inline confirm. Everything is editable at any time, before
   or after scheduling. Opening and saving a legacy item converts it into a Task
   in one step (nothing is lost). Giving a task a Day moves it off the left list
@@ -141,7 +147,13 @@ rather than Profile, since it's routine/quest data, not account data.
   can be chosen. The board never creates tasks.
   Only the next occurrence of a recurring task exists: completing one (a
   checkbox or the Done toggle, both through `setTaskCompleted`) creates the
-  next, counted from the later of its Day and today.
+  next on the next chosen day strictly after the later of its Day and today
+  (Every 2 weeks: in the weeks counted from the week of its Day). Cards and
+  Timebox blocks show a small repeat mark; Brain Dump rows show a short form
+  such as "Wed Fri Sun"; only the editor lists the days in full.
+  **A task gets a time only by being dragged onto the Timebox** (2.8.2): there
+  is no time input on cards or in the editor. Dragging a block off the
+  Timebox (to a day or the left list) removes the time.
 - **Week board (the Plan)** — forward only. The days of the displayed week;
   there is no Unscheduled column (the left pane is the list of tasks with no
   Day). Weeks start on Monday. The current week shows today to Sunday (past
@@ -154,7 +166,7 @@ rather than Profile, since it's routine/quest data, not account data.
   Today column with a muted "from <date>" tag, only while the current week is
   displayed; finished past tasks are not shown. Clicking anywhere on a card
   opens the same editor; the complete checkbox and the hover buttons (remove
-  day, schedule at a time, move to day) do not. "Move to day" offers Remove day,
+  day, move to day) do not. "Move to day" offers Remove day,
   Today, Tomorrow and a date input (min today); if the date is outside the
   displayed week a quiet line ("Moved to Mon 2 Nov") confirms it.
 - **Drag and drop (2.8.0, checkpoint 4, decision 019)** — pointer based, mouse

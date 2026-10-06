@@ -13,6 +13,21 @@ import {
 } from '../../lib/duration';
 import { LABEL_COLORS, labelColor, nextColorKey } from '../../lib/labelColors';
 import { loadLabels, setLabelColor } from '../../lib/labels';
+import { DESKTOP_FONT_FAMILY } from './desktopFont';
+import {
+  REPEAT_CHOICES,
+  WEEKDAY_SET,
+  WEEKEND_SET,
+  WEEK_ORDER,
+  effectiveDays,
+  repeatKindOf,
+  repeatSummary,
+  resolveRepeat,
+  sameDays,
+  toggleDay,
+  weekdayOf,
+  type RepeatKind,
+} from '../../lib/repeat';
 import { convertDumpItem, setTaskCompleted } from '../../lib/taskActions';
 import {
   updateTask,
@@ -20,7 +35,7 @@ import {
   deleteBrainDumpItem,
   addProject,
 } from '../../lib/storage';
-import type { BrainDumpItem, EventPriority, Project, RecurrenceRule, Task, WeekDay } from '../../lib/types';
+import type { BrainDumpItem, EventPriority, Project, Task, WeekDay } from '../../lib/types';
 
 // Desktop task editor: a centred overlay on Desktop Home, never a new screen
 // (DESKTOP_HOME_NAV_SPEC standing rule). It never creates tasks (a thought
@@ -36,19 +51,6 @@ export type TaskModalState =
 
 type PriorityChoice = 'normal' | EventPriority;
 
-// Repeat choices in the form. (triweekly exists in the type but is not offered.)
-type RepeatChoice = 'none' | Exclude<RecurrenceRule, 'triweekly'>;
-
-const REPEATS: Array<{ key: RepeatChoice; label: string }> = [
-  { key: 'none', label: 'Does not repeat' },
-  { key: 'daily', label: 'Daily' },
-  { key: 'weekly', label: 'Weekly' },
-  { key: 'biweekly', label: 'Every 2 weeks' },
-  { key: 'monthly', label: 'Monthly' },
-];
-
-// Monday first for display.
-const WEEKDAY_CHOICES: WeekDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const PRIORITIES: Array<{ key: PriorityChoice; label: string }> = [
   { key: 'normal', label: 'Normal' },
@@ -64,7 +66,7 @@ const domSelectStyle: React.CSSProperties = {
   background: Colors.background,
   color: Colors.textPrimary,
   fontSize: 13,
-  fontFamily: 'inherit',
+  fontFamily: DESKTOP_FONT_FAMILY,
   outlineColor: Colors.accent,
 };
 
@@ -76,7 +78,7 @@ const domInputStyle: React.CSSProperties = {
   background: Colors.background,
   color: Colors.textPrimary,
   fontSize: 14,
-  fontFamily: 'inherit',
+  fontFamily: DESKTOP_FONT_FAMILY,
   outlineColor: Colors.accent,
 };
 
@@ -106,14 +108,17 @@ export default function TaskModal({
   const [labelText, setLabelText] = useState('');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [repeat, setRepeat] = useState<RepeatChoice>(
-    editTask?.recurrence && editTask.recurrence !== 'triweekly' ? editTask.recurrence : 'none',
-  );
-  const [repeatDays, setRepeatDays] = useState<WeekDay[]>(editTask?.recurrenceDays ?? []);
   const [done, setDone] = useState(editTask?.completed ?? false);
   // No past dates can be chosen. A task that already has a past Day keeps it
   // until the user changes it.
   const todayKey = dateKey(new Date());
+  // Repeat (checkpoint 4.2). An older weekly task with no days shows the
+  // weekday of its Day, which is what it has always repeated on.
+  const [repeat, setRepeat] = useState<RepeatKind>(repeatKindOf(editTask?.recurrence));
+  const [repeatDays, setRepeatDays] = useState<WeekDay[]>(() => {
+    const kind = repeatKindOf(editTask?.recurrence);
+    return editTask && (kind === 'days' || kind === 'biweekly') ? effectiveDays(editTask, todayKey) : [];
+  });
 
   useEffect(() => {
     loadLabels().then(setProjects);
@@ -132,12 +137,27 @@ export default function TaskModal({
 
   if (Platform.OS !== 'web') return null;
 
-  const canSave = title.trim().length > 0 && !saving;
+  const dayOrNone = isDateKey(day) ? day : undefined;
+  const resolved = resolveRepeat(repeat, repeatDays, dayOrNone, todayKey, editTask?.recurrenceMonthDay);
+  const summary = repeatSummary(repeat, repeatDays, dayOrNone, todayKey, editTask?.recurrenceMonthDay);
+  // A day based repeat needs at least one day.
+  const canSave = title.trim().length > 0 && !saving && resolved !== null;
+
+  function chooseRepeat(kind: RepeatKind) {
+    setRepeat(kind);
+    // Switching to a day based repeat with nothing chosen starts from the
+    // weekday of the Day, if there is one.
+    if ((kind === 'days' || kind === 'biweekly') && repeatDays.length === 0 && dayOrNone) {
+      setRepeatDays([weekdayOf(dayOrNone)]);
+    }
+  }
 
   async function handleSave() {
-    if (!canSave) return;
+    if (!canSave || !resolved) return;
     setSaving(true);
-    const dueDate = isDateKey(day) ? day : undefined;
+    // A day based repeat moves the Day to the first chosen weekday on or
+    // after it (the summary line says so before saving).
+    const dueDate = resolved.dueDate;
     const fields = {
       title: title.trim(),
       dueDate,
@@ -145,8 +165,9 @@ export default function TaskModal({
       projectKey,
       notes: notes.trim().length > 0 ? notes.trim() : undefined,
       durationMinutes: duration,
-      recurrence: repeat === 'none' ? undefined : repeat,
-      recurrenceDays: repeat === 'weekly' && repeatDays.length > 0 ? repeatDays : undefined,
+      recurrence: resolved.recurrence,
+      recurrenceDays: resolved.recurrenceDays,
+      recurrenceMonthDay: resolved.recurrenceMonthDay,
     };
     if (editTask) {
       // A time slot only makes sense on a day: clearing the Day unplaces it.
@@ -373,32 +394,36 @@ export default function TaskModal({
 
           <Text style={styles.label}>Repeat</Text>
           <View style={styles.chips}>
-            {REPEATS.map((r) => (
-              <Chip key={r.key} label={r.label} selected={repeat === r.key} onPress={() => setRepeat(r.key)} />
+            {REPEAT_CHOICES.map((r) => (
+              <Chip key={r.kind} label={r.label} selected={repeat === r.kind} onPress={() => chooseRepeat(r.kind)} />
             ))}
           </View>
-          {repeat === 'weekly' && (
-            <View style={[styles.chips, styles.weekdayRow]}>
-              {WEEKDAY_CHOICES.map((w) => (
-                <Chip
-                  key={w}
-                  label={w}
-                  selected={repeatDays.includes(w)}
-                  onPress={() => setRepeatDays((prev) => (prev.includes(w) ? prev.filter((x) => x !== w) : [...prev, w]))}
-                />
-              ))}
-            </View>
+          {(repeat === 'days' || repeat === 'biweekly') && (
+            <>
+              <View style={[styles.chips, styles.weekdayRow]}>
+                {WEEK_ORDER.map((w) => (
+                  <Chip
+                    key={w}
+                    label={w}
+                    selected={repeatDays.includes(w)}
+                    onPress={() => setRepeatDays((prev) => toggleDay(prev, w))}
+                  />
+                ))}
+              </View>
+              <View style={[styles.chips, styles.weekdayRow]}>
+                <Pressable onPress={() => setRepeatDays(WEEKDAY_SET)} accessibilityRole="button" accessibilityLabel="Weekdays">
+                  <Text style={[styles.link, sameDays(repeatDays, WEEKDAY_SET) && styles.linkOn]}>Weekdays</Text>
+                </Pressable>
+                <Pressable onPress={() => setRepeatDays(WEEKEND_SET)} accessibilityRole="button" accessibilityLabel="Weekends">
+                  <Text style={[styles.link, sameDays(repeatDays, WEEKEND_SET) && styles.linkOn]}>Weekends</Text>
+                </Pressable>
+              </View>
+            </>
           )}
-          {repeat !== 'none' && (
-            <Text style={styles.hint}>
-              {repeat === 'weekly' && repeatDays.length === 0
-                ? 'Every 7 days from the Day.'
-                : repeat === 'weekly'
-                  ? 'On the selected days.'
-                  : 'The next one is created when you complete this one.'}
-              {!day ? ' With no Day, it counts from today.' : ''}
-            </Text>
-          )}
+          {/* Always says exactly what will happen. */}
+          <Text style={[styles.hint, resolved === null && styles.hintWarn]} accessibilityLabel="Repeat summary">
+            {summary}
+          </Text>
 
           <View style={styles.footer}>
             <View style={styles.footerLeft}>
@@ -498,6 +523,8 @@ const styles = StyleSheet.create({
   doneText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   weekdayRow: { marginTop: 8 },
   hint: { marginTop: 6, fontSize: 12, color: Colors.textSecondary },
+  hintWarn: { color: Colors.danger },
+  linkOn: { textDecorationLine: 'underline' },
   titleInput: {
     height: 40,
     paddingHorizontal: 12,

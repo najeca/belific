@@ -146,9 +146,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <View style={styles.row}>
                 <Pressable
                   onPress={() => startAppleSignIn()}
-                  disabled={ui.busy}
                   accessibilityRole="button"
-                  style={[styles.btnPrimary, ui.busy && styles.disabled]}
+                  style={styles.btnPrimary}
                 >
                   <Text style={styles.btnPrimaryText}>Sign in with Apple</Text>
                 </Pressable>
@@ -159,6 +158,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             <Text style={styles.hint}>
               This computer can't keep a sign in safely, so a sign in lasts until you close Belific.
             </Text>
+          )}
+          {ui.revokePending && (
+            <Text style={styles.hint}>Signed out here. Ending the session on the server is waiting for a connection and will retry.</Text>
           )}
           {(ui.message || note) && <Text style={styles.hint}>{note ?? ui.message}</Text>}
 

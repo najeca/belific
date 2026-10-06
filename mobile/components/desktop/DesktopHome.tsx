@@ -7,7 +7,8 @@ import TimeboxPane from './TimeboxPane';
 import TaskModal, { type TaskModalState } from './TaskModal';
 import DragProvider from './DragProvider';
 import SettingsModal from './SettingsModal';
-import { listenForAuthCallbacks } from '../../lib/desktopAuth';
+import AccountChoiceModal from './AccountChoiceModal';
+import { listenForAuthCallbacks, refreshRevokePending, restoreAccountChoice, retryPendingRevoke } from '../../lib/desktopAuth';
 import { sendNotifyPayload } from '../../lib/desktopNotify';
 import { runFullSync, subscribeSyncStatus } from '../../lib/sync';
 
@@ -22,6 +23,15 @@ export default function DesktopHome() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Validated sign in callbacks from the main process (decision 012).
   useEffect(() => listenForAuthCallbacks(), []);
+  // An unanswered account choice survives a relaunch, and a sign out whose
+  // server revoke failed is retried on launch and when the network returns.
+  useEffect(() => {
+    restoreAccountChoice();
+    refreshRevokePending().then(() => retryPendingRevoke());
+    const online = () => retryPendingRevoke();
+    window.addEventListener('online', online);
+    return () => window.removeEventListener('online', online);
+  }, []);
   // Notifications (decision 017): tell the main process what is coming up in
   // the next 48 hours whenever data changes, after a sync, and every minute
   // (so a day change is picked up). While the window is hidden in the tray the
@@ -89,6 +99,7 @@ export default function DesktopHome() {
         </View>
       </View>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      <AccountChoiceModal />
       {modal && <TaskModal state={modal} onClose={closeModal} onSaved={onSaved} />}
     </View>
     </DragProvider>

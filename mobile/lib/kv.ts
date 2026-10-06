@@ -41,6 +41,8 @@ export interface BelificDesktop {
   auth: {
     status(): Promise<{ persistent: boolean }>;
     begin(url: string): Promise<{ ok: boolean; reason?: string }>;
+    // Reports the code exchange result; a failure keeps the sign in alive.
+    finish(success: boolean): Promise<{ ended: boolean }>;
     cancel(): Promise<void>;
     onCallback(listener: (payload: { code?: string; flowId?: string | null; error?: boolean }) => void): () => void;
   };
@@ -55,6 +57,8 @@ export interface BelificDesktop {
   actions: {
     exportData(): Promise<void>;
     openBackups(): Promise<void>;
+    // A labelled safety backup of the data folder (only 'account-switch').
+    backupNow(label: 'account-switch'): Promise<void>;
   };
 }
 

@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.11.1 — 2026-10-06
+
+**Desktop sign in hardening (checkpoint 6.1, fixes from the security review of checkpoint 6). The iPhone and the sync rules are unchanged.**
+
+- A stray `belific://auth-callback` link can no longer destroy a sign in in progress. A failed code exchange keeps the pending sign in alive (the PKCE verifier is restored from a private copy); it closes after 3 failed attempts, a successful sign in, cancel, sign out or the 10 minute expiry.
+- Signing in as a different account (or after deleting the account) on a computer that has local data now asks first: upload this computer's data to the account, or start empty (a backup is kept). Nothing is uploaded until you choose, even after a restart.
+- Session files are never included in backups or in Export data. If sign out cannot reach the server, the revoke is retried when the network is back and at launch; Settings shows a quiet note meanwhile.
+- PKCE verifiers are kept in memory only and wiped when a sign in ends. If encrypting the session fails, Settings shows the warning instead of claiming it is saved.
+- Links open in the browser only for Belific's Supabase sign in, the privacy and terms pages (najeca.github.io/belific) and the support page (github.com/najeca/belific/issues).
+- The page can no longer read or write session files or the first sign in backup flag; labelled backup folders are never replaced; a second sign in cannot start while one is running; the content security policy gained object-src, base-uri, form-action and frame-ancestors.
+
+---
+
 ## 2.11.0 — 2026-10-06
 
 **Desktop notifications, tray and a Windows installer (checkpoint 7, decisions 017 and 020). The iPhone is unchanged.**

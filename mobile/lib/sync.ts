@@ -175,7 +175,21 @@ export function subscribeSyncStatus(listener: (s: PublicSyncStatus) => void): ()
 // A full sync: pull every table, merge, push the outbox. Safe to call any
 // time; signed out it returns at once. Existing signed in iPhones turn the
 // outbox on here on their first launch of this version.
+// Desktop only: after a sign in as a different account the person must choose
+// what happens to this computer's data first (cp6.1). Nothing syncs until then.
+// The key is read as a literal so this file stays free of desktop code; on
+// iOS belificDesktop is absent and this never reads anything.
+async function accountChoiceHeld(): Promise<boolean> {
+  if (!globalThis.belificDesktop) return false;
+  try {
+    return (await kv.getItem('belific_account_choice_pending')) !== null;
+  } catch {
+    return true;
+  }
+}
+
 export async function runFullSync(): Promise<void> {
+  if (await accountChoiceHeld()) return;
   const userId = await getUserId();
   signedIn = userId !== null;
   if (signedIn) await setSyncEnabled(true);
@@ -185,6 +199,7 @@ export async function runFullSync(): Promise<void> {
 // After a successful sign in: the first full pass uploads local rows,
 // downloads the account's rows and resolves same-id rows by the rules.
 export async function onSignedIn(): Promise<void> {
+  if (await accountChoiceHeld()) return;
   signedIn = true;
   await setSyncEnabled(true);
   await engine.sync();

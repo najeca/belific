@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 2.12.3 — 2026-10-07
+
+**Fix: task cards no longer shift when the pointer arrives or leaves. Desktop only.**
+
+- The calendar and overflow icons on a card used to appear on hover and pushed the title and controls by a few pixels, so a quick click could land on the wrong thing. They now keep their space and only fade in; nothing in the card moves.
+
+---
+
 ## 2.12.2 — 2026-10-07
 
 **"Daily" is now an explicit choice in the Repeat dropdown. Desktop only.**

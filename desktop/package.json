@@ -14,6 +14,7 @@
     "test:real:cp8b": "node test/real/run-cp8b.js",
     "test:real:cp8c": "electron test/real/cp8c.js",
     "test:real:cp8d": "electron test/real/cp8d.js",
+    "test:real:cp8e": "electron test/real/cp8e.js",
     "test:real:cp7:installer": "node test/real/run-cp7.js --installer"
   },
   "devDependencies": {

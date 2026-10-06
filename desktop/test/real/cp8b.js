@@ -73,6 +73,10 @@ async function run() {
   await app.whenReady();
   const win = await C.waitFor(() => C.firstWindow());
   const js = (code) => win.webContents.executeJavaScript(code, true);
+  // A drag's dwell runs on animation frames, which only tick in a focused window.
+  win.show();
+  win.focus();
+  win.webContents.focus();
   const body = () => js('document.body.innerText');
   await C.waitFor(async () => (await body()).includes('Alpha') || PHASE === '2', 20000);
 
@@ -336,6 +340,7 @@ async function run() {
   await dragOnto(inCard('Bravo', '[aria-label="Title Bravo"]'), q(cardSel('Delta two')), 40);
   check('a quick release over a card is a normal Day drop: no subtask, nothing deleted', !(taskNamed('Delta two').subtasks || []).length && !!taskNamed('Bravo') && !rawTask('Bravo').deletedAt);
   const dropPoint = await dragOnto(inCard('Bravo', '[aria-label="Title Bravo"]'), q(cardSel('Delta two')), 500, false);
+  await C.waitFor(async () => (await body()).includes('Add as subtask'), 3000).catch(() => {});
   check('hovering the card body shows the "Add as subtask" highlight', (await body()).includes('Add as subtask'));
   check('the highlight is not a modal', await noNewOverlay());
   mouse('mouseUp', dropPoint.x, dropPoint.y);

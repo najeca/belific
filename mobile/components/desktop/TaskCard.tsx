@@ -186,24 +186,22 @@ export default function TaskCard({
                   {task.title}
                 </Text>
               )}
-              {(hovered || dayOpen) && (
-                <HeaderIcon id={`${id}:day`} icon="calendar-outline" a11y={`Move ${task.title} to day`}>
+              {/* Both icons are always laid out and only fade in on hover, so nothing
+                  in the card moves when the pointer arrives or leaves. */}
+              <HeaderIcon id={`${id}:day`} icon="calendar-outline" a11y={`Move ${task.title} to day`} shown={!renaming && (hovered || dayOpen)}>
                   {(anchor) => (
                     <Popover id={`${id}:day`} anchor={anchor} width={248}>
                       <MoveToDayBody task={task} ops={wrapped} done={() => closePopover(true)} />
                     </Popover>
                   )}
                 </HeaderIcon>
-              )}
-              {(hovered || moreOpen) && (
-                <HeaderIcon id={`${id}:more`} icon="ellipsis-horizontal" a11y={`More actions for ${task.title}`}>
+              <HeaderIcon id={`${id}:more`} icon="ellipsis-horizontal" a11y={`More actions for ${task.title}`} shown={!renaming && (hovered || moreOpen)}>
                   {(anchor) => (
                     <Popover id={`${id}:more`} anchor={anchor} width={200}>
                       <OverflowBody ops={wrapped} done={() => closePopover()} />
                     </Popover>
                   )}
                 </HeaderIcon>
-              )}
               <Control id={`${id}:duration`} a11y={`Duration of ${task.title}: ${durationText}`} style={styles.chip}>
                 {(anchor) => (
                   <>
@@ -321,17 +319,28 @@ function HeaderIcon({
   id,
   icon,
   a11y,
+  shown,
   children,
 }: {
   id: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
   a11y: string;
+  // Visible and pressable (on hover or while its popover is open); otherwise
+  // it still takes its space but is transparent, inert and out of the tab order.
+  shown: boolean;
   children: (anchor: () => HTMLElement | null) => React.ReactNode;
 }) {
   const { ref, get } = usePopoverAnchor();
   return (
     <>
-      <Pressable ref={ref as never} onPress={() => togglePopover(id, get)} style={styles.headerIcon} accessibilityRole="button" accessibilityLabel={a11y}>
+      <Pressable
+        ref={ref as never}
+        onPress={() => togglePopover(id, get)}
+        style={[styles.headerIcon, !shown && styles.headerIconHidden]}
+        focusable={shown}
+        accessibilityRole="button"
+        accessibilityLabel={a11y}
+      >
         <Ionicons name={icon} size={15} color={Colors.textSecondary} />
       </Pressable>
       {children(get)}
@@ -609,7 +618,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     outlineWidth: 0,
   },
-  headerIcon: { padding: 3 },
+  headerIcon: { padding: 3, width: 21, height: 21, alignItems: 'center', justifyContent: 'center' },
+  headerIconHidden: { opacity: 0, pointerEvents: 'none' },
   chip: { paddingHorizontal: 7, height: 22, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.surface },
   chipText: { fontSize: 11, fontWeight: '500', color: Colors.textPrimary },
   chipTextMuted: { color: Colors.textSecondary },

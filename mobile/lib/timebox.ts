@@ -50,6 +50,9 @@ export interface PlacedBlock {
   // Minutes after clamping to the visible grid.
   startMin: number;
   endMin: number;
+  // The item runs past 23:00: drawn to the grid end with a "continues"
+  // marker; the stored duration is unchanged.
+  continues: boolean;
 }
 
 export interface TimeboxLayout {
@@ -79,7 +82,7 @@ export function taskToItem(task: Task): TimeboxItem | null {
 // visible hours; ones entirely outside are returned in `outside` instead of
 // vanishing. Items that overlap in time share width side by side.
 export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
-  type Clamped = { id: string; startMin: number; endMin: number };
+  type Clamped = { id: string; startMin: number; endMin: number; continues: boolean };
   const visible: Clamped[] = [];
   const outside: Array<{ id: string; startMin: number }> = [];
 
@@ -90,7 +93,7 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
     if (clampedEnd <= clampedStart) {
       outside.push({ id: item.id, startMin });
     } else {
-      visible.push({ id: item.id, startMin: clampedStart, endMin: clampedEnd });
+      visible.push({ id: item.id, startMin: clampedStart, endMin: clampedEnd, continues: endMin > GRID_END_MIN });
     }
   }
 
@@ -127,6 +130,7 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
       cols: 1,
       startMin: item.startMin,
       endMin: item.endMin,
+      continues: item.continues,
     });
   }
   closeCluster();

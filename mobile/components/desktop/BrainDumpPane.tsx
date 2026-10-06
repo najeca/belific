@@ -4,7 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { dateKey, formatDuration } from '../../lib/kanban';
 import { splitThoughts, rowId, type ThoughtRow } from '../../lib/thoughts';
-import { loadBrainDumpItems, loadProjects, loadTasks } from '../../lib/storage';
+import { loadBrainDumpItems, loadTasks } from '../../lib/storage';
+import { loadLabels } from '../../lib/labels';
+import { labelColor } from '../../lib/labelColors';
 import { convertDumpItem, createThought, setTaskCompleted } from '../../lib/taskActions';
 import HoverPressable from './HoverPressable';
 import { useDrag } from './DragProvider';
@@ -50,7 +52,7 @@ export default function BrainDumpPane({
   const reload = useCallback(() => {
     loadTasks().then(setTasks);
     loadBrainDumpItems().then(setDumpItems);
-    loadProjects().then(setProjects);
+    loadLabels().then(setProjects);
   }, []);
 
   useEffect(() => {
@@ -121,6 +123,7 @@ export default function BrainDumpPane({
             const title = row.kind === 'task' ? row.task.title : row.item.title;
             const duration = task ? formatDuration(task.durationMinutes) : undefined;
             const label = task?.projectKey ? projectName.get(task.projectKey) : undefined;
+            const color = labelColor(projects.find((p) => p.key === task?.projectKey)?.colorKey);
             return (
               <HoverPressable
                 key={id}
@@ -154,7 +157,12 @@ export default function BrainDumpPane({
                   {task && (task.priority === 'high' || label || duration || task.recurrence) && (
                     <View style={styles.meta}>
                       {task.priority === 'high' && <Ionicons name="flag" size={11} color={Colors.accentText} />}
-                      {label && <Text style={styles.metaText}>{label}</Text>}
+                      {label && (
+                        <View style={styles.labelTag}>
+                          {color && <View style={[styles.dot, { backgroundColor: color.edge }]} />}
+                          <Text style={styles.metaText}>{label}</Text>
+                        </View>
+                      )}
                       {duration && <Text style={styles.chip}>{duration}</Text>}
                       {task.recurrence && <Ionicons name="repeat" size={13} color={Colors.textSecondary} />}
                     </View>
@@ -268,6 +276,8 @@ const styles = StyleSheet.create({
   titleLow: { color: Colors.textSecondary },
   meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 4 },
   metaText: { fontSize: 12, color: Colors.textSecondary },
+  labelTag: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
   chip: {
     fontSize: 11,
     color: Colors.textSecondary,

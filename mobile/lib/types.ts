@@ -219,4 +219,10 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  // A label palette key (lib/labelColors.ts, decision 016). LOCAL ONLY until
+  // checkpoint 5 adds projects.color: the sync mappers do not carry it, and a
+  // pull that replaces this row with the server copy would drop it, so
+  // checkpoint 5 must merge local only fields on pull. Desktop only; the
+  // iPhone never reads it.
+  colorKey?: string;
 }

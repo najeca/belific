@@ -16,7 +16,12 @@ export default function DesktopHome() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [modal, setModal] = useState<TaskModalState | null>(null);
   const onChanged = useCallback(() => setRefreshKey((k) => k + 1), []);
-  const closeModal = useCallback(() => setModal(null), []);
+  // Closing also refreshes: a label colour changed in the editor is saved
+  // straight away, even when the task edit is cancelled.
+  const closeModal = useCallback(() => {
+    setModal(null);
+    setRefreshKey((k) => k + 1);
+  }, []);
   const onSaved = useCallback(() => {
     setModal(null);
     setRefreshKey((k) => k + 1);

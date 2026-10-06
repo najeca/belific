@@ -94,6 +94,13 @@ label"; the delete confirmation warns when tasks are still attached).
 Colour is decorative, except that a placed task's Timebox block uses its
 label colour. It never drives priority or scheduling.
 
+**Built so far (2.8.1, desktop, local only):** the eight palette colours
+(`mobile/lib/labelColors.ts`; this replaces the six `LABEL_SWATCHES` idea), a
+new label taking the next unused colour, and recolouring from the task
+editor's swatches. Kanban cards and Timebox blocks with a label have a soft
+tint and a 4px left edge in its colour; Brain Dump rows show a dot. The
+Labels page itself is not built yet.
+
 **Settings** — Account (avatar, name, email — editable), Notifications
 (event starts / task starts, independent toggles, plus an opt-in "start
 with Windows"; decision 017. **The weekly summary email is removed**: it
@@ -118,7 +125,10 @@ rather than Profile, since it's routine/quest data, not account data.
   pane lists every incomplete task with no Day, newest first, plus any legacy
   Brain Dump items from the phone shown the same way. Clicking anywhere on a row
   (a small pencil appears on hover) opens the editor, a centred modal overlay,
-  never a separate screen: name, duration chips, priority, label, notes, Day (a
+  never a separate screen: name, duration (quick chips 30m, 1h, 2h plus Custom:
+  hours 0 to 24 and minutes 0 or 30, minimum 30 minutes, 24h only with 0
+  minutes; an older stored value such as 15m shows as is until changed),
+  priority, label (with the selected label's eight colour swatches), notes, Day (a
   web date input, min today, empty means no Day) and Repeat (Does not repeat,
   Daily, Weekly with weekday chips, Every 2 weeks, Monthly), plus a Done toggle
   and delete with an inline confirm. Everything is editable at any time, before
@@ -166,6 +176,9 @@ rather than Profile, since it's routine/quest data, not account data.
   outside any target, leaves the item where it was. A press only becomes a
   drag after 5 px, so a click still opens the editor; the checkbox and the
   hover buttons never start a drag. Events (CustomEvents) are not draggable.
+  A block that runs past 23:00 is drawn to the grid end with a quiet
+  "continues" marker (resize still stops at 23:00; a longer duration set in
+  the editor is kept).
 - **Timebox day/week** — a segmented toggle inside the Timebox pane's own
   header. Week mode mounts the same grid component day mode uses; it is
   not a separate screen.

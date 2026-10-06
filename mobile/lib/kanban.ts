@@ -7,13 +7,9 @@ import type { Task } from './types';
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// The duration chips in the task modal. 2h+ stores 120.
-export const DURATION_CHOICES = [
-  { label: '15m', minutes: 15 },
-  { label: '30m', minutes: 30 },
-  { label: '1h', minutes: 60 },
-  { label: '2h+', minutes: 120 },
-];
+// Durations live in duration.ts; re-exported here for the panes that already
+// import formatDuration from kanban.
+export { formatDuration } from './duration.ts';
 
 export function dateKey(d: Date): string {
   const y = d.getFullYear();
@@ -75,15 +71,6 @@ export function formatDayTitle(key: string, todayKey: string): string {
 export function formatShortDate(key: string): string {
   const d = parseDateKey(key);
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-}
-
-// 15 -> "15m", 60 -> "1h", 90 -> "1h 30m", 120 -> "2h"
-export function formatDuration(minutes?: number): string | undefined {
-  if (!minutes || minutes <= 0) return undefined;
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
 export interface ColumnItem {

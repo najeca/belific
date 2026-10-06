@@ -21,6 +21,8 @@ import {
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { slotLabel, taskDuration, yToMinutes } from '../../lib/drag';
+import { loadLabels } from '../../lib/labels';
+import { labelColor } from '../../lib/labelColors';
 import {
   loadCustomCategories,
   loadCustomEvents,
@@ -28,7 +30,7 @@ import {
   updateCustomEvent,
   deleteCustomEvent,
 } from '../../lib/storage';
-import type { CustomCategory, CustomEvent, ScheduleEvent, Task } from '../../lib/types';
+import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task } from '../../lib/types';
 
 // Desktop Timebox (decision 009): an hourly grid for one day, 06:00 to 23:00.
 // It draws that day's CustomEvents (category colours, same sources the
@@ -69,6 +71,7 @@ export default function TimeboxPane({
   const [events, setEvents] = useState<CustomEvent[]>([]);
   const [categories, setCategories] = useState<CustomCategory[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [labels, setLabels] = useState<Project[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editing, setEditing] = useState<CustomEvent | null>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -95,6 +98,7 @@ export default function TimeboxPane({
     loadCustomEvents().then(setEvents);
     loadCustomCategories().then(setCategories);
     loadTasks().then(setTasks);
+    loadLabels().then(setLabels);
   }, []);
 
   useEffect(() => {
@@ -286,6 +290,7 @@ export default function TimeboxPane({
               };
               if (source.kind === 'task') {
                 const t = source.task;
+                const color = labelColor(labels.find((p) => p.key === t.projectKey)?.colorKey);
                 const resizing = drag?.mode === 'resize' && drag.item.id === t.id ? drag.resizeDuration : undefined;
                 const startMin = toMinutes(t.startTime) ?? b.startMin;
                 const sized = resizing
@@ -312,7 +317,13 @@ export default function TimeboxPane({
                         };
                       }) as never}
                       onPress={() => openSource(source)}
-                      style={[styles.block, styles.taskBlock, resizing !== undefined && styles.taskBlockActive]}
+                      style={[
+                        styles.block,
+                        styles.taskBlock,
+                        color && [styles.taskBlockLabelled, { backgroundColor: color.tint, borderLeftColor: color.edge }],
+                        b.continues && styles.blockContinues,
+                        resizing !== undefined && styles.taskBlockActive,
+                      ]}
                       accessibilityRole="button"
                       accessibilityLabel={`Task ${t.title}`}
                     >
@@ -329,6 +340,7 @@ export default function TimeboxPane({
                         )
                       )}
                     </Pressable>
+                    {b.continues && <Continues />}
                     <View ref={handleRef(t.id) as never} style={styles.resizeHandle} accessibilityLabel={`Resize ${t.title}`} />
                     </View>
                   </View>
@@ -355,6 +367,7 @@ export default function TimeboxPane({
                       </Text>
                     )}
                   </Pressable>
+                  {b.continues && <Continues />}
                   </View>
                 </View>
               );
@@ -387,6 +400,17 @@ export default function TimeboxPane({
           }}
         />
       )}
+    </View>
+  );
+}
+
+// Quiet marker on a block that runs past 23:00: the grid ends but the task or
+// event does not. The stored duration is untouched.
+function Continues() {
+  return (
+    <View pointerEvents="none" style={styles.continues} accessibilityLabel="Continues after 23:00">
+      <Text style={styles.continuesText}>continues</Text>
+      <Ionicons name="arrow-down" size={10} color={Colors.textSecondary} />
     </View>
   );
 }
@@ -540,6 +564,10 @@ const styles = StyleSheet.create({
   halfLine: { position: 'absolute', left: GUTTER, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: Colors.border, opacity: 0.5 },
   dragging: { opacity: 0.35 },
   taskBlockActive: { backgroundColor: Colors.background },
+  taskBlockLabelled: { borderWidth: 0, borderLeftWidth: 4 },
+  blockContinues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+  continues: { position: 'absolute', right: 6, bottom: 2, flexDirection: 'row', alignItems: 'center', gap: 2 },
+  continuesText: { fontSize: 10, color: Colors.textSecondary },
   blockSnap: { fontSize: 11, fontWeight: '700', color: Colors.accentText },
   resizeHandle: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 6 },
   slotPreview: {

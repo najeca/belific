@@ -2,13 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { DURATION_CHOICES, dateKey, isDateKey } from '../../lib/kanban';
+import { dateKey, isDateKey } from '../../lib/kanban';
+import {
+  HOUR_OPTIONS,
+  MINUTE_OPTIONS,
+  QUICK_DURATIONS,
+  formatDuration,
+  joinDuration,
+  splitDuration,
+} from '../../lib/duration';
+import { LABEL_COLORS, labelColor, nextColorKey } from '../../lib/labelColors';
+import { loadLabels, setLabelColor } from '../../lib/labels';
 import { convertDumpItem, setTaskCompleted } from '../../lib/taskActions';
 import {
   updateTask,
   deleteTask,
   deleteBrainDumpItem,
-  loadProjects,
   addProject,
 } from '../../lib/storage';
 import type { BrainDumpItem, EventPriority, Project, RecurrenceRule, Task, WeekDay } from '../../lib/types';
@@ -47,6 +56,18 @@ const PRIORITIES: Array<{ key: PriorityChoice; label: string }> = [
   { key: 'high', label: 'High' },
 ];
 
+const domSelectStyle: React.CSSProperties = {
+  height: 32,
+  padding: '0 8px',
+  borderRadius: 10,
+  border: `1px solid ${Colors.border}`,
+  background: Colors.background,
+  color: Colors.textPrimary,
+  fontSize: 13,
+  fontFamily: 'inherit',
+  outlineColor: Colors.accent,
+};
+
 const domInputStyle: React.CSSProperties = {
   height: 36,
   padding: '0 10px',
@@ -75,6 +96,10 @@ export default function TaskModal({
   const [priority, setPriority] = useState<PriorityChoice>(editTask?.priority ?? 'normal');
   const [projectKey, setProjectKey] = useState<string | undefined>(editTask?.projectKey);
   const [duration, setDuration] = useState<number | undefined>(editTask?.durationMinutes);
+  // Custom is open from the start when the stored duration is not a quick chip.
+  const [customOpen, setCustomOpen] = useState(
+    editTask?.durationMinutes !== undefined && !QUICK_DURATIONS.some((d) => d.minutes === editTask.durationMinutes),
+  );
   const [notes, setNotes] = useState(editTask?.notes ?? dumpItem?.notes ?? '');
   const [projects, setProjects] = useState<Project[]>([]);
   const [addingLabel, setAddingLabel] = useState(false);
@@ -91,7 +116,7 @@ export default function TaskModal({
   const todayKey = dateKey(new Date());
 
   useEffect(() => {
-    loadProjects().then(setProjects);
+    loadLabels().then(setProjects);
   }, []);
 
   useEffect(() => {
@@ -137,6 +162,15 @@ export default function TaskModal({
     onSaved();
   }
 
+  // Recolouring is a property of the label, saved straight away (local only).
+  async function recolor(key: string, colorKey: string) {
+    setProjects((prev) => prev.map((p) => (p.key === key ? { ...p, colorKey } : p)));
+    await setLabelColor(key, colorKey);
+  }
+
+  const picked = splitDuration(duration);
+  const selectedLabel = projects.find((p) => p.key === projectKey);
+
   async function handleDelete() {
     if (editTask) await deleteTask(editTask.id);
     else if (dumpItem) await deleteBrainDumpItem(dumpItem.id);
@@ -147,11 +181,14 @@ export default function TaskModal({
     const name = labelText.trim();
     if (!name) return;
     const now = new Date().toISOString();
+    // A new label takes the next free palette colour; the swatches under the
+    // label chips (shown for the selected label) can change it.
     const project: Project = {
       key: `project-${Date.now().toString(36)}`,
       name,
       createdAt: now,
       updatedAt: now,
+      colorKey: nextColorKey(projects),
     };
     await addProject(project);
     setProjects((prev) => [...prev, project]);
@@ -198,15 +235,50 @@ export default function TaskModal({
 
           <Text style={styles.label}>Duration</Text>
           <View style={styles.chips}>
-            {DURATION_CHOICES.map((d) => (
+            {QUICK_DURATIONS.map((d) => (
               <Chip
                 key={d.minutes}
                 label={d.label}
-                selected={duration === d.minutes}
-                onPress={() => setDuration(duration === d.minutes ? undefined : d.minutes)}
+                selected={!customOpen && duration === d.minutes}
+                onPress={() => {
+                  setCustomOpen(false);
+                  setDuration(duration === d.minutes && !customOpen ? undefined : d.minutes);
+                }}
               />
             ))}
+            <Chip label="Custom" selected={customOpen} onPress={() => setCustomOpen((o) => !o)} />
           </View>
+          {customOpen && (
+            <View style={styles.customRow}>
+              <select
+                value={picked.hours}
+                onChange={(e) => setDuration(joinDuration(Number(e.target.value), picked.minutes))}
+                style={domSelectStyle}
+                aria-label="Hours"
+              >
+                {HOUR_OPTIONS.map((h) => (
+                  <option key={h} value={h}>
+                    {h} h
+                  </option>
+                ))}
+              </select>
+              <select
+                value={picked.minutes}
+                onChange={(e) => setDuration(joinDuration(picked.hours, Number(e.target.value)))}
+                style={domSelectStyle}
+                aria-label="Minutes"
+              >
+                {MINUTE_OPTIONS.map((m) => (
+                  <option key={m} value={m} disabled={picked.hours === 24 && m !== 0}>
+                    {m} min
+                  </option>
+                ))}
+              </select>
+              <Text style={styles.muted}>
+                {duration === undefined ? 'Not set' : formatDuration(duration)}
+              </Text>
+            </View>
+          )}
 
           <Text style={styles.label}>Priority</Text>
           <View style={styles.chips}>
@@ -219,7 +291,13 @@ export default function TaskModal({
           <View style={styles.chips}>
             <Chip label="None" selected={!projectKey} onPress={() => setProjectKey(undefined)} />
             {projects.map((p) => (
-              <Chip key={p.key} label={p.name} selected={projectKey === p.key} onPress={() => setProjectKey(p.key)} />
+              <Chip
+                key={p.key}
+                label={p.name}
+                dot={labelColor(p.colorKey)?.edge}
+                selected={projectKey === p.key}
+                onPress={() => setProjectKey(p.key)}
+              />
             ))}
             {addingLabel ? (
               <TextInput
@@ -239,6 +317,26 @@ export default function TaskModal({
               </Pressable>
             )}
           </View>
+
+          {selectedLabel && (
+            <View style={styles.swatches}>
+              {LABEL_COLORS.map((c) => {
+                const on = selectedLabel.colorKey === c.key;
+                return (
+                  <Pressable
+                    key={c.key}
+                    onPress={() => recolor(selectedLabel.key, c.key)}
+                    style={[styles.swatch, on && styles.swatchSelected]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`${c.name} colour for ${selectedLabel.name}`}
+                  >
+                    <View style={[styles.swatchFill, { backgroundColor: c.edge }]} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
 
           <Text style={styles.label}>Notes</Text>
           <TextInput
@@ -340,14 +438,26 @@ export default function TaskModal({
   );
 }
 
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function Chip({
+  label,
+  selected,
+  onPress,
+  dot,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  // A label's colour, shown as a small dot before its name.
+  dot?: string;
+}) {
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.chip, selected && styles.chipSelected]}
+      style={[styles.chip, dot !== undefined && styles.chipWithDot, selected && styles.chipSelected]}
       accessibilityRole="button"
       accessibilityState={{ selected }}
     >
+      {dot && <View style={[styles.dot, { backgroundColor: dot }, selected && styles.dotSelected]} />}
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </Pressable>
   );
@@ -420,6 +530,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   chipSelected: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  chipWithDot: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  dotSelected: { borderWidth: 1, borderColor: Colors.onAccent },
+  customRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  swatch: { width: 28, height: 28, borderRadius: 14, padding: 3, borderWidth: 2, borderColor: 'transparent' },
+  swatchSelected: { borderColor: Colors.textPrimary },
+  swatchFill: { flex: 1, borderRadius: 10 },
   chipText: { fontSize: 13, color: Colors.textPrimary },
   chipTextSelected: { color: Colors.onAccent, fontWeight: '600' },
   labelInput: {

@@ -8,6 +8,27 @@ to know the current version and recent history.
 
 ---
 
+## 2.8.1 — 2026-10-06
+
+**Desktop Home: label colours and custom durations (checkpoint 4.1, web/Electron only; the iPhone app is unchanged).**
+
+- A label now has a colour from one palette of eight muted tones (sage, clay,
+  sky, sand, plum, moss, rose, slate; `lib/labelColors.ts`). Kanban cards and
+  Timebox blocks with a label get a soft tint and a 4px left edge in its
+  colour; Brain Dump rows get a small dot next to the label name. A task with
+  no label stays neutral.
+- A new label takes the next unused colour; the selected label's swatches in
+  the task editor change it. Labels created before this get a colour the
+  first time the desktop reads them (a silent local fill: `updatedAt` is not
+  changed). `colorKey` is local only until checkpoint 5.
+- Duration in the editor: quick chips 30m, 1h, 2h plus Custom (hours 0 to 24,
+  minutes 0 or 30, 30 minutes minimum, 24h only with 0 minutes). Older stored
+  values (15, 120 and so on) load and show as they are ("15m", "2h") and are
+  only rounded when a new duration is picked.
+- A Timebox block that runs past 23:00 is drawn to the grid end with a quiet
+  "continues" marker; one longer than the whole grid is placed at 06:00 and
+  shown clamped. Resizing still stops at 23:00.
+
 ## 2.8.0 — 2026-10-06
 
 **Desktop Home: drag and drop (checkpoint 4, web/Electron only; the iPhone app is unchanged).**

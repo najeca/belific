@@ -25,7 +25,9 @@ import HoverPressable from './HoverPressable';
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { stepWeekStart, taskDuration } from '../../lib/drag';
-import { loadTasks, loadProjects, updateTask } from '../../lib/storage';
+import { loadTasks, updateTask } from '../../lib/storage';
+import { loadLabels } from '../../lib/labels';
+import { labelColor } from '../../lib/labelColors';
 import { setTaskCompleted } from '../../lib/taskActions';
 import type { Project, Task } from '../../lib/types';
 
@@ -87,7 +89,7 @@ export default function KanbanPane({
 
   const reload = useCallback(() => {
     loadTasks().then(setTasks);
-    loadProjects().then(setProjects);
+    loadLabels().then(setProjects);
   }, []);
 
   useEffect(() => {
@@ -223,6 +225,8 @@ export default function KanbanPane({
                 const { task, overdueFrom } = item;
                 const duration = formatDuration(task.durationMinutes);
                 const label = task.projectKey ? projectName.get(task.projectKey) : undefined;
+                // A label's colour: soft tint plus a 4px left edge. No label stays neutral.
+                const color = labelColor(projects.find((p) => p.key === task.projectKey)?.colorKey);
                 return (
                   <HoverPressable
                     key={task.id}
@@ -234,8 +238,13 @@ export default function KanbanPane({
                       duration: taskDuration(task),
                     }))}
                     onPress={() => onEditTask(task)}
-                    style={[styles.card, index > 0 && styles.cardDivider, drag?.item.id === task.id && styles.dragging]}
-                    hoverStyle={styles.cardHover}
+                    style={[
+                      styles.card,
+                      index > 0 && !color && styles.cardDivider,
+                      color && [styles.cardLabelled, { backgroundColor: color.tint, borderLeftColor: color.edge }],
+                      drag?.item.id === task.id && styles.dragging,
+                    ]}
+                    hoverStyle={color ? styles.cardLabelledHover : styles.cardHover}
                     accessibilityRole="button"
                     accessibilityLabel={`Edit ${task.title}`}
                   >
@@ -634,6 +643,9 @@ const styles = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 8, paddingHorizontal: 4 },
   cardDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
   cardHover: { backgroundColor: Colors.background },
+  cardLabelled: { borderLeftWidth: 4, borderRadius: 8, marginVertical: 2, paddingLeft: 6 },
+  // Hover on a tinted card: a hairline outline instead of replacing the tint.
+  cardLabelledHover: { outlineWidth: 1, outlineStyle: 'solid', outlineColor: Colors.border },
   check: { paddingTop: 1 },
   cardBody: { flex: 1, minWidth: 0 },
   cardTitle: { fontSize: 14, color: Colors.textPrimary },

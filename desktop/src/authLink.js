@@ -69,43 +69,95 @@ function checkAuthorizeUrl(raw, supabaseHost) {
   return { flowId };
 }
 
-// One pending sign in at most, started in this run.
+// One pending sign in at most, started in this run. It survives stray or
+// failed links: only a successful exchange, cancel, expiry, sign out (cancel)
+// or MAX_FAILURES failed attempts end it. onEnd(reason) runs exactly once per
+// ended sign in so the owner can wipe the PKCE verifier.
+const MAX_FAILURES = 3;
+
 class AuthGate {
-  constructor(supabaseHost, windowMs = WINDOW_MS) {
+  constructor(supabaseHost, windowMs = WINDOW_MS, onEnd = () => {}) {
     this.host = supabaseHost;
     this.windowMs = windowMs;
+    this.onEnd = onEnd;
     this.pending = null;
   }
 
-  // Registers a sign in. Returns false (and registers nothing) for a URL
-  // that is not the Belific authorize URL.
-  begin(authorizeUrl, now = Date.now()) {
-    const checked = checkAuthorizeUrl(authorizeUrl, this.host);
-    if (!checked) return false;
-    this.pending = { startedAt: now, flowId: checked.flowId };
-    return true;
+  _end(reason) {
+    if (!this.pending) return;
+    this.pending = null;
+    this.onEnd(reason);
   }
 
-  // Decides about an incoming link. { ok: true, code, flowId } consumes the
-  // pending sign in (single use). { ok: false, reason } never exposes the link.
+  _expired(now) {
+    const p = this.pending;
+    return !!p && (now - p.startedAt > this.windowMs || now < p.startedAt);
+  }
+
+  // Ends an expired sign in (called by a timer and before every decision).
+  sweep(now = Date.now()) {
+    if (this._expired(now)) this._end('expired');
+  }
+
+  get active() {
+    return this.pending !== null;
+  }
+
+  // { ok: true } registers a sign in. { ok: false, reason: 'refused' } for a
+  // URL that is not the Belific authorize URL, 'busy' while another is running.
+  begin(authorizeUrl, now = Date.now()) {
+    this.sweep(now);
+    if (this.pending) return { ok: false, reason: 'busy' };
+    const checked = checkAuthorizeUrl(authorizeUrl, this.host);
+    if (!checked) return { ok: false, reason: 'refused' };
+    this.pending = { startedAt: now, flowId: checked.flowId, failures: 0, exchanging: false };
+    return { ok: true };
+  }
+
+  // Decides about an incoming link. { ok: true, code, flowId } hands the code
+  // out for ONE exchange at a time; the sign in stays pending until finish().
+  // { ok: false, reason } never exposes the link.
   accept(raw, now = Date.now()) {
     const parsed = parseCallback(raw);
     if (!parsed) return { ok: false, reason: 'invalid' };
-    const pending = this.pending;
-    if (!pending) return { ok: false, reason: 'no-pending' };
-    if (now - pending.startedAt > this.windowMs || now < pending.startedAt) {
-      this.pending = null;
+    if (this._expired(now)) {
+      this._end('expired');
       return { ok: false, reason: 'expired' };
     }
+    const pending = this.pending;
+    if (!pending) return { ok: false, reason: 'no-pending' };
     if (parsed.flowId !== pending.flowId) return { ok: false, reason: 'mismatch' };
-    this.pending = null;
-    if (parsed.error) return { ok: false, reason: 'provider-error', consumed: true };
+    if (pending.exchanging) return { ok: false, reason: 'busy' };
+    if (parsed.error) {
+      this._fail();
+      return { ok: false, reason: 'provider-error', ended: !this.pending };
+    }
+    pending.exchanging = true;
     return { ok: true, code: parsed.code, flowId: pending.flowId };
   }
 
+  _fail() {
+    this.pending.failures += 1;
+    this.pending.exchanging = false;
+    if (this.pending.failures >= MAX_FAILURES) this._end('too-many-failures');
+  }
+
+  // The renderer reports the exchange result. Success ends the sign in; a
+  // failure keeps it alive (up to MAX_FAILURES). Returns { ended }.
+  finish(success, now = Date.now()) {
+    this.sweep(now);
+    if (!this.pending || !this.pending.exchanging) return { ended: !this.pending };
+    if (success) {
+      this._end('success');
+      return { ended: true };
+    }
+    this._fail();
+    return { ended: !this.pending };
+  }
+
   cancel() {
-    this.pending = null;
+    this._end('cancelled');
   }
 }
 
-module.exports = { parseCallback, checkAuthorizeUrl, AuthGate, CALLBACK, SCHEME, WINDOW_MS };
+module.exports = { parseCallback, checkAuthorizeUrl, AuthGate, CALLBACK, SCHEME, WINDOW_MS, MAX_FAILURES };

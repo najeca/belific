@@ -23,7 +23,10 @@ const { pathToFileURL } = require('node:url');
 const { KvStore } = require('./src/kvstore');
 const { backupNow, dayStamp } = require('./src/backups');
 const { resolveAssetPath } = require('./src/assetPath');
-const { AuthGate, checkAuthorizeUrl, SCHEME } = require('./src/authLink');
+const { checkAuthorizeUrl, SCHEME, WINDOW_MS } = require('./src/authLink');
+const { SignIn } = require('./src/signin');
+const { isAllowedExternal } = require('./src/externalLinks');
+const { assertRendererKey } = require('./src/ipcPolicy');
 const { SecureStore } = require('./src/secureStore');
 const { ensureFirstSigninBackup } = require('./src/firstSignin');
 const { Scheduler } = require('./src/scheduler');
@@ -44,6 +47,10 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   `connect-src 'self' ${SUPABASE_HOST}`,
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
 ].join('; ');
 
 // Windows only shows toast notifications for an app that has an AppUserModelID
@@ -59,7 +66,8 @@ protocol.registerSchemesAsPrivileged([
 
 let store;
 let secure;
-const authGate = new AuthGate(SUPABASE_HOST);
+let signIn;
+let signInTimer = null;
 let mainWindow = null;
 let backupTimer = null;
 let tray = null;
@@ -106,10 +114,12 @@ function registerIpc() {
     if (!trustedSender(event)) throw new Error('Untrusted sender');
     return handler(...args);
   };
-  ipcMain.handle('kv:getItem', guard((key) => store.getItem(key)));
-  ipcMain.handle('kv:setItem', guard((key, value) => store.setItem(key, value)));
-  ipcMain.handle('kv:removeItem', guard((key) => store.removeItem(key)));
-  ipcMain.handle('kv:multiRemove', guard((keys) => store.multiRemove(keys)));
+  // The plain kv IPC refuses the encrypted session files and the first sign in
+  // flag (cp6.1 L4).
+  ipcMain.handle('kv:getItem', guard((key) => store.getItem(assertRendererKey(key))));
+  ipcMain.handle('kv:setItem', guard((key, value) => store.setItem(assertRendererKey(key), value)));
+  ipcMain.handle('kv:removeItem', guard((key) => store.removeItem(assertRendererKey(key))));
+  ipcMain.handle('kv:multiRemove', guard((keys) => store.multiRemove(Array.isArray(keys) ? keys.map(assertRendererKey) : keys)));
   // The Supabase session (decision 012): encrypted with safeStorage, memory
   // only if encryption is unavailable.
   ipcMain.handle('secure:getItem', guard((key) => secure.getItem(String(key))));
@@ -117,7 +127,9 @@ function registerIpc() {
   ipcMain.handle('secure:removeItem', guard((key) => secure.removeItem(String(key))));
   ipcMain.handle('auth:status', guard(() => ({ persistent: secure.persistent })));
   ipcMain.handle('auth:begin', guard((url) => beginSignIn(url)));
-  ipcMain.handle('auth:cancel', guard(() => authGate.cancel()));
+  ipcMain.handle('auth:finish', guard((success) => signIn.finish(success === true)));
+  ipcMain.handle('auth:cancel', guard(() => signIn.cancel()));
+  ipcMain.handle('desktop:backupNow', guard((label) => backupForRenderer(label)));
   ipcMain.handle('settings:get', guard(() => settings));
   ipcMain.handle('settings:set', guard((partial) => changeSettings(partial)));
   ipcMain.handle('notify:update', guard((payload) => scheduler.update(payload)));
@@ -132,7 +144,12 @@ function registerIpc() {
 // window. Refuses any URL that is not the Belific Supabase authorize URL, and
 // takes the one-time "pre-signin" backup before the very first sign in.
 async function beginSignIn(url) {
-  if (!checkAuthorizeUrl(String(url), SUPABASE_HOST)) return { ok: false, reason: 'refused' };
+  signIn.sweep();
+  if (signIn.gate.active) return { ok: false, reason: 'busy' };
+  if (!checkAuthorizeUrl(String(url), SUPABASE_HOST) || !isAllowedExternal(String(url))) {
+    signIn.cancel();
+    return { ok: false, reason: 'refused' };
+  }
   try {
     const { data, backups } = paths();
     await ensureFirstSigninBackup({
@@ -141,15 +158,20 @@ async function beginSignIn(url) {
     });
   } catch (err) {
     log(`pre-signin backup failed: ${err.stack || err}`);
+    signIn.cancel();
     return { ok: false, reason: 'backup-failed' };
   }
-  if (!authGate.begin(String(url))) return { ok: false, reason: 'refused' };
+  const begun = signIn.begin(String(url));
+  if (!begun.ok) return begun;
   try {
     await shell.openExternal(String(url));
   } catch {
-    authGate.cancel();
+    signIn.cancel();
     return { ok: false, reason: 'no-browser' };
   }
+  // Expiry wipes the verifier even if no link ever arrives.
+  clearTimeout(signInTimer);
+  signInTimer = setTimeout(() => signIn.sweep(), WINDOW_MS + 1000);
   return { ok: true };
 }
 
@@ -157,7 +179,7 @@ async function beginSignIn(url) {
 // Only the exact callback of a sign in started in this run is forwarded; the
 // link itself is never logged.
 function handleDeepLink(raw) {
-  const result = authGate.accept(raw);
+  const result = signIn.onLink(raw);
   if (!result.ok) {
     log(`auth link ignored (${result.reason})`);
     if (result.reason === 'provider-error' && mainWindow) mainWindow.webContents.send('auth:callback', { error: true });
@@ -168,6 +190,14 @@ function handleDeepLink(raw) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
   }
+}
+
+// A labelled safety backup asked for by the page (account switching). Only
+// this one label is allowed.
+async function backupForRenderer(label) {
+  if (label !== 'account-switch') throw new Error('Unknown backup label');
+  const { data, backups } = paths();
+  await backupNow(data, backups, new Date(), 14, label);
 }
 
 function linkFromArgv(argv) {
@@ -368,7 +398,7 @@ function createWindow(visible = true) {
     if (!allowed(url)) event.preventDefault();
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://')) shell.openExternal(url);
+    if (isAllowedExternal(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   mainWindow.on('close', onWindowClose);
@@ -403,6 +433,7 @@ if (!app.requestSingleInstanceLock()) {
       },
       (err, context) => log(`secure store error (${context}): ${err.message}`),
     );
+    signIn = new SignIn(secure, SUPABASE_HOST, WINDOW_MS, (reason) => log(`sign in ended (${reason})`));
     settings = await loadSettings(store);
     scheduler = new Scheduler({ settings, notify: showToast, log });
     registerIpc();

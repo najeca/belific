@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const SECURE_PREFIX = 'secure.';
 const DAY_FOLDER = /^\d{4}-\d{2}-\d{2}$/;
 
 function dayStamp(date) {
@@ -20,7 +21,12 @@ function dayStamp(date) {
 async function backupNow(dataDir, backupsDir, now = new Date(), keep = 14, label = null) {
   if (label !== null && !/^[a-z0-9-]{1,32}$/.test(label)) throw new Error('Invalid backup label');
   await fs.promises.mkdir(backupsDir, { recursive: true });
-  const target = path.join(backupsDir, label ? `${dayStamp(now)}-${label}` : dayStamp(now));
+  let target = path.join(backupsDir, label ? `${dayStamp(now)}-${label}` : dayStamp(now));
+  // A labelled backup folder is never replaced: a numeric suffix is added.
+  if (label) {
+    const base = target;
+    for (let n = 2; fs.existsSync(target); n += 1) target = `${base}-${n}`;
+  }
   const staging = `${target}.partial`;
   await fs.promises.rm(staging, { recursive: true, force: true });
   await fs.promises.mkdir(staging, { recursive: true });
@@ -29,10 +35,11 @@ async function backupNow(dataDir, backupsDir, now = new Date(), keep = 14, label
     throw err;
   });
   for (const name of names) {
-    if (!name.endsWith('.kv')) continue;
+    // Session files (secure.*) are never copied into a backup.
+    if (!name.endsWith('.kv') || name.startsWith(SECURE_PREFIX)) continue;
     await fs.promises.copyFile(path.join(dataDir, name), path.join(staging, name));
   }
-  await fs.promises.rm(target, { recursive: true, force: true });
+  if (!label) await fs.promises.rm(target, { recursive: true, force: true });
   await fs.promises.rename(staging, target);
   if (!label) await pruneBackups(backupsDir, keep);
   return target;

@@ -104,3 +104,82 @@ test('labelled backups are never pruned and bad labels are refused', async () =>
   assert.equal(fs.readdirSync(backups).length, 4);
   await assert.rejects(backupNow(data, backups, new Date(), 14, '../x'));
 });
+
+test('L2: an encryption error falls back to memory, reports persisted:false and flags the store', async () => {
+  const dir = tmp();
+  const bad = { ...fakeCipher(), encrypt: () => { throw new Error('boom'); } };
+  const errors = [];
+  const store = new SecureStore(new KvStore(dir), bad, (e) => errors.push(e.message));
+  assert.equal(store.persistent, true);
+  assert.deepEqual(await store.setItem('k', 'SECRETVAL'), { persisted: false });
+  assert.equal(await store.getItem('k'), 'SECRETVAL');
+  assert.equal(store.persistent, false);
+  assert.deepEqual(fs.readdirSync(dir), []);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].includes('SECRETVAL'), false);
+});
+
+test('M3: secure files are left out of readAll, daily backups and labelled backups', async () => {
+  const dir = tmp();
+  const data = path.join(dir, 'data');
+  const backups = path.join(dir, 'backups');
+  const kv = new KvStore(data);
+  await kv.setItem('belific_tasks', '[1]');
+  await new SecureStore(kv, fakeCipher()).setItem('sb-session', 'TOKEN-PLAIN');
+  await kv.setItem('secure.fake', 'FAKE-SECURE-VALUE');
+  assert.ok(fs.readdirSync(data).filter((n) => n.startsWith('secure.')).length >= 2);
+  assert.deepEqual(Object.keys(await kv.readAll()), ['belific_tasks']);
+  for (const label of [null, 'pre-signin', 'account-switch']) {
+    const target = await backupNow(data, backups, new Date(2026, 9, 6), 14, label);
+    assert.deepEqual(fs.readdirSync(target), ['belific_tasks.kv']);
+  }
+});
+
+test('L4: a labelled backup folder is never replaced, a numeric suffix is added', async () => {
+  const dir = tmp();
+  const data = path.join(dir, 'data');
+  const backups = path.join(dir, 'backups');
+  const kv = new KvStore(data);
+  await kv.setItem('a', 'ONE');
+  const first = await backupNow(data, backups, new Date(2026, 9, 6), 14, 'account-switch');
+  await kv.setItem('a', 'TWO');
+  const second = await backupNow(data, backups, new Date(2026, 9, 6), 14, 'account-switch');
+  const third = await backupNow(data, backups, new Date(2026, 9, 6), 14, 'account-switch');
+  assert.deepEqual(
+    [first, second, third].map((p) => path.basename(p)),
+    ['2026-10-06-account-switch', '2026-10-06-account-switch-2', '2026-10-06-account-switch-3'],
+  );
+  assert.equal(fs.readFileSync(path.join(first, 'a.kv'), 'utf8'), 'ONE');
+  assert.equal(fs.readFileSync(path.join(second, 'a.kv'), 'utf8'), 'TWO');
+});
+
+test('L4: the page may not touch secure.* keys or the first sign in flag', () => {
+  const { assertRendererKey } = require('../src/ipcPolicy');
+  assert.throws(() => assertRendererKey('secure.abc'));
+  assert.throws(() => assertRendererKey(FLAG_KEY));
+  assert.equal(assertRendererKey('belific_tasks'), 'belific_tasks');
+  assert.equal(assertRendererKey('belific_last_user_id'), 'belific_last_user_id');
+});
+
+test('L3: only the allow listed https pages open in the browser', () => {
+  const { isAllowedExternal } = require('../src/externalLinks');
+  for (const ok of [
+    'https://uucycebkpgwbktdytxvr.supabase.co/auth/v1/authorize?provider=apple',
+    'https://najeca.github.io/belific/privacy.html',
+    'https://github.com/najeca/belific/issues',
+  ]) assert.equal(isAllowedExternal(ok), true, ok);
+  for (const bad of [
+    'http://najeca.github.io/belific/privacy.html',
+    'https://najeca.github.io.evil.com/belific/',
+    'https://najeca.github.io/other/',
+    'https://github.com/other/repo',
+    'https://user@github.com/najeca/belific/issues',
+    'https://github.com:444/najeca/belific/issues',
+    'https://evil.example/',
+    'file:///c:/windows/system32/calc.exe',
+    'javascript:alert(1)',
+    'belific://auth-callback',
+    '',
+    null,
+  ]) assert.equal(isAllowedExternal(bad), false, String(bad));
+});

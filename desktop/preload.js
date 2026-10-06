@@ -23,6 +23,8 @@ const auth = {
   status: () => ipcRenderer.invoke('auth:status'),
   // Main opens the url in the system browser (after the one-time backup).
   begin: (url) => ipcRenderer.invoke('auth:begin', url),
+  // The page reports whether the code exchange worked (a failure keeps the sign in alive).
+  finish: (success) => ipcRenderer.invoke('auth:finish', success),
   cancel: () => ipcRenderer.invoke('auth:cancel'),
   // Called with { code, flowId } for a validated callback, or { error: true }.
   onCallback: (listener) => {
@@ -51,6 +53,7 @@ const notify = {
 const actions = {
   exportData: () => ipcRenderer.invoke('desktop:exportData'),
   openBackups: () => ipcRenderer.invoke('desktop:openBackups'),
+  backupNow: (label) => ipcRenderer.invoke('desktop:backupNow', label),
 };
 
 contextBridge.exposeInMainWorld('belificDesktop', {

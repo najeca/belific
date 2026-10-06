@@ -9,6 +9,8 @@ const crypto = require('node:crypto');
 
 const KEY_PATTERN = /^[A-Za-z0-9_.-]{1,128}$/;
 const SUFFIX = '.kv';
+// Encrypted session files (secureStore.js). Never exported, never backed up.
+const SECURE_PREFIX = 'secure.';
 
 function validateKey(key) {
   if (typeof key !== 'string' || !KEY_PATTERN.test(key)) {
@@ -91,18 +93,19 @@ class KvStore {
     await Promise.all(keys.map((k) => this.removeItem(k)));
   }
 
-  // Every stored key and value, for the "Export data" menu item.
+  // Every stored key and value, for the "Export data" menu item. The
+  // encrypted session files (secure.*) are left out.
   async readAll() {
     const names = await fs.promises.readdir(this.dir);
     const out = {};
     for (const name of names) {
       if (!name.endsWith(SUFFIX)) continue;
       const key = name.slice(0, -SUFFIX.length);
-      if (!KEY_PATTERN.test(key)) continue;
+      if (!KEY_PATTERN.test(key) || key.startsWith(SECURE_PREFIX)) continue;
       out[key] = await this.getItem(key);
     }
     return out;
   }
 }
 
-module.exports = { KvStore, validateKey, KEY_PATTERN, SUFFIX };
+module.exports = { KvStore, validateKey, KEY_PATTERN, SUFFIX, SECURE_PREFIX };

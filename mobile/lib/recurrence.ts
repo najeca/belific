@@ -6,6 +6,7 @@
 import type { RecurrenceRule, Task, WeekDay } from './types.ts';
 import { WEEKDAYS, addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
 import { effectiveDays, monthDayOf } from './repeat.ts';
+import { copyForNextOccurrence } from './subtasks.ts';
 
 // The chain's root id is the part before the first ':'. Existing ids (UUID v4
 // or a Date.now() based string) never contain one, and every generated
@@ -95,8 +96,10 @@ export function nextOccurrence(
 export function buildNextOccurrence(task: Task, todayKey: string, nowIso: string): Task | null {
   const dueDate = nextOccurrence(task, todayKey);
   if (!dueDate) return null;
+  const id = nextOccurrenceId(task.id, dueDate);
+  const subtasks = copyForNextOccurrence(task.subtasks, id);
   return {
-    id: nextOccurrenceId(task.id, dueDate),
+    id,
     title: task.title,
     dueDate,
     priority: task.priority,
@@ -106,6 +109,8 @@ export function buildNextOccurrence(task: Task, todayKey: string, nowIso: string
     recurrence: task.recurrence,
     recurrenceDays: task.recurrenceDays,
     recurrenceMonthDay: task.recurrenceMonthDay,
+    ...(subtasks ? { subtasks } : {}),
+    ...(task.reminderMinutes !== undefined && task.reminderMinutes !== null ? { reminderMinutes: task.reminderMinutes } : {}),
     completed: false,
     createdAt: nowIso,
     updatedAt: nowIso,

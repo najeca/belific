@@ -11,6 +11,7 @@ import type { RoutineCompletion } from './types.ts';
 
 type Row = Record<string, unknown>;
 type AnyTable = TimestampedTable | 'routine_completions';
+const EXTRA_COLUMNS = ['subtasks', 'reminder_minutes'];
 const PIPELINE_COLUMNS = ['duration_minutes', 'start_time', 'recurrence', 'recurrence_days', 'recurrence_month_day', 'color_key'];
 
 // --- Fake Supabase: composite keys, merge-duplicates upserts (only supplied
@@ -85,6 +86,9 @@ class FakeServer {
         }
         if (!this.caps.taskPipeline) {
           for (const r of rows) for (const c of PIPELINE_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
+        }
+        if (!this.caps.taskExtras) {
+          for (const r of rows) for (const c of EXTRA_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
         }
         for (const r of rows) {
           const key = this.pk(t, r);
@@ -524,4 +528,32 @@ test('status: errors are recorded, success clears the state', async () => {
   assert.equal(a.engine.getStatus().state, 'idle');
   assert.ok(a.engine.getStatus().lastSuccessAt);
   assert.ok(seen.includes('syncing'));
+});
+
+test('8.2 a server without the subtasks and reminder columns: not sent, kept locally on pull, queued when the columns appear', async () => {
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: false };
+  const desk = makeDevice(server);
+  const subtasks = [{ id: 's1', title: 'Pack', done: true }, { id: 's2', title: 'Book', done: false }];
+  await desk.put('tasks', task('t1', 'Trip', { subtasks, reminderMinutes: 10 }));
+  await desk.engine.sync();
+  assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
+  assert.equal(server.get('tasks', 't1')?.subtasks, undefined, 'not sent');
+  assert.equal(server.get('tasks', 't1')?.reminder_minutes, undefined, 'not sent');
+  // an older client renames it on the server; the local values survive the pull
+  server.legacyUpsert('tasks', { ...server.get('tasks', 't1'), title: 'Trip (renamed)', updated_at: new Date(Date.now() + 1000).toISOString() });
+  await desk.engine.sync();
+  const t = desk.row('tasks', 't1')!;
+  assert.equal(t.title, 'Trip (renamed)');
+  assert.deepEqual(t.subtasks, subtasks);
+  assert.equal(t.reminderMinutes, 10);
+  // migration 3 applied: the probe flips and the local row is queued and uploaded
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true };
+  await desk.engine.sync();
+  assert.deepEqual(server.get('tasks', 't1')?.subtasks, subtasks);
+  assert.equal(server.get('tasks', 't1')?.reminder_minutes, 10);
+  const phone = makeDevice(server);
+  await phone.engine.sync();
+  assert.deepEqual(phone.row('tasks', 't1')?.subtasks, subtasks);
+  assert.equal(phone.row('tasks', 't1')?.reminderMinutes, 10);
 });

@@ -17,6 +17,7 @@ import {
   cursorQueryFrom,
   dropKeys,
   enqueue,
+  hasExtrasValues,
   hasPipelineValues,
   maxServerTime,
   mergeCompletions,
@@ -155,13 +156,17 @@ export function createSyncEngine(deps: {
     const next = await server.probe();
     const prevRaw = await local.getMeta(META.caps);
     const prev: Caps | null = prevRaw ? (JSON.parse(prevRaw) as Caps) : null;
-    if (next.taskPipeline && prev && !prev.taskPipeline) {
+    const pipelineAppeared = next.taskPipeline && !!prev && !prev.taskPipeline;
+    const extrasAppeared = !!next.taskExtras && !!prev && !prev.taskExtras;
+    if (pipelineAppeared || extrasAppeared) {
       await local.withLock(async () => {
         const items: Array<{ table: TimestampedTable; key: string; op: 'upsert'; row: Record<string, unknown> }> = [];
         for (const table of ['tasks', 'projects'] as const) {
           const spec = TABLE_SPECS[table];
           for (const row of await local.load(table)) {
-            if (hasPipelineValues(table, row)) items.push({ table, key: spec.keyOf(row), op: 'upsert', row });
+            if ((pipelineAppeared && hasPipelineValues(table, row)) || (extrasAppeared && hasExtrasValues(table, row))) {
+              items.push({ table, key: spec.keyOf(row), op: 'upsert', row });
+            }
           }
         }
         if (items.length > 0) await outbox.update((s) => enqueue(s, items));

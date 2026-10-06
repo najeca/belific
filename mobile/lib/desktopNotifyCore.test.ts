@@ -46,3 +46,19 @@ test('the day window rolls over month ends', () => {
   const p = buildNotifyPayload([], [task('a', { dueDate: '2026-11-01' })], late);
   assert.equal(p.planned.length, 1);
 });
+
+test('8.2 the payload carries a per task reminder only when one is set', () => {
+  const p = buildNotifyPayload(
+    [],
+    [
+      task('a', { dueDate: '2026-10-06', startTime: '10:00', reminderMinutes: 10 }),
+      task('b', { dueDate: '2026-10-06', startTime: '11:00' }),
+      task('c', { dueDate: '2026-10-06', reminderMinutes: -1 }),
+      task('d', { dueDate: '2026-10-06', reminderMinutes: null }),
+    ],
+    now,
+  );
+  assert.equal(p.placed.find((x) => x.id === 'a')!.reminderMinutes, 10);
+  assert.equal('reminderMinutes' in p.placed.find((x) => x.id === 'b')!, false);
+  assert.deepEqual(p.planned.map((x) => x.reminderMinutes), [-1, undefined]);
+});

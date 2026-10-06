@@ -27,8 +27,8 @@ export interface DesktopSettings {
 // The next 48 hours of notifiable items, sent to the main process.
 export interface NotifyPayload {
   events: Array<{ id: string; title: string; icon: string; start: number }>;
-  placed: Array<{ id: string; title: string; start: number; completed: boolean }>;
-  planned: Array<{ dueDate: string; completed: boolean; startTime?: string }>;
+  placed: Array<{ id: string; title: string; start: number; completed: boolean; reminderMinutes?: number }>;
+  planned: Array<{ dueDate: string; completed: boolean; startTime?: string; reminderMinutes?: number }>;
 }
 
 // What desktop/preload.js exposes (decisions 010, 012, 017). Everything but

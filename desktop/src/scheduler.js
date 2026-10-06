@@ -5,8 +5,9 @@
 //
 // The renderer sends a payload whenever data changes:
 //   { events:  [{ id, title, icon?, start }],        // CustomEvent starts, epoch ms (local wall time)
-//     placed:  [{ id, title, start, completed }],    // tasks with a Day AND a startTime
-//     planned: [{ dueDate, completed, startTime? }] } // tasks planned for a day
+//     placed:  [{ id, title, start, completed, reminderMinutes? }], // tasks with a Day AND a startTime
+//     planned: [{ dueDate, completed, startTime?, reminderMinutes? }] } // tasks planned for a day
+// reminderMinutes: undefined = default, -1 = off, n = minutes before the start.
 // and main keeps one timer per notifiable item for the next 48 hours.
 // Only user set commitments notify (events and placed tasks), plus one
 // grouped daily reminder for planned tasks that have no time (decision 020).
@@ -60,6 +61,17 @@ const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isStr = (v) => typeof v === 'string';
 const clip = (s, n) => (s.length > n ? s.slice(0, n) : s);
 
+// Per task reminder (checkpoint 8.2): undefined/null/invalid = the default
+// (at the start time), -1 = off, 0 to 1440 = minutes before the start.
+function leadMinutes(v) {
+  if (v === undefined || v === null || !Number.isInteger(v) || v < -1 || v > 1440) return 0;
+  return v === -1 ? null : v;
+}
+
+function leadText(min) {
+  return min === 60 ? '1 hour' : min % 60 === 0 && min > 60 ? `${min / 60} hours` : `${min} minutes`;
+}
+
 function dailyBody(count) {
   return count === 1 ? '1 task planned for today' : `${count} tasks planned for today`;
 }
@@ -82,8 +94,12 @@ function plan({ payload, settings, now, zone = localZone }) {
     for (const t of (Array.isArray(p.placed) ? p.placed : []).slice(0, MAX_ITEMS)) {
       if (!t || !isStr(t.id) || !isStr(t.title) || !isNum(t.start)) continue;
       if (t.completed === true) continue;
-      if (t.start <= now || t.start > horizon) continue;
-      out.push({ key: `task:${clip(t.id, 120)}`, at: t.start, kind: 'task', title: clip(t.title, 200), body: 'Starting now' });
+      if (t.start <= now) continue;
+      const lead = leadMinutes(t.reminderMinutes);
+      if (lead === null) continue; // this task's reminder is off
+      const at = t.start - lead * 60000;
+      if (at <= now || at > horizon) continue;
+      out.push({ key: `task:${clip(t.id, 120)}`, at, kind: 'task', title: clip(t.title, 200), body: lead > 0 ? `Starts in ${leadText(lead)}` : 'Starting now' });
     }
   }
   if (settings.dailyReminder && HM.test(settings.dailyTime)) {
@@ -92,7 +108,7 @@ function plan({ payload, settings, now, zone = localZone }) {
       const day = zone.addDays(now, offset);
       const at = zone.at(day, settings.dailyTime);
       if (at <= now || at > horizon) continue;
-      const count = planned.filter((t) => t && t.dueDate === day && t.completed !== true && !t.startTime).length;
+      const count = planned.filter((t) => t && t.dueDate === day && t.completed !== true && !t.startTime && t.reminderMinutes !== -1).length;
       if (count === 0) continue;
       out.push({ key: `daily:${day}`, at, kind: 'daily', title: 'Belific', body: dailyBody(count) });
     }

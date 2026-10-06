@@ -275,3 +275,72 @@ test('login item options: off by default, hidden start when on', () => {
   assert.deepEqual(loginItemOptions(false, 'C:/x/Belific.exe'), { openAtLogin: false, path: 'C:/x/Belific.exe', args: [] });
   assert.deepEqual(loginItemOptions(true, 'C:/x/Belific.exe'), { openAtLogin: true, path: 'C:/x/Belific.exe', args: ['--hidden'] });
 });
+
+test('8.2 per task reminder: default fires at the start time, a lead fires that many minutes earlier', () => {
+  const r = rig();
+  r.sched.update({
+    placed: [
+      { id: 'def', title: 'Default', start: r.now + 30 * M, completed: false },
+      { id: 'ten', title: 'Ten before', start: r.now + 30 * M, completed: false, reminderMinutes: 10 },
+      { id: 'zero', title: 'At start', start: r.now + 30 * M, completed: false, reminderMinutes: 0 },
+      { id: 'hour', title: 'Hour before', start: r.now + 90 * M, completed: false, reminderMinutes: 60 },
+    ],
+  });
+  const at = (title) => r.sched.pending().find((p) => p.title === title).at;
+  assert.equal(at('Default'), r.now + 30 * M);
+  assert.equal(at('Ten before'), r.now + 20 * M);
+  assert.equal(at('At start'), r.now + 30 * M);
+  assert.equal(at('Hour before'), r.now + 30 * M);
+  r.advance(31 * M);
+  const byTitle = Object.fromEntries(r.shown.map((n) => [n.title, n.body]));
+  assert.equal(byTitle['Ten before'], 'Starts in 10 minutes');
+  assert.equal(byTitle['Hour before'], 'Starts in 1 hour');
+  assert.equal(byTitle.Default, 'Starting now');
+});
+
+test('8.2 per task reminder: off (-1) schedules nothing for the task and drops an existing timer', () => {
+  const r = rig();
+  const item = (extra) => ({ placed: [{ id: 'p', title: 'Pinned', start: r.now + 30 * M, completed: false, ...extra }] });
+  r.sched.update(item({}));
+  assert.equal(r.sched.pending().length, 1);
+  r.sched.update(item({ reminderMinutes: -1 }));
+  assert.equal(r.sched.pending().length, 0, 'switching it off cancels the timer');
+  r.sched.update(item({ reminderMinutes: 5 }));
+  assert.equal(r.sched.pending()[0].at, r.now + 25 * M, 'changing the lead moves the timer');
+  r.advance(40 * M);
+  assert.equal(r.shown.length, 1, 'fired once only');
+});
+
+test('8.2 per task reminder: a lead already in the past is skipped, junk values mean the default', () => {
+  const r = rig();
+  r.sched.update({
+    placed: [
+      { id: 'late', title: 'Too late', start: r.now + 5 * M, completed: false, reminderMinutes: 10 },
+      { id: 'junk', title: 'Junk', start: r.now + 15 * M, completed: false, reminderMinutes: 'soon' },
+      { id: 'neg', title: 'Neg', start: r.now + 16 * M, completed: false, reminderMinutes: -7 },
+    ],
+  });
+  assert.deepEqual(r.sched.pending().map((p) => p.title), ['Junk', 'Neg']);
+  assert.equal(r.sched.pending()[0].at, r.now + 15 * M);
+});
+
+test('8.2 daily reminder skips planned tasks set to off and tasks without a time ignore leads', () => {
+  const r = rig();
+  const today = day(0, r.now);
+  r.sched.update({
+    planned: [{ dueDate: today }, { dueDate: today, reminderMinutes: -1 }, { dueDate: today, reminderMinutes: 10 }],
+  });
+  r.advance(1 * H + M);
+  assert.equal(r.shown[0].body, '2 tasks planned for today');
+  const r2 = rig();
+  r2.sched.update({ planned: [{ dueDate: day(0, r2.now), reminderMinutes: -1 }] });
+  assert.equal(r2.sched.pending().filter((p) => p.kind === 'daily').length, 0);
+});
+
+test('8.2 the 48 hour window applies to the notification time', () => {
+  const r = rig();
+  r.sched.update({ placed: [{ id: 'far', title: 'Far', start: r.now + WINDOW_MS + 30 * M, completed: false, reminderMinutes: 60 }] });
+  assert.equal(r.sched.pending().length, 1, 'start is outside, but 1 hour before is inside');
+  r.sched.update({ placed: [{ id: 'far', title: 'Far', start: r.now + WINDOW_MS + 90 * M, completed: false, reminderMinutes: 5 }] });
+  assert.equal(r.sched.pending().length, 0);
+});

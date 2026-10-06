@@ -17,6 +17,8 @@ import {
   recordFailure,
   removeSent,
   sanitizeDays,
+  sanitizeReminder,
+  sanitizeSubtasks,
   sanitizeDuration,
   sanitizeTime,
   taskFromRemote,
@@ -190,4 +192,40 @@ test('an upload batch is split by column set, so a live row never sits next to a
   assert.equal(groups.length, 2);
   assert.deepEqual(groups[0].map((r) => r.id), ['a', 'c']);
   assert.deepEqual(groups[1].map((r) => r.id), ['b']);
+});
+
+test('8.2 mapper: subtasks and reminder only with migration 3, sanitised', () => {
+  const subtasks = [{ id: 'a', title: '  Pack  ', done: true }, { id: 'a', title: 'dup id', done: false }, { id: 'b', title: '   ', done: false }, { id: 'c', title: 'x'.repeat(500), done: false }, { id: 'd', title: 'Ok', done: 'yes' as unknown as boolean }];
+  const t = { ...base, subtasks, reminderMinutes: 30 };
+  const without = taskToRemote(t, { serverUpdatedAt: true, taskPipeline: true });
+  assert.equal('subtasks' in without, false);
+  assert.equal('reminder_minutes' in without, false);
+  const withCols = taskToRemote(t, { serverUpdatedAt: true, taskPipeline: true, taskExtras: true });
+  const sent = withCols.subtasks as Array<{ id: string; title: string; done: boolean }>;
+  assert.deepEqual(sent.map((s) => s.id), ['a', 'c', 'd']);
+  assert.equal(sent[0].title, 'Pack');
+  assert.equal(sent[1].title.length, 200);
+  assert.equal(sent[2].done, false);
+  assert.equal(withCols.reminder_minutes, 30);
+  assert.equal(taskToRemote({ ...base, subtasks: [] }, { serverUpdatedAt: true, taskPipeline: true, taskExtras: true }).subtasks, null);
+  assert.equal(taskToRemote({ ...base, reminderMinutes: -1 }, { serverUpdatedAt: true, taskPipeline: true, taskExtras: true }).reminder_minutes, -1);
+  assert.equal(taskToRemote({ ...base, reminderMinutes: undefined }, { serverUpdatedAt: true, taskPipeline: true, taskExtras: true }).reminder_minutes, null);
+});
+
+test('8.2 mapper: at most 50 subtasks, junk reminder values become null, pulls read them back', () => {
+  const many = Array.from({ length: 70 }, (_, i) => ({ id: 's' + i, title: 't' + i, done: false }));
+  assert.equal(sanitizeSubtasks(many)!.length, 50);
+  assert.equal(sanitizeSubtasks('nope'), null);
+  assert.equal(sanitizeSubtasks([null, 3, { id: 1, title: 'x' }]), null);
+  assert.equal(sanitizeReminder(-1), -1);
+  assert.equal(sanitizeReminder(0), 0);
+  assert.equal(sanitizeReminder(-2), null);
+  assert.equal(sanitizeReminder(1.5), null);
+  assert.equal(sanitizeReminder(99999), null);
+  const back = taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T1, subtasks: [{ id: 'a', title: 'A', done: true }], reminder_minutes: 5 });
+  assert.deepEqual(back.subtasks, [{ id: 'a', title: 'A', done: true }]);
+  assert.equal(back.reminderMinutes, 5);
+  const old = taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T1 });
+  assert.equal(old.subtasks, undefined);
+  assert.equal(old.reminderMinutes, undefined);
 });

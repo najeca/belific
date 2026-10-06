@@ -24,6 +24,11 @@ interface TaskLike {
   completed: boolean;
   dueDate?: string;
   startTime?: string;
+  reminderMinutes?: number | null;
+}
+
+function reminderPart(t: TaskLike): { reminderMinutes?: number } {
+  return typeof t.reminderMinutes === 'number' ? { reminderMinutes: t.reminderMinutes } : {};
 }
 
 // Pure: builds the payload for the 48 hours after `now` (plus a day of slack,
@@ -47,9 +52,9 @@ export function buildNotifyPayload(events: EventLike[], tasks: TaskLike[], now: 
     if (t.startTime) {
       const start = localMs(t.dueDate, t.startTime);
       if (start === null || start <= now || start > horizon) continue;
-      payload.placed.push({ id: t.id, title: t.title, start, completed: false });
+      payload.placed.push({ id: t.id, title: t.title, start, completed: false, ...reminderPart(t) });
     } else if (windowDays.has(t.dueDate)) {
-      payload.planned.push({ dueDate: t.dueDate, completed: false });
+      payload.planned.push({ dueDate: t.dueDate, completed: false, ...reminderPart(t) });
     }
   }
   return payload;

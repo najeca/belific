@@ -167,6 +167,12 @@ export interface RoutineCompletion {
   completedAt: string;
 }
 
+export interface Subtask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -201,6 +207,14 @@ export interface Task {
   // clamped to shorter months, so a 31st stays the 31st after February.
   // LOCAL ONLY until checkpoint 5 (migration 2), like the fields above.
   recurrenceMonthDay?: number;
+  // Checkpoint 8.2 (decision 021): a checklist stored on the task, at most 50.
+  // Synced in a nullable jsonb column; kept locally while the server lacks it.
+  subtasks?: Subtask[];
+  // Desktop reminder (decision 017/020, checkpoint 8.2). undefined or null =
+  // the default behaviour (notify at the start time of a placed task, and the
+  // grouped daily reminder for a planned task with no time), -1 = off, 0 or
+  // more = minutes before the start time. Synced as reminder_minutes.
+  reminderMinutes?: number | null;
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';

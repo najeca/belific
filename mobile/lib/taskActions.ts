@@ -1,4 +1,6 @@
 import { addTask, deleteBrainDumpItem, loadTasksRaw, updateTask } from './storage';
+import { createDumpConverter } from './dumpConvert';
+import { planDropAsSubtask, toggleSubtask, undoDropAsSubtask, withAllDone, type SubtaskDropPlan } from './subtasks';
 import { generateId } from './data';
 import { buildNextOccurrence, nextOccurrenceId, nextOccurrence } from './recurrence';
 import { dateKey } from './kanban';
@@ -22,11 +24,17 @@ let chain: Promise<unknown> = Promise.resolve();
 
 export function setTaskCompleted(task: Task, completed: boolean): Promise<void> {
   const run = chain.then(async () => {
-    await updateTask({
+    // Completing ticks every subtask; reopening leaves them as they are.
+    const subtasks = completed ? withAllDone(task.subtasks) : task.subtasks;
+    const done: Task = {
       ...task,
       completed,
       completedAt: completed ? new Date().toISOString() : undefined,
-    });
+      ...(subtasks ? { subtasks } : {}),
+    };
+    await updateTask(done);
+    // The next occurrence copies the subtasks, all unticked (from the ticked or
+    // unticked list alike).
     if (completed && task.recurrence) await createNextOccurrence(task);
   });
   chain = run.catch(() => {});
@@ -65,4 +73,45 @@ export async function convertDumpItem(item: BrainDumpItem, fields: Partial<Task>
   await addTask(task);
   await deleteBrainDumpItem(item.id);
   return task;
+}
+
+// Ticks or unticks one subtask. The last tick completes the task and
+// unticking a subtask of a completed task reopens it, both through
+// setTaskCompleted so a repeating task still gets its next occurrence.
+export async function toggleSubtaskOn(task: Task, subtaskId: string): Promise<void> {
+  const { subtasks, completeTask } = toggleSubtask(task, subtaskId);
+  const updated: Task = { ...task, subtasks };
+  if (completeTask === null) {
+    await updateTask(updated);
+    return;
+  }
+  await updateTask(updated);
+  await setTaskCompleted(updated, completeTask);
+}
+
+// A legacy phone Brain Dump item becomes a Task in place on its first edit
+// (any number of edits, one Task). See lib/dumpConvert.ts.
+const dumpConverter = createDumpConverter({
+  newId: generateId,
+  nowIso: () => new Date().toISOString(),
+  addTask,
+  updateTask,
+  deleteDumpItem: deleteBrainDumpItem,
+});
+export const editDumpItem = dumpConverter.edit;
+
+// Drop a task onto another card: it becomes a subtask and the dragged task is
+// tombstoned. Returns the plan (for Undo) or null when not allowed.
+export async function dropAsSubtask(host: Task, dragged: Task): Promise<SubtaskDropPlan | null> {
+  const plan = planDropAsSubtask(host, dragged, generateId(), new Date().toISOString());
+  if (!plan) return null;
+  await updateTask(plan.host);
+  await updateTask(plan.tombstoned);
+  return plan;
+}
+
+export async function undoDropAsSubtaskPlan(plan: SubtaskDropPlan): Promise<void> {
+  const { host, dragged } = undoDropAsSubtask(plan, new Date().toISOString(), generateId());
+  await updateTask(host);
+  await addTask(dragged);
 }

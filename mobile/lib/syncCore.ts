@@ -22,6 +22,7 @@ import type {
   RecurrenceRule,
   Routine,
   RoutineCompletion,
+  Subtask,
   Task,
   WeekDay,
 } from './types.ts';
@@ -153,6 +154,9 @@ export interface Caps {
   serverUpdatedAt: boolean;
   // Migration 2: the task pipeline columns and projects.color_key.
   taskPipeline: boolean;
+  // Migration 3 (20261007120000): tasks.subtasks and tasks.reminder_minutes.
+  // Optional so a stored older caps value reads as false.
+  taskExtras?: boolean;
 }
 
 export const NO_CAPS: Caps = { serverUpdatedAt: false, taskPipeline: false };
@@ -167,11 +171,14 @@ export const TASK_PIPELINE_FIELDS = [
   'recurrenceMonthDay',
 ] as const;
 export const PROJECT_PIPELINE_FIELDS = ['colorKey'] as const;
+// Local task fields that wait for migration 3.
+export const TASK_EXTRA_FIELDS = ['subtasks', 'reminderMinutes'] as const;
 
 export function preserveFieldsFor(table: TimestampedTable, caps: Caps): string[] {
-  if (caps.taskPipeline) return [];
-  if (table === 'tasks') return [...TASK_PIPELINE_FIELDS];
-  if (table === 'projects') return [...PROJECT_PIPELINE_FIELDS];
+  if (table === 'tasks') {
+    return [...(caps.taskPipeline ? [] : TASK_PIPELINE_FIELDS), ...(caps.taskExtras ? [] : TASK_EXTRA_FIELDS)];
+  }
+  if (table === 'projects' && !caps.taskPipeline) return [...PROJECT_PIPELINE_FIELDS];
   return [];
 }
 
@@ -181,6 +188,13 @@ export function hasPipelineValues(table: TimestampedTable, row: Record<string, u
   const fields: readonly string[] =
     table === 'tasks' ? TASK_PIPELINE_FIELDS : table === 'projects' ? PROJECT_PIPELINE_FIELDS : [];
   return fields.some((f) => row[f] !== undefined && row[f] !== null);
+}
+
+// A local task that carries values only migration 3 can store.
+export function hasExtrasValues(table: TimestampedTable, row: Record<string, unknown>): boolean {
+  if (table !== 'tasks') return false;
+  const sub = row.subtasks;
+  return (Array.isArray(sub) && sub.length > 0) || (row.reminderMinutes !== undefined && row.reminderMinutes !== null);
 }
 
 // --- Merge of a pulled page into local rows ---
@@ -340,6 +354,32 @@ export function sanitizeMonthDay(v: unknown): number | null {
   return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 31 ? v : null;
 }
 
+export const MAX_SUBTASKS = 50;
+export const MAX_SUBTASK_TITLE = 200;
+// A clean list for the jsonb column: at most 50 items, ids and titles capped,
+// blanks dropped, duplicate ids dropped. Empty or invalid is null.
+export function sanitizeSubtasks(v: unknown): Subtask[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: Subtask[] = [];
+  const seen = new Set<string>();
+  for (const x of v) {
+    if (out.length >= MAX_SUBTASKS) break;
+    if (!x || typeof x !== 'object') continue;
+    const o = x as { id?: unknown; title?: unknown; done?: unknown };
+    if (typeof o.id !== 'string' || o.id.length === 0 || typeof o.title !== 'string') continue;
+    const id = o.id.slice(0, 80);
+    const title = o.title.trim().slice(0, MAX_SUBTASK_TITLE);
+    if (!title || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, title, done: o.done === true });
+  }
+  return out.length > 0 ? out : null;
+}
+// -1 (off) or 0 to 1440 minutes before; anything else is no value (default).
+export function sanitizeReminder(v: unknown): number | null {
+  return typeof v === 'number' && Number.isInteger(v) && v >= -1 && v <= 1440 ? v : null;
+}
+
 type Remote = Record<string, unknown>;
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 // A column present with null means "no value"; a column missing from the
@@ -448,6 +488,10 @@ export function taskToRemote(t: Task, caps: Caps): Remote {
     row.recurrence_days = sanitizeDays(t.recurrenceDays);
     row.recurrence_month_day = sanitizeMonthDay(t.recurrenceMonthDay);
   }
+  if (caps.taskExtras) {
+    row.subtasks = sanitizeSubtasks(t.subtasks);
+    row.reminder_minutes = sanitizeReminder(t.reminderMinutes);
+  }
   return withDeleted(row, t.deletedAt);
 }
 export function taskFromRemote(r: Remote): Task {
@@ -466,6 +510,8 @@ export function taskFromRemote(r: Remote): Task {
     recurrence: opt(r, 'recurrence'),
     recurrenceDays: opt(r, 'recurrence_days'),
     recurrenceMonthDay: opt(r, 'recurrence_month_day'),
+    subtasks: sanitizeSubtasks(r.subtasks) ?? undefined,
+    reminderMinutes: sanitizeReminder(r.reminder_minutes) ?? undefined,
     origin: opt(r, 'origin'),
     updatedAt: String(r.updated_at),
     deletedAt: opt(r, 'deleted_at'),

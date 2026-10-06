@@ -225,7 +225,8 @@ async function revokeWithTokens(tokens: { access_token: string; refresh_token: s
     const status = (set.error as { status?: number }).status;
     return status && status >= 400 && status < 500 ? 'dead' : 'offline';
   }
-  const out = await temp.auth.signOut();
+  // Local scope: only this device's session ends, never the iPhone's.
+  const out = await temp.auth.signOut({ scope: 'local' });
   return out.error ? 'offline' : 'done';
 }
 
@@ -261,11 +262,10 @@ export async function signOutDesktop(): Promise<void> {
   const tokens = data.session
     ? { access_token: data.session.access_token, refresh_token: data.session.refresh_token }
     : null;
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    if (tokens) await noteRevokeFailed(revokeDeps, tokens);
-    await supabase.auth.signOut({ scope: 'local' });
-  }
+  // Local scope (2.11.2): the default is global, which would also sign the
+  // iPhone out. auth-js drops the stored session even when the server call fails.
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+  if (error && tokens) await noteRevokeFailed(revokeDeps, tokens);
   // Ends any sign in in progress and wipes its verifier (L1).
   await bridge().auth.cancel();
   await dropChoice(accountDeps);

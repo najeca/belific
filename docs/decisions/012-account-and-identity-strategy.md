@@ -32,6 +32,8 @@ Changes to the built behaviour above, from the security review:
 - **Session copies.** `secure.*` files are excluded from daily backups, labelled backups and Export data. A sign out whose server revoke fails keeps the tokens in the encrypted store as "revoke pending", retried at launch and when the network returns (with a throwaway client that never touches the stored session).
 - **Smaller:** `secureStore` encrypts first and falls back to memory with a warning on error; `shell.openExternal` and `window.open` allow only the Supabase authorize URL and Belific's privacy, terms and support pages; the page cannot use `secure.*` keys or the first sign in flag through the kv IPC; labelled backup folders get a numeric suffix instead of being replaced; `auth:begin` is refused while one is running; the CSP gained object-src, base-uri, form-action and frame-ancestors.
 
+**2.11.2:** the desktop sign out and the pending revoke retry use scope `local` (this device's session only). The default is global and would also end the iPhone's session. iPhone sign out (`auth.ts`) is unchanged.
+
 ## Related Notes
 - [[docs/OPUS_PLAN_REVIEW]]
 - [[docs/decisions/009-desktop-platform-and-auth]]

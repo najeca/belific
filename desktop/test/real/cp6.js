@@ -213,6 +213,10 @@ async function run() {
   await C.waitFor(() => (logText().match(/auth link ignored \(no-pending\)/g) || []).length >= 2);
   check('a replayed code after success is ignored', (await js('window.__cb.length')) >= 3 && fake.tokenCalls === 3);
 
+  // 2.11.2: a second session of the same user (the iPhone) must survive this computer's sign out.
+  const phoneSession = fake.issueSession('user-one-1111');
+  check('fake server now holds this computer session and the iPhone session', fake.sessions.size === 2);
+
   // M3: sign out while offline keeps a pending revoke, retried when back online.
   fake.logoutOnline = false;
   await click('Sign out');
@@ -230,6 +234,8 @@ async function run() {
   await js("window.dispatchEvent(new Event('online')); 1");
   await C.waitFor(async () => !(await body()).includes('Ending the session on the server is waiting'), 15000);
   check('back online: the revoke was retried and the note cleared', fake.logoutCalls > logoutsBefore);
+  check('every logout request used scope local (sign out and the retry)', fake.logoutScopes.length >= 2 && fake.logoutScopes.every((x) => x === 'local'));
+  check('this computer session ended on the server, the iPhone session survived', fake.sessions.size === 1 && fake.sessions.has(phoneSession));
   if (PHASE === 'A') check('the revoke pending entry is gone from disk', secureFiles().length === 0);
 
   // L1: cancel, a failed begin, three failures, expiry and sign out leave no verifier anywhere.

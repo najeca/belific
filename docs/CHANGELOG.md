@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 2.11.2 — 2026-10-06
+
+**Desktop sign out only ends this computer's session (checkpoint 6.1 follow-up). The iPhone is unchanged.**
+
+- The desktop sign out, and the retry of a sign out that could not reach the server, now use scope `local`. Before, they used Supabase's default (global), which also signed the iPhone out.
+
+---
+
 ## 2.11.1 — 2026-10-06
 
 **Desktop sign in hardening (checkpoint 6.1, fixes from the security review of checkpoint 6). The iPhone and the sync rules are unchanged.**

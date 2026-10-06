@@ -56,9 +56,9 @@ function watchNetwork() {
 // must be GOODCODE (user 1) or GOODCODE2 (user 2) and sha256(code_verifier)
 // must equal the code_challenge of the URL the app opened.
 // A JWT shaped token (unsigned) so auth-js can read its expiry like a real one.
-function fakeJwt(sub, exp) {
+function fakeJwt(sub, exp, sid) {
   const part = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${part({ alg: 'HS256', typ: 'JWT' })}.${part({ sub, exp, aud: 'authenticated', role: 'authenticated' })}.fakesig`;
+  return `${part({ alg: 'HS256', typ: 'JWT' })}.${part({ sub, exp, session_id: sid, aud: 'authenticated', role: 'authenticated' })}.fakesig`;
 }
 
 function installFakeSupabase() {
@@ -70,6 +70,13 @@ function installFakeSupabase() {
     logoutCalls: 0,
     logoutOnline: false,
     challenge: null,
+    sessions: new Map(), // session id -> user id (the server's view)
+    logoutScopes: [],
+    issueSession(user) {
+      const sid = 's' + (state.sessions.size + 1) + '-' + Math.random().toString(36).slice(2, 8);
+      state.sessions.set(sid, user);
+      return sid;
+    },
     users: { GOODCODE: 'user-one-1111', GOODCODE2: 'user-two-2222' },
   };
   const json = (status, body, extra = {}) =>
@@ -100,7 +107,7 @@ function installFakeSupabase() {
       }
       const now = Math.floor(Date.now() / 1000);
       return json(200, {
-        access_token: fakeJwt(user, now + 3600),
+        access_token: fakeJwt(user, now + 3600, state.issueSession(user)),
         refresh_token: 'fake-refresh-' + user,
         expires_in: 3600,
         expires_at: now + 3600,
@@ -118,7 +125,21 @@ function installFakeSupabase() {
     }
     if (url.pathname === '/auth/v1/logout') {
       state.logoutCalls += 1;
-      return state.logoutOnline ? json(204, null) : Response.error();
+      // Like Supabase: local ends only the calling session, global ends every session of the user.
+      const scope = url.searchParams.get('scope') || 'global';
+      state.logoutScopes.push(scope);
+      if (!state.logoutOnline) return Response.error();
+      const bearer = (request.headers.get('authorization') || '').replace('Bearer ', '');
+      let claims = {};
+      try {
+        claims = JSON.parse(Buffer.from(bearer.split('.')[1], 'base64url').toString());
+      } catch {}
+      if (scope === 'global') {
+        for (const [sid, u] of [...state.sessions]) if (u === claims.sub) state.sessions.delete(sid);
+      } else if (scope === 'local') {
+        state.sessions.delete(claims.session_id);
+      }
+      return json(204, null);
     }
     if (url.pathname.startsWith('/rest/v1/')) {
       state.restCalls += 1;

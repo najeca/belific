@@ -108,6 +108,8 @@ contradicts the earlier removal of the weekly summary and no email
 infrastructure exists), Account actions (Log out). Built fresh this round;
 there was no prior desktop Settings screen to reuse.
 
+**Built so far (2.10.0, checkpoint 6): a small Settings modal, not this page.** The Brain Dump pane's footer line ("Local only · not signed in", or the sync status once signed in) is a clickable account line that opens a centred modal with three sections: **Account** (Sign in with Apple, signed in as the email or "Apple account", Sign out, Delete account with an inline confirm), **Sync** (status, last success, last error, Sync now) and **Data** (Export data, Open backups folder). No profile dropdown, avatar or editable name exists yet. Checkpoint 7 adds Notifications and Window sections to the same modal.
+
 **Progress** — level ring with weekly / longest-streak / lifetime XP
 stats (the XP parts wait for decision 014), an XP history feed (source, amount, when), and a streak calendar
 (month grid — full / partial / missed days). This is the fuller form of

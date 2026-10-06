@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 2.10.0 — 2026-10-06
+
+**Desktop sign in with Apple (checkpoint 6, decision 012). The iPhone is unchanged. The live Apple round trip is not verified until the setup guide is done.**
+
+- The desktop can sign in through the system browser (PKCE, `belific://auth-callback`). Only a callback for a sign in started in this run, within 10 minutes, used once, is accepted; anything else is ignored.
+- The session is stored encrypted (Electron safeStorage). If the computer cannot encrypt it, the sign in lasts for that run only.
+- Before the first ever sign in the app takes a backup named `YYYY-MM-DD-pre-signin`. Sign out keeps all local data.
+- The "Local only · not signed in" line is now clickable and opens a small Settings modal: Account (sign in, sign out, delete account), Sync (status, last success, last error, Sync now) and Data (export, open backups folder).
+- `docs/APPLE_SIGNIN_SETUP.md`: the Apple and Supabase steps for Jethro.
+
+---
+
 ## 2.9.0 — 2026-10-06
 
 **Sync hardening (checkpoint 5, decision 013). Shared by the iPhone and the desktop; the desktop stays signed out.**

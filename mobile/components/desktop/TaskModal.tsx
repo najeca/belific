@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../lib/theme';
-import { DURATION_CHOICES, dateKey, isDateKey } from '../../../lib/kanban';
-import { convertDumpItem, setTaskCompleted } from '../../../lib/taskActions';
+import { Colors } from '../../lib/theme';
+import { DURATION_CHOICES, dateKey, isDateKey } from '../../lib/kanban';
+import { convertDumpItem, setTaskCompleted } from '../../lib/taskActions';
 import {
   updateTask,
   deleteTask,
   deleteBrainDumpItem,
   loadProjects,
   addProject,
-} from '../../../lib/storage';
-import type { BrainDumpItem, EventPriority, Project, RecurrenceRule, Task, WeekDay } from '../../../lib/types';
+} from '../../lib/storage';
+import type { BrainDumpItem, EventPriority, Project, RecurrenceRule, Task, WeekDay } from '../../lib/types';
 
 // Desktop task editor: a centred overlay on Desktop Home, never a new screen
 // (DESKTOP_HOME_NAV_SPEC standing rule). It never creates tasks (a thought

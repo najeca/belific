@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../lib/theme';
-import { customToScheduleEvent, getWeeklyEventsForDate, formatTime } from '../../../lib/data';
-import { addDays, dateKey, formatDayLabel, isDateKey, parseDateKey } from '../../../lib/kanban';
+import { Colors } from '../../lib/theme';
+import { customToScheduleEvent, getWeeklyEventsForDate, formatTime } from '../../lib/data';
+import { addDays, dateKey, formatDayLabel, isDateKey, parseDateKey } from '../../lib/kanban';
 import {
   GRID_END_HOUR,
   GRID_HEIGHT_PX,
   GRID_START_HOUR,
+  MIN_BLOCK_PX,
   PX_PER_HOUR,
   formatMinutes,
   layoutItems,
@@ -16,21 +17,27 @@ import {
   toMinutes,
   totalScheduledMinutes,
   type TimeboxItem,
-} from '../../../lib/timebox';
+} from '../../lib/timebox';
+import { domNode, useDrag } from './DragProvider';
+import usePaneScroll from './usePaneScroll';
+import { slotLabel, taskDuration, yToMinutes } from '../../lib/drag';
 import {
   loadCustomCategories,
   loadCustomEvents,
   loadTasks,
   updateCustomEvent,
   deleteCustomEvent,
-} from '../../../lib/storage';
-import type { CustomCategory, CustomEvent, ScheduleEvent, Task } from '../../../lib/types';
+} from '../../lib/storage';
+import type { CustomCategory, CustomEvent, ScheduleEvent, Task } from '../../lib/types';
 
 // Desktop Timebox (decision 009): an hourly grid for one day, 06:00 to 23:00.
 // It draws that day's CustomEvents (category colours, same sources the
 // Calendar tab reads) AND placed Tasks (a Task with this Day and a
-// startTime, decision 015). One row per task: nothing is copied. No drag
-// yet (checkpoint 4): tasks are placed from the kanban card's "Schedule at".
+// startTime, decision 015). One row per task: nothing is copied. Tasks are
+// placed from the kanban card's "Schedule at" or by drag (checkpoint 4): the
+// grid is a drop target (30 minute slots), a task block can be dragged to a
+// new time, onto a day column or back to the Brain Dump list, and its bottom
+// edge resizes it in 30 minute steps. Events are not draggable.
 const GUTTER = 48;
 
 type Source =
@@ -65,6 +72,24 @@ export default function TimeboxPane({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editing, setEditing] = useState<CustomEvent | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const { drag, registerZone, sourceRef, startResize } = useDrag();
+  const paneScroll = usePaneScroll();
+  const scrollNode = useRef<HTMLElement | null>(null);
+  const gridNode = useRef<HTMLElement | null>(null);
+  const tasksById = useRef(new Map<string, Task>());
+  const handleRefs = useRef(new Map<string, (node: unknown) => void>());
+  const setScrollRef = useCallback(
+    (instance: unknown) => {
+      scrollRef.current = instance as ScrollView | null;
+      paneScroll('timebox', (node) => {
+        scrollNode.current = node;
+      })(instance);
+    },
+    [paneScroll],
+  );
+  const setGridRef = useCallback((instance: unknown) => {
+    gridNode.current = domNode(instance);
+  }, []);
 
   const reload = useCallback(() => {
     loadCustomEvents().then(setEvents);
@@ -87,6 +112,40 @@ export default function TimeboxPane({
 
   const key = dateKey(day);
   const todayKey = dateKey(new Date());
+
+  // The visible grid is the drop target for the displayed day.
+  useEffect(() => {
+    if (scrollNode.current) {
+      registerZone('timebox', { kind: 'timebox', dayKey: key, node: scrollNode.current, gridNode: gridNode.current });
+    }
+    return () => registerZone('timebox', null);
+  }, [key, registerZone]);
+
+  // The bottom edge of a task block: dragging it changes the duration.
+  const handleRef = (id: string) => {
+    let ref = handleRefs.current.get(id);
+    if (!ref) {
+      let cleanup: (() => void) | null = null;
+      ref = (instance: unknown) => {
+        cleanup?.();
+        cleanup = null;
+        const el = domNode(instance);
+        if (!el) return;
+        const down = (e: PointerEvent) => {
+          const task = tasksById.current.get(id);
+          const start = toMinutes(task?.startTime);
+          if (!task || start === null || !gridNode.current) return;
+          startResize(e, task, start, gridNode.current);
+        };
+        // RN's cursor type has no ns-resize; set it on the DOM node.
+        el.style.cursor = 'ns-resize';
+        el.addEventListener('pointerdown', down);
+        cleanup = () => el.removeEventListener('pointerdown', down);
+      };
+      handleRefs.current.set(id, ref);
+    }
+    return ref;
+  };
 
   const { sources, items } = useMemo(() => {
     const map = new Map<string, Source>();
@@ -112,6 +171,7 @@ export default function TimeboxPane({
       const item = taskToItem(t);
       if (!item) continue;
       map.set(`task:${t.id}`, { kind: 'task', task: t });
+      tasksById.current.set(t.id, t);
       list.push({ ...item, id: `task:${t.id}` });
     }
     return { sources: map, items: list };
@@ -202,13 +262,16 @@ export default function TimeboxPane({
         </Text>
       )}
 
-      <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={[styles.grid, { height: GRID_HEIGHT_PX + 16 }]}>
+      <ScrollView ref={setScrollRef as never} style={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View ref={setGridRef as never} style={[styles.grid, { height: GRID_HEIGHT_PX + 16 }]}>
           {hours.map((h) => (
             <View key={h} style={[styles.hourRow, { top: (h - GRID_START_HOUR) * PX_PER_HOUR }]}>
               <Text style={styles.hourLabel}>{String(h).padStart(2, '0')}:00</Text>
               <View style={styles.hourLine} />
             </View>
+          ))}
+          {hours.slice(0, -1).map((h) => (
+            <View key={`half-${h}`} style={[styles.halfLine, { top: (h - GRID_START_HOUR + 0.5) * PX_PER_HOUR }]} />
           ))}
 
           <View style={styles.blocks}>
@@ -223,24 +286,50 @@ export default function TimeboxPane({
               };
               if (source.kind === 'task') {
                 const t = source.task;
+                const resizing = drag?.mode === 'resize' && drag.item.id === t.id ? drag.resizeDuration : undefined;
+                const startMin = toMinutes(t.startTime) ?? b.startMin;
+                const sized = resizing
+                  ? { ...positioned, height: Math.max((resizing / 60) * PX_PER_HOUR, MIN_BLOCK_PX) }
+                  : positioned;
                 return (
-                  <View key={b.id} style={[styles.blockWrap, positioned]}>
+                  <View
+                    key={b.id}
+                    style={[styles.blockWrap, sized, drag?.mode === 'move' && drag.item.id === t.id && styles.dragging]}
+                  >
                     <View style={styles.blockBase}>
                     <Pressable
+                      ref={sourceRef(`block:${t.id}`, (e) => {
+                        const grid = gridNode.current;
+                        const start = toMinutes(t.startTime);
+                        if (!grid || start === null) return null;
+                        return {
+                          kind: 'block',
+                          task: t,
+                          id: t.id,
+                          title: t.title,
+                          duration: taskDuration(t),
+                          grabOffsetMin: yToMinutes(e.clientY, grid.getBoundingClientRect().top) - start,
+                        };
+                      }) as never}
                       onPress={() => openSource(source)}
-                      style={[styles.block, styles.taskBlock]}
+                      style={[styles.block, styles.taskBlock, resizing !== undefined && styles.taskBlockActive]}
                       accessibilityRole="button"
                       accessibilityLabel={`Task ${t.title}`}
                     >
                       <Text style={[styles.blockTitle, t.completed && styles.blockTitleDone]} numberOfLines={1}>
                         {t.title}
                       </Text>
-                      {b.height >= 36 && (
-                        <Text style={styles.blockTime}>
-                          {formatTime(t.startTime ?? '')} {t.completed ? 'done' : 'task'}
-                        </Text>
+                      {resizing !== undefined ? (
+                        <Text style={styles.blockSnap}>{slotLabel(startMin, resizing)}</Text>
+                      ) : (
+                        b.height >= 36 && (
+                          <Text style={styles.blockTime}>
+                            {formatTime(t.startTime ?? '')} {t.completed ? 'done' : 'task'}
+                          </Text>
+                        )
                       )}
                     </Pressable>
+                    <View ref={handleRef(t.id) as never} style={styles.resizeHandle} accessibilityLabel={`Resize ${t.title}`} />
                     </View>
                   </View>
                 );
@@ -270,6 +359,20 @@ export default function TimeboxPane({
                 </View>
               );
             })}
+            {drag?.mode === 'move' && drag.accepted && drag.target?.kind === 'slot' && drag.target.dayKey === key && (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.slotPreview,
+                  {
+                    top: ((drag.target.startMin - GRID_START_HOUR * 60) / 60) * PX_PER_HOUR,
+                    height: Math.max((drag.item.duration / 60) * PX_PER_HOUR, MIN_BLOCK_PX),
+                  },
+                ]}
+              >
+                <Text style={styles.blockSnap}>{slotLabel(drag.target.startMin, drag.item.duration)}</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -434,6 +537,23 @@ const styles = StyleSheet.create({
   hourRow: { position: 'absolute', left: 0, right: 0, height: 0, flexDirection: 'row', alignItems: 'center' },
   hourLabel: { width: GUTTER, fontSize: 11, color: Colors.textSecondary },
   hourLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: Colors.border },
+  halfLine: { position: 'absolute', left: GUTTER, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: Colors.border, opacity: 0.5 },
+  dragging: { opacity: 0.35 },
+  taskBlockActive: { backgroundColor: Colors.background },
+  blockSnap: { fontSize: 11, fontWeight: '700', color: Colors.accentText },
+  resizeHandle: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 6 },
+  slotPreview: {
+    position: 'absolute',
+    left: 0,
+    right: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.accent,
+    backgroundColor: Colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
   blocks: { position: 'absolute', top: 0, bottom: 0, left: GUTTER, right: 0 },
   blockWrap: { position: 'absolute', paddingRight: 2, paddingBottom: 1 },
   blockBase: { flex: 1, borderRadius: 8, backgroundColor: Colors.surface, overflow: 'hidden' },

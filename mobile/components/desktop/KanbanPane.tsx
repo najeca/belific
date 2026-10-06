@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../lib/theme';
+import { Colors } from '../../lib/theme';
 import {
   addDays,
   addWeeks,
@@ -19,12 +19,15 @@ import {
   weekDays,
   weekStartOf,
   type ColumnItem,
-} from '../../../lib/kanban';
-import { DEFAULT_TASK_MINUTES, formatMinutes, toMinutes } from '../../../lib/timebox';
+} from '../../lib/kanban';
+import { DEFAULT_TASK_MINUTES, formatMinutes, toMinutes } from '../../lib/timebox';
 import HoverPressable from './HoverPressable';
-import { loadTasks, loadProjects, updateTask } from '../../../lib/storage';
-import { setTaskCompleted } from '../../../lib/taskActions';
-import type { Project, Task } from '../../../lib/types';
+import { domNode, useDrag } from './DragProvider';
+import usePaneScroll from './usePaneScroll';
+import { stepWeekStart, taskDuration } from '../../lib/drag';
+import { loadTasks, loadProjects, updateTask } from '../../lib/storage';
+import { setTaskCompleted } from '../../lib/taskActions';
+import type { Project, Task } from '../../lib/types';
 
 // Desktop week board (decision 009, "Plan"), forward only: the days of the
 // displayed week (tasks with no Day are the Brain Dump list in the left pane,
@@ -36,6 +39,10 @@ import type { Project, Task } from '../../../lib/types';
 // tasks from past days are surfaced first in Today with a muted "from <date>"
 // tag; the stored date is left alone until the user moves the task. This
 // pane never creates tasks (they are created in the Brain Dump pane).
+// Drag (checkpoint 4): each day column is a drop target (sets the Day), every
+// card is a drag source, and holding a drag at the board's left or right edge
+// scrolls the board sideways, then changes the week after a short dwell
+// (never before the current week).
 const domTimeStyle: React.CSSProperties = {
   height: 36,
   padding: '0 10px',
@@ -73,6 +80,10 @@ export default function KanbanPane({
   const [weekStart, setWeekStart] = useState(() => weekStartOf(new Date()));
   const [jumpOpen, setJumpOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const { drag, registerZone, registerBoard, sourceRef } = useDrag();
+  const scrollRef = usePaneScroll();
+  const boardNode = useRef<HTMLElement | null>(null);
+  const columnRefs = useRef(new Map<string, (node: unknown) => void>());
 
   const reload = useCallback(() => {
     loadTasks().then(setTasks);
@@ -92,6 +103,51 @@ export default function KanbanPane({
   const columns = useMemo(() => bucketTasks(tasks, days, todayKey), [tasks, days, todayKey]);
   const weekLabel = formatWeekLabel(days, new Date().getFullYear());
   const tomorrowKey = dateKey(addDays(parseDateKey(todayKey), 1));
+
+  // The drag layer asks for the latest week through these.
+  const weekRef = useRef({ shownWeekStart, currentWeekStart, atCurrentWeek });
+  weekRef.current = { shownWeekStart, currentWeekStart, atCurrentWeek };
+  const boardRef = useCallback(
+    (instance: unknown) => {
+      const node = domNode(instance);
+      boardNode.current = node;
+      registerBoard(
+        node
+          ? {
+              node,
+              atCurrentWeek: () => weekRef.current.atCurrentWeek,
+              step: (delta) => {
+                const w = weekRef.current;
+                const next = stepWeekStart(w.shownWeekStart, delta, w.currentWeekStart);
+                if (!next) return;
+                setJumpOpen(false);
+                setWeekStart(next);
+                // Land at the near end of the new week: Monday going forward,
+                // Sunday going back.
+                node.scrollLeft = delta === 1 ? 0 : node.scrollWidth;
+              },
+            }
+          : null,
+      );
+    },
+    [registerBoard],
+  );
+  // One cached ref per day column, registering it as a drop zone clipped to
+  // the visible board.
+  const columnRef = (key: string) => {
+    let ref = columnRefs.current.get(key);
+    if (!ref) {
+      ref = (node: unknown) =>
+        registerZone(
+          `day:${key}`,
+          node ? { kind: 'day', dayKey: key, node: node as HTMLElement, clip: () => boardNode.current } : null,
+        );
+      columnRefs.current.set(key, ref);
+    }
+    return ref;
+  };
+  const dropDay = drag && drag.mode === 'move' && drag.accepted && drag.target?.kind === 'day' ? drag.target.dayKey : null;
+  const edge = drag && drag.mode === 'move' ? drag.edge : 0;
 
   // The "Moved to ..." line clears itself.
   useEffect(() => {
@@ -154,7 +210,7 @@ export default function KanbanPane({
   }));
 
   const renderColumn = (col: BoardColumn) => (
-          <View key={col.id} style={styles.column}>
+          <View key={col.id} ref={columnRef(col.id) as never} style={[styles.column, dropDay === col.id && styles.columnTarget]}>
             <View style={styles.columnHeader}>
               <Text style={[styles.columnTitle, col.isToday && styles.columnTitleToday]} numberOfLines={1}>
                 {col.title}
@@ -162,7 +218,7 @@ export default function KanbanPane({
               <Text style={styles.count}>{col.items.length > 0 ? col.items.length : ''}</Text>
             </View>
 
-            <ScrollView style={styles.columnList} showsVerticalScrollIndicator={false}>
+            <ScrollView ref={scrollRef(`day:${col.id}`) as never} style={styles.columnList} showsVerticalScrollIndicator={false}>
               {col.items.map((item, index) => {
                 const { task, overdueFrom } = item;
                 const duration = formatDuration(task.durationMinutes);
@@ -170,8 +226,15 @@ export default function KanbanPane({
                 return (
                   <HoverPressable
                     key={task.id}
+                    nodeRef={sourceRef(`card:${task.id}`, () => ({
+                      kind: 'card',
+                      task,
+                      id: task.id,
+                      title: task.title,
+                      duration: taskDuration(task),
+                    }))}
                     onPress={() => onEditTask(task)}
-                    style={[styles.card, index > 0 && styles.cardDivider]}
+                    style={[styles.card, index > 0 && styles.cardDivider, drag?.item.id === task.id && styles.dragging]}
                     hoverStyle={styles.cardHover}
                     accessibilityRole="button"
                     accessibilityLabel={`Edit ${task.title}`}
@@ -330,9 +393,16 @@ export default function KanbanPane({
       {notice && <Text style={styles.notice}>{notice}</Text>}
 
       <View style={styles.boardRow}>
-        <ScrollView horizontal style={styles.board} contentContainerStyle={styles.boardContent}>
+        <ScrollView ref={boardRef as never} horizontal style={styles.board} contentContainerStyle={styles.boardContent}>
           {dayColumns.map((col) => renderColumn(col))}
         </ScrollView>
+        {/* Armed week change: a quiet strip on that edge while the dwell runs. */}
+        {edge !== 0 && (
+          <View pointerEvents="none" style={[styles.edge, edge === -1 ? { left: 0 } : { right: 0 }]}>
+            <View style={styles.edgeTint} />
+            <Ionicons name={edge === -1 ? 'chevron-back' : 'chevron-forward'} size={18} color={Colors.accentText} />
+          </View>
+        )}
       </View>
 
       {moving && (
@@ -524,7 +594,18 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   notice: { fontSize: 12, color: Colors.textSecondary, marginBottom: 4 },
-  boardRow: { flex: 1, flexDirection: 'row', marginTop: 4 },
+  boardRow: { flex: 1, flexDirection: 'row', marginTop: 4, position: 'relative' },
+  edge: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  edgeTint: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: Colors.accent, opacity: 0.1 },
   board: { flex: 1 },
   boardContent: { flexGrow: 1 },
   menuDate: { paddingHorizontal: 14, paddingVertical: 8, gap: 6 },
@@ -547,6 +628,8 @@ const styles = StyleSheet.create({
   columnTitleToday: { color: Colors.accentText },
   count: { flex: 1, fontSize: 12, color: Colors.textSecondary },
   columnList: { flex: 1 },
+  columnTarget: { backgroundColor: Colors.background, borderRadius: 10, outlineWidth: 1, outlineStyle: 'solid', outlineColor: Colors.accent },
+  dragging: { opacity: 0.4 },
   emptyColumn: { paddingVertical: 12, fontSize: 12, color: Colors.textSecondary },
   card: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 8, paddingHorizontal: 4 },
   cardDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },

@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../lib/theme';
-import { dateKey, formatDuration } from '../../../lib/kanban';
-import { splitThoughts, rowId, type ThoughtRow } from '../../../lib/thoughts';
-import { loadBrainDumpItems, loadProjects, loadTasks } from '../../../lib/storage';
-import { convertDumpItem, createThought, setTaskCompleted } from '../../../lib/taskActions';
+import { Colors } from '../../lib/theme';
+import { dateKey, formatDuration } from '../../lib/kanban';
+import { splitThoughts, rowId, type ThoughtRow } from '../../lib/thoughts';
+import { loadBrainDumpItems, loadProjects, loadTasks } from '../../lib/storage';
+import { convertDumpItem, createThought, setTaskCompleted } from '../../lib/taskActions';
 import HoverPressable from './HoverPressable';
-import type { BrainDumpItem, Project, Task } from '../../../lib/types';
+import { useDrag } from './DragProvider';
+import usePaneScroll from './usePaneScroll';
+import { taskDuration } from '../../lib/drag';
+import type { BrainDumpItem, Project, Task } from '../../lib/types';
 
 // Desktop Brain Dump (decision 009, product flow 2c): the thing you capture IS
 // the task. Typing a thought and pressing Enter creates a Task straight away
@@ -16,6 +19,8 @@ import type { BrainDumpItem, Project, Task } from '../../../lib/types';
 // a row opens the editor (name, duration, priority, label, notes, Day, Repeat);
 // giving a task a Day moves it onto the week board, clearing the Day brings it
 // back here. A collapsed "Done today" line lets a mistaken tick be undone.
+// Drag (checkpoint 4): a row can be dragged onto a day column or a Timebox
+// slot; the whole pane is the drop target that clears a card's or block's Day.
 export default function BrainDumpPane({
   refreshKey,
   onChanged,
@@ -33,6 +38,14 @@ export default function BrainDumpPane({
   const [captureText, setCaptureText] = useState('');
   const [doneOpen, setDoneOpen] = useState(false);
   const captureRef = useRef<TextInput>(null);
+  const { drag, registerZone, sourceRef } = useDrag();
+  const scrollRef = usePaneScroll();
+  const paneRef = useCallback(
+    (node: unknown) => registerZone('left', node ? { kind: 'left', node: node as HTMLElement } : null),
+    [registerZone],
+  );
+  // Highlighted while a card or block is over it (dropping clears its Day).
+  const isTarget = !!drag && drag.mode === 'move' && drag.item.kind !== 'row' && drag.target?.kind === 'left';
 
   const reload = useCallback(() => {
     loadTasks().then(setTasks);
@@ -72,7 +85,7 @@ export default function BrainDumpPane({
   }
 
   return (
-    <View style={styles.pane}>
+    <View ref={paneRef as never} style={[styles.pane, isTarget && styles.paneTarget]}>
       <Text style={styles.paneLabel}>BRAIN DUMP</Text>
 
       <View style={styles.captureRow}>
@@ -98,7 +111,7 @@ export default function BrainDumpPane({
         </Pressable>
       </View>
 
-      <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef('left') as never} style={styles.list} showsVerticalScrollIndicator={false}>
         {rows.length === 0 ? (
           <Text style={styles.empty}>Nothing waiting. Type above and press Enter; add the details later.</Text>
         ) : (
@@ -111,8 +124,16 @@ export default function BrainDumpPane({
             return (
               <HoverPressable
                 key={id}
+                nodeRef={sourceRef(`row:${id}`, () => ({
+                  kind: 'row',
+                  task,
+                  item: row.kind === 'dump' ? row.item : undefined,
+                  id,
+                  title,
+                  duration: task ? taskDuration(task) : 30,
+                }))}
                 onPress={() => (row.kind === 'task' ? onEditTask(row.task) : onEditDump(row.item))}
-                style={[styles.row, index > 0 && styles.rowDivider]}
+                style={[styles.row, index > 0 && styles.rowDivider, drag?.item.id === id && styles.dragging]}
                 hoverStyle={styles.rowHover}
                 accessibilityRole="button"
                 accessibilityLabel={`Edit ${title}`}
@@ -239,6 +260,8 @@ const styles = StyleSheet.create({
   },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
   rowHover: { backgroundColor: Colors.background },
+  paneTarget: { borderColor: Colors.accent, backgroundColor: Colors.background },
+  dragging: { opacity: 0.4 },
   check: { paddingTop: 1 },
   body: { flex: 1, minWidth: 0 },
   title: { fontSize: 14, color: Colors.textPrimary },

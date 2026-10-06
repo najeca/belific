@@ -1,15 +1,17 @@
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Colors } from '../../../lib/theme';
+import { Colors } from '../../lib/theme';
 import BrainDumpPane from './BrainDumpPane';
 import KanbanPane from './KanbanPane';
 import TimeboxPane from './TimeboxPane';
 import TaskModal, { type TaskModalState } from './TaskModal';
+import DragProvider from './DragProvider';
 
 // Decision 009: the three-pane workspace: Brain Dump, weekly kanban and
 // Timebox. Panes share one refresh counter so a change in one (a promoted Brain Dump item, a moved
 // task) shows up in the others without extra plumbing. The task modal is a
-// centred overlay on this screen, never a new screen.
+// centred overlay on this screen, never a new screen. DragProvider runs drag
+// and drop between the three panes (checkpoint 4).
 export default function DesktopHome() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [modal, setModal] = useState<TaskModalState | null>(null);
@@ -21,6 +23,7 @@ export default function DesktopHome() {
   }, []);
 
   return (
+    <DragProvider onChanged={onChanged}>
     <View style={styles.root}>
       <View style={styles.body}>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -48,6 +51,7 @@ export default function DesktopHome() {
       </View>
       {modal && <TaskModal state={modal} onClose={closeModal} onSaved={onSaved} />}
     </View>
+    </DragProvider>
   );
 }
 

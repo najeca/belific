@@ -17,16 +17,23 @@ export default function HoverPressable({
   children,
   style,
   hoverStyle,
+  nodeRef,
   ...rest
 }: Omit<PressableProps, 'children' | 'style'> & {
   children: (hovered: boolean) => React.ReactNode;
   style?: StyleProp<ViewStyle>;
   hoverStyle?: StyleProp<ViewStyle>;
+  // Also receives the DOM node (the drag source ref, checkpoint 4).
+  nodeRef?: (node: unknown) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const cleanup = useRef<(() => void) | null>(null);
 
+  const nodeRefRef = useRef(nodeRef);
+  nodeRefRef.current = nodeRef;
+
   const attach = useCallback((node: unknown) => {
+    nodeRefRef.current?.(node);
     cleanup.current?.();
     cleanup.current = null;
     const el = node as HTMLElement | null;

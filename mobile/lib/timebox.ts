@@ -7,8 +7,11 @@ import type { Task } from './types';
 export const GRID_START_HOUR = 6;
 export const GRID_END_HOUR = 23;
 export const PX_PER_HOUR = 56;
-// A 5 minute event still needs to be readable and clickable.
+// A 5 minute event still needs to be readable and clickable. 20px is less
+// than a 30 minute slot (28px), so a short block never looks like it fills one.
 export const MIN_BLOCK_PX = 20;
+// Below this height a block shows one line (title and duration).
+export const COMPACT_BLOCK_PX = 36;
 // Block length for a placed task with no durationMinutes (decision 015).
 export const DEFAULT_TASK_MINUTES = 30;
 
@@ -125,7 +128,7 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
     cluster.push({
       id: item.id,
       top: ((item.startMin - GRID_START_MIN) / 60) * PX_PER_HOUR,
-      height: Math.max(((item.endMin - item.startMin) / 60) * PX_PER_HOUR, MIN_BLOCK_PX),
+      height: blockHeightPx(item.endMin - item.startMin),
       col,
       cols: 1,
       startMin: item.startMin,
@@ -177,6 +180,15 @@ export function formatMinutes(total: number): string {
 export function scrollOffsetFor(minutes: number): number {
   const hoursFromStart = Math.max(0, minutes / 60 - GRID_START_HOUR - 1);
   return hoursFromStart * PX_PER_HOUR;
+}
+
+// Block height for a length in minutes: true scale, never below MIN_BLOCK_PX.
+export function blockHeightPx(minutes: number): number {
+  return Math.max((minutes / 60) * PX_PER_HOUR, MIN_BLOCK_PX);
+}
+
+export function isCompactBlock(heightPx: number): boolean {
+  return heightPx < COMPACT_BLOCK_PX;
 }
 
 export const GRID_HEIGHT_PX = (GRID_END_HOUR - GRID_START_HOUR) * PX_PER_HOUR;

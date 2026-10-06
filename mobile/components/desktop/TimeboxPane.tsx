@@ -8,7 +8,8 @@ import {
   GRID_END_HOUR,
   GRID_HEIGHT_PX,
   GRID_START_HOUR,
-  MIN_BLOCK_PX,
+  blockHeightPx,
+  isCompactBlock,
   PX_PER_HOUR,
   formatMinutes,
   layoutItems,
@@ -21,6 +22,7 @@ import {
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
+import { formatDuration } from '../../lib/duration';
 import { slotLabel, taskDuration, yToMinutes } from '../../lib/drag';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
@@ -296,7 +298,7 @@ export default function TimeboxPane({
                 const resizing = drag?.mode === 'resize' && drag.item.id === t.id ? drag.resizeDuration : undefined;
                 const startMin = toMinutes(t.startTime) ?? b.startMin;
                 const sized = resizing
-                  ? { ...positioned, height: Math.max((resizing / 60) * PX_PER_HOUR, MIN_BLOCK_PX) }
+                  ? { ...positioned, height: blockHeightPx(resizing) }
                   : positioned;
                 return (
                   <View
@@ -333,14 +335,18 @@ export default function TimeboxPane({
                         <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone]} numberOfLines={1}>
                           {t.title}
                         </Text>
+                        {/* A short block shows one line: title and its true duration ("10m"). */}
+                        {isCompactBlock(b.height) && resizing === undefined && formatDuration(t.durationMinutes) && (
+                          <Text style={styles.blockTimeInline}>{formatDuration(t.durationMinutes)}</Text>
+                        )}
                         {t.recurrence && <Ionicons name="repeat" size={12} color={Colors.textSecondary} accessibilityLabel="Repeats" />}
                       </View>
                       {resizing !== undefined ? (
                         <Text style={styles.blockSnap}>{slotLabel(startMin, resizing)}</Text>
                       ) : (
-                        b.height >= 36 && (
+                        !isCompactBlock(b.height) && (
                           <Text style={styles.blockTime}>
-                            {formatTime(t.startTime ?? '')} {t.completed ? 'done' : 'task'}
+                            {formatTime(t.startTime ?? '')} {formatDuration(t.durationMinutes) ?? ''} {t.completed ? 'done' : ''}
                           </Text>
                         )
                       )}
@@ -366,7 +372,7 @@ export default function TimeboxPane({
                       {e.icon ? `${e.icon} ` : ''}
                       {e.title}
                     </Text>
-                    {b.height >= 36 && (
+                    {!isCompactBlock(b.height) && (
                       <Text style={styles.blockTime}>
                         {formatTime(e.start)} to {formatTime(e.end)}
                       </Text>
@@ -384,7 +390,7 @@ export default function TimeboxPane({
                   styles.slotPreview,
                   {
                     top: ((drag.target.startMin - GRID_START_HOUR * 60) / 60) * PX_PER_HOUR,
-                    height: Math.max((drag.item.duration / 60) * PX_PER_HOUR, MIN_BLOCK_PX),
+                    height: blockHeightPx(drag.item.duration),
                   },
                 ]}
               >
@@ -598,6 +604,7 @@ const styles = StyleSheet.create({
   blockTitleFlex: { flexShrink: 1 },
   blockTitleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   blockTime: { fontSize: 11, color: Colors.textSecondary },
+  blockTimeInline: { fontSize: 11, lineHeight: 16, color: Colors.textSecondary, flexShrink: 0 },
   overlay: {
     position: 'absolute',
     top: 0,

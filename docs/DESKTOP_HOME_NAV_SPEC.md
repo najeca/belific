@@ -125,9 +125,12 @@ rather than Profile, since it's routine/quest data, not account data.
   pane lists every incomplete task with no Day, newest first, plus any legacy
   Brain Dump items from the phone shown the same way. Clicking anywhere on a row
   (a small pencil appears on hover) opens the editor, a centred modal overlay,
-  never a separate screen: name, duration (quick chips 30m, 1h, 2h plus Custom:
-  hours 0 to 24 and minutes 0 or 30, minimum 30 minutes, 24h only with 0
-  minutes; an older stored value such as 15m shows as is until changed),
+  never a separate screen: name, duration (optional, 2.8.4: None, the default,
+  stores nothing; quick chips 15m, 30m, 1h, 2h; Custom with hours 0 to 24 and
+  minutes in 5 minute steps, 5 minutes to 24 hours, 24h only with 0 minutes;
+  any older stored value shows as is until changed. On the Timebox a block
+  under 30 minutes is drawn compact with its true duration, e.g. "10m"; a task
+  with no duration takes 30 minutes when dropped there),
   priority, label (ten one-tap suggestions such as Work or Health until a label
   with that name exists, "+ Label" for a custom name, names unique ignoring
   case; the selected label shows its eight colour swatches plus Rename and

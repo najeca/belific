@@ -8,6 +8,7 @@ import {
   MINUTE_OPTIONS,
   QUICK_DURATIONS,
   formatDuration,
+  isQuickDuration,
   joinDuration,
   splitDuration,
 } from '../../lib/duration';
@@ -103,9 +104,8 @@ export default function TaskModal({
   const [projectKey, setProjectKey] = useState<string | undefined>(editTask?.projectKey);
   const [duration, setDuration] = useState<number | undefined>(editTask?.durationMinutes);
   // Custom is open from the start when the stored duration is not a quick chip.
-  const [customOpen, setCustomOpen] = useState(
-    editTask?.durationMinutes !== undefined && !QUICK_DURATIONS.some((d) => d.minutes === editTask.durationMinutes),
-  );
+  // Custom is open from the start only for a stored value that is not a chip.
+  const [customOpen, setCustomOpen] = useState(!isQuickDuration(editTask?.durationMinutes));
   const [notes, setNotes] = useState(editTask?.notes ?? dumpItem?.notes ?? '');
   const [projects, setProjects] = useState<Project[]>([]);
   const [addingLabel, setAddingLabel] = useState(false);
@@ -293,6 +293,16 @@ export default function TaskModal({
 
           <Text style={styles.label}>Duration</Text>
           <View style={styles.chips}>
+            {/* Duration is optional: None stores no durationMinutes. */}
+            <Chip
+              label="None"
+              selected={!customOpen && duration === undefined}
+              onPress={() => {
+                setCustomOpen(false);
+                setDuration(undefined);
+              }}
+              a11y="Duration None"
+            />
             {QUICK_DURATIONS.map((d) => (
               <Chip
                 key={d.minutes}
@@ -300,7 +310,7 @@ export default function TaskModal({
                 selected={!customOpen && duration === d.minutes}
                 onPress={() => {
                   setCustomOpen(false);
-                  setDuration(duration === d.minutes && !customOpen ? undefined : d.minutes);
+                  setDuration(d.minutes);
                 }}
               />
             ))}

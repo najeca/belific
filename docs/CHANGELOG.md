@@ -8,6 +8,21 @@ to know the current version and recent history.
 
 ---
 
+## 2.8.4 — 2026-10-06
+
+**Desktop Home: optional and short durations (checkpoint 4.4, web/Electron only; the iPhone app is unchanged).**
+
+- Duration is optional: a None chip (the default for a new task) stores no
+  duration. Quick chips are None, 15m, 30m, 1h, 2h; Custom has hours 0 to 24
+  and minutes 0 to 55 in 5 minute steps (5 minutes to 24 hours, 24h only with
+  0 minutes). Durations read "10m", "1h 5m" and so on; stored values load
+  unchanged.
+- Timebox: a block under 30 minutes is drawn at true scale down to a compact
+  20px minimum, so it no longer looks like a full 30 minute slot, and shows one
+  line with its title and true duration ("Call back 10m"). Moves and drops still
+  snap to 30 minutes, resize still has a 30 minute minimum, and a task with no
+  duration dropped on the Timebox still gets 30.
+
 ## 2.8.3 — 2026-10-06
 
 **Desktop Home: simpler Repeat, ready made labels, label rename and delete (checkpoint 4.3, web/Electron only; the iPhone app is unchanged).**

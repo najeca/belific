@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 2.11.0 — 2026-10-06
+
+**Desktop notifications, tray and a Windows installer (checkpoint 7, decisions 017 and 020). The iPhone is unchanged.**
+
+- Event starts and tasks placed on the Timebox now notify at their start time, from the desktop's main process, so they arrive with the window closed.
+- New daily reminder (decision 020, proposed): one grouped notification at 09:00 (adjustable, can be turned off) such as "3 tasks planned for today", for tasks with a Day but no time. Completed tasks are excluded, and nothing is sent when there are none.
+- Closing the window keeps Belific in the system tray (Open Belific, Quit Belific). A one time note explains it. Close to tray can be turned off; Start with Windows is optional and off by default.
+- Settings gained Notifications and Window sections.
+- `npm run dist` in `desktop/` builds an unsigned per user Windows installer (NSIS) into `desktop/dist`. See `desktop/README.md` for install, the SmartScreen warning, data location and uninstall.
+
+---
+
 ## 2.10.0 — 2026-10-06
 
 **Desktop sign in with Apple (checkpoint 6, decision 012). The iPhone is unchanged. The live Apple round trip is not verified until the setup guide is done.**

@@ -86,6 +86,12 @@ Two types only, both local:
    event begins; template/starter-routine events never fire one
    (`scheduleEventNotifications` filters on `event.isCustom`)
 
+On the Windows desktop (decisions 017 and 020) the main process also
+notifies for tasks placed on the Timebox at their start time, plus one
+grouped daily reminder of tasks planned for today with no time
+(proposed, default 09:00, can be turned off; never per task, never
+repeated, no counters or guilt wording).
+
 There is no weekly summary and no "streak at risk" notification —
 both were removed (weekly summary was engagement-bait with no real
 feature behind it; streak-at-risk never actually existed in code

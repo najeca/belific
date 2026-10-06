@@ -15,9 +15,12 @@ function dayStamp(date) {
 
 // Copies the live data files (not temp files) into today's folder,
 // replacing any earlier backup from the same day, then prunes.
-async function backupNow(dataDir, backupsDir, now = new Date(), keep = 14) {
+// An optional label (lowercase letters, digits, dashes) makes a separate
+// folder, e.g. 2026-10-06-pre-signin, which pruning never touches.
+async function backupNow(dataDir, backupsDir, now = new Date(), keep = 14, label = null) {
+  if (label !== null && !/^[a-z0-9-]{1,32}$/.test(label)) throw new Error('Invalid backup label');
   await fs.promises.mkdir(backupsDir, { recursive: true });
-  const target = path.join(backupsDir, dayStamp(now));
+  const target = path.join(backupsDir, label ? `${dayStamp(now)}-${label}` : dayStamp(now));
   const staging = `${target}.partial`;
   await fs.promises.rm(staging, { recursive: true, force: true });
   await fs.promises.mkdir(staging, { recursive: true });
@@ -31,7 +34,7 @@ async function backupNow(dataDir, backupsDir, now = new Date(), keep = 14) {
   }
   await fs.promises.rm(target, { recursive: true, force: true });
   await fs.promises.rename(staging, target);
-  await pruneBackups(backupsDir, keep);
+  if (!label) await pruneBackups(backupsDir, keep);
   return target;
 }
 

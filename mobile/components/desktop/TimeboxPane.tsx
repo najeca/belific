@@ -20,6 +20,7 @@ import {
   type TimeboxItem,
 } from '../../lib/timebox';
 import { domNode, useDrag } from './DragProvider';
+import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
 import usePaneScroll from './usePaneScroll';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { formatDuration } from '../../lib/duration';
@@ -65,11 +66,9 @@ const domTimeStyle: React.CSSProperties = {
 export default function TimeboxPane({
   refreshKey,
   onChanged,
-  onEditTask,
 }: {
   refreshKey: number;
   onChanged: () => void;
-  onEditTask: (task: Task) => void;
 }) {
   const [day, setDay] = useState(() => parseDateKey(dateKey(new Date())));
   const [events, setEvents] = useState<CustomEvent[]>([]);
@@ -194,7 +193,7 @@ export default function TimeboxPane({
   }
 
   function openSource(source: Source) {
-    if (source.kind === 'task') onEditTask(source.task);
+    if (source.kind === 'task') toggleBlockPopover(source.task.id);
     else if (source.custom) setEditing(source.custom);
   }
 
@@ -330,6 +329,7 @@ export default function TimeboxPane({
                       ]}
                       accessibilityRole="button"
                       accessibilityLabel={`Task ${t.title}`}
+                      {...({ dataSet: { blockId: t.id } } as object)}
                     >
                       <View style={styles.blockTitleRow}>
                         <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone]} numberOfLines={1}>
@@ -352,6 +352,7 @@ export default function TimeboxPane({
                       )}
                     </Pressable>
                     {b.continues && <Continues />}
+                    <TaskBlockPopover task={t} label={labels.find((p) => p.key === t.projectKey)} onChanged={onChanged} />
                     <View ref={handleRef(t.id) as never} style={styles.resizeHandle} accessibilityLabel={`Resize ${t.title}`} />
                     </View>
                   </View>

@@ -22,6 +22,7 @@ import {
   type Zone,
 } from '../../lib/drag';
 import { updateTask } from '../../lib/storage';
+import { closePopover } from './Popover';
 import { convertDumpItem } from '../../lib/taskActions';
 import type { BrainDumpItem, Task } from '../../lib/types';
 
@@ -300,6 +301,8 @@ export default function DragProvider({ children, onChanged }: { children: React.
       if (!p.active) {
         if (!passedThreshold(e.clientX - p.startX, e.clientY - p.startY)) return;
         p.active = true;
+        // Starting a drag closes any open popover.
+        closePopover();
         document.body.style.userSelect = 'none';
         document.body.style.cursor = p.mode === 'resize' ? 'ns-resize' : 'grabbing';
         window.getSelection()?.removeAllRanges();
@@ -372,6 +375,8 @@ export default function DragProvider({ children, onChanged }: { children: React.
           // clicks on that button, never a drag.
           const button = (e.target as Element | null)?.closest('[role="button"]');
           if (button && button !== el) return;
+          // Typing and selecting text in a field (notes, subtasks) is not a drag.
+          if ((e.target as Element | null)?.closest('input, textarea, select, [data-no-drag]')) return;
           const item = getters.current.get(key)?.(e);
           if (!item) return;
           begin(e, { mode: 'move', item });

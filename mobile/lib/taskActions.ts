@@ -115,3 +115,29 @@ export async function undoDropAsSubtaskPlan(plan: SubtaskDropPlan): Promise<void
   await updateTask(host);
   await addTask(dragged);
 }
+
+// ---- Edits from the card controls (checkpoint 8.2) ----
+// Each reads the LATEST stored task first, so two quick edits (a label, then a
+// duration) never overwrite each other with a stale copy from the screen.
+async function latest(id: string): Promise<Task | undefined> {
+  return (await loadTasksRaw()).find((t) => t.id === id && !t.deletedAt);
+}
+
+export async function patchTask(id: string, fields: Partial<Task>): Promise<void> {
+  const t = await latest(id);
+  if (!t) return;
+  const next: Task = { ...t, ...fields };
+  // A time slot belongs to a Day: clearing the Day also unplaces the task.
+  if (!next.dueDate) next.startTime = undefined;
+  await updateTask(next);
+}
+
+export async function completeTaskById(id: string, done: boolean): Promise<void> {
+  const t = await latest(id);
+  if (t && t.completed !== done) await setTaskCompleted(t, done);
+}
+
+export async function toggleSubtaskById(id: string, subtaskId: string): Promise<void> {
+  const t = await latest(id);
+  if (t) await toggleSubtaskOn(t, subtaskId);
+}

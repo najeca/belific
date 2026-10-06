@@ -78,23 +78,16 @@ export default function DesktopHome() {
           <BrainDumpPane
             refreshKey={refreshKey}
             onChanged={onChanged}
-            onEditTask={(task) => setModal({ mode: 'edit', task })}
-            onEditDump={(item) => setModal({ mode: 'dump', item })}
             onOpenSettings={() => setSettingsOpen(true)}
           />
         </View>
         <View style={{ flex: 2.2, minWidth: 0 }}>
-          <KanbanPane
-            refreshKey={refreshKey}
-            onChanged={onChanged}
-            onEditTask={(task) => setModal({ mode: 'edit', task })}
-          />
+          <KanbanPane refreshKey={refreshKey} onChanged={onChanged} />
         </View>
         <View style={{ flex: 1.2, minWidth: 0 }}>
           <TimeboxPane
             refreshKey={refreshKey}
             onChanged={onChanged}
-            onEditTask={(task) => setModal({ mode: 'edit', task })}
           />
         </View>
       </View>

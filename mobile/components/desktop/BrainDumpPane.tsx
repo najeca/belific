@@ -10,7 +10,8 @@ import { labelColor } from '../../lib/labelColors';
 import { shortRepeat } from '../../lib/repeat';
 import { getSyncStatus, subscribeSyncStatus, type PublicSyncStatus } from '../../lib/sync';
 import { convertDumpItem, createThought, setTaskCompleted } from '../../lib/taskActions';
-import HoverPressable from './HoverPressable';
+import TaskCard from './TaskCard';
+import { dumpAsTask, opsForDump, opsForTask } from './taskOps';
 import { useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { taskDuration } from '../../lib/drag';
@@ -28,14 +29,10 @@ import type { BrainDumpItem, Project, Task } from '../../lib/types';
 export default function BrainDumpPane({
   refreshKey,
   onChanged,
-  onEditTask,
-  onEditDump,
   onOpenSettings,
 }: {
   refreshKey: number;
   onChanged: () => void;
-  onEditTask: (task: Task) => void;
-  onEditDump: (item: BrainDumpItem) => void;
   onOpenSettings?: () => void;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -79,12 +76,6 @@ export default function BrainDumpPane({
     captureRef.current?.focus();
   }
 
-  async function tick(row: ThoughtRow) {
-    if (row.kind === 'task') await setTaskCompleted(row.task, true);
-    else await convertDumpItem(row.item, { completed: true, completedAt: new Date().toISOString() });
-    onChanged();
-  }
-
   async function untick(task: Task) {
     await setTaskCompleted(task, false);
     onChanged();
@@ -123,68 +114,29 @@ export default function BrainDumpPane({
         ) : (
           rows.map((row, index) => {
             const id = rowId(row);
-            const task = row.kind === 'task' ? row.task : undefined;
-            const title = row.kind === 'task' ? row.task.title : row.item.title;
-            const duration = task ? formatDuration(task.durationMinutes) : undefined;
-            const label = task?.projectKey ? projectName.get(task.projectKey) : undefined;
-            const color = labelColor(projects.find((p) => p.key === task?.projectKey)?.colorKey);
+            const task = row.kind === 'task' ? row.task : dumpAsTask(row.item);
+            const proj = projects.find((p) => p.key === task.projectKey);
             return (
-              <HoverPressable
+              <TaskCard
                 key={id}
+                task={task}
+                ops={row.kind === 'task' ? opsForTask(row.task) : opsForDump(row.item)}
+                label={proj}
+                color={labelColor(proj?.colorKey)}
+                variant="row"
+                todayKey={todayKey}
+                onChanged={onChanged}
+                divider={index > 0}
+                dragging={drag?.item.id === id}
                 nodeRef={sourceRef(`row:${id}`, () => ({
                   kind: 'row',
-                  task,
+                  task: row.kind === 'task' ? row.task : undefined,
                   item: row.kind === 'dump' ? row.item : undefined,
                   id,
-                  title,
-                  duration: task ? taskDuration(task) : 30,
+                  title: task.title,
+                  duration: row.kind === 'task' ? taskDuration(row.task) : 30,
                 }))}
-                onPress={() => (row.kind === 'task' ? onEditTask(row.task) : onEditDump(row.item))}
-                style={[styles.row, index > 0 && styles.rowDivider, drag?.item.id === id && styles.dragging]}
-                hoverStyle={styles.rowHover}
-                accessibilityRole="button"
-                accessibilityLabel={`Edit ${title}`}
-              >
-                {(hovered) => (
-                  <>
-                <Pressable
-                  onPress={() => tick(row)}
-                  style={styles.check}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Mark ${title} complete`}
-                >
-                  <Ionicons name="ellipse-outline" size={20} color={Colors.textSecondary} />
-                </Pressable>
-
-                <View style={styles.body}>
-                  <Text style={[styles.title, task?.priority === 'low' && styles.titleLow]}>{title}</Text>
-                  {task && (task.priority === 'high' || label || duration || task.recurrence) && (
-                    <View style={styles.meta}>
-                      {task.priority === 'high' && <Ionicons name="flag" size={11} color={Colors.accentText} />}
-                      {label && (
-                        <View style={styles.labelTag}>
-                          {color && <View style={[styles.dot, { backgroundColor: color.edge }]} />}
-                          <Text style={styles.metaText}>{label}</Text>
-                        </View>
-                      )}
-                      {duration && <Text style={styles.chip}>{duration}</Text>}
-                      {task.recurrence && (
-                        <View style={styles.labelTag} accessibilityLabel={`Repeats ${shortRepeat(task, todayKey)}`}>
-                          <Ionicons name="repeat" size={13} color={Colors.textSecondary} />
-                          <Text style={styles.metaText}>{shortRepeat(task, todayKey)}</Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                </View>
-
-                {/* Affordance only: the whole row is the click target. */}
-                <View style={styles.pencil} pointerEvents="none">
-                  {hovered && <Ionicons name="pencil" size={14} color={Colors.textSecondary} />}
-                </View>
-                  </>
-                )}
-              </HoverPressable>
+              />
             );
           })
         )}
@@ -204,13 +156,7 @@ export default function BrainDumpPane({
           {doneOpen && (
             <ScrollView style={styles.doneList} showsVerticalScrollIndicator={false}>
               {doneToday.map((t) => (
-                <Pressable
-                  key={t.id}
-                  onPress={() => onEditTask(t)}
-                  style={styles.doneRow}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit ${t.title}`}
-                >
+                <View key={t.id} style={styles.doneRow}>
                   <Pressable
                     onPress={() => untick(t)}
                     style={styles.check}
@@ -222,7 +168,7 @@ export default function BrainDumpPane({
                   <Text style={styles.doneTitle} numberOfLines={2}>
                     {t.title}
                   </Text>
-                </Pressable>
+                </View>
               ))}
             </ScrollView>
           )}

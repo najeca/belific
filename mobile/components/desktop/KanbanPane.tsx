@@ -20,7 +20,8 @@ import {
   weekStartOf,
   type ColumnItem,
 } from '../../lib/kanban';
-import HoverPressable from './HoverPressable';
+import TaskCard from './TaskCard';
+import { opsForTask } from './taskOps';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
@@ -69,18 +70,14 @@ interface BoardColumn {
 export default function KanbanPane({
   refreshKey,
   onChanged,
-  onEditTask,
 }: {
   refreshKey: number;
   onChanged: () => void;
-  onEditTask: (task: Task) => void;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [moving, setMoving] = useState<Task | null>(null);
   const [weekStart, setWeekStart] = useState(() => weekStartOf(new Date()));
   const [jumpOpen, setJumpOpen] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const { drag, registerZone, registerBoard, sourceRef } = useDrag();
   const scrollRef = usePaneScroll();
   const boardNode = useRef<HTMLElement | null>(null);
@@ -150,12 +147,6 @@ export default function KanbanPane({
   const dropDay = drag && drag.mode === 'move' && drag.accepted && drag.target?.kind === 'day' ? drag.target.dayKey : null;
   const edge = drag && drag.mode === 'move' ? drag.edge : 0;
 
-  // The "Moved to ..." line clears itself.
-  useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(null), 6000);
-    return () => clearTimeout(timer);
-  }, [notice]);
 
   function changeWeek(delta: number) {
     setJumpOpen(false);
@@ -168,26 +159,7 @@ export default function KanbanPane({
     return map;
   }, [projects]);
 
-  // Completion always goes through the shared function so a recurring task
-  // gets its next occurrence. The board itself never creates tasks.
-  async function toggleComplete(task: Task) {
-    await setTaskCompleted(task, !task.completed);
-    onChanged();
-  }
 
-  async function moveTo(task: Task, requested: string | undefined) {
-    setMoving(null);
-    // Nothing earlier than today can be chosen.
-    const day = requested ? clampToToday(requested, todayKey) : undefined;
-    if (day === task.dueDate) return;
-    // A time slot belongs to a day: removing the Day drops it too.
-    await updateTask({ ...task, dueDate: day, startTime: day ? task.startTime : undefined });
-    // A day outside the displayed week would look like the task vanished.
-    if (day && !isDayInView(day, days)) setNotice(`Moved to ${formatDayLabel(day)}`);
-    // Removing the Day sends it back to the Brain Dump list.
-    if (!day) setNotice('Back in the Brain Dump list');
-    onChanged();
-  }
 
   const dayColumns: BoardColumn[] = days.map((d) => ({
     id: d.key,
@@ -208,13 +180,22 @@ export default function KanbanPane({
             <ScrollView ref={scrollRef(`day:${col.id}`) as never} style={styles.columnList} showsVerticalScrollIndicator={false}>
               {col.items.map((item, index) => {
                 const { task, overdueFrom } = item;
-                const duration = formatDuration(task.durationMinutes);
-                const label = task.projectKey ? projectName.get(task.projectKey) : undefined;
+                const proj = projects.find((p) => p.key === task.projectKey);
                 // A label's colour: soft tint plus a 4px left edge. No label stays neutral.
-                const color = labelColor(projects.find((p) => p.key === task.projectKey)?.colorKey);
+                const color = labelColor(proj?.colorKey);
                 return (
-                  <HoverPressable
+                  <TaskCard
                     key={task.id}
+                    task={task}
+                    ops={opsForTask(task)}
+                    label={proj}
+                    color={color}
+                    variant="card"
+                    todayKey={todayKey}
+                    onChanged={onChanged}
+                    overdueFrom={overdueFrom}
+                    divider={index > 0}
+                    dragging={drag?.item.id === task.id}
                     nodeRef={sourceRef(`card:${task.id}`, () => ({
                       kind: 'card',
                       task,
@@ -222,83 +203,7 @@ export default function KanbanPane({
                       title: task.title,
                       duration: taskDuration(task),
                     }))}
-                    onPress={() => onEditTask(task)}
-                    style={[
-                      styles.card,
-                      index > 0 && !color && styles.cardDivider,
-                      color && [styles.cardLabelled, { backgroundColor: color.tint, borderLeftColor: color.edge }],
-                      drag?.item.id === task.id && styles.dragging,
-                    ]}
-                    hoverStyle={color ? styles.cardLabelledHover : styles.cardHover}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit ${task.title}`}
-                  >
-                    {(hovered) => (
-                      <>
-                    <Pressable
-                      onPress={() => toggleComplete(task)}
-                      style={styles.check}
-                      accessibilityRole="button"
-                      accessibilityLabel={task.completed ? `Mark ${task.title} incomplete` : `Mark ${task.title} complete`}
-                    >
-                      <Ionicons
-                        name={task.completed ? 'checkmark-circle' : 'ellipse-outline'}
-                        size={20}
-                        color={task.completed ? Colors.accent : Colors.textSecondary}
-                      />
-                    </Pressable>
-
-                    <View style={styles.cardBody}>
-                      <View>
-                        <Text
-                          style={[
-                            styles.cardTitle,
-                            task.completed && styles.cardTitleDone,
-                            !task.completed && task.priority === 'low' && styles.cardTitleLow,
-                          ]}
-                        >
-                          {task.title}
-                        </Text>
-                      </View>
-                      {(overdueFrom || label || duration || task.startTime || task.recurrence || (!task.completed && task.priority === 'high')) && (
-                        <View style={styles.meta}>
-                          {overdueFrom && <Text style={styles.metaText}>from {formatShortDate(overdueFrom)}</Text>}
-                          {!task.completed && task.priority === 'high' && (
-                            <Ionicons name="flag" size={11} color={Colors.accentText} />
-                          )}
-                          {task.dueDate && task.startTime && <Text style={styles.metaText}>{task.startTime}</Text>}
-                          {label && <Text style={styles.metaText}>{label}</Text>}
-                          {duration && <Text style={styles.chip}>{duration}</Text>}
-                          {task.recurrence && (
-                            <Ionicons name="repeat" size={13} color={Colors.textSecondary} accessibilityLabel="Repeats" />
-                          )}
-                        </View>
-                      )}
-                    </View>
-
-                    {hovered && (
-                      <View style={styles.actions}>
-                        <Pressable
-                          onPress={() => moveTo(task, undefined)}
-                          style={styles.moveBtn}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Remove day from ${task.title}`}
-                        >
-                          <Ionicons name="close-circle-outline" size={16} color={Colors.textSecondary} />
-                        </Pressable>
-                        <Pressable
-                          onPress={() => setMoving(task)}
-                          style={styles.moveBtn}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Move ${task.title} to day`}
-                        >
-                          <Ionicons name="calendar-outline" size={16} color={Colors.textSecondary} />
-                        </Pressable>
-                      </View>
-                    )}
-                      </>
-                    )}
-                  </HoverPressable>
+                  />
                 );
               })}
               {col.items.length === 0 && <Text style={styles.emptyColumn}>Nothing here</Text>}
@@ -376,8 +281,6 @@ export default function KanbanPane({
         </View>
       )}
 
-      {notice && <Text style={styles.notice}>{notice}</Text>}
-
       <View style={styles.boardRow}>
         <ScrollView ref={boardRef as never} horizontal style={styles.board} contentContainerStyle={styles.boardContent}>
           {dayColumns.map((col) => renderColumn(col))}
@@ -391,67 +294,7 @@ export default function KanbanPane({
         )}
       </View>
 
-      {moving && (
-        <View style={styles.menuOverlay}>
-          <Pressable style={styles.menuBackdrop} onPress={() => setMoving(null)} accessibilityLabel="Close menu" />
-          <View style={styles.menu}>
-            <Text style={styles.menuHeading} numberOfLines={1}>
-              Move to
-            </Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <MenuRow label="Remove day" selected={false} onPress={() => moveTo(moving, undefined)} />
-              <MenuRow
-                label="Today"
-                detail={formatShortDate(todayKey)}
-                selected={moving.dueDate === todayKey}
-                onPress={() => moveTo(moving, todayKey)}
-              />
-              <MenuRow
-                label="Tomorrow"
-                detail={formatShortDate(tomorrowKey)}
-                selected={moving.dueDate === tomorrowKey}
-                onPress={() => moveTo(moving, tomorrowKey)}
-              />
-              <View style={styles.menuDate}>
-                <Text style={styles.menuRowText}>Pick a date</Text>
-                <input
-                  type="date"
-                  min={todayKey}
-                  value=""
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (isDateKey(v) && v >= todayKey) moveTo(moving, v);
-                  }}
-                  style={domTimeStyle}
-                  aria-label="Move to date"
-                />
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      )}
-
     </View>
-  );
-}
-
-function MenuRow({
-  label,
-  detail,
-  selected,
-  onPress,
-}: {
-  label: string;
-  detail?: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={styles.menuRow} accessibilityRole="button" accessibilityLabel={`Move to ${label}`}>
-      <Text style={[styles.menuRowText, selected && styles.menuRowTextSelected]}>{label}</Text>
-      {detail && <Text style={styles.menuRowDetail}>{detail}</Text>}
-      {selected && <Ionicons name="checkmark" size={16} color={Colors.accentText} />}
-    </Pressable>
   );
 }
 

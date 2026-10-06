@@ -81,6 +81,8 @@ async function run() {
     js(`(() => { const el = ${expr}; if (!el) return null; el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), w: r.width, h: r.height }; })()`);
   const mouse = (type, x, y) => win.webContents.sendInputEvent({ type, x, y, button: 'left', clickCount: 1 });
   const click = async (expr, wait = 200) => {
+    await rectOf(expr);
+    await C.sleep(350);
     const r = await rectOf(expr);
     if (!r) throw new Error(`no element for ${expr}`);
     win.webContents.sendInputEvent({ type: 'mouseMove', x: r.x, y: r.y });

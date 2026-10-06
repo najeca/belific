@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 2.12.1 — 2026-10-07
+
+**Fix: typing a space in the Notes field of an expanded task card collapsed the card. Desktop only.**
+
+- Space (and Enter in the rename box) typed in any field on a card, or in a popover, no longer reaches the card. Notes accept spaces, Enter (a new line), Backspace and arrows normally and the card stays open. Escape in Notes leaves the field (which saves it) without collapsing the card; a second Escape collapses it.
+
+---
+
 ## 2.12.0 — 2026-10-07
 
 **Edit tasks on the card, not in a pop up (checkpoint 8.2, decision 021). Desktop only; the iPhone is unchanged.**

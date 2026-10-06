@@ -24,6 +24,7 @@ import {
 import { loadTasksRaw, updateTask } from '../../lib/storage';
 import { UNDO_MS, dwellArmed, nextDwell, resolveCardRelease, type DwellState, type SubtaskDropPlan } from '../../lib/subtasks';
 import { closePopover } from './Popover';
+import { isEditableTarget } from '../../lib/editable';
 import { convertDumpItem, dropAsSubtask, undoDropAsSubtaskPlan } from '../../lib/taskActions';
 import type { BrainDumpItem, Task } from '../../lib/types';
 
@@ -441,7 +442,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
           const button = (e.target as Element | null)?.closest('[role="button"]');
           if (button && button !== el) return;
           // Typing and selecting text in a field (notes, subtasks) is not a drag.
-          if ((e.target as Element | null)?.closest('input, textarea, select, [data-no-drag]')) return;
+          if (isEditableTarget(e.target) || (e.target as Element | null)?.closest('[data-no-drag]')) return;
           const item = getters.current.get(key)?.(e);
           if (!item) return;
           begin(e, { mode: 'move', item });

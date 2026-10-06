@@ -9,6 +9,7 @@ import { reminderState } from '../../lib/reminder';
 import { addSubtask, counterLabel, deleteSubtask, moveSubtask, renameSubtask } from '../../lib/subtasks';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
+import { isEditableTarget } from '../../lib/editable';
 import HoverPressable from './HoverPressable';
 import Popover, { togglePopover, useIsOpen, usePopoverAnchor, closePopover } from './Popover';
 import { DurationBody, LabelBody, MoveToDayBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody } from './TaskPopovers';
@@ -90,14 +91,49 @@ export default function TaskCard({
     patch({ title: t });
   }
 
+  // The card element: not in the tab order but focusable, so after Escape in
+  // Notes the next Escape (target = the card itself) can collapse it.
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
+  const cleanupKeys = useRef<(() => void) | null>(null);
+  const cardEl = useRef<HTMLElement | null>(null);
+  const setNode = useCallback(
+    (node: unknown) => {
+      nodeRef?.(node);
+      cleanupKeys.current?.();
+      cleanupKeys.current = null;
+      const el = node as HTMLElement | null;
+      if (!el || typeof el.addEventListener !== 'function') return;
+      el.tabIndex = -1;
+      cardEl.current = el;
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && e.target === el && expandedRef.current) {
+          e.stopPropagation();
+          setExpanded(false);
+        }
+      };
+      el.addEventListener('keydown', onKey);
+      cleanupKeys.current = () => el.removeEventListener('keydown', onKey);
+    },
+    // nodeRef is a cached ref callback per card; re-attaching is harmless.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodeRef],
+  );
+
   const dayOpen = useIsOpen(`${id}:day`);
   const moreOpen = useIsOpen(`${id}:more`);
 
   return (
     <>
       <HoverPressable
-        nodeRef={nodeRef}
-        onPress={() => setExpanded((e) => !e)}
+        nodeRef={setNode}
+        // A press that comes from a field (a click into the rename box, or Enter
+        // or Space typed in one) is never a press on the card.
+        onPress={(e) => {
+          const target = (e as { target?: unknown } | undefined)?.target;
+          if (isEditableTarget(target)) return;
+          setExpanded((x) => !x);
+        }}
         style={[
           styles.card,
           variant === 'row' && styles.row,
@@ -107,9 +143,9 @@ export default function TaskCard({
           dropHighlight && styles.dropTarget,
         ]}
         hoverStyle={variant === 'card' && color ? styles.labelledHover : styles.hover}
-        accessibilityRole="button"
+        // Not a button: RN web renders role button as a native <button>, and a
+        // field inside a <button> turns a typed Space into a click on it.
         accessibilityLabel={`Task ${task.title}`}
-        accessibilityState={{ expanded }}
         // The board finds the card under a dragged task through this (a legacy
         // phone item is not a real task yet, so it is never a drop host).
         {...(task.id.startsWith('dump:') ? {} : ({ dataSet: { taskCard: task.id } } as object))}
@@ -118,6 +154,9 @@ export default function TaskCard({
           <>
             <View style={styles.titleRow}>
               {renaming ? (
+                // A Pressable so the nearest press handler for keys typed in the field
+                // is this one, not the card's (Enter must not toggle the card).
+                <Pressable onPress={() => {}} style={styles.renameWrap}>
                 <TextInput
                   style={styles.titleInput}
                   value={title}
@@ -125,7 +164,10 @@ export default function TaskCard({
                   onSubmitEditing={finishRename}
                   onBlur={finishRename}
                   onKeyPress={(e) => {
-                    if ((e.nativeEvent as { key?: string }).key === 'Escape') {
+                    const key = (e.nativeEvent as { key?: string }).key;
+                    // Enter and Escape here are for the field, never a press on the card.
+                    if (key === 'Enter' || key === 'Escape') (e as { stopPropagation?: () => void }).stopPropagation?.();
+                    if (key === 'Escape') {
                       cancelled.current = true;
                       setRenaming(false);
                     }
@@ -134,6 +176,7 @@ export default function TaskCard({
                   selectTextOnFocus
                   accessibilityLabel={`Rename ${task.title}`}
                 />
+                </Pressable>
               ) : (
                 <Text
                   onPress={startRename}
@@ -265,7 +308,7 @@ export default function TaskCard({
             </View>
 
             {dropHighlight && <Text style={styles.dropText}>Add as subtask</Text>}
-            {expanded && <ExpandedBody task={task} ops={wrapped} />}
+            {expanded && <ExpandedBody task={task} ops={wrapped} cardNode={() => cardEl.current} />}
           </>
         )}
       </HoverPressable>
@@ -325,7 +368,8 @@ function Control({
 }
 
 // ---- expanded in place: notes and subtasks ----
-function ExpandedBody({ task, ops }: { task: Task; ops: TaskOps }) {
+function ExpandedBody({ task, ops, cardNode }: { task: Task; ops: TaskOps; cardNode: () => HTMLElement | null }) {
+  const notesRef = useRef<TextInput>(null);
   const [notes, setNotes] = useState(task.notes ?? '');
   const [newText, setNewText] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
@@ -388,9 +432,18 @@ function ExpandedBody({ task, ops }: { task: Task; ops: TaskOps }) {
         style={styles.notes}
         placeholder="Notes"
         placeholderTextColor={Colors.textSecondary}
+        ref={notesRef}
         value={notes}
         onChangeText={setNotes}
         onBlur={saveNotes}
+        onKeyPress={(e) => {
+          // Escape leaves the field (which saves it) without collapsing the card;
+          // a second Escape, now on the card itself, collapses it.
+          if ((e.nativeEvent as { key?: string }).key === 'Escape') {
+            notesRef.current?.blur();
+            cardNode()?.focus({ preventScroll: true });
+          }
+        }}
         multiline
         accessibilityLabel={`Notes for ${task.title}`}
       />
@@ -543,8 +596,8 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 14, color: Colors.textPrimary, minWidth: 0 },
   titleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   titleLow: { color: Colors.textSecondary },
+  renameWrap: { flex: 1, minWidth: 0 },
   titleInput: {
-    flex: 1,
     minWidth: 0,
     fontSize: 14,
     color: Colors.textPrimary,

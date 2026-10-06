@@ -13,10 +13,11 @@
 import type { RecurrenceRule, Task, WeekDay } from './types.ts';
 import { WEEKDAYS, addDays, dateKey, formatDayLabel, isDateKey, parseDateKey } from './kanban.ts';
 
-export type RepeatKind = 'none' | 'weekly' | 'biweekly' | 'monthly';
+export type RepeatKind = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
 
 export const REPEAT_CHOICES: Array<{ kind: RepeatKind; label: string }> = [
   { kind: 'none', label: 'Does not repeat' },
+  { kind: 'daily', label: 'Daily' },
   { kind: 'weekly', label: 'Weekly' },
   { kind: 'biweekly', label: 'Every 2 weeks' },
   { kind: 'monthly', label: 'Monthly' },
@@ -47,12 +48,14 @@ export function allSeven(days: WeekDay[]): boolean {
   return sameDays(sortDays(days), WEEK_ORDER);
 }
 
-// The editor kind for a stored rule. 'daily' is Weekly with all seven days.
+// The editor kind for a stored rule. Daily is its own choice (2.12.2); Weekly
+// with all seven days ticked also becomes Daily (see switchedKind).
 // triweekly was never offered by any editor; if one ever loads it shows as
 // Every 2 weeks.
 export function repeatKindOf(rule: RecurrenceRule | undefined): RepeatKind {
   if (!rule) return 'none';
-  if (rule === 'daily' || rule === 'weekly') return 'weekly';
+  if (rule === 'daily') return 'daily';
+  if (rule === 'weekly') return 'weekly';
   if (rule === 'monthly') return 'monthly';
   return 'biweekly';
 }
@@ -63,9 +66,16 @@ export function repeatLabel(kind: RepeatKind, days: WeekDay[]): string {
   return REPEAT_CHOICES.find((c) => c.kind === kind)?.label ?? '';
 }
 
+// Weekly with all seven days ticked is Daily: the dropdown switches its
+// selection to Daily. Every other pair is left as it is.
+export function switchedKind(kind: RepeatKind, days: WeekDay[]): RepeatKind {
+  return kind === 'weekly' && allSeven(days) ? 'daily' : kind;
+}
+
 // The rule stored for a choice.
 export function ruleFor(kind: RepeatKind, days: WeekDay[]): RecurrenceRule | undefined {
   if (kind === 'none') return undefined;
+  if (kind === 'daily') return 'daily';
   if (kind === 'weekly') return allSeven(days) ? 'daily' : 'weekly';
   return kind;
 }
@@ -176,6 +186,10 @@ export function resolveRepeat(
   monthDay: number | null,
 ): ResolvedRepeat | null {
   const day = isDateKey(dayKey) ? dayKey : undefined;
+  if (kind === 'daily') {
+    // No day chips and nothing else stored; the Day stays as it is.
+    return { dueDate: day, recurrence: 'daily', recurrenceDays: undefined, recurrenceMonthDay: undefined };
+  }
   if (kind === 'weekly' || kind === 'biweekly') {
     if (days.length === 0) return null;
     const rule = ruleFor(kind, days);
@@ -221,6 +235,7 @@ export function repeatSummary(
   monthDay: number | null,
 ): string {
   if (kind === 'none') return 'Does not repeat';
+  if (kind === 'daily') return 'Repeats every day.';
   const resolved = resolveRepeat(kind, days, dayKey, monthDay);
   if (!resolved) return kind === 'monthly' ? 'Enter a day from 1 to 31' : 'Choose at least one day';
   const starts = resolved.movedFrom && resolved.dueDate ? `, starts ${formatDayLabel(resolved.dueDate)}` : '';
@@ -229,7 +244,7 @@ export function repeatSummary(
     const base = `Repeats on the ${ordinal(md)} of every month${starts}`;
     return md >= 29 ? `${base}. ${SHORT_MONTH_NOTE}` : base;
   }
-  if (resolved.recurrence === 'daily') return 'Repeats every day';
+  if (resolved.recurrence === 'daily') return 'Repeats every day.';
   if (kind === 'biweekly') {
     if (allSeven(days)) return `Repeats every day of every other week${starts}`;
     return `Repeats every other week on ${formatDayList(days)}${starts}`;

@@ -17,10 +17,12 @@ import {
   initialDays,
   parseMonthDay,
   repeatKindOf,
+  allSeven,
   repeatLabel,
   repeatSummary,
   resolveRepeat,
   sameDays,
+  switchedKind,
   toggleDay,
   weekdayOf,
   type RepeatKind,
@@ -234,7 +236,7 @@ export function RepeatBody({ task, ops, done }: BodyProps) {
   function choose(kind: RepeatKind) {
     setRepeat(kind);
     // A day based repeat with nothing chosen starts from the weekday of the Day.
-    if ((kind === 'weekly' || kind === 'biweekly') && days.length === 0 && day) setDays([weekdayOf(day)]);
+    if ((kind === 'weekly' || kind === 'biweekly') && (days.length === 0 || (kind === 'weekly' && allSeven(days))) && day) setDays([weekdayOf(day)]);
   }
 
   function apply() {
@@ -284,7 +286,17 @@ export function RepeatBody({ task, ops, done }: BodyProps) {
         <>
           <View style={styles.chips}>
             {WEEK_ORDER.map((w) => (
-              <Chip key={w} label={w} selected={days.includes(w)} onPress={() => setDays((p) => toggleDay(p, w))} />
+              <Chip
+                key={w}
+                label={w}
+                selected={days.includes(w)}
+                onPress={() => {
+                  const next = toggleDay(days, w);
+                  setDays(next);
+                  // All seven ticked on Weekly is Daily: the selection switches.
+                  setRepeat(switchedKind(repeat, next));
+                }}
+              />
             ))}
           </View>
           <View style={styles.linkRow}>
@@ -568,6 +580,8 @@ function Chip({ label, selected, onPress, a11y }: { label: string; selected: boo
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={a11y ?? label}
+      // A chip is a toggle: expose which one is on.
+      {...({ 'aria-pressed': selected } as object)}
     >
       <Text style={[styles.chipText, selected && styles.chipTextOn]}>{label}</Text>
     </Pressable>

@@ -21,6 +21,7 @@ import {
   repeatKindOf,
   repeatLabel,
   repeatSummary,
+  switchedKind,
   resolveRepeat,
   ruleFor,
   shortRepeat,
@@ -37,8 +38,27 @@ const WFS: WeekDay[] = ['Wed', 'Fri', 'Sun'];
 
 const nx = (task: Partial<Task>, today: string) => nextOccurrence(task, today);
 
-test('four choices: Does not repeat, Weekly, Every 2 weeks, Monthly', () => {
-  assert.deepEqual(REPEAT_CHOICES.map((c) => c.label), ['Does not repeat', 'Weekly', 'Every 2 weeks', 'Monthly']);
+test('five choices in order: Does not repeat, Daily, Weekly, Every 2 weeks, Monthly', () => {
+  assert.deepEqual(REPEAT_CHOICES.map((c) => c.label), ['Does not repeat', 'Daily', 'Weekly', 'Every 2 weeks', 'Monthly']);
+  assert.deepEqual(REPEAT_CHOICES.map((c) => c.kind), ['none', 'daily', 'weekly', 'biweekly', 'monthly']);
+});
+
+test('Daily stores recurrence daily with no days or month day, summary and no-Day case', () => {
+  const r = resolveRepeat('daily', [], MON, null)!;
+  assert.deepEqual(r, { dueDate: MON, recurrence: 'daily', recurrenceDays: undefined, recurrenceMonthDay: undefined });
+  assert.equal(repeatSummary('daily', [], MON, null), 'Repeats every day.');
+  assert.equal(ruleFor('daily', []), 'daily');
+  // no Day: the same rule as the other repeats, the Day stays empty
+  assert.equal(resolveRepeat('daily', [], undefined, null)!.dueDate, undefined);
+  assert.equal(repeatKindOf('daily'), 'daily');
+  assert.equal(repeatLabel('daily', []), 'Daily');
+});
+
+test('Weekly with all seven days switches the selection to Daily; fewer days stay Weekly', () => {
+  assert.equal(switchedKind('weekly', [...WEEK_ORDER]), 'daily');
+  assert.equal(switchedKind('weekly', WEEKDAY_SET), 'weekly');
+  assert.equal(switchedKind('biweekly', [...WEEK_ORDER]), 'biweekly');
+  assert.equal(switchedKind('monthly', []), 'monthly');
 });
 
 test('seven days on Weekly become Daily, and back', () => {
@@ -49,7 +69,7 @@ test('seven days on Weekly become Daily, and back', () => {
   assert.equal(allSeven(days), true);
   assert.equal(repeatLabel('weekly', days), 'Daily');
   assert.equal(ruleFor('weekly', days), 'daily');
-  assert.equal(repeatSummary('weekly', days, MON, null), 'Repeats every day');
+  assert.equal(repeatSummary('weekly', days, MON, null), 'Repeats every day.');
   const saved = resolveRepeat('weekly', days, MON, null)!;
   assert.equal(saved.recurrence, 'daily');
   assert.equal(saved.recurrenceDays, undefined);
@@ -57,8 +77,8 @@ test('seven days on Weekly become Daily, and back', () => {
   days = toggleDay(days, 'Wed');
   assert.equal(repeatLabel('weekly', days), 'Weekly');
   assert.equal(resolveRepeat('weekly', days, MON, null)!.recurrence, 'weekly');
-  // A stored daily task opens as Weekly with all seven chips on (shown Daily)
-  assert.equal(repeatKindOf('daily'), 'weekly');
+  // A stored daily task now opens as Daily
+  assert.equal(repeatKindOf('daily'), 'daily');
   assert.deepEqual(initialDays({ recurrence: 'daily' }, MON), WEEK_ORDER);
 });
 

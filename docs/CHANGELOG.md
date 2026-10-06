@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 2.12.2 — 2026-10-07
+
+**"Daily" is now an explicit choice in the Repeat dropdown. Desktop only.**
+
+- Options in order: Does not repeat, Daily, Weekly, Every 2 weeks, Monthly. Daily stores a daily repeat with no day chips and the summary "Repeats every day."; the next occurrence is the day after the later of the task's Day and today, as before. Ticking all seven days on Weekly switches the selection to Daily. A stored daily task opens the dropdown on Daily.
+
+---
+
 ## 2.12.1 — 2026-10-07
 
 **Fix: typing a space in the Notes field of an expanded task card collapsed the card. Desktop only.**

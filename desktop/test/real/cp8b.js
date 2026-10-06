@@ -80,14 +80,25 @@ async function run() {
   const rectOf = (expr) =>
     js(`(() => { const el = ${expr}; if (!el) return null; el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), w: r.width, h: r.height }; })()`);
   const mouse = (type, x, y) => win.webContents.sendInputEvent({ type, x, y, button: 'left', clickCount: 1 });
+  // Real mouse input. The pointer arrives first (hover-only icons mount and can
+  // move the layout), then the element is measured again and pressed, as a
+  // person who sees it settle would.
   const click = async (expr, wait = 200) => {
-    await rectOf(expr);
-    await C.sleep(350);
-    const r = await rectOf(expr);
-    if (!r) throw new Error(`no element for ${expr}`);
-    win.webContents.sendInputEvent({ type: 'mouseMove', x: r.x, y: r.y });
-    mouse('mouseDown', r.x, r.y);
-    mouse('mouseUp', r.x, r.y);
+    const first = await rectOf(expr);
+    if (!first) throw new Error(`no element for ${expr}`);
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: first.x, y: first.y });
+    await C.sleep(250);
+    let r = await rectOf(expr);
+    for (let i = 0; i < 10; i++) {
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: r.x, y: r.y });
+      await C.sleep(150);
+      const again = await rectOf(expr);
+      const same = again && again.x === r.x && again.y === r.y;
+      r = again || r;
+      if (same) break;
+    }
+    win.webContents.sendInputEvent({ type: 'mouseDown', x: r.x, y: r.y, button: 'left', clickCount: 1 });
+    win.webContents.sendInputEvent({ type: 'mouseUp', x: r.x, y: r.y, button: 'left', clickCount: 1 });
     await C.sleep(wait);
   };
   const key = async (keyCode) => {

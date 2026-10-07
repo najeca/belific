@@ -135,6 +135,8 @@ function registerIpc() {
   ipcMain.handle('notify:update', guard((payload) => scheduler.update(payload)));
   ipcMain.handle('desktop:exportData', guard(() => exportData()));
   ipcMain.handle('desktop:openBackups', guard(() => openBackupsFolder()));
+  ipcMain.handle('desktop:licensesAvailable', guard(() => fs.existsSync(licensesFile())));
+  ipcMain.handle('desktop:openLicenses', guard(() => (fs.existsSync(licensesFile()) ? shell.openPath(licensesFile()) : undefined)));
   ipcMain.on('desktop:version', (event) => {
     event.returnValue = trustedSender(event) ? appVersion() : '';
   });
@@ -253,6 +255,18 @@ async function exportData() {
   }
 }
 
+// The Chromium and Electron licences file that ships beside Belific.exe in the
+// app folder (About, checkpoint 9). The About row appears only if it exists.
+function licensesFile() {
+  return path.join(path.dirname(process.execPath), 'LICENSES.chromium.html');
+}
+
+// File, Settings: bring the window up and ask the page to show its Settings page.
+function openSettingsFromMenu() {
+  showWindow();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('menu:openSettings');
+}
+
 function openBackupsFolder() {
   fs.mkdirSync(paths().backups, { recursive: true });
   return shell.openPath(paths().backups);
@@ -340,6 +354,8 @@ function buildMenu() {
     {
       label: 'File',
       submenu: [
+        { label: 'Settings…', accelerator: 'Ctrl+,', click: () => openSettingsFromMenu() },
+        { type: 'separator' },
         { label: 'Export data…', click: () => exportData() },
         {
           label: 'Open backups folder',

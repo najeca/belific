@@ -97,13 +97,18 @@ async function run() {
   check('settings validated: time applied, junk ignored', set.dailyTime === hm && set.startWithWindows === false && !('dailyTime2' in set));
   check('settings written to the main process store', JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_desktop_settings.kv'), 'utf8')).dailyTime === hm);
 
-  // The Settings modal shows the new sections.
-  const rect = await js(`(() => { const e = document.querySelector('[aria-label="Account and sync settings"]'); const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
-  win.webContents.sendInputEvent({ type: 'mouseDown', x: rect.x, y: rect.y, button: 'left', clickCount: 1 });
-  win.webContents.sendInputEvent({ type: 'mouseUp', x: rect.x, y: rect.y, button: 'left', clickCount: 1 });
+  // The Settings page shows the new sections.
+  const clickLabel = async (label) => {
+    const r = await js(`(() => { const e = Array.from(document.querySelectorAll('[aria-label]')).find((x) => x.getAttribute('aria-label') === ${JSON.stringify(label)} && x.getBoundingClientRect().width > 0); const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
+    win.webContents.sendInputEvent({ type: 'mouseDown', x: r.x, y: r.y, button: 'left', clickCount: 1 });
+    win.webContents.sendInputEvent({ type: 'mouseUp', x: r.x, y: r.y, button: 'left', clickCount: 1 });
+    await new Promise((res) => setTimeout(res, 400));
+  };
+  await clickLabel('Profile, not signed in');
+  await clickLabel('Settings');
   await C.waitFor(async () => (await js('document.body.innerText')).includes('Close to the system tray'));
   const text = (await js('document.body.innerText')).toUpperCase();
-  check('Settings modal has Notifications and Window sections', text.includes('NOTIFICATIONS') && text.includes('WINDOW') && text.includes('START WITH WINDOWS') && text.includes('DAILY REMINDER'));
+  check('Settings page has Notifications and Window sections', text.includes('NOTIFICATIONS') && text.includes('WINDOW') && text.includes('START WITH WINDOWS') && text.includes('DAILY REMINDER'));
 
   // Close to tray: the window hides, the app keeps running, a one time note.
   win.close();

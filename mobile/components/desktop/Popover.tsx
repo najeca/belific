@@ -74,11 +74,13 @@ export default function Popover({
   id,
   anchor,
   width = 264,
+  label = 'Task options',
   children,
 }: {
   id: string;
   anchor: () => HTMLElement | null;
   width?: number;
+  label?: string;
   children: React.ReactNode;
 }) {
   const open = useIsOpen(id);
@@ -181,7 +183,7 @@ export default function Popover({
     <div
       ref={box}
       role="dialog"
-      aria-label="Task options"
+      aria-label={label}
       data-popover={id}
       // Presses inside must never reach the card this popover belongs to.
       onClick={(e) => e.stopPropagation()}

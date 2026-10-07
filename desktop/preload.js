@@ -54,6 +54,17 @@ const actions = {
   exportData: () => ipcRenderer.invoke('desktop:exportData'),
   openBackups: () => ipcRenderer.invoke('desktop:openBackups'),
   backupNow: (label) => ipcRenderer.invoke('desktop:backupNow', label),
+  licensesAvailable: () => ipcRenderer.invoke('desktop:licensesAvailable'),
+  openLicenses: () => ipcRenderer.invoke('desktop:openLicenses'),
+};
+
+// File, Settings in the app menu asks the page to show its Settings page.
+const menu = {
+  onOpenSettings: (listener) => {
+    const handler = () => listener();
+    ipcRenderer.on('menu:openSettings', handler);
+    return () => ipcRenderer.removeListener('menu:openSettings', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('belificDesktop', {
@@ -63,5 +74,6 @@ contextBridge.exposeInMainWorld('belificDesktop', {
   settings,
   notify,
   actions,
+  menu,
   version: ipcRenderer.sendSync('desktop:version'),
 });

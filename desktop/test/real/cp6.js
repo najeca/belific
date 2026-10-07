@@ -90,7 +90,9 @@ async function run() {
 
   await C.waitFor(async () => (await body()).includes('Seeded real check task'));
   check('signed out: seeded task renders', true);
-  check('signed out: footer line reads Local only', (await body()).includes('Local only · not signed in'));
+  await click('Profile, not signed in');
+  await C.waitFor(async () => (await body()).includes('Local only, not signed in'));
+  check('signed out: the profile popover reads Local only, not signed in (the footer line is gone)', !(await body()).includes('Local only · not signed in'));
   check('page origin is app://belific (the delete-account CORS rule)', (await js('location.origin')) === 'app://belific');
   check('page is still on app://belific/', (await js('location.href')).startsWith('app://belific/'));
 
@@ -109,10 +111,10 @@ async function run() {
   check('nothing forwarded to the page', (await js('window.__cb.length')) === 0);
   check('main process window still alive', !win.isDestroyed());
 
-  // Settings modal and a refused begin.
-  await click('Account and sync settings');
-  await C.waitFor(async () => (await body()).includes('Sign in with Apple'));
-  check('account line opens the Settings modal (Account, Sync, Data)', ['Account', 'Sync', 'Data'].every((w) => true) && (await body()).toUpperCase().includes('DATA'));
+  // Settings page (from the profile popover) and a refused begin.
+  await click('Settings');
+  await C.waitFor(async () => (await body()).toUpperCase().includes('PLANNING'));
+  check('the profile popover opens the Settings page (Account, Sync, Data)', ['Account', 'Sync', 'Data'].every((w) => true) && (await body()).toUpperCase().includes('DATA'));
   const refused = await js(`belificDesktop.auth.begin('https://evil.example/auth/v1/authorize?provider=apple&redirect_to=belific%3A%2F%2Fauth-callback')`);
   check('begin refuses a non Belific URL', refused.ok === false && refused.reason === 'refused' && opened.length === 0);
   const backupsDir = path.join(userData, 'backups');

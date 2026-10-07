@@ -11,6 +11,8 @@ import { addSubtask, counterLabel, deleteSubtask, moveSubtask, renameSubtask } f
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { isEditableTarget } from '../../lib/editable';
+import { cardKeyAction } from '../../lib/cardKeys';
+import { ensureFocusRingStyle } from './focusRing';
 import HoverPressable from './HoverPressable';
 import Popover, { togglePopover, useIsOpen, usePopoverAnchor, closePopover } from './Popover';
 import { DurationBody, LabelBody, MoveToDayBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
@@ -102,8 +104,9 @@ export default function TaskCard({
     patch({ title: t });
   }
 
-  // The card element: not in the tab order but focusable, so after Escape in
-  // Notes the next Escape (target = the card itself) can collapse it.
+  // The card element is in the tab order (checkpoint 9): Tab reaches it, Enter
+  // expands or collapses it, Escape collapses it (cardKeyAction decides; a key
+  // from any field or inner button is never the card's, so typing is safe).
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
   const cleanupKeys = useRef<(() => void) | null>(null);
@@ -115,13 +118,22 @@ export default function TaskCard({
       cleanupKeys.current = null;
       const el = node as HTMLElement | null;
       if (!el || typeof el.addEventListener !== 'function') return;
-      el.tabIndex = -1;
+      el.tabIndex = 0;
+      el.setAttribute('data-card-focus', '1');
+      ensureFocusRingStyle();
       cardEl.current = el;
       const onKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape' && e.target === el && expandedRef.current) {
-          e.stopPropagation();
-          setExpanded(false);
-        }
+        const action = cardKeyAction({
+          key: e.key,
+          onCardItself: e.target === el,
+          editable: isEditableTarget(e.target),
+          expanded: expandedRef.current,
+          modified: e.ctrlKey || e.metaKey || e.altKey || e.shiftKey,
+        });
+        if (!action) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setExpanded(action === 'toggle' ? !expandedRef.current : false);
       };
       el.addEventListener('keydown', onKey);
       cleanupKeys.current = () => el.removeEventListener('keydown', onKey);

@@ -254,7 +254,8 @@ async function run() {
   await shot('cp8g-column-order');
 
   // ---- "My day starts at" in Settings ----
-  await click(q('[aria-label="Account and sync settings"]'));
+  await click(q('[aria-label="Profile, not signed in"]'));
+  await click(q('[aria-label="Settings"]'));
   await C.waitFor(() => exists(q('select[aria-label="My day starts at"]')), 5000).catch(() => {});
   check('Settings has "My day starts at", default 05:00', (await js(`${q('select[aria-label="My day starts at"]')}.value`)) === '05:00');
   check('it offers 48 times in 30 minute steps', (await js(`${q('select[aria-label="My day starts at"]')}.options.length`)) === 48);
@@ -264,9 +265,9 @@ async function run() {
   check('arrow keys change it to 20:00', (await js(`${q('select[aria-label="My day starts at"]')}.value`)) === '20:00', String(await js(`${q('select[aria-label="My day starts at"]')}.value`)));
   await C.waitFor(() => settingsFile() && settingsFile().dayStart === '20:00', 6000).catch(() => {});
   check('it is stored in the main process settings, not in the tasks', settingsFile() && settingsFile().dayStart === '20:00' && !JSON.stringify(read('belific_tasks')).includes('20:00"}'));
-  await clickAt(6, 6);
+  await click(q('[aria-label="Back"]'));
   await C.sleep(300);
-  check('the Settings modal closed', !(await exists(q('select[aria-label="My day starts at"]'))));
+  check('Back left the Settings page', !(await exists(q('select[aria-label="My day starts at"]'))));
   await C.sleep(500);
   const todayTop2 = await scrollTop();
   check('today now opens by the new rule (before 20:00 it is an hour before now)', Math.abs(todayTop2 - (openingFor(20 * 60) / 60) * PX) <= 20, `${todayTop2} vs ${(openingFor(20 * 60) / 60) * PX}`);

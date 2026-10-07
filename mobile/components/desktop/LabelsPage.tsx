@@ -1,0 +1,344 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../../lib/theme';
+import { LABEL_COLORS, labelColor } from '../../lib/labelColors';
+import { availableSuggestions, deletedLabelTarget, findLabelByName } from '../../lib/labelRules';
+import { openCountText, openTaskCounts } from '../../lib/labelUsage';
+import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
+import { loadTasks } from '../../lib/storage';
+import type { Project, Task } from '../../lib/types';
+import Popover, { closePopover, Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
+
+// The Labels page (checkpoint 9, decision 025): every label with its colour,
+// name and the number of open tasks using it. Rename inline, change the colour
+// from the 8 colour palette, delete with an inline confirm (the existing rule:
+// tasks move to a same named label, otherwise lose the label), add from the
+// suggestions or by typing. Duplicate names are refused as everywhere else.
+// No reordering. The trash button is always there (no hover only controls).
+export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
+  const [labels, setLabels] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [addProblem, setAddProblem] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    const [l, t] = await Promise.all([loadLabels(), loadTasks()]);
+    setLabels(l);
+    setTasks(t);
+    setLoaded(true);
+  }, []);
+  useEffect(() => {
+    reload().catch(() => setLoaded(true));
+  }, [reload]);
+
+  const changed = useCallback(async () => {
+    await reload();
+    onChanged();
+  }, [reload, onChanged]);
+
+  const counts = openTaskCounts(tasks);
+  const suggestions = availableSuggestions(labels);
+
+  async function add(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (findLabelByName(labels, trimmed)) {
+      setAddProblem('A label with that name already exists');
+      return;
+    }
+    setAddProblem(null);
+    await createLabel(trimmed);
+    setNewName('');
+    await changed();
+  }
+
+  return (
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.column}>
+        <Text style={styles.heading}>Labels</Text>
+        <View style={styles.card}>
+          {loaded && labels.length === 0 && <Text style={styles.empty}>No labels yet. Add one below.</Text>}
+          {labels.map((label, i) => (
+            <LabelRow
+              key={label.key}
+              label={label}
+              labels={labels}
+              open={counts.get(label.key) ?? 0}
+              all={countTasksWithLabel(tasks, label.key)}
+              first={i === 0}
+              onChanged={changed}
+            />
+          ))}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Add a label</Text>
+          <View style={styles.addRow}>
+            <TextInput
+              style={styles.input}
+              value={newName}
+              onChangeText={(v) => {
+                setNewName(v);
+                setAddProblem(null);
+              }}
+              onSubmitEditing={() => add(newName)}
+              placeholder="New label name"
+              placeholderTextColor={Colors.textSecondary}
+              accessibilityLabel="New label name"
+              maxLength={40}
+            />
+            <Pressable
+              onPress={() => add(newName)}
+              disabled={!newName.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="Add label"
+              style={[styles.btnPrimary, !newName.trim() && styles.disabled]}
+            >
+              <Text style={styles.btnPrimaryText}>Add</Text>
+            </Pressable>
+          </View>
+          {addProblem && <Text style={styles.problem}>{addProblem}</Text>}
+          {suggestions.length > 0 && (
+            <>
+              <Text style={styles.hint}>Suggested</Text>
+              <View style={styles.chips}>
+                {suggestions.map((s) => (
+                  <Pressable key={s} onPress={() => add(s)} accessibilityRole="button" accessibilityLabel={`Add suggested label ${s}`} style={styles.chip}>
+                    <Ionicons name="add" size={14} color={Colors.textSecondary} />
+                    <Text style={styles.chipText}>{s}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+function LabelRow({
+  label,
+  labels,
+  open,
+  all,
+  first,
+  onChanged,
+}: {
+  label: Project;
+  labels: Project[];
+  open: number;
+  all: number;
+  first: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(label.name);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const cancelled = useRef(false);
+  const colorId = `label-color:${label.key}`;
+  const { ref, get } = usePopoverAnchor();
+  const colorOpen = useIsOpen(colorId);
+  const color = labelColor(label.colorKey);
+
+  useEffect(() => {
+    if (!editing) {
+      setName(label.name);
+      // The box is gone, so a leftover "cancelled" must not swallow the next rename.
+      cancelled.current = false;
+    }
+  }, [label.name, editing]);
+
+  // Enter keeps the box open on a problem so the name can be fixed (the old
+  // name stays saved). Leaving the box (revertOnProblem) drops a bad change.
+  async function commit(revertOnProblem = false) {
+    if (cancelled.current) return;
+    const msg = await renameLabel(label.key, name);
+    if (msg && !revertOnProblem) {
+      setProblem(msg);
+      return;
+    }
+    setProblem(null);
+    setEditing(false);
+    if (!msg) await onChanged();
+  }
+
+  function cancel() {
+    cancelled.current = true;
+    setProblem(null);
+    setName(label.name);
+    setEditing(false);
+  }
+
+  async function pickColor(key: string) {
+    closePopover(true);
+    if (key !== label.colorKey) {
+      await setLabelColor(label.key, key);
+      await onChanged();
+    }
+  }
+
+  async function confirmDelete() {
+    await deleteLabel(label.key);
+    setConfirming(false);
+    await onChanged();
+  }
+
+  const target = deletedLabelTarget(labels, label.key);
+  const targetName = target ? labels.find((l) => l.key === target)?.name : undefined;
+
+  return (
+    <View style={[styles.rowWrap, !first && styles.rowDivider]} accessibilityLabel={`Label ${label.name}`}>
+      <View style={styles.row}>
+        <Pressable
+          ref={ref as never}
+          onPress={() => togglePopover(colorId, get)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: colorOpen }}
+          accessibilityLabel={`Colour of ${label.name}`}
+          style={[styles.swatchBtn, colorOpen && styles.swatchBtnOpen]}
+        >
+          <View style={[styles.swatch, { backgroundColor: color?.edge ?? Colors.border }]} />
+        </Pressable>
+        <View style={styles.nameWrap}>
+          {editing ? (
+            <TextInput
+              style={styles.nameInput}
+              value={name}
+              onChangeText={(v) => {
+                setName(v);
+                setProblem(null);
+              }}
+              onSubmitEditing={() => commit()}
+              // Enter must not blur the box: a refused name stays editable.
+              blurOnSubmit={false}
+              onBlur={() => {
+                // Leaving the box saves a valid change and reverts an invalid one.
+                if (!name.trim() || name.trim() === label.name) cancel();
+                else commit(true);
+              }}
+              onKeyPress={(e) => {
+                if ((e.nativeEvent as { key?: string }).key === 'Escape') cancel();
+              }}
+              autoFocus
+              selectTextOnFocus
+              maxLength={40}
+              accessibilityLabel={`Rename ${label.name}`}
+            />
+          ) : (
+            <Pressable onPress={() => setEditing(true)} accessibilityRole="button" accessibilityLabel={`Rename label ${label.name}`}>
+              <Text style={styles.name} numberOfLines={1}>
+                {label.name}
+              </Text>
+            </Pressable>
+          )}
+          {problem && <Text style={styles.problem}>{problem}</Text>}
+        </View>
+        <Text style={styles.count}>{openCountText(open)}</Text>
+        <Pressable
+          onPress={() => setConfirming((c) => !c)}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete label ${label.name}`}
+          style={styles.iconBtn}
+        >
+          <Ionicons name="trash-outline" size={18} color={Colors.textSecondary} />
+        </Pressable>
+      </View>
+      {confirming && (
+        <View style={styles.confirm}>
+          <Text style={styles.body}>
+            {all === 0
+              ? `Delete the label ${label.name}?`
+              : targetName
+                ? `Delete the label ${label.name}? Its ${all} task${all === 1 ? '' : 's'} will move to the other label called ${targetName}.`
+                : `Delete the label ${label.name}? Its ${all} task${all === 1 ? '' : 's'} will lose the label.`}
+          </Text>
+          <View style={styles.confirmRow}>
+            <Pressable onPress={confirmDelete} accessibilityRole="button" accessibilityLabel={`Confirm delete label ${label.name}`} style={styles.btn}>
+              <Text style={styles.dangerText}>Delete</Text>
+            </Pressable>
+            <Pressable onPress={() => setConfirming(false)} accessibilityRole="button" accessibilityLabel="Cancel delete" style={styles.btn}>
+              <Text style={styles.btnText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+      <Popover id={colorId} anchor={get} width={216} label={`Colour for ${label.name}`}>
+        <View style={{ paddingVertical: 6 }}>
+          {LABEL_COLORS.map((c) => (
+            <Row
+              key={c.key}
+              label={c.name}
+              selected={c.key === label.colorKey}
+              a11y={`Colour ${c.name}`}
+              leading={<View style={[styles.dot, { backgroundColor: c.edge }]} />}
+              onPress={() => pickColor(c.key)}
+            />
+          ))}
+        </View>
+      </Popover>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll: { flex: 1 },
+  content: { padding: 16, paddingTop: 4, alignItems: 'center' },
+  column: { width: '100%', maxWidth: 640, gap: 12 },
+  heading: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
+  card: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  empty: { fontSize: 14, color: Colors.textSecondary, paddingVertical: 12 },
+  sectionTitle: { marginTop: 8, marginBottom: 6, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: Colors.textSecondary },
+  rowWrap: { paddingVertical: 6 },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 40 },
+  swatchBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
+  swatchBtnOpen: { borderColor: Colors.accent },
+  swatch: { width: 18, height: 18, borderRadius: 9 },
+  nameWrap: { flex: 1, minWidth: 0 },
+  name: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  nameInput: {
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    outlineColor: Colors.accent,
+  },
+  count: { fontSize: 12, color: Colors.textSecondary },
+  iconBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  problem: { marginTop: 4, fontSize: 12, color: Colors.danger },
+  confirm: { marginTop: 6, marginBottom: 4, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, gap: 8 },
+  confirmRow: { flexDirection: 'row', gap: 8 },
+  body: { fontSize: 14, color: Colors.textPrimary },
+  hint: { marginTop: 10, fontSize: 12, color: Colors.textSecondary },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  input: {
+    flex: 1,
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    outlineColor: Colors.accent,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, marginBottom: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, height: 32, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
+  chipText: { fontSize: 13, color: Colors.textPrimary },
+  dot: { width: 12, height: 12, borderRadius: 6 },
+  btn: { paddingHorizontal: 14, height: 36, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, justifyContent: 'center' },
+  btnText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
+  btnPrimary: { paddingHorizontal: 16, height: 36, borderRadius: 14, backgroundColor: Colors.accent, justifyContent: 'center' },
+  btnPrimaryText: { fontSize: 13, fontWeight: '600', color: Colors.onAccent },
+  dangerText: { fontSize: 13, fontWeight: '600', color: Colors.danger },
+  disabled: { opacity: 0.4 },
+});

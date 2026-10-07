@@ -1,11 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import BrainDumpPane from './BrainDumpPane';
 import KanbanPane from './KanbanPane';
 import TimeboxPane from './TimeboxPane';
 import DragProvider from './DragProvider';
-import SettingsModal from './SettingsModal';
+import ProfileMenu from './ProfileMenu';
+import SettingsPage from './SettingsPage';
+import LabelsPage from './LabelsPage';
+import { closePopover } from './Popover';
+import { setHomeActive } from './viewActive';
 import AccountChoiceModal from './AccountChoiceModal';
 import { kv } from '../../lib/kv';
 import { loadLabels } from '../../lib/labels';
@@ -23,7 +28,37 @@ export default function DesktopHome() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [filter, setFilterState] = useState<TaskFilter>(EMPTY_FILTER);
   const [labelKeys, setLabelKeys] = useState<string[] | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Home (the three panes), or the Settings or Labels page (checkpoint 9,
+  // decision 025). The panes stay mounted but hidden and inert, so the week,
+  // the filter and the notification payload (sent from this component) carry on.
+  const [view, setView] = useState<View_>('home');
+  const previous = useRef<View_>('home');
+  const panes = useRef<View>(null);
+  const showView = useCallback((next: View_) => {
+    // Never carry an open popover (or a half done drag) into another view.
+    closePopover();
+    setView((cur) => {
+      previous.current = cur;
+      return next;
+    });
+  }, []);
+  const goBack = useCallback(() => {
+    closePopover();
+    setView((cur) => {
+      const back = cur === 'labels' && previous.current === 'settings' ? 'settings' : 'home';
+      previous.current = cur;
+      return back;
+    });
+  }, []);
+  useEffect(() => {
+    setHomeActive(view === 'home');
+    // display none already removes the panes from focus and pointer input; the
+    // inert attribute makes it explicit for anything else (scripts, readers).
+    const el = panes.current as unknown as HTMLElement | null;
+    if (el && typeof el.toggleAttribute === 'function') el.toggleAttribute('inert', view !== 'home');
+  }, [view]);
+  // File, Settings in the app menu.
+  useEffect(() => globalThis.belificDesktop?.menu?.onOpenSettings(() => showView('settings')), [showView]);
   // Validated sign in callbacks from the main process (decision 012).
   useEffect(() => listenForAuthCallbacks(), []);
   // An unanswered account choice survives a relaunch, and a sign out whose
@@ -84,34 +119,44 @@ export default function DesktopHome() {
   return (
     <DragProvider onChanged={onChanged}>
     <View style={styles.root}>
-      <View style={styles.body}>
+      <View style={styles.strip}>
+        {view === 'home' ? (
+          <Text style={styles.wordmark}>Belific</Text>
+        ) : (
+          <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+            <Ionicons name="arrow-back" size={16} color={Colors.accentText} />
+            <Text style={styles.backText}>Back</Text>
+          </Pressable>
+        )}
+        <ProfileMenu onOpenSettings={() => showView('settings')} />
+      </View>
+      <View ref={panes} style={[styles.body, view !== 'home' && styles.hidden]} accessibilityElementsHidden={view !== 'home'}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <BrainDumpPane
-            refreshKey={refreshKey}
-            onChanged={onChanged}
-            onOpenSettings={() => setSettingsOpen(true)}
-            filter={effectiveFilter}
-          />
+          <BrainDumpPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} />
         </View>
         <View style={{ flex: 2.2, minWidth: 0 }}>
           <KanbanPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} onFilterChange={setFilter} />
         </View>
         <View style={{ flex: 1.2, minWidth: 0 }}>
-          <TimeboxPane
-            refreshKey={refreshKey}
-            onChanged={onChanged}
-            filter={effectiveFilter}
-          />
+          <TimeboxPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} />
         </View>
       </View>
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {view === 'settings' && <SettingsPage onOpenLabels={() => showView('labels')} labelCount={labelKeys?.length ?? 0} />}
+      {view === 'labels' && <LabelsPage onChanged={onChanged} />}
       <AccountChoiceModal />
     </View>
     </DragProvider>
   );
 }
 
+type View_ = 'home' | 'settings' | 'labels';
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
-  body: { flex: 1, flexDirection: 'row', padding: 16, gap: 16 },
+  strip: { height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8 },
+  wordmark: { fontSize: 12, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary, textTransform: 'uppercase' },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  backText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
+  body: { flex: 1, flexDirection: 'row', padding: 16, paddingTop: 4, gap: 16 },
+  hidden: { display: 'none' },
 });

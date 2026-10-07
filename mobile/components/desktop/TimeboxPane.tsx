@@ -1,3 +1,4 @@
+import { isHomeActive } from './viewActive';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -519,7 +520,8 @@ function EventPopover({
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') onClose();
+      // Inert while the Settings or Labels page is showing (checkpoint 9).
+      if (ev.key === 'Escape' && isHomeActive()) onClose();
     };
     // Capture phase: a focused TextInput stops key events from bubbling.
     window.addEventListener('keydown', onKey, true);

@@ -87,3 +87,17 @@ export function dataKeysHaveRows(values: Array<string | null>): boolean {
   }
   return false;
 }
+
+// The storage keys that hold a person's own data (the same ones storage.ts
+// clearAllData removes for user data). hasLocalData reads them, so a computer
+// whose only local data is routine completions still counts as having data and
+// never leaks them into another account (checkpoint 10).
+export const USER_DATA_KEYS = [
+  'belific_custom_events',
+  'belific_brain_dump',
+  'belific_custom_categories',
+  'belific_routines',
+  'belific_routine_completions',
+  'belific_tasks',
+  'belific_projects',
+];

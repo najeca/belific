@@ -414,6 +414,27 @@ export function deleteRoutineCompletion(routineId: string, date: string): Promis
   });
 }
 
+// Undo of a routine conversion (checkpoint 10): the completions of an old
+// routine are copied (added, never removed) to the routine that replaces it,
+// keeping each one's own completedAt. The originals stay as they were.
+export function copyRoutineCompletions(pairs: Array<{ from: string; to: string }>): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadRoutineCompletions();
+    const have = new Set(existing.map((c) => `${c.routineId}|${c.date}`));
+    const added: RoutineCompletion[] = [];
+    for (const { from, to } of pairs) {
+      for (const c of existing) {
+        if (c.routineId !== from || have.has(`${to}|${c.date}`)) continue;
+        have.add(`${to}|${c.date}`);
+        added.push({ routineId: to, date: c.date, completedAt: c.completedAt });
+      }
+    }
+    if (added.length === 0) return;
+    await saveRoutineCompletions([...existing, ...added]);
+    for (const c of added) await queueCompletionAdd(c);
+  });
+}
+
 // --- Tasks ---
 
 export async function loadTasksRaw(): Promise<Task[]> {

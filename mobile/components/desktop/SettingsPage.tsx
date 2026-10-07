@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import PaletteSwitch from './PaletteSwitch';
+import RoutineConvertRow from './RoutineConvertRow';
 import { Colors } from '../../lib/theme';
 import { deleteAccountDesktop, signOutDesktop, startAppleSignIn } from '../../lib/desktopAuth';
 import { runFullSync } from '../../lib/sync';
@@ -23,7 +24,7 @@ function openExternal(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-export default function SettingsPage({ onOpenLabels, labelCount }: { onOpenLabels: () => void; labelCount: number }) {
+export default function SettingsPage({ onOpenLabels, labelCount, onChanged }: { onOpenLabels: () => void; labelCount: number; onChanged: () => void }) {
   const { account, setAccount, persistent, ui, status } = useAccount();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -235,6 +236,7 @@ export default function SettingsPage({ onOpenLabels, labelCount }: { onOpenLabel
             </Pressable>
           </View>
           <Text style={styles.hint}>A copy of your data is saved to the backups folder once a day, and the newest 14 are kept.</Text>
+          <RoutineConvertRow onChanged={onChanged} />
         </Section>
 
         <Section title="Labels">

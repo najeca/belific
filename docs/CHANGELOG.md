@@ -8,6 +8,20 @@ to know the current version and recent history.
 
 ---
 
+## 2.16.0 — 2026-10-07
+
+**Routines from the iPhone can become repeating tasks, by a button the person presses later. Desktop only; the iPhone app is unchanged. No migration, no database contact. (Checkpoint 10.)**
+
+- **Settings, Data** shows a quiet line "N routines from your iPhone" whenever routine rows exist, with a "Convert routines from your iPhone…" button. There is no other routine UI on the desktop.
+- **The confirmation step** (inline, not a modal) lists each routine's title and time of day, says "Nothing has changed yet.", shows the warning "Your iPhone will stop showing these routines until the next iPhone update. Only convert when you are ready. You can undo this." and keeps **Convert disabled until the safety backup of this step exists** (a `routine-convert` backup folder, checked on disk by the main process).
+- **Convert** writes through normal storage and the outbox: one daily, untimed series per routine (id `rt_<routineId>`, reminder off, no label, no priority, no steps, starting the local day Convert is pressed), then a tombstone on each routine written directly (never `deleteRoutine`). `routine_completions` are not touched. Converting again never makes a second series (deterministic ids; a routine whose series row exists only gets its tombstone).
+- **Undo** ends the series (open days deleted, finished days kept but no longer repeating) and gives each routine back as a NEW routine row (same title and time of day) with its completions copied to the new id. A tombstone can never be cleared by sync (a pulled tombstone always wins and a live upsert never sends `deleted_at`), so the old row cannot be revived; the old rows and completions stay as they were.
+- **Account switch fix:** `hasLocalData` (which decides whether a different account must choose between uploading and starting empty) now includes `belific_routine_completions` (`USER_DATA_KEYS` in `accountSwitch.ts`, with a test that it covers every key `clearAllData` removes). `clearAllData` already removed the completions.
+- **Backups:** the page may now ask for a `routine-convert` labelled backup as well as `account-switch`; the main process returns the backup folder's name after checking it exists.
+- Tests: `routineConvert.test.ts` (18), account switch key tests, real check `npm run test:real:cp10` (50 checks, in memory fake server only). The fake server in `desktop/test/real/common.js` gained an opt in in memory table store.
+
+---
+
 ## 2.15.1 — 2026-10-07
 
 **Small fixes after checkpoint 9. Desktop and the two public pages only; the iPhone app is unchanged. (Checkpoint 9.1.)**

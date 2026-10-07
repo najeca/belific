@@ -7,6 +7,7 @@ import {
   chooseEmpty,
   chooseUpload,
   dataKeysHaveRows,
+  USER_DATA_KEYS,
   decideOnSignIn,
   dropChoice,
   markAccountDeleted,
@@ -126,22 +127,15 @@ export async function handleAuthCallback(payload: {
   await completeSignIn();
 }
 
-// The same keys storage.ts clearAllData removes for user data.
-const DATA_KEYS = [
-  'belific_custom_events',
-  'belific_brain_dump',
-  'belific_custom_categories',
-  'belific_routines',
-  'belific_tasks',
-  'belific_projects',
-];
 
 const accountDeps: AccountDeps = {
   getItem: (k) => kv.getItem(k),
   setItem: (k, v) => kv.setItem(k, v),
   removeItem: (k) => kv.removeItem(k),
-  hasLocalData: async () => dataKeysHaveRows(await Promise.all(DATA_KEYS.map((k) => kv.getItem(k)))),
-  backup: () => bridge().actions.backupNow('account-switch'),
+  hasLocalData: async () => dataKeysHaveRows(await Promise.all(USER_DATA_KEYS.map((k) => kv.getItem(k)))),
+  backup: async () => {
+    await bridge().actions.backupNow('account-switch');
+  },
   clearLocalData: clearAllData,
 };
 

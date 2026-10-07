@@ -194,12 +194,17 @@ function handleDeepLink(raw) {
   }
 }
 
-// A labelled safety backup asked for by the page (account switching). Only
-// this one label is allowed.
+// A labelled safety backup asked for by the page (account switching, and the
+// routine conversion of checkpoint 10). Only these labels are allowed. Returns
+// the name of the backup folder, checked to exist, so the page can show that the
+// backup is there before it changes anything.
+const BACKUP_LABELS = new Set(['account-switch', 'routine-convert']);
 async function backupForRenderer(label) {
-  if (label !== 'account-switch') throw new Error('Unknown backup label');
+  if (!BACKUP_LABELS.has(label)) throw new Error('Unknown backup label');
   const { data, backups } = paths();
-  await backupNow(data, backups, new Date(), 14, label);
+  const target = await backupNow(data, backups, new Date(), 14, label);
+  if (!fs.existsSync(target)) throw new Error('The backup folder was not created');
+  return path.basename(target);
 }
 
 function linkFromArgv(argv) {

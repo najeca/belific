@@ -61,6 +61,47 @@ function fakeJwt(sub, exp, sid) {
   return `${part({ alg: 'HS256', typ: 'JWT' })}.${part({ sub, exp, session_id: sid, aud: 'authenticated', role: 'authenticated' })}.fakesig`;
 }
 
+// An in memory copy of the sync tables (cp10), used only when a check sets
+// state.store = { tables: {} }. It behaves like PostgREST for what the sync code
+// asks: GET with eq and gte filters, order, limit and offset; POST upsert that
+// merges ONLY the columns sent (so a live upsert never clears deleted_at) and
+// stamps server_updated_at; DELETE with eq filters.
+let storeClock = 0;
+const CONFLICT = { routine_completions: ['user_id', 'routine_id', 'date'], brain_dump_items: ['user_id', 'id'] };
+async function handleStore(store, request, url, json) {
+  const table = url.pathname.split('/')[3];
+  const rows = (store.tables[table] = store.tables[table] || []);
+  const filters = [];
+  for (const [k, v] of url.searchParams) {
+    const m = /^(eq|gte)\.(.*)$/.exec(v);
+    if (m && !['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) filters.push([k, m[1], m[2]]);
+  }
+  const matches = (r) => filters.every(([k, op, val]) => (op === 'eq' ? String(r[k]) === val : String(r[k] ?? '') >= val));
+  if (request.method === 'GET') {
+    const sorted = rows.filter(matches).sort((a, b) => String(a.server_updated_at).localeCompare(String(b.server_updated_at)) || String(a.id ?? a.date).localeCompare(String(b.id ?? b.date)));
+    const offset = Number(url.searchParams.get('offset') || 0);
+    const limit = url.searchParams.get('limit');
+    return json(200, sorted.slice(offset, limit === null ? undefined : offset + Number(limit)));
+  }
+  if (request.method === 'POST') {
+    const body = await request.json();
+    const cols = (url.searchParams.get('on_conflict') || (CONFLICT[table] || ['user_id', 'id']).join(',')).split(',');
+    for (const row of Array.isArray(body) ? body : [body]) {
+      const same = rows.find((r) => cols.every((c) => String(r[c]) === String(row[c])));
+      storeClock += 1;
+      const stamp = new Date(Date.now() + storeClock).toISOString();
+      if (same) Object.assign(same, row, { server_updated_at: stamp });
+      else rows.push({ ...row, server_updated_at: stamp });
+    }
+    return json(201, null);
+  }
+  if (request.method === 'DELETE') {
+    store.tables[table] = rows.filter((r) => !matches(r));
+    return json(204, null);
+  }
+  return json(405, { message: 'not faked' });
+}
+
 function installFakeSupabase() {
   const state = {
     hosts: [],
@@ -143,6 +184,7 @@ function installFakeSupabase() {
     }
     if (url.pathname.startsWith('/rest/v1/')) {
       state.restCalls += 1;
+      if (state.store) return handleStore(state.store, request, url, json);
       return json(request.method === 'GET' ? 200 : 201, []);
     }
     return json(503, { message: 'not faked' });

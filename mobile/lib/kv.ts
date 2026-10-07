@@ -59,8 +59,9 @@ export interface BelificDesktop {
   actions: {
     exportData(): Promise<void>;
     openBackups(): Promise<void>;
-    // A labelled safety backup of the data folder (only 'account-switch').
-    backupNow(label: 'account-switch'): Promise<void>;
+    // A labelled safety backup of the data folder. Resolves with the backup
+    // folder's name once it exists on disk.
+    backupNow(label: 'account-switch' | 'routine-convert'): Promise<string>;
     // Is the Chromium and Electron licences file in the app folder? (About, checkpoint 9)
     licensesAvailable?(): Promise<boolean>;
     openLicenses?(): Promise<void>;

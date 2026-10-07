@@ -11,8 +11,12 @@ import {
   dropChoice,
   markAccountDeleted,
   pendingChoice,
+  USER_DATA_KEYS,
   type AccountDeps,
 } from './accountSwitch.ts';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 function fake(hasData: boolean, failBackup = false) {
   const store = new Map<string, string>();
@@ -123,4 +127,27 @@ test('dataKeysHaveRows ignores empty lists, junk and tombstones', () => {
   assert.equal(dataKeysHaveRows([null, '[]', 'not json', '{}']), false);
   assert.equal(dataKeysHaveRows(['[{"id":"a","deletedAt":"2026-01-01"}]']), false);
   assert.equal(dataKeysHaveRows([null, '[{"id":"a"}]']), true);
+});
+
+// Checkpoint 10: one account's routine completions must never leak into another.
+// The list hasLocalData reads must cover every user data key that clearAllData
+// removes, completions included. storage.ts is read as text (it imports the
+// native storage layer, so it cannot be loaded here).
+test('USER_DATA_KEYS covers every user data key clearAllData removes, completions included', () => {
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'storage.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const keyValue = (name: string) => {
+    const m = new RegExp(`${name}:\\s*'([a-z_]+)'`).exec(src);
+    assert.ok(m, 'KEYS.' + name + ' found in storage.ts');
+    return m[1];
+  };
+  const clear = src.slice(src.indexOf('export async function clearAllData'), src.indexOf('One-time upgrade for optional-account'));
+  for (const name of ['CUSTOM_EVENTS', 'BRAIN_DUMP', 'CUSTOM_CATEGORIES', 'ROUTINES', 'ROUTINE_COMPLETIONS', 'TASKS', 'PROJECTS']) {
+    assert.ok(clear.includes('KEYS.' + name), 'clearAllData removes KEYS.' + name);
+    assert.ok(USER_DATA_KEYS.includes(keyValue(name)), name + ' is in USER_DATA_KEYS');
+  }
+  assert.ok(USER_DATA_KEYS.includes('belific_routine_completions'));
+});
+
+test('a computer whose only local data is routine completions counts as having data', () => {
+  assert.equal(dataKeysHaveRows([null, null, null, null, '[{"routineId":"r","date":"2026-10-07","completedAt":"x"}]']), true);
 });

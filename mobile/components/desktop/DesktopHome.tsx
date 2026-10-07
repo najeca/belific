@@ -141,7 +141,7 @@ export default function DesktopHome() {
           <TimeboxPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} />
         </View>
       </View>
-      {view === 'settings' && <SettingsPage onOpenLabels={() => showView('labels')} labelCount={labelKeys?.length ?? 0} />}
+      {view === 'settings' && <SettingsPage onOpenLabels={() => showView('labels')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} />}
       {view === 'labels' && <LabelsPage onChanged={onChanged} />}
       <AccountChoiceModal />
     </View>

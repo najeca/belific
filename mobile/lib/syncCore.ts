@@ -157,6 +157,8 @@ export interface Caps {
   // Migration 3 (20261007120000): tasks.subtasks and tasks.reminder_minutes.
   // Optional so a stored older caps value reads as false.
   taskExtras?: boolean;
+  // Migration 4 (20261007130000): tasks.actual_seconds. Optional, like taskExtras.
+  taskActual?: boolean;
 }
 
 export const NO_CAPS: Caps = { serverUpdatedAt: false, taskPipeline: false };
@@ -173,10 +175,16 @@ export const TASK_PIPELINE_FIELDS = [
 export const PROJECT_PIPELINE_FIELDS = ['colorKey'] as const;
 // Local task fields that wait for migration 3.
 export const TASK_EXTRA_FIELDS = ['subtasks', 'reminderMinutes'] as const;
+// Local task field that waits for migration 4 (checkpoint 8.3).
+export const TASK_ACTUAL_FIELDS = ['actualSeconds'] as const;
 
 export function preserveFieldsFor(table: TimestampedTable, caps: Caps): string[] {
   if (table === 'tasks') {
-    return [...(caps.taskPipeline ? [] : TASK_PIPELINE_FIELDS), ...(caps.taskExtras ? [] : TASK_EXTRA_FIELDS)];
+    return [
+      ...(caps.taskPipeline ? [] : TASK_PIPELINE_FIELDS),
+      ...(caps.taskExtras ? [] : TASK_EXTRA_FIELDS),
+      ...(caps.taskActual ? [] : TASK_ACTUAL_FIELDS),
+    ];
   }
   if (table === 'projects' && !caps.taskPipeline) return [...PROJECT_PIPELINE_FIELDS];
   return [];
@@ -195,6 +203,11 @@ export function hasExtrasValues(table: TimestampedTable, row: Record<string, unk
   if (table !== 'tasks') return false;
   const sub = row.subtasks;
   return (Array.isArray(sub) && sub.length > 0) || (row.reminderMinutes !== undefined && row.reminderMinutes !== null);
+}
+
+// A local task that carries a value only migration 4 can store.
+export function hasActualValues(table: TimestampedTable, row: Record<string, unknown>): boolean {
+  return table === 'tasks' && row.actualSeconds !== undefined && row.actualSeconds !== null;
 }
 
 // --- Merge of a pulled page into local rows ---
@@ -376,6 +389,10 @@ export function sanitizeSubtasks(v: unknown): Subtask[] | null {
   return out.length > 0 ? out : null;
 }
 // -1 (off) or 0 to 1440 minutes before; anything else is no value (default).
+// Whole seconds, 0 to a year; anything else is no value.
+export function sanitizeActual(v: unknown): number | null {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 366 * 24 * 60 * 60 ? v : null;
+}
 export function sanitizeReminder(v: unknown): number | null {
   return typeof v === 'number' && Number.isInteger(v) && v >= -1 && v <= 1440 ? v : null;
 }
@@ -492,6 +509,7 @@ export function taskToRemote(t: Task, caps: Caps): Remote {
     row.subtasks = sanitizeSubtasks(t.subtasks);
     row.reminder_minutes = sanitizeReminder(t.reminderMinutes);
   }
+  if (caps.taskActual) row.actual_seconds = sanitizeActual(t.actualSeconds);
   return withDeleted(row, t.deletedAt);
 }
 export function taskFromRemote(r: Remote): Task {
@@ -512,6 +530,7 @@ export function taskFromRemote(r: Remote): Task {
     recurrenceMonthDay: opt(r, 'recurrence_month_day'),
     subtasks: sanitizeSubtasks(r.subtasks) ?? undefined,
     reminderMinutes: sanitizeReminder(r.reminder_minutes) ?? undefined,
+    actualSeconds: sanitizeActual(r.actual_seconds) ?? undefined,
     origin: opt(r, 'origin'),
     updatedAt: String(r.updated_at),
     deletedAt: opt(r, 'deleted_at'),

@@ -89,14 +89,15 @@ const server: ServerAdapter = {
   // Which migrations the server has: both work before and after (see
   // docs/sessions/2026-10-06-cp5.md, "before and after the migrations").
   async probe(): Promise<Caps> {
-    const [serverUpdatedAt, taskCols, projectCols, subtasksCol, reminderCol] = await Promise.all([
+    const [serverUpdatedAt, taskCols, projectCols, subtasksCol, reminderCol, actualCol] = await Promise.all([
       columnExists('tasks', 'server_updated_at'),
       columnExists('tasks', 'duration_minutes'),
       columnExists('projects', 'color_key'),
       columnExists('tasks', 'subtasks'),
       columnExists('tasks', 'reminder_minutes'),
+      columnExists('tasks', 'actual_seconds'),
     ]);
-    return { serverUpdatedAt, taskPipeline: taskCols && projectCols, taskExtras: subtasksCol && reminderCol };
+    return { serverUpdatedAt, taskPipeline: taskCols && projectCols, taskExtras: subtasksCol && reminderCol, taskActual: actualCol };
   },
   async selectPage(table: AnyTable, q: PageQuery): Promise<Record<string, unknown>[]> {
     const userId = await getUserId();

@@ -16,6 +16,9 @@ import {
   projectToRemote,
   recordFailure,
   removeSent,
+  hasActualValues,
+  preserveFieldsFor,
+  sanitizeActual,
   sanitizeDays,
   sanitizeReminder,
   sanitizeSubtasks,
@@ -228,4 +231,30 @@ test('8.2 mapper: at most 50 subtasks, junk reminder values become null, pulls r
   const old = taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T1 });
   assert.equal(old.subtasks, undefined);
   assert.equal(old.reminderMinutes, undefined);
+});
+
+test('8.3 mapper: actual_seconds only with migration 4, sanitised, read back', () => {
+  const caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true };
+  assert.equal('actual_seconds' in taskToRemote({ ...base, actualSeconds: 90 }, caps), false);
+  assert.equal(taskToRemote({ ...base, actualSeconds: 90 }, { ...caps, taskActual: true }).actual_seconds, 90);
+  assert.equal(taskToRemote({ ...base, actualSeconds: 0 }, { ...caps, taskActual: true }).actual_seconds, 0);
+  assert.equal(taskToRemote({ ...base, actualSeconds: undefined }, { ...caps, taskActual: true }).actual_seconds, null);
+  for (const junk of [-1, 1.5, Number.NaN, Infinity, '60', null, 366 * 86400 + 1]) {
+    assert.equal(sanitizeActual(junk), null, String(junk));
+  }
+  assert.equal(sanitizeActual(366 * 86400), 366 * 86400);
+  const back = taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T1, actual_seconds: 3600 });
+  assert.equal(back.actualSeconds, 3600);
+  assert.equal(taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T1, actual_seconds: 'x' }).actualSeconds, undefined);
+  assert.equal(taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T1 }).actualSeconds, undefined, 'a missing column reads as no value');
+});
+
+test('8.3 a missing actual_seconds column keeps the local value on pull and queues when it appears', () => {
+  const none = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true };
+  assert.ok(preserveFieldsFor('tasks', none).includes('actualSeconds'));
+  assert.ok(!preserveFieldsFor('tasks', { ...none, taskActual: true }).includes('actualSeconds'));
+  assert.equal(hasActualValues('tasks', { actualSeconds: 10 }), true);
+  assert.equal(hasActualValues('tasks', { actualSeconds: 0 }), true);
+  assert.equal(hasActualValues('tasks', {}), false);
+  assert.equal(hasActualValues('projects', { actualSeconds: 10 }), false);
 });

@@ -210,6 +210,10 @@ export interface Task {
   // Checkpoint 8.2 (decision 021): a checklist stored on the task, at most 50.
   // Synced in a nullable jsonb column; kept locally while the server lacks it.
   subtasks?: Subtask[];
+  // Time actually spent, in whole seconds (checkpoint 8.3, decision 022). Set
+  // by the desktop card timer or typed; the estimate is durationMinutes.
+  // Synced as actual_seconds; kept locally while the server lacks the column.
+  actualSeconds?: number;
   // Desktop reminder (decision 017/020, checkpoint 8.2). undefined or null =
   // the default behaviour (notify at the start time of a placed task, and the
   // grouped daily reminder for a planned task with no time), -1 = off, 0 or

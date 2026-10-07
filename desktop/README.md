@@ -16,7 +16,7 @@ Your data lives in the app's user data folder under `data/`, with a daily copy i
 ## Sign in, notifications and the tray (versions 2.10.0 and 2.11.0)
 
 - **Sign in with Apple** needs a one time setup on Apple's and Supabase's dashboards: see `docs/APPLE_SIGNIN_SETUP.md`. The app works fully signed out.
-- Click the account line at the bottom of the left pane to open Settings: Account, Sync, Notifications, Window and Data.
+- The profile icon at the top right is the one place for the account. Its popover starts Sign in with Apple, shows sync status and Sync now, and opens Settings (also File, Settings). Settings is a page with Account, Sync, Planning, Notifications, Data, Labels and About; Labels is its own page.
 - **Notifications** come from the main process, so they still arrive with the window closed. Event starts and tasks placed on the Timebox notify at their start time. An optional daily reminder (default 09:00, on) sends one grouped notification such as "3 tasks planned for today" for tasks with a Day but no time; it does not fire when there are none.
 - **Close to tray** (on by default): closing the window keeps Belific running in the system tray. Right click the tray icon for Open Belific and Quit Belific; File, Quit also really quits. **Start with Windows** is off by default and only works in the installed app.
 
@@ -39,8 +39,10 @@ Needs internet the first time (electron-builder downloads its tools) and a Windo
 
 ## Install
 
+> **The installer is not code signed.** Windows SmartScreen may show "Windows protected your PC". Choose **More info**, then **Run anyway**. Belific has no auto update: install a newer `Belific-Setup-<version>.exe` over the old one.
+
 1. Double click `Belific-Setup-<version>.exe`. It installs for your user only (no administrator prompt) into `%LOCALAPPDATA%\Programs\Belific`, adds a Start menu entry and a desktop shortcut, and starts Belific.
-2. **Windows SmartScreen** will say "Windows protected your PC" because the installer is not signed (signing costs money and is not set up). Click **More info**, then **Run anyway**. This is expected for this unsigned app; only run an installer you built yourself or got from Jethro. If the file came from a download, you can also right click it, open Properties, tick **Unblock** and press OK first.
+2. **Windows SmartScreen** may say "Windows protected your PC" because the installer is not signed (signing costs money and is not set up). Click **More info**, then **Run anyway**. This is expected for this unsigned app; only run an installer you built yourself or got from Jethro. If the file came from a download, you can also right click it, open Properties, tick **Unblock** and press OK first.
 3. Installing over an older version keeps your data.
 
 ## Where your data lives

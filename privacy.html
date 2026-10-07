@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Privacy Policy — Belific</title>
+  <title>Privacy Policy | Belific</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -43,49 +43,68 @@
   <div class="wrap">
     <header>
       <h1>Privacy Policy</h1>
-      <p>Belific &mdash; Effective date: 8 June 2026</p>
+      <p>Belific, for iPhone and Windows. Effective date: 7 October 2026</p>
     </header>
 
     <h2>1. Overview</h2>
-    <p>Belific is a personal scheduling app for iPhone. It helps you plan your day, track events, and set local reminders. This policy explains what data the app stores, and what it does not collect.</p>
+    <p>Belific is a personal planning app. It helps you plan your day, keep tasks and notes, and set reminders on your own device. It works fully without an account. If you choose to sign in with Apple, Belific can also keep your data in step across your devices. This policy explains what is stored, where, and how to delete it. It covers the iPhone app and the Windows desktop app.</p>
 
-    <h2>2. Data We Store</h2>
-    <p>Belific stores the following data <strong>locally on your device only</strong>, using iOS AsyncStorage:</p>
+    <h2>2. Data stored on your device</h2>
+    <p>Whether or not you sign in, Belific stores your planning data on your own device:</p>
     <ul>
-      <li>Events you create — title, category, times, notes, and date</li>
-      <li>Timer settings (focus and break durations)</li>
-      <li>Notification preferences (enabled or disabled)</li>
-      <li>A first-launch flag to manage the onboarding state</li>
+      <li>Events you create: title, category, times, notes and date</li>
+      <li>Brain Dump notes and tasks, including their notes, subtasks, priorities and reminder choices</li>
+      <li>Labels and their colours</li>
+      <li>Routines and which days you completed them</li>
+      <li>Your own event categories</li>
+      <li>Your notification preferences</li>
+      <li>A first launch flag that keeps track of the onboarding state</li>
     </ul>
-    <p>None of this data ever leaves your device. There is no account, no sign-in, and no server that receives your information.</p>
+    <p>On the iPhone this is kept in the app's own storage on the phone. On Windows it is kept as files in the Belific folder in your user profile (%APPDATA%elific-desktop). The Windows app also keeps a copy of your data once a day in a backups folder in that same place (the newest 14 are kept), a small settings file (notification times, the time your day starts, tray and start up options) and a small log of technical messages such as errors. Nothing in that folder is sent anywhere. You can export your data from the Windows app (File, Export data).</p>
 
-    <h2>3. Data We Do Not Collect</h2>
-    <p>Belific does not collect, transmit, or share any of the following:</p>
+    <h2>3. Optional account and sync</h2>
+    <p>Signing in is optional. If you sign in with Apple, Belific uses Supabase, a hosting service, to keep your data in step across your devices. Your data is stored in Supabase's EU West (Ireland) region and sent over an encrypted (HTTPS) connection.</p>
+    <p>When you are signed in, these are stored in your account:</p>
     <ul>
-      <li>Your name, email address, or any personal identifiers</li>
-      <li>Your IP address or device identifiers</li>
-      <li>Your location</li>
-      <li>Usage analytics or crash reports</li>
-      <li>Any data via third-party SDKs or services</li>
+      <li>Your Apple sign in identifier and, depending on your Apple settings, an email address (which may be Apple's private relay address)</li>
+      <li>Your events, Brain Dump notes and tasks, labels, routines, routine completions and event categories</li>
     </ul>
-    <p>There are no analytics tools, no advertising networks, and no third-party data sharing of any kind built into Belific.</p>
+    <p>Your settings (notification preferences and the Windows options above) are not synced. They stay on each device.</p>
+    <p>When you delete something in Belific while signed in, it is marked as deleted and kept in your account so that the deletion can reach your other devices. It is removed completely when you delete your account.</p>
+    <p>Signing in with Apple is handled by Apple, and Apple's own privacy policy applies to that step. On Windows, your sign in session is stored on your computer in encrypted form using Windows. If Windows cannot do that, the session is kept only until you close Belific.</p>
+    <p>If you are not signed in, Belific does not send your planning data anywhere. Signing out stops syncing and removes the sign in from that device. It does not delete the data on the device.</p>
 
-    <h2>4. Notifications</h2>
-    <p>Belific schedules notifications entirely on your device using iOS's local notification system. No notification data is sent to any external server. If you disable notifications, no data is affected — only the on-device reminders are cancelled.</p>
+    <h2>4. What Belific does not do</h2>
+    <ul>
+      <li>It contains no analytics, no crash reporting and no advertising tools.</li>
+      <li>It does not sell your data, share it for advertising, or use it to track you.</li>
+      <li>It does not use your location.</li>
+    </ul>
+    <p>When you are signed in, the app talks to Supabase to sync. As with any online service, Supabase handles the network requests that carry your data, which can include technical details such as an IP address, as part of running its service.</p>
 
-    <h2>5. Children</h2>
+    <h2>5. Notifications</h2>
+    <p>Reminders are scheduled on your device: by iOS on the iPhone, and by the Belific app itself on Windows. No notification data is sent to a server. If you turn notifications off, only the reminders on that device are cancelled.</p>
+
+    <h2>6. Deleting your data</h2>
+    <ul>
+      <li><strong>Your account and synced data:</strong> in the iPhone app, open Settings and choose Delete Account. In the Windows app, open Settings from the profile icon and choose Delete account. This removes your synced data and your Belific account from the server. The data already on the device is not removed.</li>
+      <li><strong>Data on the iPhone:</strong> delete the app.</li>
+      <li><strong>Data on Windows:</strong> uninstalling Belific keeps your data. To remove it, delete the folder %APPDATA%elific-desktop, which also holds the backups.</li>
+    </ul>
+
+    <h2>7. Children</h2>
     <p>Belific is not directed at children under the age of 13 and does not knowingly collect any information from them.</p>
 
-    <h2>6. Changes to This Policy</h2>
+    <h2>8. Changes to this policy</h2>
     <p>If this policy is updated, the new version will be posted to this page with a revised effective date. Continued use of the app after changes are posted constitutes acceptance of the updated policy.</p>
 
-    <h2>7. Contact</h2>
+    <h2>9. Contact</h2>
     <p>If you have questions or concerns, please open an issue on GitHub:<br>
     <a href="https://github.com/najeca/belific/issues">github.com/najeca/belific/issues</a></p>
     <p>Developer: Nathan Caspillo</p>
 
     <footer>
-      <p>&copy; 2026 Nathan Caspillo &mdash; <a href="terms.html">Terms and Conditions</a></p>
+      <p>&copy; 2026 Nathan Caspillo | <a href="terms.html">Terms and Conditions</a></p>
     </footer>
   </div>
 </body>

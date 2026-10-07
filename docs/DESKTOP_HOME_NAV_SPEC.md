@@ -39,6 +39,8 @@ Timebox-week into separate screens by mistake.
 
 ## Top bar
 
+**2.15.0 (checkpoint 9, decision 025): built as one profile icon in a slim top strip.** The Quests icon is not built. The profile icon is always visible at the top right, a neutral person glyph signed out and the user's initial signed in, and opens the shared small Popover. Signed out: "Local only, not signed in", one line about all your devices, a Sign in with Apple button and a Settings row. Signed in: the account, sync status with last synced time and any error, Sync now, Settings, Sign out. This replaces the four row sketch below (Account, Labels, Settings, Log out): Labels is opened from the Settings page, and the footer account line and the Settings modal are gone.
+
 Two icon buttons, top-right. (This is two menus, not decision 009's single
 "hub" sketch — routine/quest status and account/profile turned out to be
 different concerns with different destinations once specced in detail.)
@@ -94,6 +96,8 @@ label"; the delete confirmation warns when tasks are still attached).
 Colour is decorative, except that a placed task's Timebox block uses its
 label colour. It never drives priority or scheduling.
 
+**Built (2.15.0, decision 025): the Labels page.** A view with a Back button (not an overlay) listing every label with its colour swatch, name and open task count; inline rename, recolour from the eight colour palette in a small popover, delete with an inline confirm (the existing move or clear rule), add from the suggestions or by typing, duplicate names refused, no reordering. It is opened from the Settings page.
+
 **Built so far (2.8.1, desktop, local only):** the eight palette colours
 (`mobile/lib/labelColors.ts`; this replaces the six `LABEL_SWATCHES` idea), a
 new label taking the next unused colour, and recolouring from the task
@@ -108,7 +112,9 @@ contradicts the earlier removal of the weekly summary and no email
 infrastructure exists), Account actions (Log out). Built fresh this round;
 there was no prior desktop Settings screen to reuse.
 
-**Built so far (2.10.0, checkpoint 6): a small Settings modal, not this page.** The Brain Dump pane's footer line ("Local only · not signed in", or the sync status once signed in) is a clickable account line that opens a centred modal with three sections: **Account** (Sign in with Apple, signed in as the email or "Apple account", Sign out, Delete account with an inline confirm), **Sync** (status, last success, last error, Sync now) and **Data** (Export data, Open backups folder). No profile dropdown, avatar or editable name exists yet. **Checkpoint 7 (2.11.0) added two sections to the same modal:** **Notifications** (Event starts, Tasks placed on the Timebox, Daily reminder with a time input; decisions 017 and 020) and **Window** (Close to the system tray, on by default; Start with Windows, off by default). The order is Account, Sync, Notifications, Window, Data. All values live in the main process store.
+**Built (2.15.0, decision 025): the Settings page**, a view with a Back button (not an overlay), opened from the profile popover and from File, Settings. Sections: Account, Sync, Planning, Notifications, Data (backups folder and export; Import is not built), Labels (opens the Labels page) and About (version, privacy policy, issue tracker, and the Chromium and Electron licences when the file ships in the app folder). Nothing in the list below is current for the desktop except as history.
+
+**Built so far (2.10.0, checkpoint 6, replaced by the Settings page in 2.15.0): a small Settings modal, not this page.** The Brain Dump pane's footer line ("Local only · not signed in", or the sync status once signed in) is a clickable account line that opens a centred modal with three sections: **Account** (Sign in with Apple, signed in as the email or "Apple account", Sign out, Delete account with an inline confirm), **Sync** (status, last success, last error, Sync now) and **Data** (Export data, Open backups folder). No profile dropdown, avatar or editable name exists yet. **Checkpoint 7 (2.11.0) added two sections to the same modal:** **Notifications** (Event starts, Tasks placed on the Timebox, Daily reminder with a time input; decisions 017 and 020) and **Window** (Close to the system tray, on by default; Start with Windows, off by default). The order is Account, Sync, Notifications, Window, Data. All values live in the main process store.
 
 **Progress** — level ring with weekly / longest-streak / lifetime XP
 stats (the XP parts wait for decision 014), an XP history feed (source, amount, when), and a streak calendar

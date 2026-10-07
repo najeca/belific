@@ -34,6 +34,9 @@ Changes to the built behaviour above, from the security review:
 
 **2.11.2:** the desktop sign out and the pending revoke retry use scope `local` (this device's session only). The default is global and would also end the iPhone's session. iPhone sign out (`auth.ts`) is unchanged.
 
+## Update (2026-10-07, checkpoint 9, app 2.15.0)
+The sign in is now started from the profile icon's popover (decision 025); the footer account line and the Settings modal are gone, and Sign out and Delete account live on the Settings page and the popover. The sign in flow, the pre sign in backup, the account choice modal and the revoke handling are unchanged.
+
 ## Related Notes
 - [[docs/OPUS_PLAN_REVIEW]]
 - [[docs/decisions/009-desktop-platform-and-auth]]

@@ -8,6 +8,22 @@ to know the current version and recent history.
 
 ---
 
+## 2.15.0 — 2026-10-07
+
+**One profile icon, a Settings page, a Labels page, a keyboard route for cards, a corrected security scan and a rewritten privacy policy. Desktop only; the iPhone app is unchanged. (Checkpoint 9.)**
+
+- **Profile icon.** A slim strip above the three panes holds one profile icon at the top right, always visible. Signed out it is a neutral person glyph and its small popover says "Local only, not signed in", "Sign in to keep your tasks on all your devices", a Sign in with Apple button (the existing flow) and a Settings row. Signed in it shows your initial; the popover shows the account, sync status with the last synced time and any error in plain words, Sync now, Settings and Sign out. It is the shared Popover, never a modal. The old account line at the bottom left of the Brain Dump pane is gone. The account choice modal, the pre sign in backup and the revoke handling are untouched. Decision 025.
+- **Settings page.** The Settings modal is replaced by a page inside the app with a Back button (not an overlay), opened from the popover and from File, Settings (Ctrl+,). Sections: Account (sign in or out, Delete account with its inline confirm, and a plain message if the server function is unavailable), Sync, Planning (My day starts at), Notifications (the toggles, the daily reminder time, close to tray, start with Windows), Data (backups folder, export), Labels and About (version, privacy policy, issue tracker, the Chromium and Electron licences when that file ships in the app folder). Every setting behaves as before.
+- **Labels page.** Every label with its colour swatch, name and the number of open tasks using it. Rename inline, recolour from the eight colour palette, delete with an inline confirm (tasks move to a same-named label, otherwise lose the label), add from the suggestions or by typing. Duplicate names are refused. No reordering.
+- **Hidden panes are inert.** While Settings or Labels shows, the three panes are hidden and inert (no focus, no drag, no keys), and the notification payload keeps updating.
+- **Keyboard route for cards.** A card is reached with Tab, Enter expands or collapses it, Escape collapses it, with a visible focus ring in the accent colour. Typing in any field is unaffected (the 2.12.1 space key fix stays).
+- **Security scan.** `security-scan.sh` no longer fails on the environment variable name in `delete-account/index.ts`, and is stricter in other ways: secret values are now searched in every tracked file (docs, markdown and env files too). Tested with fixture repositories (`securityScan.test.ts`).
+- **Privacy policy** rewritten for both apps (device storage, optional Apple sign in and sync to Supabase EU West (Ireland), what is and is not collected, how to delete data and the account). Linked from About.
+- **Installer.** Publisher and copyright metadata, and a note in both READMEs that the installer is not code signed so Windows may show a SmartScreen warning ("More info", then "Run anyway"). No signing or auto update code.
+- **Not built:** Import of data (needs its own checkpoint). No database change and no migration.
+
+---
+
 ## 2.14.0 — 2026-10-07
 
 **Repeating tasks are series that show on every matching day, a 24 hour Timebox for any lifestyle, overnight tasks, ordered columns, Actual time removed and more space between cards. Desktop only; the iPhone is unchanged. (Checkpoint 8.4.)**

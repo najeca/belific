@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Switch } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import PaletteSwitch from './PaletteSwitch';
 import { Colors } from '../../lib/theme';
 import { deleteAccountDesktop, signOutDesktop, startAppleSignIn } from '../../lib/desktopAuth';
 import { runFullSync } from '../../lib/sync';
@@ -281,13 +282,7 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
   return (
     <View style={styles.toggleRow}>
       <Text style={[styles.body, { flex: 1 }]}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: Colors.border, true: Colors.accent }}
-        thumbColor={Colors.surface}
-        accessibilityLabel={label}
-      />
+      <PaletteSwitch value={value} onValueChange={onChange} label={label} />
     </View>
   );
 }

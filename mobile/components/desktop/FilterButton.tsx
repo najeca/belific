@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, Switch, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import PaletteSwitch from './PaletteSwitch';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { labelColor } from '../../lib/labelColors';
@@ -86,13 +87,7 @@ function FilterBody({ filter, labels, onChange }: { filter: TaskFilter; labels: 
       )}
       <View style={styles.switchRow}>
         <Text style={styles.switchText}>Show complete</Text>
-        <Switch
-          value={filter.showComplete}
-          onValueChange={(v) => onChange({ ...filter, showComplete: v })}
-          trackColor={{ false: Colors.border, true: Colors.accent }}
-          thumbColor={Colors.surface}
-          accessibilityLabel="Show complete"
-        />
+        <PaletteSwitch value={filter.showComplete} onValueChange={(v) => onChange({ ...filter, showComplete: v })} label="Show complete" />
       </View>
       <Pressable
         onPress={() => onChange(EMPTY_FILTER)}

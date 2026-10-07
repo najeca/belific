@@ -294,6 +294,10 @@ async function run() {
   await C.waitFor(() => fake.restCalls > restBefore3, 15000);
   check('Settings, Sync now runs a sync pass', fake.restCalls > restBefore3);
 
+  // Switches use palette colours only (no react-native-web teal thumb), on and off.
+  const teal = () => js(`Array.from(document.querySelectorAll('*')).some((e) => { const s = getComputedStyle(e); return s.backgroundColor === 'rgb(0, 150, 136)' || s.backgroundColor === 'rgb(38, 166, 154)'; })`);
+  check('Settings switches (several on, one off) show no teal anywhere', !(await teal()));
+
   // Planning: My day starts at.
   await js(`${q('select[aria-label="My day starts at"]')}.focus()`);
   check('Planning: My day starts at defaults to 05:00', (await js(`${q('select[aria-label="My day starts at"]')}.value`)) === '05:00');

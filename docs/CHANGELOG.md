@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.15.1 — 2026-10-07
+
+**Small fixes after checkpoint 9. Desktop and the two public pages only; the iPhone app is unchanged. (Checkpoint 9.1.)**
+
+- **Switches use the palette.** One shared desktop `PaletteSwitch` (off white thumb, sage track when on, neutral track when off) replaces the Settings and Filter switches. react-native-web painted a teal thumb while a switch was on; the active thumb colour is now set too. The iPhone settings screen is untouched.
+- **`terms.html` is accurate again.** Section 3 no longer says all data stays on the device: it now describes optional sign in with Apple and sync to Supabase (EU West, Ireland), that settings are not synced, and how to delete the account in each app, using the same facts as the privacy page. No dashes. Contact stays the GitHub issues link for now.
+- **Privacy page** unchanged (contact is still the GitHub issues link; no new statements).
+- **Docs:** Import is not built and needs its own checkpoint; settings do not sync; a "Before publishing" checklist for the two public pages.
+
+---
+
 ## 2.15.0 — 2026-10-07
 
 **One profile icon, a Settings page, a Labels page, a keyboard route for cards, a corrected security scan and a rewritten privacy policy. Desktop only; the iPhone app is unchanged. (Checkpoint 9.)**

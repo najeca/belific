@@ -1,15 +1,48 @@
 #!/bin/bash
-ROOT="$(git rev-parse --show-toplevel)"
+# SCAN_ROOT lets the tests (mobile/lib/securityScan.test.ts) run this against a
+# throwaway git repository. Normally it is the repository this script is in.
+ROOT="${SCAN_ROOT:-$(git rev-parse --show-toplevel)}"
 MOBILE="$ROOT/mobile"
+SELF=".claude/skills/workflow/security-review/scripts/security-scan.sh"
 FAIL=false
+
+cd "$ROOT" || exit 2
 
 echo "=== Belific Security Scan ==="
 echo ""
 
-# 1. Hardcoded credentials
+# 1. Hardcoded credentials: three checks, all on tracked files.
 echo "--- Hardcoded credentials ---"
-MATCHES=$(git grep -n -E "eyJhbGci|sk-ant-|SUPABASE_SERVICE_ROLE|password\s*=\s*['\"][^'\"]{8}" \
-  -- ":(exclude)*.env*" ":(exclude)docs/" ":(exclude)*.md" ":(exclude).claude/" 2>/dev/null || true)
+
+# 1a. A real secret VALUE in any tracked file of any kind (docs, markdown and
+# env files included). Only this script is exempt, because it holds the patterns.
+VALUES=$(git grep -n -E "eyJhbGci|sk-ant-|sb_secret_|password\s*=\s*['\"][^'\"]{8}" \
+  -- . ":(exclude)$SELF" 2>/dev/null || true)
+
+# 1b. The NAME of the service role variable anywhere outside supabase/functions.
+# Documentation may mention the name; code may not.
+NAME_RE="SUPABASE_SERVICE_ROLE"
+OUTSIDE=$(git grep -n "$NAME_RE" \
+  -- . ":(exclude)$SELF" ":(exclude)docs/" ":(exclude)*.md" 2>/dev/null \
+  | grep -v -E "^(mobile/)?supabase/functions/" || true)
+
+# 1c. Inside supabase/functions the name is allowed on exactly two kinds of
+# line: a comment line, and reading it from the function's environment as
+#   const x = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');   (either quote style)
+# Any other line there (a literal value, a fallback, a log of it) fails.
+ALLOWED_ENV_RE="^[[:space:]]*(const|let)[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[[:space:]]*Deno\.env\.get\(('SUPABASE_SERVICE_ROLE_KEY'|\"SUPABASE_SERVICE_ROLE_KEY\")\);?[[:space:]]*$"
+ALLOWED_COMMENT_RE="^[[:space:]]*(//|\*|/\*|#)"
+INSIDE=""
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  content="${line#*:*:}"
+  if [[ "$content" =~ $ALLOWED_ENV_RE ]] || [[ "$content" =~ $ALLOWED_COMMENT_RE ]]; then
+    continue
+  fi
+  INSIDE="${INSIDE}${line}"$'\n'
+done < <(git grep -n "$NAME_RE" -- "supabase/functions" "mobile/supabase/functions" 2>/dev/null || true)
+
+MATCHES=$(printf '%s\n%s\n%s\n' "$VALUES" "$OUTSIDE" "$INSIDE" | sed '/^$/d')
 if [ -n "$MATCHES" ]; then
   echo "❌ FAIL:"
   echo "$MATCHES"

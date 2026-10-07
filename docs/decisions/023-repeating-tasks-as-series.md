@@ -1,7 +1,7 @@
 # Decision 023 — Repeating tasks are series with projected occurrences
 
 **Date:** 2026-10-07
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** Confirmed on 2026-10-07 (confirmed by Jethro)
 
 Source: Jethro's instruction for checkpoint 8.4. Replaces the "completing a repeating task creates the next copy" behaviour **on the desktop** (it stays on the iPhone). Extends decisions 015 and 021.
 

@@ -1,7 +1,7 @@
 # Decision 024 — The Timebox is 24 hours, with a day start you choose and overnight tasks
 
 **Date:** 2026-10-07
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** Confirmed on 2026-10-07 (confirmed by Jethro)
 
 Source: Jethro's instruction for checkpoint 8.4 (night shift workers must work as well as day workers).
 

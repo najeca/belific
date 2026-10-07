@@ -1,7 +1,7 @@
 # Decision 015 — Task to Timebox link and the meaning of a task's day
 
 **Date:** 2026-10-05
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** Confirmed on 2026-10-07 (confirmed by Jethro)
 **Note:** the most important record in this set.
 
 Source: `docs/OPUS_PLAN_REVIEW.md` section 3.

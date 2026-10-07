@@ -1,7 +1,7 @@
 # Decision 010 — Desktop shell is Electron
 
 **Date:** 2026-10-05
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** Confirmed on 2026-10-07 (confirmed by Jethro)
 
 Source: `docs/OPUS_PLAN_REVIEW.md` section 3.
 

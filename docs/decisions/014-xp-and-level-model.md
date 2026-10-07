@@ -1,7 +1,8 @@
 # Decision 014 — XP and level model
 
 **Date:** 2026-10-05
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** Deferred (2026-10-07)
+Not built. Rewrite from scratch before building: routines are now repeating tasks, and the design must follow the quiet no guilt wording of decision 007.
 **Note:** **Build only after the daily driver checkpoints.** The record exists now because it decides G2.
 
 Source: `docs/OPUS_PLAN_REVIEW.md` section 3.

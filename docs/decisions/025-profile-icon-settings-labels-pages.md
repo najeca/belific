@@ -1,7 +1,7 @@
 # Decision 025 — One profile icon, Settings and Labels as pages
 
 **Date:** 2026-10-07
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** Confirmed on 2026-10-07 (confirmed by Jethro)
 
 Source: Jethro's instruction for checkpoint 9 (app 2.15.0). Refines `docs/DESKTOP_HOME_NAV_SPEC.md` ("Top bar", "The three real pages") and builds on decisions 012 (account), 017 and 020 (notifications), 021 (small popovers, not modals) and 016 (labels).
 

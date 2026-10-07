@@ -2,6 +2,7 @@
 
 **Date:** 2026-10-05
 **Status:** Proposed — awaiting Jethro's confirmation
+Confirm after one real Apple sign in from the desktop has been tested.
 
 Source: `docs/OPUS_PLAN_REVIEW.md` section 3.
 

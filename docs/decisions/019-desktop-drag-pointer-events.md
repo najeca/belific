@@ -1,7 +1,7 @@
 # Decision 019 — Desktop drag and drop uses pointer events
 
 **Date:** 2026-10-06
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** Confirmed on 2026-10-07 (confirmed by Jethro)
 
 Source: checkpoint 4 spike (`docs/sessions/2026-10-06-cp4.md`).
 

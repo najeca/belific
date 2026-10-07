@@ -1,7 +1,7 @@
 # Decision 020 — Daily reminder for planned tasks without a time
 
 **Date:** 2026-10-06
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** Confirmed on 2026-10-07 (confirmed by Jethro)
 **Note:** Extends decision 017. Decision 002 (local only) and the "no engagement bait" rules still hold.
 
 ---

@@ -1,7 +1,7 @@
 # Decision 021 — Edit tasks on the card, not in a modal
 
 **Date:** 2026-10-07
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** Confirmed on 2026-10-07 (confirmed by Jethro)
 
 Source: Jethro's instruction for checkpoint 8.2 (reference: the Ellie planner).
 

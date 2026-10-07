@@ -8,6 +8,20 @@ to know the current version and recent history.
 
 ---
 
+## 2.13.0 — 2026-10-07
+
+**Duration chip and dropdown like the Ellie planner, plus Estimated and Actual time with a simple timer. Desktop only; the iPhone is unchanged.**
+
+- **Chip.** Every card and left-list row shows the duration as H:MM in the app's tabular figures: `0:00` when none is set (it used to say "None"), `0:15`, `1:30`, `24:00`. A placed task shows its start time as separate small muted text beside the chip (`09:30  0:15`), so the two numbers are never read as one value. Time is still set only by dragging onto the Timebox.
+- **Dropdown.** Clicking the chip opens a small popover with a focused field ("45m, 1h 30m, 130...") and a scrollable preset list (5, 10, 15, 20, 30, 45 min, 1h, 1h 30m, 2h, 3h, 4h) with a tick on the current one and a "No duration" row. Typing accepts `45m`, `45`, `1h`, `1h 30m`, `1h30`, `1.5h`, `130` (minutes) and `1:30`; any whole minute from 1 to 1440 is valid. Enter applies; invalid text shows a quiet hint and applies nothing; Escape closes. The old Custom hours and minutes fields are gone.
+- **Estimated and Actual.** An expanded card has one quiet row under its controls: a play/pause button, then "Actual 0h 0m" and "Estimated 0h 0m". Estimated is the duration (click it for the same dropdown). The timer stores its start timestamp in the main process store (not synced), so it survives closing the app; elapsed time is always computed from timestamps. Only one timer runs: starting another stops the first and saves its time. A running card shows a small dot and a live Actual (refreshed every 30 seconds). Completing a task stops its timer. Click Actual to type a corrected value. No colours, comparisons, streaks or notifications.
+- **Forgotten timers.** Stopping a timer that ran over 12 hours does not add the time: the card asks inline, "That's 14h 20m. Add it, or enter a different time?" with an Add button and a field.
+- **Deleted or merged tasks.** Deleting a task, or dropping it onto another as a subtask, stops its timer without adding time; at startup a stored timer whose task is gone or completed is dropped.
+- **Repeating tasks.** The next occurrence copies the estimate and starts with Actual cleared.
+- **Sync.** New nullable column `tasks.actual_seconds` (migration `20261007130000_task_actual_seconds.sql`, written, NOT applied). Until it exists the client does not send it and a pull keeps each device's local value; when it appears the local values are queued and uploaded.
+
+---
+
 ## 2.12.3 — 2026-10-07
 
 **Fix: task cards no longer shift when the pointer arrives or leaves. Desktop only.**

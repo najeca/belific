@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { addDays, clampToToday, dateKey, formatShortDate, isDateKey, parseDateKey } from '../../lib/kanban';
-import { HOUR_OPTIONS, MINUTE_OPTIONS, QUICK_DURATIONS, formatDuration, isQuickDuration, joinDuration, splitDuration } from '../../lib/duration';
+import { DURATION_PRESETS, parseDuration, presetLabel } from '../../lib/duration';
 import { LABEL_COLORS, labelColor } from '../../lib/labelColors';
 import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
 import { availableSuggestions, findLabelByName, normalizeName } from '../../lib/labelRules';
@@ -95,52 +95,51 @@ export function PriorityBody({ task, ops, done }: BodyProps) {
 }
 
 // ---------------------------------------------------------------- Duration
+// A field to type into (45m, 1h 30m, 1.5h, 130, 1:30) and a short list of
+// presets under it. Any whole minute from 1 to 1440 is valid.
 export function DurationBody({ task, ops, done }: BodyProps) {
-  const [customOpen, setCustomOpen] = useState(!isQuickDuration(task.durationMinutes));
-  const picked = splitDuration(task.durationMinutes);
-  const choose = (minutes: number | undefined) => {
+  const [text, setText] = useState('');
+  const [invalid, setInvalid] = useState(false);
+  const apply = (minutes: number | undefined) => {
     ops.patch({ durationMinutes: minutes });
     done();
   };
+  const submit = () => {
+    const minutes = parseDuration(text);
+    if (minutes === null) setInvalid(true);
+    else apply(minutes);
+  };
   return (
     <View style={styles.list}>
-      <PopoverHeading>Duration</PopoverHeading>
-      <View style={styles.chips}>
-        <Chip label="None" selected={!customOpen && task.durationMinutes === undefined} onPress={() => choose(undefined)} />
-        {QUICK_DURATIONS.map((d) => (
-          <Chip key={d.minutes} label={d.label} selected={!customOpen && task.durationMinutes === d.minutes} onPress={() => choose(d.minutes)} />
+      <div style={{ padding: '10px 10px 4px' }}>
+        <input
+          type="text"
+          value={text}
+          placeholder="45m, 1h 30m, 130..."
+          aria-label="Duration"
+          aria-invalid={invalid}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => {
+            setText(e.target.value);
+            setInvalid(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          style={{ ...domInputStyle, width: '100%', boxSizing: 'border-box' }}
+        />
+      </div>
+      {invalid && <Text style={styles.hint}>Not a duration. Try 45m, 1h 30m or 130 (minutes).</Text>}
+      <div style={{ maxHeight: 196, overflowY: 'auto' }}>
+        <Row label="No duration" selected={task.durationMinutes === undefined} onPress={() => apply(undefined)} />
+        {DURATION_PRESETS.map((m) => (
+          <Row key={m} label={presetLabel(m)} selected={task.durationMinutes === m} onPress={() => apply(m)} />
         ))}
-        <Chip label="Custom" selected={customOpen} onPress={() => setCustomOpen((o) => !o)} />
-      </View>
-      {customOpen && (
-        <View style={styles.customRow}>
-          <select
-            value={picked.hours}
-            onChange={(e) => ops.patch({ durationMinutes: joinDuration(Number(e.target.value), picked.minutes) })}
-            style={domSelectStyle}
-            aria-label="Hours"
-          >
-            {HOUR_OPTIONS.map((h) => (
-              <option key={h} value={h}>
-                {h} h
-              </option>
-            ))}
-          </select>
-          <select
-            value={picked.minutes}
-            onChange={(e) => ops.patch({ durationMinutes: joinDuration(picked.hours, Number(e.target.value)) })}
-            style={domSelectStyle}
-            aria-label="Minutes"
-          >
-            {MINUTE_OPTIONS.map((m) => (
-              <option key={m} value={m} disabled={picked.hours === 24 && m !== 0}>
-                {m} min
-              </option>
-            ))}
-          </select>
-          <Text style={styles.muted}>{task.durationMinutes === undefined ? 'Not set' : formatDuration(task.durationMinutes)}</Text>
-        </View>
-      )}
+      </div>
       {task.dueDate && task.startTime && (
         <Row
           label="Remove time"
@@ -598,6 +597,7 @@ const styles = StyleSheet.create({
   customRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 4 },
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 12, paddingVertical: 4 },
   rowText: { fontSize: 14, color: Colors.textPrimary },
+  hint: { fontSize: 12, color: Colors.textSecondary, paddingHorizontal: 12, paddingBottom: 6 },
   muted: { fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
   linkRow: { flexDirection: 'row', gap: 14, paddingHorizontal: 12, paddingVertical: 4 },
   link: { fontSize: 13, fontWeight: '600', color: Colors.accentText },

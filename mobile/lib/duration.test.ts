@@ -2,16 +2,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  DURATION_PRESETS,
   MAX_DURATION,
-  MINUTE_OPTIONS,
-  QUICK_DURATIONS,
-  clampDuration,
+  formatClock,
   formatDuration,
-  isQuickDuration,
-  isValidPick,
-  joinDuration,
+  formatHM,
+  formatSecondsHM,
   parseDuration,
-  splitDuration,
+  presetLabel,
 } from './duration.ts';
 import { formatDuration as fromKanban } from './kanban.ts';
 import { COMPACT_BLOCK_PX, MIN_BLOCK_PX, PX_PER_HOUR, blockHeightPx, isCompactBlock, layoutItems, taskToItem } from './timebox.ts';
@@ -33,55 +31,83 @@ test('formatting: "1h 30m" and "45m" style, stored legacy values too', () => {
   assert.equal(fromKanban, formatDuration);
 });
 
-test('parsing', () => {
-  assert.equal(parseDuration('1h 30m'), 90);
-  assert.equal(parseDuration('45m'), 45);
-  assert.equal(parseDuration('2h'), 120);
-  assert.equal(parseDuration('1h30m'), 90);
-  assert.equal(parseDuration(''), null);
-  assert.equal(parseDuration('soon'), null);
-  assert.equal(parseDuration('0m'), null);
-  for (const m of [15, 30, 45, 90, 120, 1440]) assert.equal(parseDuration(formatDuration(m)!), m);
+test('chip text is H:MM, 0:00 when no duration is set', () => {
+  assert.equal(formatClock(undefined), '0:00');
+  assert.equal(formatClock(0), '0:00');
+  assert.equal(formatClock(15), '0:15');
+  assert.equal(formatClock(5), '0:05');
+  assert.equal(formatClock(60), '1:00');
+  assert.equal(formatClock(90), '1:30');
+  assert.equal(formatClock(1440), '24:00');
+  assert.equal(formatClock(Number.NaN), '0:00');
 });
 
-test('clamping to 5 minute steps between 5 minutes and 24h', () => {
-  assert.equal(clampDuration(15), 15);
-  assert.equal(clampDuration(0), 5);
-  assert.equal(clampDuration(7), 5);
-  assert.equal(clampDuration(8), 10);
-  assert.equal(clampDuration(2000), MAX_DURATION);
-  assert.equal(clampDuration(Number.NaN), 5);
+test('Estimated and Actual text: both parts, always', () => {
+  assert.equal(formatHM(undefined), '0h 0m');
+  assert.equal(formatHM(0), '0h 0m');
+  assert.equal(formatHM(90), '1h 30m');
+  assert.equal(formatHM(1440), '24h 0m');
+  assert.equal(formatSecondsHM(0), '0h 0m');
+  assert.equal(formatSecondsHM(59), '0h 0m');
+  assert.equal(formatSecondsHM(60), '0h 1m');
+  assert.equal(formatSecondsHM(5400), '1h 30m');
+  assert.equal(formatSecondsHM(-5), '0h 0m');
+  assert.equal(formatSecondsHM(14 * 3600 + 20 * 60), '14h 20m');
 });
 
-test('the Custom picker: 5 minute options and the 24h rule', () => {
-  assert.deepEqual(MINUTE_OPTIONS, [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]);
-  assert.equal(joinDuration(0, 10), 10);
-  assert.equal(joinDuration(1, 5), 65);
-  assert.equal(joinDuration(0, 0), 5);
-  assert.equal(joinDuration(0, 3), 5);
-  assert.equal(joinDuration(23, 55), 1435);
-  assert.equal(joinDuration(24, 0), 1440);
-  assert.equal(joinDuration(24, 30), 1440);
-  assert.equal(joinDuration(30, 0), 1440);
-  assert.equal(isValidPick(0, 5), true);
-  assert.equal(isValidPick(0, 0), false);
-  assert.equal(isValidPick(2, 15), true);
-  assert.equal(isValidPick(2, 7), false);
-  assert.equal(isValidPick(24, 0), true);
-  assert.equal(isValidPick(24, 5), false);
-  assert.deepEqual(splitDuration(65), { hours: 1, minutes: 5 });
-  assert.deepEqual(splitDuration(1440), { hours: 24, minutes: 0 });
-  // None shows 0h 30m in the picker but stores nothing until a select changes
-  assert.deepEqual(splitDuration(undefined), { hours: 0, minutes: 30 });
+test('preset list: 5 min to 4h, labelled as in the dropdown', () => {
+  assert.deepEqual(DURATION_PRESETS, [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240]);
+  assert.deepEqual(DURATION_PRESETS.map(presetLabel), ['5 min', '10 min', '15 min', '20 min', '30 min', '45 min', '1h', '1h 30m', '2h', '3h', '4h']);
 });
 
-test('quick chips are 15m, 30m, 1h, 2h after None', () => {
-  assert.deepEqual(QUICK_DURATIONS.map((d) => d.minutes), [15, 30, 60, 120]);
-  assert.equal(isQuickDuration(undefined), true);
-  assert.equal(isQuickDuration(15), true);
-  assert.equal(isQuickDuration(120), true);
-  assert.equal(isQuickDuration(10), false);
-  assert.equal(isQuickDuration(90), false);
+test('parsing: every form the dropdown accepts', () => {
+  const cases: Array<[string, number]> = [
+    ['45m', 45],
+    ['45', 45],
+    ['1h', 60],
+    ['1h 30m', 90],
+    ['1h30', 90],
+    ['1h30m', 90],
+    ['1.5h', 90],
+    ['0.5h', 30],
+    ['2.25h', 135],
+    ['130', 130],
+    ['1:30', 90],
+    ['0:45', 45],
+    ['24:00', 1440],
+    ['1440', 1440],
+    ['1', 1],
+    ['  1h   30m  ', 90],
+    ['1H 30M', 90],
+    ['45 min', 45],
+    ['2 hours', 120],
+    ['2 hrs 5 mins', 125],
+    ['24h', 1440],
+  ];
+  for (const [text, minutes] of cases) assert.equal(parseDuration(text), minutes, text);
+});
+
+test('parsing rejects: zero, negative, over 1440, fractions of a minute, text', () => {
+  const bad = ['', '   ', '0', '0m', '0h', '0:00', '-5', '-1h', '1441', '25h', '24h 1m', '99999', '1.5', '45.5', 'soon', 'abc', '1h abc', 'h', 'm', '1h 30x', '1:60', '1:5', '1::30', '30 m 1h', '1,5h', '--', 'NaN'];
+  for (const text of bad) assert.equal(parseDuration(text), null, JSON.stringify(text));
+});
+
+test('parsing for a corrected Actual also accepts zero', () => {
+  assert.equal(parseDuration('0', { allowZero: true }), 0);
+  assert.equal(parseDuration('0m', { allowZero: true }), 0);
+  assert.equal(parseDuration('0:00', { allowZero: true }), 0);
+  assert.equal(parseDuration('90', { allowZero: true }), 90);
+  assert.equal(parseDuration('1441', { allowZero: true }), null);
+  assert.equal(parseDuration('', { allowZero: true }), null);
+});
+
+test('round trips: every whole minute formats and parses back', () => {
+  for (let m = 1; m <= MAX_DURATION; m++) {
+    assert.equal(parseDuration(formatDuration(m)!), m, `formatDuration ${m}`);
+    assert.equal(parseDuration(formatClock(m)), m, `formatClock ${m}`);
+    assert.equal(parseDuration(formatHM(m)), m, `formatHM ${m}`);
+  }
+  for (const m of DURATION_PRESETS) assert.equal(parseDuration(presetLabel(m)), m);
 });
 
 test('None: no duration stored, nothing shown, Timebox uses 30', () => {

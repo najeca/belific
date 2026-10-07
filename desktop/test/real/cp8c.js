@@ -182,10 +182,11 @@ async function run() {
   check('Repeat day of month: typing works and the popover stays open', (await activeValue()) === '15' && (await exists(q('[data-popover]'))), String(await activeValue()));
   await press('Escape');
 
-  // ---- Custom duration (select fields): space and arrows inside the popover ----
+  // ---- Duration field: spaces and arrows inside the popover ----
   await click(inCard('Bravo', '[aria-label^="Duration of"]'));
-  await click(q('[data-popover] [aria-label="Custom"]'));
-  check('Custom duration: the hours and minutes fields show in the popover', (await exists(q('[data-popover] select[aria-label="Hours"]'))) && !(await expanded('Bravo')));
+  await focused('Duration');
+  await type('1h 30m');
+  check('Duration field: spaces typed, value exact, popover open, card not expanded', (await activeValue()) === '1h 30m' && (await exists(q('[data-popover]'))) && !(await expanded('Bravo')), String(await activeValue()));
   await press('Escape');
 
   check('no drag ever started', await noDrag());

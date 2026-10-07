@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { formatDuration } from '../../lib/duration';
+import { formatClock } from '../../lib/duration';
 import { reminderLabel } from '../../lib/reminder';
 import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
@@ -107,7 +107,7 @@ function Inner({ task, label, onChanged }: { task: Task; label?: Project; onChan
       <PopoverHeading>Task</PopoverHeading>
       <Row
         label="Duration"
-        sub={`${placed ? `${task.startTime} · ` : ''}${formatDuration(task.durationMinutes) ?? 'None'}`}
+        sub={placed ? `${formatClock(task.durationMinutes)}, starts ${task.startTime}` : formatClock(task.durationMinutes)}
         trailing={<Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />}
         onPress={() => setView('duration')}
         a11y="Duration"

@@ -224,13 +224,11 @@ async function run() {
   await click(inPopover('[aria-label="Low"]'));
   await waitTask('Bravo', (t) => t.priority === 'low');
   await click(inCard('Bravo', '[aria-label^="Duration of"]'));
-  await click(inPopover('[aria-label="Custom"]'));
-  await js(`(() => { const s = ${inPopover('select[aria-label="Hours"]')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(s, '1'); s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
-  await C.sleep(400);
-  await js(`(() => { const s = ${inPopover('select[aria-label="Minutes"]')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(s, '30'); s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+  await typeText('1h 30m');
+  await key('Return');
   await waitTask('Bravo', (t) => t.durationMinutes === 90);
-  check('Bravo: custom duration 1h 30m saved (24 hour rule picker)', taskNamed('Bravo').durationMinutes === 90);
-  await key('Escape');
+  check('Bravo: typed duration "1h 30m" saved', taskNamed('Bravo').durationMinutes === 90);
+  check('typing a duration and Enter closed the dropdown', !(await popover()));
   await click(inCard('Bravo', '[aria-label^="Reminder"]'));
   check('a task with no start time shows the quiet daily reminder note', (await js(`${q('[data-popover]')}.innerText`)).includes('Reminds at your daily reminder time'));
   await key('Escape');
@@ -243,7 +241,7 @@ async function run() {
   await waitTask('Charlie', (t) => !!t.projectKey);
   check('created a label from the search box and selected it', read('belific_projects').some((p) => p.name === 'Errands' && p.key === taskNamed('Charlie').projectKey));
   await click(inCard('Charlie', '[aria-label^="Duration of"]'));
-  await click(inPopover('[aria-label="30m"]'));
+  await click(inPopover('[aria-label="30 min"]'));
   await waitTask('Charlie', (t) => t.durationMinutes === 30);
   await click(inCard('Charlie', '[aria-label^="Priority"]'));
   await click(inPopover('[aria-label="High"]'));

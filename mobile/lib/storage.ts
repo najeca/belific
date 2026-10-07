@@ -576,6 +576,8 @@ export async function clearAllData(): Promise<void> {
       KEYS.TASKS,
       KEYS.PROJECTS,
       KEYS.SCHEMA_MIGRATED_V2,
+      // The desktop card timer (lib/taskTimer.ts): local UI state, never synced.
+      'belific_timer',
       // Sync bookkeeping (lib/outbox.ts, lib/syncEngine.ts META): with the
       // data gone, the next sync must start from a full pass again.
       'belific_sync_outbox',

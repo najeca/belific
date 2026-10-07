@@ -12,6 +12,7 @@ import { loadLabels } from '../../lib/labels';
 import { EMPTY_FILTER, FILTER_KEY, parseFilter, pruneFilter, serializeFilter, type TaskFilter } from '../../lib/taskFilter';
 import { listenForAuthCallbacks, refreshRevokePending, restoreAccountChoice, retryPendingRevoke } from '../../lib/desktopAuth';
 import { sendNotifyPayload } from '../../lib/desktopNotify';
+import { taskTimer } from '../../lib/taskTimer';
 import { runFullSync, subscribeSyncStatus } from '../../lib/sync';
 
 // Decision 009: the three-pane workspace: Brain Dump, weekly kanban and
@@ -26,6 +27,11 @@ export default function DesktopHome() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Validated sign in callbacks from the main process (decision 012).
   useEffect(() => listenForAuthCallbacks(), []);
+  // A timer left running when the app closed carries on; one whose task is
+  // gone or completed is dropped (nothing added).
+  useEffect(() => {
+    taskTimer.init().catch(() => {});
+  }, []);
   // An unanswered account choice survives a relaunch, and a sign out whose
   // server revoke failed is retried on launch and when the network returns.
   useEffect(() => {

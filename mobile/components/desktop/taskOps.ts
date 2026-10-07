@@ -1,6 +1,5 @@
 import { completeTaskById, editDumpItem, patchTask, toggleSubtaskById } from '../../lib/taskActions';
 import { deleteBrainDumpItem, deleteTask } from '../../lib/storage';
-import { taskTimer } from '../../lib/taskTimer';
 import { dumpItemToTask } from '../../lib/thoughts';
 import type { BrainDumpItem, Task } from '../../lib/types';
 
@@ -20,11 +19,7 @@ export function opsForTask(task: Task): TaskOps {
     patch: (fields) => patchTask(task.id, fields),
     setCompleted: (done) => completeTaskById(task.id, done),
     toggleSubtask: (sid) => toggleSubtaskById(task.id, sid),
-    // A deleted task's timer stops with it, nothing added.
-    remove: async () => {
-      await deleteTask(task.id);
-      await taskTimer.discard(task.id);
-    },
+    remove: () => deleteTask(task.id),
   };
 }
 

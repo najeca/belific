@@ -12,7 +12,6 @@ import type { RoutineCompletion } from './types.ts';
 type Row = Record<string, unknown>;
 type AnyTable = TimestampedTable | 'routine_completions';
 const EXTRA_COLUMNS = ['subtasks', 'reminder_minutes'];
-const ACTUAL_COLUMNS = ['actual_seconds'];
 const PIPELINE_COLUMNS = ['duration_minutes', 'start_time', 'recurrence', 'recurrence_days', 'recurrence_month_day', 'color_key'];
 
 // --- Fake Supabase: composite keys, merge-duplicates upserts (only supplied
@@ -90,9 +89,6 @@ class FakeServer {
         }
         if (!this.caps.taskExtras) {
           for (const r of rows) for (const c of EXTRA_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
-        }
-        if (!this.caps.taskActual) {
-          for (const r of rows) for (const c of ACTUAL_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
         }
         for (const r of rows) {
           const key = this.pk(t, r);
@@ -560,26 +556,4 @@ test('8.2 a server without the subtasks and reminder columns: not sent, kept loc
   await phone.engine.sync();
   assert.deepEqual(phone.row('tasks', 't1')?.subtasks, subtasks);
   assert.equal(phone.row('tasks', 't1')?.reminderMinutes, 10);
-});
-
-test('8.3 a server without actual_seconds: not sent, kept locally on pull, queued when the column appears', async () => {
-  const server = new FakeServer();
-  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, taskActual: false };
-  const desk = makeDevice(server);
-  await desk.put('tasks', task('t1', 'Write', { actualSeconds: 5400 }));
-  await desk.engine.sync();
-  assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
-  assert.equal(server.get('tasks', 't1')?.actual_seconds, undefined, 'not sent');
-  // an older client renames it on the server; the local value survives the pull
-  server.legacyUpsert('tasks', { ...server.get('tasks', 't1'), title: 'Write (renamed)', updated_at: new Date(Date.now() + 1000).toISOString() });
-  await desk.engine.sync();
-  assert.equal(desk.row('tasks', 't1')!.title, 'Write (renamed)');
-  assert.equal(desk.row('tasks', 't1')!.actualSeconds, 5400);
-  // migration 4 applied: the probe flips and the local row is queued and uploaded
-  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, taskActual: true };
-  await desk.engine.sync();
-  assert.equal(server.get('tasks', 't1')?.actual_seconds, 5400);
-  const phone = makeDevice(server);
-  await phone.engine.sync();
-  assert.equal(phone.row('tasks', 't1')?.actualSeconds, 5400);
 });

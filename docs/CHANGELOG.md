@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 2.14.0 — 2026-10-07
+
+**Actual time removed, more space between cards. Desktop only; the iPhone is unchanged. (Checkpoint 8.4, part 1 of 3; the 24 hour Timebox and repeating series follow in the same version.)**
+
+- **Actual time is gone.** Jethro only wants the estimate, so the timer, the play button, the "Actual" and "Estimated" row, the forgotten-timer prompt, `lib/timer.ts` (and its controller, binding and tests), the `belific_timer` key, `Task.actualSeconds`, the `actual_seconds` sync column and its capability flag are removed. The two unapplied migration files (`20261007130000_task_actual_seconds.sql` and its rollback) are deleted: it was never applied to any database. A stored task that still carries `actualSeconds` is cleaned when it is loaded. The H:MM chip and the typed dropdown are unchanged. Decision 022 is marked superseded.
+- **More space.** Cards in the week columns are 12px apart (was a hairline) and rows in the left list 10px apart, keeping the hairline. The reserved space for the hover icons from 2.12.3 is unchanged.
+
+---
+
 ## 2.13.0 — 2026-10-07
 
 **Duration chip and dropdown like the Ellie planner, plus Estimated and Actual time with a simple timer. Desktop only; the iPhone is unchanged.**

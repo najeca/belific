@@ -6,8 +6,6 @@ import {
   MAX_DURATION,
   formatClock,
   formatDuration,
-  formatHM,
-  formatSecondsHM,
   parseDuration,
   presetLabel,
 } from './duration.ts';
@@ -40,19 +38,6 @@ test('chip text is H:MM, 0:00 when no duration is set', () => {
   assert.equal(formatClock(90), '1:30');
   assert.equal(formatClock(1440), '24:00');
   assert.equal(formatClock(Number.NaN), '0:00');
-});
-
-test('Estimated and Actual text: both parts, always', () => {
-  assert.equal(formatHM(undefined), '0h 0m');
-  assert.equal(formatHM(0), '0h 0m');
-  assert.equal(formatHM(90), '1h 30m');
-  assert.equal(formatHM(1440), '24h 0m');
-  assert.equal(formatSecondsHM(0), '0h 0m');
-  assert.equal(formatSecondsHM(59), '0h 0m');
-  assert.equal(formatSecondsHM(60), '0h 1m');
-  assert.equal(formatSecondsHM(5400), '1h 30m');
-  assert.equal(formatSecondsHM(-5), '0h 0m');
-  assert.equal(formatSecondsHM(14 * 3600 + 20 * 60), '14h 20m');
 });
 
 test('preset list: 5 min to 4h, labelled as in the dropdown', () => {
@@ -92,20 +77,10 @@ test('parsing rejects: zero, negative, over 1440, fractions of a minute, text', 
   for (const text of bad) assert.equal(parseDuration(text), null, JSON.stringify(text));
 });
 
-test('parsing for a corrected Actual also accepts zero', () => {
-  assert.equal(parseDuration('0', { allowZero: true }), 0);
-  assert.equal(parseDuration('0m', { allowZero: true }), 0);
-  assert.equal(parseDuration('0:00', { allowZero: true }), 0);
-  assert.equal(parseDuration('90', { allowZero: true }), 90);
-  assert.equal(parseDuration('1441', { allowZero: true }), null);
-  assert.equal(parseDuration('', { allowZero: true }), null);
-});
-
 test('round trips: every whole minute formats and parses back', () => {
   for (let m = 1; m <= MAX_DURATION; m++) {
     assert.equal(parseDuration(formatDuration(m)!), m, `formatDuration ${m}`);
     assert.equal(parseDuration(formatClock(m)), m, `formatClock ${m}`);
-    assert.equal(parseDuration(formatHM(m)), m, `formatHM ${m}`);
   }
   for (const m of DURATION_PRESETS) assert.equal(parseDuration(presetLabel(m)), m);
 });

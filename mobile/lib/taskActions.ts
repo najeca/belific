@@ -4,8 +4,6 @@ import { planDropAsSubtask, toggleSubtask, undoDropAsSubtask, withAllDone, type 
 import { generateId } from './data';
 import { buildNextOccurrence, nextOccurrenceId, nextOccurrence } from './recurrence';
 import { dateKey } from './kanban';
-import { addActual } from './timer';
-import { taskTimer } from './taskTimer';
 import { dumpItemToTask, newThought } from './thoughts';
 import type { BrainDumpItem, Task } from './types';
 
@@ -28,12 +26,8 @@ export function setTaskCompleted(task: Task, completed: boolean): Promise<void> 
   const run = chain.then(async () => {
     // Completing ticks every subtask; reopening leaves them as they are.
     const subtasks = completed ? withAllDone(task.subtasks) : task.subtasks;
-    // Completing stops this task's timer (desktop only): the time so far is
-    // added, unless it ran over 12 hours (a forgotten timer, dropped).
-    const ran = completed && globalThis.belificDesktop ? await taskTimer.settleOnComplete(task.id) : 0;
     const done: Task = {
       ...task,
-      ...(ran > 0 ? { actualSeconds: addActual(task.actualSeconds, ran) } : {}),
       completed,
       completedAt: completed ? new Date().toISOString() : undefined,
       ...(subtasks ? { subtasks } : {}),
@@ -113,8 +107,6 @@ export async function dropAsSubtask(host: Task, dragged: Task): Promise<SubtaskD
   if (!plan) return null;
   await updateTask(plan.host);
   await updateTask(plan.tombstoned);
-  // A task merged into another is gone: its timer stops, no time added.
-  if (globalThis.belificDesktop) await taskTimer.discard(dragged.id);
   return plan;
 }
 

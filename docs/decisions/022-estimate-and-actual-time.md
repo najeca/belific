@@ -1,7 +1,7 @@
 # Decision 022 — Estimate and actual time, reported without judgement
 
 **Date:** 2026-10-07
-**Status:** Proposed — awaiting Jethro's confirmation
+**Status:** SUPERSEDED on 2026-10-07 (checkpoint 8.4, app 2.14.0). Jethro found Actual time redundant and only wants the estimate. The timer, the Actual and Estimated row, `Task.actualSeconds`, the `actual_seconds` column, the forgotten-timer prompt and the migration files were removed; nothing was ever applied to a database. What remains of this record: the **duration chip as H:MM** and the **typed duration dropdown** (any whole minute from 1 to 1440, `lib/duration.ts`). The rest of this record is kept as history only.
 
 Source: Jethro's instruction for checkpoint 8.3 (reference: the Ellie planner).
 

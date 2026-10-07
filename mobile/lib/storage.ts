@@ -1,5 +1,6 @@
 import { kv } from './kv';
 import { backfillUpdatedAt, backfillCreatedAndUpdatedAt } from './migrations';
+import { stripLegacyTasks } from './legacyTask';
 import type {
   BrainDumpItem,
   CustomCategory,
@@ -414,7 +415,8 @@ export function deleteRoutineCompletion(routineId: string, date: string): Promis
 export async function loadTasksRaw(): Promise<Task[]> {
   try {
     const data = await kv.getItem(KEYS.TASKS);
-    return data ? (JSON.parse(data) as Task[]) : [];
+    // Rows are cleaned of fields that no longer exist (lib/legacyTask.ts).
+    return data ? stripLegacyTasks(JSON.parse(data) as Task[]) : [];
   } catch {
     return [];
   }
@@ -576,8 +578,6 @@ export async function clearAllData(): Promise<void> {
       KEYS.TASKS,
       KEYS.PROJECTS,
       KEYS.SCHEMA_MIGRATED_V2,
-      // The desktop card timer (lib/taskTimer.ts): local UI state, never synced.
-      'belific_timer',
       // Sync bookkeeping (lib/outbox.ts, lib/syncEngine.ts META): with the
       // data gone, the next sync must start from a full pass again.
       'belific_sync_outbox',

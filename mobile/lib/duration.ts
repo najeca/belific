@@ -33,18 +33,6 @@ export function formatClock(minutes?: number): string {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
 
-// The Estimated and Actual text: "1h 30m", "0h 0m". Always both parts.
-export function formatHM(minutes?: number): string {
-  const m = Math.max(0, Math.floor(Number.isFinite(minutes) ? (minutes as number) : 0));
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
-}
-
-// Seconds shown as hours and whole minutes (a part minute is not shown).
-export function formatSecondsHM(seconds?: number): string {
-  const s = Math.max(0, Math.floor(Number.isFinite(seconds) ? (seconds as number) : 0));
-  return formatHM(Math.floor(s / 60));
-}
-
 // "45 min", "1h", "1h 30m": the preset list's labels.
 export function presetLabel(minutes: number): string {
   return minutes < 60 ? `${minutes} min` : (formatDuration(minutes) as string);
@@ -58,9 +46,8 @@ const RE_PARTS = new RegExp(`^(?:(\\d+)\\s*${HOUR_UNIT})?\\s*(?:(\\d+)\\s*(?:${M
 
 // Typed text to whole minutes, or null when it is not a duration. Accepts
 // "45m", "45", "1h", "1h 30m", "1h30", "1.5h", "130" (a bare number is
-// minutes) and "1:30". A valid result is a whole minute from 1 to 1440 (with
-// allowZero a 0 is valid too, for a corrected Actual time).
-export function parseDuration(text: string, opts: { allowZero?: boolean } = {}): number | null {
+// minutes) and "1:30". A valid result is a whole minute from 1 to 1440.
+export function parseDuration(text: string): number | null {
   const s = String(text ?? '').trim();
   if (s === '') return null;
   let total: number | null = null;
@@ -73,6 +60,5 @@ export function parseDuration(text: string, opts: { allowZero?: boolean } = {}):
     total = Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0);
   }
   if (total === null || !Number.isFinite(total)) return null;
-  if (total === 0) return opts.allowZero ? 0 : null;
   return total >= MIN_DURATION && total <= MAX_DURATION ? total : null;
 }

@@ -326,3 +326,57 @@ for (const tz of WEEK_ZONES) {
     }
   });
 }
+
+// ---- Column order (checkpoint 8.4): untimed first, then timed by start time, then done ----
+
+test('column order: tasks without a time first, then timed ones by start time, then finished', () => {
+  const cols = bucketTasks(
+    [
+      task('t1', { dueDate: TODAY, startTime: '14:00' }),
+      task('u1', { dueDate: TODAY }),
+      task('t2', { dueDate: TODAY, startTime: '09:30' }),
+      task('d1', { dueDate: TODAY, startTime: '08:00', completed: true, completedAt: '2026-10-05T08:30:00.000Z' }),
+      task('u2', { dueDate: TODAY, priority: 'high' }),
+      task('t3', { dueDate: TODAY, startTime: '00:30' }),
+      task('t4', { dueDate: TODAY, startTime: '23:30' }),
+    ],
+    days,
+    TODAY,
+  );
+  // untimed (High priority first), timed ascending from 00:30 to 23:30, then the finished one
+  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['u2', 'u1', 't3', 't2', 't1', 't4', 'd1']);
+});
+
+test('column order: equal start times fall back to the oldest created', () => {
+  const cols = bucketTasks(
+    [
+      task('b', { dueDate: TODAY, startTime: '10:00', createdAt: '2026-10-03T09:00:00.000Z' }),
+      task('a', { dueDate: TODAY, startTime: '10:00', createdAt: '2026-10-01T09:00:00.000Z' }),
+    ],
+    days,
+    TODAY,
+  );
+  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['a', 'b']);
+});
+
+test('column order: a task carried over from a past day stays in the untimed group', () => {
+  const cols = bucketTasks(
+    [
+      task('timed', { dueDate: TODAY, startTime: '08:00' }),
+      task('old', { dueDate: '2026-10-02', startTime: '23:00' }),
+      task('plain', { dueDate: TODAY }),
+    ],
+    days,
+    TODAY,
+  );
+  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['old', 'plain', 'timed']);
+});
+
+test('column order: a bad start time counts as no time', () => {
+  const cols = bucketTasks(
+    [task('bad', { dueDate: TODAY, startTime: 'soon' }), task('timed', { dueDate: TODAY, startTime: '07:00' })],
+    days,
+    TODAY,
+  );
+  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['bad', 'timed']);
+});

@@ -4,8 +4,11 @@
 // 'HH:mm' text (CustomEvent.start/end, Task.startTime).
 import type { Task } from './types';
 
-export const GRID_START_HOUR = 6;
-export const GRID_END_HOUR = 23;
+// The Timebox covers the whole day, 00:00 to 24:00 (checkpoint 8.4, decision
+// 024), so a night shift works as well as a day one. Where it opens is the
+// "My day starts at" setting (dayStart.ts).
+export const GRID_START_HOUR = 0;
+export const GRID_END_HOUR = 24;
 export const PX_PER_HOUR = 56;
 // A 5 minute event still needs to be readable and clickable. 20px is less
 // than a 30 minute slot (28px), so a short block never looks like it fills one.
@@ -28,6 +31,11 @@ export function toMinutes(time: unknown): number | null {
   const min = Number(m[2]);
   if (h > 23 || min > 59) return null;
   return h * 60 + min;
+}
+
+// Labels for the hour lines, 00:00 to 24:00.
+export function hourLabel(hour: number): string {
+  return `${String(hour).padStart(2, '0')}:00`;
 }
 
 export function toTime(minutes: number): string {
@@ -53,15 +61,14 @@ export interface PlacedBlock {
   // Minutes after clamping to the visible grid.
   startMin: number;
   endMin: number;
-  // The item runs past 23:00: drawn to the grid end with a "continues"
-  // marker; the stored duration is unchanged.
+  // The item runs past 24:00: drawn to the grid end with a "continues"
+  // marker; the stored duration is unchanged and the rest shows at the top of
+  // the next day (continuationOf).
   continues: boolean;
 }
 
 export interface TimeboxLayout {
   blocks: PlacedBlock[];
-  // Items that fall completely outside the visible hours, in start order.
-  outside: string[];
 }
 
 // An end at or before the start crosses midnight (or is bad data): run to
@@ -73,31 +80,49 @@ export function normalizeRange(startMin: number, endMin: number): { startMin: nu
 }
 
 // A placed Task as a Timebox item: needs a valid startTime. Length is
-// durationMinutes, or 30 when unset.
+// durationMinutes, or 30 when unset. The end is NOT capped at midnight: a task
+// that starts at 22:00 and lasts 8 hours ends at minute 1800. The day's grid
+// draws it to 24:00 and the next day shows the rest (continuationOf).
 export function taskToItem(task: Task): TimeboxItem | null {
   const start = toMinutes(task.startTime);
   if (start === null) return null;
   const length = task.durationMinutes && task.durationMinutes > 0 ? task.durationMinutes : DEFAULT_TASK_MINUTES;
-  return { id: task.id, startMin: start, endMin: Math.min(DAY_MINUTES, start + length) };
+  return { id: task.id, startMin: start, endMin: start + length };
 }
 
-// Positions items on the 06:00 to 23:00 grid. Items are clamped to the
-// visible hours; ones entirely outside are returned in `outside` instead of
-// vanishing. Items that overlap in time share width side by side.
+// Overnight tasks (checkpoint 8.4, decision 024). A task belongs to the Day it
+// starts on. When its start plus length passes 24:00 the rest of it is shown at
+// the top of the NEXT day as a continuation. The continuation is derived from
+// the task every time it is drawn, never stored. Returns the minutes after
+// midnight (0 when the task ends by 24:00). A task is at most 24 hours long, so
+// the rest always fits in the next day.
+export function minutesPastMidnight(startMin: number, lengthMinutes: number): number {
+  return Math.max(0, Math.min(DAY_MINUTES, startMin + lengthMinutes - DAY_MINUTES));
+}
+
+// The Timebox item for a task's continuation on the day after its own, or null.
+export const CONTINUATION_PREFIX = 'cont:';
+export function continuationOf(task: Task): TimeboxItem | null {
+  const item = taskToItem(task);
+  if (!item) return null;
+  const rest = minutesPastMidnight(item.startMin, item.endMin - item.startMin);
+  return rest > 0 ? { id: `${CONTINUATION_PREFIX}${task.id}`, startMin: 0, endMin: rest } : null;
+}
+
+// Positions items on the 00:00 to 24:00 grid. An item that runs past 24:00 is
+// drawn to the bottom and marked "continues". Items that overlap in time share
+// width side by side.
 export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
   type Clamped = { id: string; startMin: number; endMin: number; continues: boolean };
   const visible: Clamped[] = [];
-  const outside: Array<{ id: string; startMin: number }> = [];
 
   for (const item of items) {
     const { startMin, endMin } = normalizeRange(item.startMin, item.endMin);
+    // An end beyond 24:00, or at or before the start (bad data), runs on.
+    const continues = item.endMin > GRID_END_MIN || item.endMin <= item.startMin;
     const clampedStart = Math.max(startMin, GRID_START_MIN);
     const clampedEnd = Math.min(endMin, GRID_END_MIN);
-    if (clampedEnd <= clampedStart) {
-      outside.push({ id: item.id, startMin });
-    } else {
-      visible.push({ id: item.id, startMin: clampedStart, endMin: clampedEnd, continues: endMin > GRID_END_MIN });
-    }
+    if (clampedEnd > clampedStart) visible.push({ id: item.id, startMin: clampedStart, endMin: clampedEnd, continues });
   }
 
   visible.sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin || a.id.localeCompare(b.id));
@@ -138,8 +163,7 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
   }
   closeCluster();
 
-  outside.sort((a, b) => a.startMin - b.startMin);
-  return { blocks, outside: outside.map((o) => o.id) };
+  return { blocks };
 }
 
 // Minutes actually scheduled in the day: the union of all ranges, so two
@@ -175,11 +199,9 @@ export function formatMinutes(total: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
-// Top offset in px for scrolling so `minutes` sits near the top with a
-// little context above it.
+// Top offset in px that puts `minutes` at the top of the scroll area.
 export function scrollOffsetFor(minutes: number): number {
-  const hoursFromStart = Math.max(0, minutes / 60 - GRID_START_HOUR - 1);
-  return hoursFromStart * PX_PER_HOUR;
+  return Math.max(0, (minutes / 60 - GRID_START_HOUR) * PX_PER_HOUR);
 }
 
 // Block height for a length in minutes: true scale, never below MIN_BLOCK_PX.

@@ -35,9 +35,10 @@ test('the movement threshold separates a click from a drag', () => {
   assert.equal(passedThreshold(0, -6), true);
 });
 
-test('y on the grid converts to minutes from 06:00', () => {
-  assert.equal(yToMinutes(100, 100), at(6));
-  assert.equal(yToMinutes(100 + PX_PER_HOUR * 4.5, 100), at(10, 30));
+test('y on the grid converts to minutes from 00:00', () => {
+  assert.equal(yToMinutes(100, 100), 0);
+  assert.equal(yToMinutes(100 + PX_PER_HOUR * 10.5, 100), at(10, 30));
+  assert.equal(yToMinutes(100 + PX_PER_HOUR * 24, 100), at(24));
 });
 
 test('slot under the pointer snaps down to 30 minutes', () => {
@@ -46,27 +47,32 @@ test('slot under the pointer snaps down to 30 minutes', () => {
   assert.equal(slotUnderPointer(at(10, 30), 60), at(10, 30));
 });
 
-test('clamping keeps the block inside 06:00 to 23:00', () => {
+test('clamping keeps the start on the day, 00:00 to 23:30', () => {
   // Top
-  assert.equal(slotUnderPointer(at(5, 10), 30), at(6));
-  assert.equal(slotUnderPointer(-500, 30), at(6));
-  // Bottom: a 30 minute block can start at 22:30 at the latest
+  assert.equal(slotUnderPointer(at(5, 10), 30), at(5));
+  assert.equal(slotUnderPointer(-500, 30), 0);
+  // Bottom: the latest start is 23:30, whatever the length, so a block dropped
+  // near the bottom may run past midnight
   assert.equal(slotUnderPointer(at(22, 50), 30), at(22, 30));
-  assert.equal(slotUnderPointer(at(23, 40), 30), at(22, 30));
-  // A 2 hour block ends at 23:00 at the latest
-  assert.equal(slotUnderPointer(at(22), 120), at(21));
+  assert.equal(slotUnderPointer(at(23, 40), 30), at(23, 30));
+  assert.equal(slotUnderPointer(at(23, 10), 8 * 60), at(23));
+  assert.equal(slotUnderPointer(at(23, 59), 8 * 60), at(23, 30));
+  assert.equal(slotUnderPointer(at(30), 60), at(23, 30));
   // An odd duration still lands on a 30 minute boundary
-  assert.equal(clampStart(at(22, 30), 45), at(22));
-  // Longer than the grid: starts at 06:00
-  assert.equal(clampStart(at(9), 20 * 60), at(6));
+  assert.equal(clampStart(at(22, 30), 45), at(22, 30));
+  // Even a 24 hour block can start at 23:30 (its rest is on the next day)
+  assert.equal(clampStart(at(23, 30), 24 * 60), at(23, 30));
 });
 
 test('a moved block keeps its grab offset and rounds to the nearest 30', () => {
   // Grabbed 20 minutes into the block, pointer now at 11:35 -> raw start 11:15 -> 11:30
   assert.equal(movedBlockStart(at(11, 35), 20, 60), at(11, 30));
   assert.equal(movedBlockStart(at(11, 30), 20, 60), at(11));
-  assert.equal(movedBlockStart(at(5), 0, 60), at(6));
-  assert.equal(movedBlockStart(at(23, 30), 0, 60), at(22));
+  assert.equal(movedBlockStart(at(5), 0, 60), at(5));
+  assert.equal(movedBlockStart(-30, 0, 60), 0);
+  // Near the bottom the block may run past midnight
+  assert.equal(movedBlockStart(at(23, 30), 0, 60), at(23, 30));
+  assert.equal(movedBlockStart(at(23, 40), 0, 8 * 60), at(23, 30));
 });
 
 test('resize changes duration in 30 minute steps with a 30 minute minimum', () => {
@@ -74,10 +80,13 @@ test('resize changes duration in 30 minute steps with a 30 minute minimum', () =
   assert.equal(resizedDuration(at(10), at(11, 10)), 60);
   assert.equal(resizedDuration(at(10), at(10, 5)), 30);
   assert.equal(resizedDuration(at(10), at(9)), 30);
-  // Never past 23:00
-  assert.equal(resizedDuration(at(21), at(23, 50)), 120);
-  // A block at 22:45 still keeps 30
-  assert.equal(resizedDuration(at(22, 45), at(23, 30)), 30);
+  // Past midnight is allowed, up to the 24 hour limit
+  assert.equal(resizedDuration(at(22), at(30)), 8 * 60);
+  assert.equal(resizedDuration(at(22), at(23, 50)), 120);
+  assert.equal(resizedDuration(at(9), at(9) + 30 * 60), 24 * 60);
+  assert.equal(resizedDuration(at(0), at(40)), 24 * 60);
+  // A block at 23:30 keeps at least 30
+  assert.equal(resizedDuration(at(23, 30), at(23, 40)), 30);
 });
 
 const zones: Zone[] = [
@@ -102,15 +111,15 @@ test('drop resolution: a column scrolled out of view is not a target', () => {
 });
 
 test('drop resolution: left row to a Timebox slot', () => {
-  // gridTop -100: y 300 is 400px below 06:00 = 7h8m -> 13:08 -> 13:00 slot
+  // gridTop -100: y 300 is 400px below 00:00 = 7h8m -> 07:08 -> 07:00 slot
   const t = resolveDrop(1200, 300, zones, { kind: 'row', duration: 30 });
-  assert.deepEqual(t, { kind: 'slot', dayKey: '2026-10-07', startMin: at(13) });
+  assert.deepEqual(t, { kind: 'slot', dayKey: '2026-10-07', startMin: at(7) });
 });
 
 test('drop resolution: block keeps its grab offset', () => {
   const t = resolveDrop(1200, 300, zones, { kind: 'block', duration: 60, grabOffsetMin: 45 });
-  // raw 13:08 - 45 = 12:23 -> 12:30
-  assert.deepEqual(t, { kind: 'slot', dayKey: '2026-10-07', startMin: at(12, 30) });
+  // raw 07:08 - 45 = 06:23 -> 06:30
+  assert.deepEqual(t, { kind: 'slot', dayKey: '2026-10-07', startMin: at(6, 30) });
 });
 
 test('drop resolution: card or block to the left pane, and nowhere', () => {
@@ -188,7 +197,10 @@ test('block moved to the same slot is a no-op', () => {
 
 test('slot label', () => {
   assert.equal(slotLabel(at(10, 30), 30), '10:30 to 11:00');
-  assert.equal(slotLabel(at(22, 30), 120), '22:30 to 23:00');
+  assert.equal(slotLabel(at(22, 30), 90), '22:30 to 24:00');
+  assert.equal(slotLabel(at(22, 30), 120), '22:30 to 00:30 next day');
+  assert.equal(slotLabel(at(22), 8 * 60), '22:00 to 06:00 next day');
+  assert.equal(slotLabel(at(0), 30), '00:00 to 00:30');
 });
 
 const board = { left: 300, top: 100, right: 1000, bottom: 800 };

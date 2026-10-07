@@ -125,22 +125,23 @@ const placed = (start: string, mins: number): Task =>
     durationMinutes: mins,
   }) as Task;
 
-test('Timebox: a block past 23:00 is drawn to the grid end and marked continues', () => {
+test('Timebox: a block past 24:00 is drawn to the grid end and marked continues', () => {
   const { blocks } = layoutItems([taskToItem(placed('21:00', 240))!]);
-  assert.equal(blocks[0].endMin, 23 * 60);
+  assert.equal(blocks[0].endMin, 24 * 60);
   assert.equal(blocks[0].continues, true);
   const inside = layoutItems([taskToItem(placed('21:00', 120))!]).blocks[0];
   assert.equal(inside.continues, false);
 });
 
-test('Timebox: longer than the whole grid is placed at 06:00 and drawn clamped', () => {
-  assert.equal(clampStart(14 * 60, 20 * 60), 6 * 60);
+test('Timebox: a 20 hour block fits the 24 hour grid and a late start runs past midnight', () => {
+  assert.equal(clampStart(14 * 60, 20 * 60), 14 * 60);
   const b = layoutItems([taskToItem(placed('06:00', 20 * 60))!]).blocks[0];
   assert.equal(b.startMin, 6 * 60);
-  assert.equal(b.endMin, 23 * 60);
+  assert.equal(b.endMin, 24 * 60);
   assert.equal(b.continues, true);
 });
 
-test('resize never passes the grid end', () => {
-  assert.equal(resizedDuration(21 * 60, 26 * 60), 120);
+test('resize may pass midnight, up to the 24 hour limit', () => {
+  assert.equal(resizedDuration(21 * 60, 26 * 60), 300);
+  assert.equal(resizedDuration(21 * 60, 21 * 60 + 40 * 60), 24 * 60);
 });

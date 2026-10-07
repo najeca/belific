@@ -5,10 +5,13 @@ import { Colors } from '../../lib/theme';
 import { customToScheduleEvent, getWeeklyEventsForDate, formatTime } from '../../lib/data';
 import { addDays, dateKey, formatDayLabel, isDateKey, parseDateKey } from '../../lib/kanban';
 import {
+  CONTINUATION_PREFIX,
   GRID_END_HOUR,
   GRID_HEIGHT_PX,
   GRID_START_HOUR,
   blockHeightPx,
+  continuationOf,
+  hourLabel,
   isCompactBlock,
   PX_PER_HOUR,
   formatMinutes,
@@ -19,6 +22,8 @@ import {
   totalScheduledMinutes,
   type TimeboxItem,
 } from '../../lib/timebox';
+import { openingMinutes } from '../../lib/dayStart';
+import { useDayStart } from './useDayStart';
 import { domNode, useDrag } from './DragProvider';
 import { filterTasks, type TaskFilter } from '../../lib/taskFilter';
 import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
@@ -37,7 +42,11 @@ import {
 } from '../../lib/storage';
 import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task } from '../../lib/types';
 
-// Desktop Timebox (decision 009): an hourly grid for one day, 06:00 to 23:00.
+// Desktop Timebox (decision 009): an hourly grid for one day, the whole 24
+// hours, 00:00 to 24:00 (decision 024). It opens at the "My day starts at"
+// time (or about an hour before now, for today). A task that runs past
+// midnight is drawn to 24:00 and its rest shows at the top of the next day as a
+// lighter "Continues from yesterday" block, derived every time, never stored.
 // It draws that day's CustomEvents (category colours, same sources the
 // Calendar tab reads) AND placed Tasks (a Task with this Day and a
 // startTime, decision 015). One row per task: nothing is copied. Tasks are
@@ -50,7 +59,9 @@ const GUTTER = 48;
 
 type Source =
   | { kind: 'event'; event: ScheduleEvent; custom?: CustomEvent }
-  | { kind: 'task'; task: Task };
+  | { kind: 'task'; task: Task }
+  // The rest of yesterday's overnight task (derived, opens the same popover).
+  | { kind: 'continuation'; task: Task };
 
 const domTimeStyle: React.CSSProperties = {
   height: 36,
@@ -81,6 +92,8 @@ export default function TimeboxPane({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editing, setEditing] = useState<CustomEvent | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const dayStartMin = useDayStart();
+  const [viewH, setViewH] = useState(0);
   const { drag, registerZone, sourceRef, startResize } = useDrag();
   const paneScroll = usePaneScroll();
   const scrollNode = useRef<HTMLElement | null>(null);
@@ -111,17 +124,19 @@ export default function TimeboxPane({
     reload();
   }, [reload, refreshKey]);
 
-  // Scroll to the current hour once, when the pane opens.
-  useEffect(() => {
-    const now = new Date();
-    const timer = setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: scrollOffsetFor(now.getHours() * 60 + now.getMinutes()), animated: false });
-    }, 50);
-    return () => clearTimeout(timer);
-  }, []);
-
   const key = dateKey(day);
   const todayKey = dateKey(new Date());
+
+  // Opening a day (the pane opening, another day chosen, or the day start
+  // changed): any day other than today opens at the day start; today opens
+  // about an hour before now (never before the day start once it has begun).
+  useEffect(() => {
+    if (viewH === 0) return;
+    const now = new Date();
+    const at = openingMinutes({ isToday: key === dateKey(now), nowMin: now.getHours() * 60 + now.getMinutes(), dayStartMin });
+    const timer = setTimeout(() => scrollRef.current?.scrollTo({ y: scrollOffsetFor(at), animated: false }), 50);
+    return () => clearTimeout(timer);
+  }, [key, dayStartMin, viewH > 0]);
 
   // The visible grid is the drop target for the displayed day.
   useEffect(() => {
@@ -177,13 +192,22 @@ export default function TimeboxPane({
       list.push({ id: `event:${e.id}`, startMin: s, endMin: en });
     }
     // The filter hides tasks (not events) from the Timebox too.
+    const prevKey = dateKey(addDays(day, -1));
     for (const t of filterTasks(tasks, filter)) {
-      if (t.deletedAt || t.dueDate !== key) continue;
-      const item = taskToItem(t);
-      if (!item) continue;
-      map.set(`task:${t.id}`, { kind: 'task', task: t });
-      tasksById.current.set(t.id, t);
-      list.push({ ...item, id: `task:${t.id}` });
+      if (t.deletedAt) continue;
+      if (t.dueDate === key) {
+        const item = taskToItem(t);
+        if (!item) continue;
+        map.set(`task:${t.id}`, { kind: 'task', task: t });
+        tasksById.current.set(t.id, t);
+        list.push({ ...item, id: `task:${t.id}` });
+      } else if (t.dueDate === prevKey) {
+        // The rest of an overnight task that started yesterday.
+        const rest = continuationOf(t);
+        if (!rest) continue;
+        map.set(rest.id, { kind: 'continuation', task: t });
+        list.push(rest);
+      }
     }
     return { sources: map, items: list };
   }, [day, key, events, categories, tasks, filter]);
@@ -197,7 +221,7 @@ export default function TimeboxPane({
   }
 
   function openSource(source: Source) {
-    if (source.kind === 'task') toggleBlockPopover(source.task.id);
+    if (source.kind === 'task' || source.kind === 'continuation') toggleBlockPopover(source.task.id);
     else if (source.custom) setEditing(source.custom);
   }
 
@@ -258,26 +282,22 @@ export default function TimeboxPane({
 
       <Text style={styles.total}>{total > 0 ? `Scheduled ${formatMinutes(total)}` : 'Nothing scheduled'}</Text>
 
-      {layout.outside.length > 0 && (
-        <Text style={styles.outside} numberOfLines={2}>
-          Outside {String(GRID_START_HOUR).padStart(2, '0')}:00 to {GRID_END_HOUR}:00:{' '}
-          {layout.outside
-            .map((id) => {
-              const s = sources.get(id);
-              if (!s) return '';
-              return s.kind === 'task'
-                ? `${s.task.title} ${s.task.startTime ?? ''}`
-                : `${s.event.title} ${s.event.start}`;
-            })
-            .join(', ')}
-        </Text>
-      )}
-
-      <ScrollView ref={setScrollRef as never} style={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View ref={setGridRef as never} style={[styles.grid, { height: GRID_HEIGHT_PX + 16 }]}>
+      <ScrollView
+        ref={setScrollRef as never}
+        style={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        onLayout={(e) => setViewH(Math.round(e.nativeEvent.layout.height))}
+      >
+        {/* A little room above so the 00:00 label is not cut off at the top. */}
+        <View style={{ height: 8 }} />
+        <View
+          ref={setGridRef as never}
+          style={[styles.grid, { height: GRID_HEIGHT_PX + 16 }]}
+          {...({ dataSet: { timeboxGrid: '1' } } as object)}
+        >
           {hours.map((h) => (
             <View key={h} style={[styles.hourRow, { top: (h - GRID_START_HOUR) * PX_PER_HOUR }]}>
-              <Text style={styles.hourLabel}>{String(h).padStart(2, '0')}:00</Text>
+              <Text style={styles.hourLabel}>{hourLabel(h)}</Text>
               <View style={styles.hourLine} />
             </View>
           ))}
@@ -295,6 +315,37 @@ export default function TimeboxPane({
                 left: `${(b.col * 100) / b.cols}%` as const,
                 width: `${100 / b.cols}%` as const,
               };
+              if (source.kind === 'continuation') {
+                const t = source.task;
+                const color = labelColor(labels.find((p) => p.key === t.projectKey)?.colorKey);
+                return (
+                  <View key={b.id} style={[styles.blockWrap, positioned]}>
+                    <View style={styles.blockBase}>
+                      <Pressable
+                        onPress={() => openSource(source)}
+                        style={[
+                          styles.block,
+                          styles.taskBlock,
+                          styles.continuationBlock,
+                          color && [styles.taskBlockLabelled, { backgroundColor: color.tint, borderLeftColor: color.edge }],
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Continues from yesterday: ${t.title}`}
+                        {...({ dataSet: { blockId: t.id, continuation: '1' } } as object)}
+                      >
+                        <View style={styles.blockTitleRow}>
+                          <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone]} numberOfLines={1}>
+                            {t.title}
+                          </Text>
+                          {isCompactBlock(b.height) && <Text style={styles.blockTimeInline}>Continues from yesterday</Text>}
+                        </View>
+                        {!isCompactBlock(b.height) && <Text style={styles.blockTime}>Continues from yesterday</Text>}
+                      </Pressable>
+                      <TaskBlockPopover task={t} label={labels.find((p) => p.key === t.projectKey)} onChanged={onChanged} />
+                    </View>
+                  </View>
+                );
+              }
               if (source.kind === 'task') {
                 const t = source.task;
                 const color = labelColor(labels.find((p) => p.key === t.projectKey)?.colorKey);
@@ -404,6 +455,8 @@ export default function TimeboxPane({
             )}
           </View>
         </View>
+        {/* Room below 24:00 so any time, up to 23:30, can be scrolled to the top. */}
+        <View style={{ height: Math.max(0, viewH - 28) }} />
       </ScrollView>
 
       {editing && (
@@ -420,11 +473,12 @@ export default function TimeboxPane({
   );
 }
 
-// Quiet marker on a block that runs past 23:00: the grid ends but the task or
-// event does not. The stored duration is untouched.
+// Quiet marker on a block that runs past 24:00: the grid ends but the task or
+// event does not (its rest shows on the next day). The stored duration is
+// untouched.
 function Continues() {
   return (
-    <View pointerEvents="none" style={styles.continues} accessibilityLabel="Continues after 23:00">
+    <View pointerEvents="none" style={styles.continues} accessibilityLabel="Continues after 24:00">
       <Text style={styles.continuesText}>continues</Text>
       <Ionicons name="arrow-down" size={10} color={Colors.textSecondary} />
     </View>
@@ -582,6 +636,9 @@ const styles = StyleSheet.create({
   dragging: { opacity: 0.35 },
   taskBlockActive: { backgroundColor: Colors.background },
   taskBlockLabelled: { borderWidth: 0, borderLeftWidth: 4 },
+  // The rest of yesterday's task: lighter than a real block, so it reads as a
+  // continuation and not as a task of this day.
+  continuationBlock: { opacity: 0.62, borderStyle: 'dashed' },
   blockContinues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   continues: { position: 'absolute', right: 6, bottom: 2, flexDirection: 'row', alignItems: 'center', gap: 2 },
   continuesText: { fontSize: 10, color: Colors.textSecondary },

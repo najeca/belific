@@ -10,7 +10,13 @@ to know the current version and recent history.
 
 ## 2.14.0 — 2026-10-07
 
-**Actual time removed, more space between cards. Desktop only; the iPhone is unchanged. (Checkpoint 8.4, part 1 of 3; the 24 hour Timebox and repeating series follow in the same version.)**
+**A 24 hour Timebox for any lifestyle, overnight tasks, ordered columns, Actual time removed and more space between cards. Desktop only; the iPhone is unchanged. (Checkpoint 8.4; repeating tasks as series follow in the same version.)**
+
+- **The Timebox is the whole day.** 00:00 to 24:00 with an hourly label on every hour, the faint half hour lines and the 30 minute snapping as before. A block can start as late as 23:30 and run past midnight.
+- **"My day starts at".** New setting in the Settings modal (Planning), a time in 30 minutes steps, default 05:00, stored in the main process settings (not synced). Any day other than today opens with that time at the top; today opens about an hour before now (never before the day start once it has begun). No other part of the app assumes a daytime schedule.
+- **Overnight tasks.** A task belongs to the Day it starts on. If it runs past 24:00 its block goes to 24:00 and the rest shows at the top of the next day as a lighter block, "Continues from yesterday" (derived, never stored; clicking it opens the same task popover). Move and resize from the original block only; resize may go past midnight up to 24 hours. The chip keeps showing the full estimate.
+- **Day column order.** Tasks without a start time first, then timed tasks earliest first, then completed ones.
+- **Fix:** the Daily reminder time in Settings could not be changed (a mistyped pattern rejected every value); it can now.
 
 - **Actual time is gone.** Jethro only wants the estimate, so the timer, the play button, the "Actual" and "Estimated" row, the forgotten-timer prompt, `lib/timer.ts` (and its controller, binding and tests), the `belific_timer` key, `Task.actualSeconds`, the `actual_seconds` sync column and its capability flag are removed. The two unapplied migration files (`20261007130000_task_actual_seconds.sql` and its rollback) are deleted: it was never applied to any database. A stored task that still carries `actualSeconds` is cleaned when it is loaded. The H:MM chip and the typed dropdown are unchanged. Decision 022 is marked superseded.
 - **More space.** Cards in the week columns are 12px apart (was a hairline) and rows in the left list 10px apart, keeping the hairline. The reserved space for the hover icons from 2.12.3 is unchanged.

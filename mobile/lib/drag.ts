@@ -5,6 +5,7 @@
 // plain numbers and rectangles in here.
 import type { Task } from './types.ts';
 import { isDateKey } from './kanban.ts';
+import { MAX_DURATION } from './duration.ts';
 import {
   DEFAULT_TASK_MINUTES,
   GRID_END_HOUR,
@@ -70,12 +71,12 @@ export function yToMinutes(y: number, gridTop: number): number {
   return GRID_START_MIN + ((y - gridTop) / PX_PER_HOUR) * 60;
 }
 
-// Keeps a block of `duration` minutes inside 06:00 to 23:00, on a 30 minute
-// boundary. A block longer than the grid starts at 06:00.
-export function clampStart(startMin: number, duration: number): number {
-  const latest = Math.floor((GRID_END_MIN - duration) / SNAP_MINUTES) * SNAP_MINUTES;
-  const start = Math.min(startMin, latest);
-  return Math.max(GRID_START_MIN, start);
+// Keeps a block's start on the day: 00:00 to 23:30, on a 30 minute boundary.
+// The length does not matter: a block dropped near the bottom of the day may
+// run past midnight (its rest shows on the next day, decision 024).
+export function clampStart(startMin: number, _duration: number): number {
+  const latest = GRID_END_MIN - SNAP_MINUTES;
+  return Math.max(GRID_START_MIN, Math.min(startMin, latest));
 }
 
 // The 30 minute slot under the pointer ("10:47" is in the 10:30 slot), clamped
@@ -92,11 +93,11 @@ export function movedBlockStart(rawPointerMin: number, grabOffsetMin: number, du
 }
 
 // Dragging a block's bottom edge: the duration changes in 30 minute steps,
-// never below 30 and never past 23:00 (but always at least 30, even for a
-// block that already starts at 22:45).
+// never below 30 and never past the 24 hour limit. It may extend past
+// midnight (the rest shows on the next day).
 export function resizedDuration(startMin: number, rawEndMin: number): number {
   const steps = Math.round((rawEndMin - startMin) / SNAP_MINUTES);
-  const maxSteps = Math.max(1, Math.floor((GRID_END_MIN - startMin) / SNAP_MINUTES));
+  const maxSteps = MAX_DURATION / SNAP_MINUTES;
   return Math.min(maxSteps, Math.max(1, steps)) * SNAP_MINUTES;
 }
 
@@ -181,9 +182,13 @@ export function dropPatch(
   };
 }
 
-// Label shown next to the pointer while over the Timebox: "10:30 to 11:00".
+// Label shown next to the pointer while over the Timebox: "10:30 to 11:00",
+// "23:00 to 24:00", "22:00 to 06:00 next day".
 export function slotLabel(startMin: number, duration: number): string {
-  return `${toTime(startMin)} to ${toTime(Math.min(GRID_END_MIN, startMin + duration))}`;
+  const end = startMin + duration;
+  if (end === GRID_END_MIN) return `${toTime(startMin)} to 24:00`;
+  if (end > GRID_END_MIN) return `${toTime(startMin)} to ${toTime(end - GRID_END_MIN)} next day`;
+  return `${toTime(startMin)} to ${toTime(end)}`;
 }
 
 // Start of a placed task in minutes (for the grab offset), or null.

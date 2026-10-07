@@ -15,6 +15,8 @@ import {
 import { syncLineText } from './BrainDumpPane';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import type { DesktopSettings } from '../../lib/kv';
+import { DAY_START_OPTIONS, isDayStart } from '../../lib/dayStart';
+import { DAY_START_EVENT } from './useDayStart';
 
 // A small desktop Settings modal (checkpoint 6), opened from the account line
 // at the bottom of the Brain Dump pane. Quiet Function and minimal: this is
@@ -56,7 +58,14 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     const bridge = globalThis.belificDesktop?.settings;
     if (!bridge) return;
     setPrefs((p) => (p ? { ...p, ...partial } : p));
-    bridge.set(partial).then(setPrefs).catch(() => {});
+    bridge
+      .set(partial)
+      .then((next) => {
+        setPrefs(next);
+        // The Timebox reads "My day starts at" from the same settings.
+        window.dispatchEvent(new Event(DAY_START_EVENT));
+      })
+      .catch(() => {});
   }
 
   const signedIn = account !== null;
@@ -181,6 +190,28 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
           {prefs && (
             <>
+              <Text style={styles.section}>Planning</Text>
+              <View style={styles.timeRow}>
+                <Text style={styles.body}>My day starts at</Text>
+                <select
+                  value={prefs.dayStart}
+                  onChange={(e) => {
+                    if (isDayStart(e.target.value)) setPref({ dayStart: e.target.value });
+                  }}
+                  style={domTimeStyle}
+                  aria-label="My day starts at"
+                >
+                  {DAY_START_OPTIONS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </View>
+              <Text style={styles.hint}>
+                The Timebox shows the whole day, 00:00 to 24:00. This is only where it opens: pick the time your day begins, whether that is early morning or the evening of a night shift.
+              </Text>
+
               <Text style={styles.section}>Notifications</Text>
               <ToggleRow label="Event starts" value={prefs.notifyEvents} onChange={(v) => setPref({ notifyEvents: v })} />
               <ToggleRow label="Tasks placed on the Timebox" value={prefs.notifyTasks} onChange={(v) => setPref({ notifyTasks: v })} />
@@ -192,7 +223,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     type="time"
                     value={prefs.dailyTime}
                     onChange={(e) => {
-                      if (/^d{2}:d{2}$/.test(e.target.value)) setPref({ dailyTime: e.target.value });
+                      if (/^\d{2}:\d{2}$/.test(e.target.value)) setPref({ dailyTime: e.target.value });
                     }}
                     style={domTimeStyle}
                     aria-label="Daily reminder time"

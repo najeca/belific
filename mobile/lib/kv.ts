@@ -19,6 +19,8 @@ export interface DesktopSettings {
   notifyTasks: boolean;
   dailyReminder: boolean;
   dailyTime: string;
+  // "My day starts at": where the Timebox opens, 'HH:mm' in 30 minute steps.
+  dayStart: string;
   closeToTray: boolean;
   startWithWindows: boolean;
   trayNoteShown: boolean;

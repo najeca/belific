@@ -4,12 +4,15 @@
 // never produce an unusable setting.
 const SETTINGS_KEY = 'belific_desktop_settings';
 const HM = /^([01]\d|2[0-3]):([0-5]\d)$/;
+// "My day starts at" (decision 024): a time in 30 minute steps.
+const HM_30 = /^([01]\d|2[0-3]):(00|30)$/;
 
 const DEFAULTS = Object.freeze({
   notifyEvents: true, // CustomEvent starts
   notifyTasks: true, // placed tasks at their startTime
   dailyReminder: true, // one grouped reminder (decision 020)
   dailyTime: '09:00',
+  dayStart: '05:00', // where the Timebox opens (UI state, never synced)
   closeToTray: true,
   startWithWindows: false, // opt in, off by default
   trayNoteShown: false,
@@ -25,6 +28,9 @@ function sanitize(partial, current = DEFAULTS) {
     if (typeof p[key] === 'boolean') out[key] = p[key];
   }
   if (typeof p.dailyTime === 'string' && HM.test(p.dailyTime)) out.dailyTime = p.dailyTime;
+  if (typeof p.dayStart === 'string' && HM_30.test(p.dayStart)) out.dayStart = p.dayStart;
+  // A stored value that is not valid falls back to the default.
+  if (!HM_30.test(out.dayStart)) out.dayStart = DEFAULTS.dayStart;
   return out;
 }
 

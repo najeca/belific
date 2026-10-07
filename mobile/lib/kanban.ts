@@ -84,14 +84,30 @@ export interface KanbanColumns {
   days: Record<string, ColumnItem[]>;
 }
 
-// Order inside a column: unfinished first (carried-over tasks, then High
-// priority, then oldest created), finished last (most recently completed
-// first).
+const START_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// A task on the board counts as timed when it has a start time of its own
+// today. A task carried over from a past day keeps its old time, which means
+// nothing here, so it stays in the untimed group.
+function startTimeOf(item: ColumnItem): string | null {
+  if (item.overdueFrom) return null;
+  const t = item.task.startTime;
+  return typeof t === 'string' && START_TIME.test(t) ? t : null;
+}
+
+// Order inside a column (checkpoint 8.4): tasks without a start time first
+// (carried-over tasks, then High priority, then oldest created), then tasks with
+// a start time, earliest first, then finished ones (most recently completed
+// first). Nothing can be reordered by hand.
 function compareItems(a: ColumnItem, b: ColumnItem): number {
   const aDone = a.task.completed;
   const bDone = b.task.completed;
   if (aDone !== bDone) return aDone ? 1 : -1;
   if (aDone && bDone) return (b.task.completedAt ?? '').localeCompare(a.task.completedAt ?? '');
+  const aTime = startTimeOf(a);
+  const bTime = startTimeOf(b);
+  if ((aTime !== null) !== (bTime !== null)) return aTime !== null ? 1 : -1;
+  if (aTime !== null && bTime !== null && aTime !== bTime) return aTime.localeCompare(bTime);
   if (!!a.overdueFrom !== !!b.overdueFrom) return a.overdueFrom ? -1 : 1;
   if (a.overdueFrom && b.overdueFrom && a.overdueFrom !== b.overdueFrom) {
     return a.overdueFrom.localeCompare(b.overdueFrom);

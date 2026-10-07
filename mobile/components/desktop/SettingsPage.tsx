@@ -11,6 +11,7 @@ import type { DesktopSettings } from '../../lib/kv';
 import { DAY_START_OPTIONS, isDayStart } from '../../lib/dayStart';
 import { DAY_START_EVENT } from './useDayStart';
 import { useAccount } from './useAccount';
+import { STREAK_TEXT } from '../../lib/seriesStreak';
 
 // The Settings page (checkpoint 9, decision 025): a view inside the app, not
 // an overlay. It replaces the old Settings modal; every setting and its
@@ -194,6 +195,8 @@ export default function SettingsPage({ onOpenLabels, labelCount, onChanged }: { 
               <Text style={styles.hint}>
                 The Timebox shows the whole day, 00:00 to 24:00. This is only where it opens: pick the time your day begins, whether that is early morning or the evening of a night shift.
               </Text>
+              <ToggleRow label={STREAK_TEXT.settingLabel} value={prefs.showStreaks} onChange={(v) => setPref({ showStreaks: v })} />
+              <Text style={styles.hint}>{STREAK_TEXT.settingHint}</Text>
             </Section>
 
             <Section title="Notifications">

@@ -9,6 +9,7 @@ import { dateKey } from '../../lib/kanban';
 import type { Project, Task } from '../../lib/types';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover } from './Popover';
 import { DurationBody, LabelBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import StreakLine from './StreakLine';
 import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
 
 // Clicking a placed task on the Timebox opens this small popover anchored to
@@ -116,6 +117,7 @@ function Inner({ task, label, onChanged, projected }: { task: Task; label?: Proj
       </View>
       <PopoverHeading>Task</PopoverHeading>
       {projected && <SeriesNote />}
+      <StreakLine task={task} inset />
       <Row
         label="Duration"
         sub={placed ? `${formatClock(task.durationMinutes)}, starts ${task.startTime}` : formatClock(task.durationMinutes)}

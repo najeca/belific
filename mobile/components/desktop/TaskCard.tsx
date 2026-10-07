@@ -15,6 +15,7 @@ import { cardKeyAction } from '../../lib/cardKeys';
 import { ensureFocusRingStyle } from './focusRing';
 import HoverPressable from './HoverPressable';
 import Popover, { togglePopover, useIsOpen, usePopoverAnchor, closePopover } from './Popover';
+import StreakLine from './StreakLine';
 import { DurationBody, LabelBody, MoveToDayBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import type { TaskOps } from './taskOps';
 
@@ -244,6 +245,7 @@ export default function TaskCard({
               </Control>
             </View>
             {overdueFrom && <Text style={styles.from}>from {formatShortDate(overdueFrom)}</Text>}
+            <StreakLine task={task} />
 
             <View style={styles.controls}>
               <Pressable

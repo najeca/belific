@@ -21,7 +21,7 @@
 // row can restart it. A tombstone left by "Skip this day" never ends a series
 // and is only a template of last resort (when nothing else is live).
 import type { Subtask, Task, WeekDay } from './types.ts';
-import { WEEKDAYS, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
+import { WEEKDAYS, addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
 import { effectiveDays, monthDayOf } from './repeat.ts';
 import { nextOccurrenceId, rootTaskId } from './recurrence.ts';
 import { copyForNextOccurrence } from './subtasks.ts';
@@ -40,6 +40,27 @@ export function idDate(id: string): string | undefined {
 export function isUpcomingOccurrence(id: string, todayKey: string): boolean {
   const day = idDate(id);
   return !!day && day >= todayKey;
+}
+
+// How long the local store keeps the tombstone of a skipped occurrence of a
+// repeating task (checkpoint 11). Streaks treat a skipped day as neutral, so the
+// tombstone must outlive the streak lookback (366 days, seriesStreak.ts) or a
+// long run would break silently when a skip aged out. Local only: the server
+// never prunes, nothing is synced differently, no migration.
+export const OCCURRENCE_TOMBSTONE_KEEP_DAYS = 400;
+
+// Is this tombstone one the local prune must keep? A skipped day of a series:
+// its id carries the day (`root:date`), or it is a row that still has a repeat
+// rule (a skipped root row). It is kept while that day is within the last
+// OCCURRENCE_TOMBSTONE_KEEP_DAYS days or any day ahead. Other tombstones
+// (ordinary deleted tasks, ended series) follow the normal 90 day prune.
+export function keepsOccurrenceTombstone(
+  task: { id: string; dueDate?: string; recurrence?: unknown },
+  todayKey: string,
+): boolean {
+  const day = idDate(task.id) ?? (task.recurrence && isDateKey(task.dueDate) ? task.dueDate : undefined);
+  if (!day) return false;
+  return day >= dateKey(addDays(parseDateKey(todayKey), -OCCURRENCE_TOMBSTONE_KEEP_DAYS));
 }
 
 // The series fields a projection and a template carry.

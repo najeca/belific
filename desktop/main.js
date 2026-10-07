@@ -272,6 +272,12 @@ function openSettingsFromMenu() {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('menu:openSettings');
 }
 
+// File, Progress: the same for the Progress page (checkpoint 11).
+function openProgressFromMenu() {
+  showWindow();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('menu:openProgress');
+}
+
 function openBackupsFolder() {
   fs.mkdirSync(paths().backups, { recursive: true });
   return shell.openPath(paths().backups);
@@ -360,6 +366,7 @@ function buildMenu() {
       label: 'File',
       submenu: [
         { label: 'Settings…', accelerator: 'Ctrl+,', click: () => openSettingsFromMenu() },
+        { label: 'Progress', click: () => openProgressFromMenu() },
         { type: 'separator' },
         { label: 'Export data…', click: () => exportData() },
         {

@@ -272,7 +272,8 @@ async function run() {
   // Keys now go to the page body, not to a Settings control that Tab focused.
   await js('document.activeElement && document.activeElement.blur()');
   const tasksBefore = JSON.stringify(read('belific_tasks'));
-  for (const k of ['Return', 'Escape', 'n', 'Space', 'Delete']) await press(k, 40);
+  // Escape is left out: since checkpoint 11 it leaves the page (cp11 checks that).
+  for (const k of ['Return', 'n', 'Space', 'Delete']) await press(k, 40);
   check('keys pressed on the Settings page change no task', JSON.stringify(read('belific_tasks')) === tasksBefore);
   const updatesBefore = notifyUpdates;
   const restBefore2 = fake.restCalls;

@@ -20,3 +20,17 @@ test('junk targets never throw and are not editable', () => {
   }
   assert.equal(isEditableTarget({ closest: () => undefined }), false);
 });
+
+import { TEXT_ENTRY_SELECTOR, isTextEntryTarget } from './editable.ts';
+
+test('isTextEntryTarget: text fields count, a switch or a button does not (Escape leaves a page from those)', () => {
+  const el = (matches: boolean) => ({ closest: () => (matches ? {} : null) });
+  assert.equal(isTextEntryTarget(el(true)), true);
+  assert.equal(isTextEntryTarget(el(false)), false);
+  assert.equal(isTextEntryTarget(null), false);
+  assert.equal(isTextEntryTarget({}), false);
+  for (const type of ['checkbox', 'radio', 'button', 'submit', 'range']) {
+    assert.ok(TEXT_ENTRY_SELECTOR.includes(`:not([type="${type}"])`), type);
+  }
+  for (const part of ['textarea', 'select', 'contenteditable']) assert.ok(TEXT_ENTRY_SELECTOR.includes(part), part);
+});

@@ -13,12 +13,13 @@ const DEFAULTS = Object.freeze({
   dailyReminder: true, // one grouped reminder (decision 020)
   dailyTime: '09:00',
   dayStart: '05:00', // where the Timebox opens (UI state, never synced)
+  showStreaks: true, // the "N days in a row" line on repeating tasks (checkpoint 11, never synced)
   closeToTray: true,
   startWithWindows: false, // opt in, off by default
   trayNoteShown: false,
 });
 
-const BOOLEANS = ['notifyEvents', 'notifyTasks', 'dailyReminder', 'closeToTray', 'startWithWindows', 'trayNoteShown'];
+const BOOLEANS = ['notifyEvents', 'notifyTasks', 'dailyReminder', 'closeToTray', 'startWithWindows', 'trayNoteShown', 'showStreaks'];
 
 // Applies `partial` onto `current`, ignoring unknown keys and invalid values.
 function sanitize(partial, current = DEFAULTS) {

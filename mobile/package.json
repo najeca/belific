@@ -7,6 +7,7 @@
     "start": "expo start",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
+    "check:ios-markers": "node scripts/ios-markers.js",
     "test": "node --test \"lib/*.test.ts\"",
     "android": "expo run:android"
   },

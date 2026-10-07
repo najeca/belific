@@ -45,6 +45,11 @@ export function closePopover(restoreFocus = false): void {
   }
 }
 
+// Is any popover open right now? (A page's Escape key leaves it to the popover.)
+export function isPopoverOpen(): boolean {
+  return current !== null;
+}
+
 export function togglePopover(id: string, restore: () => HTMLElement | null): void {
   if (current?.id === id) closePopover(true);
   else openPopover(id, restore);

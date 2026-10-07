@@ -9,10 +9,17 @@ import DragProvider from './DragProvider';
 import ProfileMenu from './ProfileMenu';
 import SettingsPage from './SettingsPage';
 import LabelsPage from './LabelsPage';
-import { closePopover } from './Popover';
+import ProgressPage from './ProgressPage';
+import { DAY_START_EVENT } from './useDayStart';
+import { setShowStreaks, setStreaks } from './streakStore';
+import { closePopover, isPopoverOpen } from './Popover';
 import { setHomeActive } from './viewActive';
 import AccountChoiceModal from './AccountChoiceModal';
 import { kv } from '../../lib/kv';
+import { isTextEntryTarget } from '../../lib/editable';
+import { dateKey } from '../../lib/kanban';
+import { computeStreaks } from '../../lib/seriesStreak';
+import { loadRoutineCompletions, loadTasksRaw } from '../../lib/storage';
 import { loadLabels } from '../../lib/labels';
 import { EMPTY_FILTER, FILTER_KEY, parseFilter, pruneFilter, serializeFilter, type TaskFilter } from '../../lib/taskFilter';
 import { listenForAuthCallbacks, refreshRevokePending, restoreAccountChoice, retryPendingRevoke } from '../../lib/desktopAuth';
@@ -34,7 +41,16 @@ export default function DesktopHome() {
   const [view, setView] = useState<View_>('home');
   const previous = useRef<View_>('home');
   const panes = useRef<View>(null);
+  // Where focus was when a page was opened, so Back and Escape can return it
+  // there (the profile icon when it was opened from the profile menu).
+  const viewRef = useRef<View_>('home');
+  viewRef.current = view;
+  const openers = useRef<Opener[]>([]);
+  const restore = useRef<Opener | null>(null);
   const showView = useCallback((next: View_) => {
+    // The control that opened the page, taken before the popover closes. A
+    // control inside a popover goes away with it, so the profile icon stands in.
+    if (next !== viewRef.current) openers.current.push(captureOpener());
     // Never carry an open popover (or a half done drag) into another view.
     closePopover();
     setView((cur) => {
@@ -44,12 +60,34 @@ export default function DesktopHome() {
   }, []);
   const goBack = useCallback(() => {
     closePopover();
+    restore.current = openers.current.pop() ?? null;
     setView((cur) => {
       const back = cur === 'labels' && previous.current === 'settings' ? 'settings' : 'home';
       previous.current = cur;
       return back;
     });
   }, []);
+  // After the view changes back, focus returns to where it came from.
+  useEffect(() => {
+    const o = restore.current;
+    if (!o) return;
+    restore.current = null;
+    const id = setTimeout(() => focusOpener(o), 0);
+    return () => clearTimeout(id);
+  }, [view]);
+  // Escape leaves a page (Settings, Labels, Progress), unless a popover has it or
+  // the key is going to a field.
+  useEffect(() => {
+    if (view === 'home') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      if (isPopoverOpen() || isTextEntryTarget(e.target)) return;
+      e.preventDefault();
+      goBack();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [view, goBack]);
   useEffect(() => {
     setHomeActive(view === 'home');
     // display none already removes the panes from focus and pointer input; the
@@ -59,6 +97,8 @@ export default function DesktopHome() {
   }, [view]);
   // File, Settings in the app menu.
   useEffect(() => globalThis.belificDesktop?.menu?.onOpenSettings(() => showView('settings')), [showView]);
+  // File, Progress.
+  useEffect(() => globalThis.belificDesktop?.menu?.onOpenProgress?.(() => showView('progress')), [showView]);
   // Validated sign in callbacks from the main process (decision 012).
   useEffect(() => listenForAuthCallbacks(), []);
   // An unanswered account choice survives a relaunch, and a sign out whose
@@ -77,13 +117,47 @@ export default function DesktopHome() {
   useEffect(() => {
     sendNotifyPayload();
   }, [refreshKey]);
+  // Streaks (checkpoint 11) are worked out from the stored rows, never stored:
+  // again whenever data changes, after a sync, and when the day changes.
+  const refreshStreaks = useCallback(async () => {
+    try {
+      const [tasks, completions] = await Promise.all([loadTasksRaw(), loadRoutineCompletions()]);
+      const today = dateKey(new Date());
+      setStreaks(computeStreaks(tasks, completions, today), today);
+    } catch {
+      // keep the last result
+    }
+  }, []);
   useEffect(() => {
-    const interval = setInterval(sendNotifyPayload, 60 * 1000);
+    refreshStreaks();
+  }, [refreshKey, refreshStreaks]);
+  // "Show streaks" (desktop setting), refreshed when Settings changes it.
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      globalThis.belificDesktop?.settings
+        .get()
+        .then((s) => alive && setShowStreaks(s.showStreaks !== false))
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener(DAY_START_EVENT, load);
+    return () => {
+      alive = false;
+      window.removeEventListener(DAY_START_EVENT, load);
+    };
+  }, []);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      sendNotifyPayload();
+      refreshStreaks();
+    }, 60 * 1000);
     let lastSuccess: string | null = null;
     const unsubscribe = subscribeSyncStatus((s) => {
       if (s.lastSuccessAt !== lastSuccess) {
         lastSuccess = s.lastSuccessAt;
         sendNotifyPayload();
+        refreshStreaks();
       }
     });
     const offTick = globalThis.belificDesktop?.notify.onTick(() => {
@@ -95,7 +169,7 @@ export default function DesktopHome() {
       unsubscribe();
       offTick?.();
     };
-  }, []);
+  }, [refreshStreaks]);
   const onChanged = useCallback(() => setRefreshKey((k) => k + 1), []);
   // The filter is UI state, never synced: remembered while the app runs and, in
   // the main process store (kv), across relaunch.
@@ -128,7 +202,7 @@ export default function DesktopHome() {
             <Text style={styles.backText}>Back</Text>
           </Pressable>
         )}
-        <ProfileMenu onOpenSettings={() => showView('settings')} />
+        <ProfileMenu onOpenSettings={() => showView('settings')} onOpenProgress={() => showView('progress')} />
       </View>
       <View ref={panes} style={[styles.body, view !== 'home' && styles.hidden]} accessibilityElementsHidden={view !== 'home'}>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -143,13 +217,37 @@ export default function DesktopHome() {
       </View>
       {view === 'settings' && <SettingsPage onOpenLabels={() => showView('labels')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} />}
       {view === 'labels' && <LabelsPage onChanged={onChanged} />}
+      {view === 'progress' && <ProgressPage />}
       <AccountChoiceModal />
     </View>
     </DragProvider>
   );
 }
 
-type View_ = 'home' | 'settings' | 'labels';
+type View_ = 'home' | 'settings' | 'labels' | 'progress';
+
+interface Opener {
+  el: HTMLElement | null;
+  label: string | null;
+}
+
+const PROFILE_ICON = '[aria-label="Profile and account"], [aria-label="Profile, not signed in"]';
+
+function captureOpener(): Opener {
+  const a = typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null;
+  const usable = a && a !== document.body && a.isConnected && !a.closest('[role="dialog"]') ? a : null;
+  return { el: usable, label: usable?.getAttribute('aria-label') ?? null };
+}
+
+// The element if it is still there, else the one with the same name (a page that
+// was rebuilt), else the profile icon.
+function focusOpener(o: Opener): void {
+  const visible = (el: Element | null | undefined): el is HTMLElement => !!el && (el as HTMLElement).getBoundingClientRect().width > 0;
+  const named = o.label ? Array.from(document.querySelectorAll('[aria-label]')).find((e) => e.getAttribute('aria-label') === o.label && visible(e)) : undefined;
+  const icon = Array.from(document.querySelectorAll(PROFILE_ICON)).find((e) => visible(e));
+  const target = (o.el && o.el.isConnected && visible(o.el) ? o.el : null) ?? (named as HTMLElement | undefined) ?? (icon as HTMLElement | undefined);
+  target?.focus();
+}
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },

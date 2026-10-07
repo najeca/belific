@@ -21,6 +21,8 @@ export interface DesktopSettings {
   dailyTime: string;
   // "My day starts at": where the Timebox opens, 'HH:mm' in 30 minute steps.
   dayStart: string;
+  // The "N days in a row" line on repeating tasks (checkpoint 11). Desktop only, never synced.
+  showStreaks: boolean;
   closeToTray: boolean;
   startWithWindows: boolean;
   trayNoteShown: boolean;
@@ -69,6 +71,8 @@ export interface BelificDesktop {
   // The app menu asks the page to show a view (File, Settings).
   menu?: {
     onOpenSettings(listener: () => void): () => void;
+    // File, Progress (checkpoint 11).
+    onOpenProgress?(listener: () => void): () => void;
   };
 }
 

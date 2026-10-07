@@ -8,6 +8,20 @@ to know the current version and recent history.
 
 ---
 
+## 2.17.0 — 2026-10-07
+
+**Streaks and a Progress page, derived from repeating series. Desktop only; the iPhone app is unchanged. No migration, no sync change, no database contact, no stored counters. (Checkpoint 11.)**
+
+- **Streaks are derived** (`mobile/lib/seriesStreak.ts`, pure): from the stored occurrences `root:date`, the skip tombstones and, for a converted routine (`rt_<id>`), its old routine completions. A day is done when its occurrence is completed (ticking the last subtask completes it, so there is one rule). A skipped day is neutral, a day not done ends the run silently, today before it is done is neutral, days that are not scheduled are neutral. Weekly, every 2 weeks and monthly series count scheduled occurrences. Dates are stepped by the calendar, never by milliseconds, so clock changes cannot skip or repeat a day; "My day starts at" is not an input.
+- **The line.** "N days in a row" for a daily series and "N in a row" for other rules, from 2 only, on TODAY's card and in the block popover. Never a zero, never a warning, no icon or colour change. Settings, Planning has **Show streaks** (default on, desktop setting, not synced; it hides the lines, not the Progress page).
+- **Progress page.** A page inside the app (decision 025), reached from a new Progress row in the profile menu or File, Progress. Per live series: the run, the best run (each from 2), "Last 7 days: 5 of 6" and "Last 30 days" (hidden when none were done) and a 7 day strip. Every square has a text name ("Monday, done", "Tuesday, not done", "Wednesday, skipped", "Thursday, not scheduled", "Today, open") and its shape differs by state (tick, empty outline, dash, dot, dashed outline), so colour is never the only signal. No totals across series, no chart.
+- **Keyboard.** The pages (Settings, Labels, Progress) now close with Escape (unless a popover or a text field has it), and Back or Escape returns focus to the control that opened the page (the profile icon when it came from the profile menu, the button that opened Labels, the card that had focus for File, Progress). A focused switch or button does not block Escape.
+- **Skip tombstones are kept 400 days locally** (`series.keepsOccurrenceTombstone`, was: while the day is today or later), longer than the 366 day streak lookback, so a skip never ages into a miss. Local only; the server never prunes and sync is unchanged.
+- **iOS marker gate:** `npm run check:ios-markers -- <export folder>` (`mobile/scripts/ios-markers.js`). Exits 1 on any marker (now including `ProgressPage`, `seriesStreak`, `Show streaks`), 2 on a missing folder or bundle; `copyRoutineCompletions` is the one allowed name, checked in source with `git grep`. `seriesStreak` stays a marker until the iOS catch-up release reuses it (decision 018, CURRENT_TRUTH).
+- Tests: `seriesStreak.test.ts` (37, including the banned wording check over every string and the walk across the Europe, US and Auckland clock changes in real time zones), `iosMarkers.test.ts` (9), editable and settings tests, real check `npm run test:real:cp11` (52 checks). cp9 no longer presses Escape on the Settings page body (Escape now leaves the page; cp11 checks that).
+
+---
+
 ## 2.16.0 — 2026-10-07
 
 **Routines from the iPhone can become repeating tasks, by a button the person presses later. Desktop only; the iPhone app is unchanged. No migration, no database contact. (Checkpoint 10.)**

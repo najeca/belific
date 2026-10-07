@@ -30,3 +30,12 @@ test('other settings are unaffected by dayStart', () => {
   assert.equal(out.notifyEvents, false);
   assert.equal(out.closeToTray, true);
 });
+
+test('showStreaks defaults to on, is a boolean, and ignores anything else (checkpoint 11)', () => {
+  assert.equal(DEFAULTS.showStreaks, true);
+  assert.equal(sanitize({}).showStreaks, true);
+  assert.equal(sanitize({ showStreaks: false }).showStreaks, false);
+  const off = sanitize({ showStreaks: false });
+  for (const bad of ['no', 0, null, undefined, {}]) assert.equal(sanitize({ showStreaks: bad }, off).showStreaks, false, JSON.stringify(bad));
+  assert.equal(sanitize({ dailyTime: '08:00' }, off).showStreaks, false);
+});

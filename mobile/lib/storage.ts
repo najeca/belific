@@ -2,7 +2,7 @@ import { kv } from './kv';
 import { backfillUpdatedAt, backfillCreatedAndUpdatedAt } from './migrations';
 import { stripLegacyTasks } from './legacyTask';
 import { dateKey } from './kanban';
-import { isUpcomingOccurrence } from './series';
+import { keepsOccurrenceTombstone } from './series';
 import type {
   BrainDumpItem,
   CustomCategory,
@@ -448,10 +448,12 @@ export async function loadTasksRaw(): Promise<Task[]> {
 }
 
 // A tombstone of a skipped occurrence (id `root:YYYY-MM-DD`, decision 023) is
-// kept for as long as that day is today or later: it is what hides the day, and
-// the usual 90 day prune would otherwise bring a day skipped far ahead back.
+// kept for as long as that day is today or later (it is what hides the day; the
+// usual 90 day prune would bring a day skipped far ahead back) and, since
+// checkpoint 11, for 400 days after it, so a streak never breaks silently when a
+// skip ages out.
 function keepsSkip(task: Task): boolean {
-  return isUpcomingOccurrence(task.id, dateKey(new Date()));
+  return keepsOccurrenceTombstone(task, dateKey(new Date()));
 }
 
 export async function loadTasks(): Promise<Task[]> {

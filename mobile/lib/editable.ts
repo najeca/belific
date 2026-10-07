@@ -14,3 +14,20 @@ export function isEditableTarget(target: unknown): boolean {
     return false;
   }
 }
+
+// A field where Escape means something else (cancel the edit, close the list):
+// text entry, a select, a textarea, contenteditable. A checkbox, radio or button
+// is not one, so Escape on a focused switch still leaves a page (checkpoint 11).
+export const TEXT_ENTRY_SELECTOR =
+  'textarea, select, [contenteditable]:not([contenteditable="false"]), input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="range"])';
+
+export function isTextEntryTarget(target: unknown): boolean {
+  const t = target as { closest?: (selector: string) => unknown } | null | undefined;
+  if (!t || typeof t.closest !== 'function') return false;
+  try {
+    const hit = t.closest(TEXT_ENTRY_SELECTOR);
+    return hit !== null && hit !== undefined;
+  } catch {
+    return false;
+  }
+}

@@ -7,6 +7,7 @@ import { runFullSync, type PublicSyncStatus } from '../../lib/sync';
 import { lastSyncedText, profileInitial, syncErrorText, syncLineText } from '../../lib/syncText';
 import Popover, { closePopover, Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { useAccount } from './useAccount';
+import { STREAK_TEXT } from '../../lib/seriesStreak';
 
 const POPOVER_ID = 'profile';
 
@@ -16,7 +17,7 @@ const POPOVER_ID = 'profile';
 // the menu offers Sign in with Apple. Signed in it shows the user's initial
 // and the menu shows the account, sync status with Sync now, Settings and Sign
 // out. The sign in, sign out, account choice and revoke code is unchanged.
-export default function ProfileMenu({ onOpenSettings }: { onOpenSettings: () => void }) {
+export default function ProfileMenu({ onOpenSettings, onOpenProgress }: { onOpenSettings: () => void; onOpenProgress: () => void }) {
   const { account, status, ui } = useAccount();
   const { ref, get } = usePopoverAnchor();
   const open = useIsOpen(POPOVER_ID);
@@ -44,16 +45,16 @@ export default function ProfileMenu({ onOpenSettings }: { onOpenSettings: () => 
       </Pressable>
       <Popover id={POPOVER_ID} anchor={get} width={288} label="Profile menu">
         {signedIn ? (
-          <SignedInBody account={account} status={status} ui={ui} onOpenSettings={() => { closePopover(); onOpenSettings(); }} />
+          <SignedInBody account={account} status={status} ui={ui} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} />
         ) : (
-          <SignedOutBody busy={ui.busy} message={ui.message} onOpenSettings={() => { closePopover(); onOpenSettings(); }} />
+          <SignedOutBody busy={ui.busy} message={ui.message} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} />
         )}
       </Popover>
     </>
   );
 }
 
-function SignedOutBody({ busy, message, onOpenSettings }: { busy: boolean; message: string | null; onOpenSettings: () => void }) {
+function SignedOutBody({ busy, message, onOpenSettings, onOpenProgress }: { busy: boolean; message: string | null; onOpenSettings: () => void; onOpenProgress: () => void }) {
   return (
     <View>
     <View style={styles.body}>
@@ -66,13 +67,14 @@ function SignedOutBody({ busy, message, onOpenSettings }: { busy: boolean; messa
       {(busy || message) && <Text style={styles.hint}>{message ?? 'Finish signing in in your browser…'}</Text>}
     </View>
     <View style={styles.rows}>
+      <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
       <Row label="Settings" onPress={onOpenSettings} a11y="Settings" />
     </View>
     </View>
   );
 }
 
-function SignedInBody({ account, status, ui, onOpenSettings }: { account: string; status: PublicSyncStatus; ui: AuthUiState; onOpenSettings: () => void }) {
+function SignedInBody({ account, status, ui, onOpenSettings, onOpenProgress }: { account: string; status: PublicSyncStatus; ui: AuthUiState; onOpenSettings: () => void; onOpenProgress: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   const [syncing, setSyncing] = useState(false);
   // The "last synced" wording moves on while the menu is open.
@@ -115,6 +117,7 @@ function SignedInBody({ account, status, ui, onOpenSettings }: { account: string
       </View>
       <View style={styles.rows}>
         <Row label={syncing || status.state === 'syncing' ? 'Syncing…' : 'Sync now'} onPress={syncNow} disabled={syncing || status.state === 'syncing'} a11y="Sync now" />
+        <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
         <Row label="Settings" onPress={onOpenSettings} a11y="Settings" />
         <Row label="Sign out" onPress={signOut} a11y="Sign out" />
       </View>

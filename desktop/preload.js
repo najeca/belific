@@ -65,6 +65,12 @@ const menu = {
     ipcRenderer.on('menu:openSettings', handler);
     return () => ipcRenderer.removeListener('menu:openSettings', handler);
   },
+  // File, Progress (checkpoint 11).
+  onOpenProgress: (listener) => {
+    const handler = () => listener();
+    ipcRenderer.on('menu:openProgress', handler);
+    return () => ipcRenderer.removeListener('menu:openProgress', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('belificDesktop', {

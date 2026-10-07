@@ -17,12 +17,13 @@ import {
 import TaskCard from './TaskCard';
 import FilterButton from './FilterButton';
 import { filterTasks, type TaskFilter } from '../../lib/taskFilter';
-import { opsForTask } from './taskOps';
+import { opsForProjected, opsForTask } from './taskOps';
+import { projectOccurrences } from '../../lib/series';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { stepWeekStart, taskDuration } from '../../lib/drag';
-import { loadTasks } from '../../lib/storage';
+import { loadTasksRaw } from '../../lib/storage';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
@@ -83,7 +84,9 @@ export default function KanbanPane({
   const columnRefs = useRef(new Map<string, (node: unknown) => void>());
 
   const reload = useCallback(() => {
-    loadTasks().then(setTasks);
+    // Raw rows, tombstones included: a skipped day is a tombstone and must
+    // block its projection (lib/series.ts). The board never shows a tombstone.
+    loadTasksRaw().then(setTasks);
     loadLabels().then(setProjects);
   }, []);
 
@@ -99,7 +102,14 @@ export default function KanbanPane({
   const days = useMemo(() => weekDays(shownWeekStart, todayKey), [shownWeekStart.getTime(), todayKey]);
   // The filter (labels, no label, show complete) applies to tasks only.
   const shownTasks = useMemo(() => filterTasks(tasks, filter), [tasks, filter]);
-  const columns = useMemo(() => bucketTasks(shownTasks, days, todayKey), [shownTasks, days, todayKey]);
+  // Repeating series show on every matching day from today forward without
+  // storing anything (decision 023). The label filter and Show complete apply to
+  // them like to any task.
+  const projected = useMemo(
+    () => filterTasks(projectOccurrences(tasks, days.map((d) => d.key), todayKey), filter),
+    [tasks, days, todayKey, filter],
+  );
+  const columns = useMemo(() => bucketTasks(shownTasks, days, todayKey, { projected }), [shownTasks, days, todayKey, projected]);
   const weekLabel = formatWeekLabel(days, new Date().getFullYear());
 
   // The drag layer asks for the latest week through these.
@@ -174,7 +184,7 @@ export default function KanbanPane({
 
             <ScrollView ref={scrollRef(`day:${col.id}`) as never} style={styles.columnList} showsVerticalScrollIndicator={false}>
               {col.items.map((item, index) => {
-                const { task, overdueFrom } = item;
+                const { task, overdueFrom, projected: isProjected } = item;
                 const proj = projects.find((p) => p.key === task.projectKey);
                 // A label's colour: soft tint plus a 4px left edge. No label stays neutral.
                 const color = labelColor(proj?.colorKey);
@@ -182,7 +192,8 @@ export default function KanbanPane({
                   <TaskCard
                     key={task.id}
                     task={task}
-                    ops={opsForTask(task)}
+                    ops={isProjected ? opsForProjected(task) : opsForTask(task)}
+                    projected={isProjected}
                     label={proj}
                     color={color}
                     variant="card"
@@ -198,6 +209,7 @@ export default function KanbanPane({
                       id: task.id,
                       title: task.title,
                       duration: taskDuration(task),
+                      projected: isProjected,
                     }))}
                   />
                 );

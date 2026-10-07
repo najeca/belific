@@ -10,7 +10,14 @@ to know the current version and recent history.
 
 ## 2.14.0 — 2026-10-07
 
-**A 24 hour Timebox for any lifestyle, overnight tasks, ordered columns, Actual time removed and more space between cards. Desktop only; the iPhone is unchanged. (Checkpoint 8.4; repeating tasks as series follow in the same version.)**
+**Repeating tasks are series that show on every matching day, a 24 hour Timebox for any lifestyle, overnight tasks, ordered columns, Actual time removed and more space between cards. Desktop only; the iPhone is unchanged. (Checkpoint 8.4.)**
+
+- **Repeating tasks show on every matching day.** A Daily task now appears in every day column from today forward (and in the Timebox on each day), a weekly one on its weekdays, "Every 2 weeks" on its weeks, monthly on its date (the 31st falls on the last day of shorter months). These are *projected* occurrences: computed when drawn, never stored, never synced, never in the left list, never in the past. A projected card looks like a normal card, a little lighter. Decision 023.
+  - Ticking a projected card or one of its subtasks stores **that day** as a real task (`rootId:date`) and changes nothing else. A day that has a stored occurrence shows it, never a duplicate. Completing a repeating task no longer creates the next copy on the desktop (the days are already shown); the iPhone still does.
+  - Editing a projected card (title, label, priority, estimate, repeat, reminder, notes, subtasks, start time) edits the series: the template row and every open stored row from today. The card says "Repeating: changes apply to every day". Dragging it onto the Timebox sets the start time of the whole series (a daily 05:00 routine shows at 05:00 every day); it cannot go to another Day column or the left list.
+  - **Skip this day** (card overflow menu) hides one day with a tombstoned occurrence (the existing tombstone mechanism; no new column). **Delete repeating task** (inline "Delete this repeating task? Yes / No") tombstones the open days and stops the series; **Does not repeat** clears the rule on every row of the series, so an ended series can never come back.
+  - Reminders: the next 48 hours include projected occurrences (timed ones with their own lead; untimed ones in the grouped daily reminder). The label filter and Show complete apply to them. An unfinished past occurrence of a repeating task is no longer shown as overdue.
+  - No database change and no migration; existing stored repeating tasks keep working.
 
 - **The Timebox is the whole day.** 00:00 to 24:00 with an hourly label on every hour, the faint half hour lines and the 30 minute snapping as before. A block can start as late as 23:30 and run past midnight.
 - **"My day starts at".** New setting in the Settings modal (Planning), a time in 30 minutes steps, default 05:00, stored in the main process settings (not synced). Any day other than today opens with that time at the top; today opens about an hour before now (never before the day start once it has begun). No other part of the app assumes a daytime schedule.

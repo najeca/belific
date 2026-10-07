@@ -196,11 +196,11 @@ export interface Task {
   // 'HH:mm'. A task with a dueDate AND a startTime is "placed" and shows as
   // a block on Timebox for that day. One row, never copied into an event.
   startTime?: string;
-  // Repeat settings (checkpoint 2b), set in the desktop Brain Dump form only.
-  // Same types CustomEvent uses. Only the NEXT occurrence exists: completing
-  // the task creates the next one (lib/taskActions.ts setTaskCompleted, id
-  // `${rootId}:${nextDueDate}`). LOCAL ONLY until the sync migration
-  // (checkpoint 5), like durationMinutes and startTime.
+  // Repeat settings (checkpoint 2b). Same types CustomEvent uses. On the iPhone
+  // only the NEXT occurrence exists: completing the task creates the next one
+  // (lib/taskActions.ts setTaskCompleted, id `${rootId}:${nextDueDate}`). On
+  // the desktop the series' coming days are shown, not stored (lib/series.ts,
+  // decision 023). Synced (migration 2).
   recurrence?: RecurrenceRule;
   recurrenceDays?: WeekDay[];
   // Monthly only (checkpoint 4.2): the date number it repeats on (1 to 31),

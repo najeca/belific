@@ -75,6 +75,9 @@ export function formatShortDate(key: string): string {
 
 export interface ColumnItem {
   task: Task;
+  // A projected occurrence of a repeating series (lib/series.ts): shown on this
+  // Day but not stored. Ticking it stores that day's occurrence.
+  projected?: boolean;
   // Set when an unfinished task from a past day is surfaced in Today. The
   // stored dueDate is left alone until the user moves it.
   overdueFrom?: string;
@@ -128,7 +131,16 @@ function compareItems(a: ColumnItem, b: ColumnItem): number {
 //  - dueDate on a day that is not displayed: not in any column (it shows when
 //    that week is displayed)
 // Deleted (tombstoned) tasks are never shown.
-export function bucketTasks(tasks: Task[], days: ColumnDay[], todayKey: string): KanbanColumns {
+//  - an unfinished PAST occurrence of a repeating task is not carried forward
+//    (checkpoint 8.4): the routine simply shows on its next matching day
+//  - projected occurrences (opts.projected, from lib/series.ts) go into their
+//    own day's column, marked projected; they are never in the past
+export function bucketTasks(
+  tasks: Task[],
+  days: ColumnDay[],
+  todayKey: string,
+  opts: { projected?: Task[] } = {},
+): KanbanColumns {
   const result: KanbanColumns = { days: {} };
   for (const day of days) result.days[day.key] = [];
 
@@ -138,11 +150,15 @@ export function bucketTasks(tasks: Task[], days: ColumnDay[], todayKey: string):
     if (!isDateKey(due)) {
       continue;
     } else if (due < todayKey) {
-      if (task.completed) continue;
+      if (task.completed || task.recurrence) continue;
       if (todayKey in result.days) result.days[todayKey].push({ task, overdueFrom: due });
     } else if (due in result.days) {
       result.days[due].push({ task });
     }
+  }
+  for (const task of opts.projected ?? []) {
+    const due = task.dueDate;
+    if (isDateKey(due) && due >= todayKey && due in result.days) result.days[due].push({ task, projected: true });
   }
 
   for (const key of Object.keys(result.days)) result.days[key].sort(compareItems);

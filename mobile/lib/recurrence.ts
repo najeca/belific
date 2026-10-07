@@ -1,8 +1,11 @@
 // Pure recurrence maths for recurring Tasks (checkpoints 2b and 2c). NO runtime
 // react-native or storage imports so `node --test` can run it; see
-// recurrence.test.ts. Only the NEXT occurrence ever exists (docs/DESIGN_VISION
-// section 2): completing a recurring task creates the next one, see
-// taskActions.ts. Dates are local 'YYYY-MM-DD' keys.
+// recurrence.test.ts. On the iPhone only the NEXT occurrence ever exists
+// (docs/DESIGN_VISION section 2): completing a recurring task creates the next
+// one, see taskActions.ts. The desktop shows the coming days of a series
+// without storing them (series.ts, decision 023) and only uses this file's id
+// scheme and next-day maths for a repeating task with no Day. Dates are local
+// 'YYYY-MM-DD' keys.
 import type { RecurrenceRule, Task, WeekDay } from './types.ts';
 import { WEEKDAYS, addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
 import { effectiveDays, monthDayOf } from './repeat.ts';

@@ -1,4 +1,12 @@
 import { completeTaskById, editDumpItem, patchTask, toggleSubtaskById } from '../../lib/taskActions';
+import {
+  completeProjected,
+  deleteSeries,
+  endSeries,
+  patchSeries,
+  skipOccurrence,
+  toggleProjectedSubtask,
+} from '../../lib/seriesActions';
 import { deleteBrainDumpItem, deleteTask } from '../../lib/storage';
 import { dumpItemToTask } from '../../lib/thoughts';
 import type { BrainDumpItem, Task } from '../../lib/types';
@@ -12,14 +20,46 @@ export interface TaskOps {
   setCompleted(done: boolean): Promise<void>;
   toggleSubtask(subtaskId: string): Promise<void>;
   remove(): Promise<void>;
+  // Repeating tasks only (decision 023): the actions of the overflow menu.
+  series?: SeriesOps;
 }
 
+export interface SeriesOps {
+  // The card is a projected occurrence (not stored yet): its edits apply to
+  // the whole series and ticking stores that day.
+  projected: boolean;
+  skipDay(): Promise<void>;
+  deleteSeries(): Promise<void>;
+}
+
+// A stored task. A repeating one also gets the series actions, and setting it
+// to "Does not repeat" ends the whole series (every row of its root).
 export function opsForTask(task: Task): TaskOps {
+  const repeating = !!task.recurrence;
   return {
-    patch: (fields) => patchTask(task.id, fields),
+    patch: (fields) =>
+      repeating && 'recurrence' in fields && fields.recurrence === undefined
+        ? endSeries(task, fields)
+        : patchTask(task.id, fields),
     setCompleted: (done) => completeTaskById(task.id, done),
     toggleSubtask: (sid) => toggleSubtaskById(task.id, sid),
     remove: () => deleteTask(task.id),
+    ...(repeating
+      ? { series: { projected: false, skipDay: () => skipOccurrence(task), deleteSeries: () => deleteSeries(task) } }
+      : {}),
+  };
+}
+
+// A projected occurrence of a repeating series (lib/series.ts): edits go to the
+// series template, ticking stores that day's occurrence, "Skip this day" writes
+// a tombstone and "Delete repeating task" ends the series.
+export function opsForProjected(task: Task): TaskOps {
+  return {
+    patch: (fields) => patchSeries(task, fields),
+    setCompleted: (done) => completeProjected(task, done),
+    toggleSubtask: (sid) => toggleProjectedSubtask(task, sid),
+    remove: () => skipOccurrence(task),
+    series: { projected: true, skipDay: () => skipOccurrence(task), deleteSeries: () => deleteSeries(task) },
   };
 }
 

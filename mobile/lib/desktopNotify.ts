@@ -1,4 +1,4 @@
-import { loadCustomEvents, loadTasks } from './storage';
+import { loadCustomEvents, loadTasksRaw } from './storage';
 import { buildNotifyPayload } from './desktopNotifyCore';
 
 // Desktop notifications (decision 017, checkpoint 7). Web/desktop only:
@@ -19,7 +19,7 @@ export function sendNotifyPayload(): void {
   timer = setTimeout(async () => {
     timer = null;
     try {
-      const [events, tasks] = await Promise.all([loadCustomEvents(), loadTasks()]);
+      const [events, tasks] = await Promise.all([loadCustomEvents(), loadTasksRaw()]);
       await bridge.update(buildNotifyPayload(events, tasks, Date.now()));
     } catch {
       // A failed send is retried on the next change or tick.

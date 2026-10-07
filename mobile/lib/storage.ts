@@ -1,6 +1,8 @@
 import { kv } from './kv';
 import { backfillUpdatedAt, backfillCreatedAndUpdatedAt } from './migrations';
 import { stripLegacyTasks } from './legacyTask';
+import { dateKey } from './kanban';
+import { isUpcomingOccurrence } from './series';
 import type {
   BrainDumpItem,
   CustomCategory,
@@ -54,9 +56,11 @@ function isoDaysAgo(days: number): string {
 // chronological order.
 function pruneAndHideTombstones<T extends { deletedAt?: string }>(
   items: T[],
+  // Tombstones this says to keep even when they are old.
+  keep?: (item: T) => boolean,
 ): { visible: T[]; forStorage: T[]; changed: boolean } {
   const cutoff = isoDaysAgo(TOMBSTONE_RETENTION_DAYS);
-  const forStorage = items.filter((i) => !i.deletedAt || i.deletedAt >= cutoff);
+  const forStorage = items.filter((i) => !i.deletedAt || i.deletedAt >= cutoff || (keep?.(i) ?? false));
   const visible = forStorage.filter((i) => !i.deletedAt);
   return { visible, forStorage, changed: forStorage.length !== items.length };
 }
@@ -422,10 +426,19 @@ export async function loadTasksRaw(): Promise<Task[]> {
   }
 }
 
+// A tombstone of a skipped occurrence (id `root:YYYY-MM-DD`, decision 023) is
+// kept for as long as that day is today or later: it is what hides the day, and
+// the usual 90 day prune would otherwise bring a day skipped far ahead back.
+function keepsSkip(task: Task): boolean {
+  return isUpcomingOccurrence(task.id, dateKey(new Date()));
+}
+
 export async function loadTasks(): Promise<Task[]> {
   const all = await loadTasksRaw();
-  const { visible, changed } = pruneAndHideTombstones(all);
-  if (changed) await storageLock.run(async () => saveTasks(pruneAndHideTombstones(await loadTasksRaw()).forStorage));
+  const { visible, changed } = pruneAndHideTombstones(all, keepsSkip);
+  if (changed) {
+    await storageLock.run(async () => saveTasks(pruneAndHideTombstones(await loadTasksRaw(), keepsSkip).forStorage));
+  }
   return visible;
 }
 

@@ -62,3 +62,62 @@ test('8.2 the payload carries a per task reminder only when one is set', () => {
   assert.equal('reminderMinutes' in p.placed.find((x) => x.id === 'b')!, false);
   assert.deepEqual(p.planned.map((x) => x.reminderMinutes), [-1, undefined]);
 });
+
+// ---- Repeating series (checkpoint 8.4, decision 023) ----
+
+const series = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  title: 'Routine',
+  completed: false,
+  dueDate: '2026-10-05',
+  recurrence: 'daily',
+  createdAt: '2026-10-01T08:00:00.000Z',
+  updatedAt: '2026-10-05T08:00:00.000Z',
+  ...extra,
+});
+
+test('a timed daily routine sends every coming occurrence as a placed task with its own reminder lead', () => {
+  const p = buildNotifyPayload([], [series('d', { completed: true, startTime: '09:30', reminderMinutes: 10 })], now);
+  // 6, 7 and 8 Oct 09:30 are inside the 72 hour window; 9 Oct 09:30 is past 9 Oct 08:00
+  assert.deepEqual(p.placed.map((t) => t.id), ['d:2026-10-06', 'd:2026-10-07', 'd:2026-10-08']);
+  assert.equal(p.placed[0].start, new Date(2026, 9, 6, 9, 30).getTime());
+  assert.ok(p.placed.every((t) => t.reminderMinutes === 10 && t.completed === false));
+  assert.deepEqual(p.planned, []);
+});
+
+test('an untimed daily routine counts for the daily reminder on every day of the window', () => {
+  const p = buildNotifyPayload([], [series('d', { completed: true })], now);
+  assert.deepEqual(p.planned.map((t) => t.dueDate), ['2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09']);
+  assert.ok(p.planned.every((t) => t.completed === false));
+  assert.deepEqual(p.placed, []);
+});
+
+test('a stored occurrence replaces its projection: today completed is not counted twice or at all', () => {
+  const rows = [series('d', { completed: true }), series('d:2026-10-06', { dueDate: '2026-10-06', completed: true })];
+  const p = buildNotifyPayload([], rows, now);
+  assert.deepEqual(p.planned.map((t) => t.dueDate), ['2026-10-07', '2026-10-08', '2026-10-09']);
+});
+
+test('an unfinished stored occurrence for today counts once, not as a stored task plus a projection', () => {
+  const rows = [series('d', { completed: true }), series('d:2026-10-06', { dueDate: '2026-10-06' })];
+  const p = buildNotifyPayload([], rows, now);
+  assert.equal(p.planned.filter((t) => t.dueDate === '2026-10-06').length, 1);
+});
+
+test('a skipped day (a tombstone) sends nothing, and the tombstone itself is never sent', () => {
+  const rows = [series('d', { completed: true, startTime: '09:30' }), series('d:2026-10-07', { dueDate: '2026-10-07', startTime: '09:30', deletedAt: '2026-10-06T07:00:00.000Z' })];
+  const p = buildNotifyPayload([], rows, now);
+  assert.deepEqual(p.placed.map((t) => t.id), ['d:2026-10-06', 'd:2026-10-08']);
+});
+
+test('a series that no longer repeats sends nothing beyond its own rows', () => {
+  const rows = [series('d', { completed: true, recurrence: undefined })];
+  const p = buildNotifyPayload([], rows, now);
+  assert.deepEqual(p.planned, []);
+  assert.deepEqual(p.placed, []);
+});
+
+test('a projected occurrence whose reminder is off carries -1 so the daily count leaves it out', () => {
+  const p = buildNotifyPayload([], [series('d', { completed: true, reminderMinutes: -1 })], now);
+  assert.ok(p.planned.length > 0 && p.planned.every((t) => t.reminderMinutes === -1));
+});

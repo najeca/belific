@@ -23,9 +23,10 @@ import {
   type TimeboxItem,
 } from '../../lib/timebox';
 import { openingMinutes } from '../../lib/dayStart';
+import { tasksForTimebox } from '../../lib/timeboxTasks';
 import { useDayStart } from './useDayStart';
 import { domNode, useDrag } from './DragProvider';
-import { filterTasks, type TaskFilter } from '../../lib/taskFilter';
+import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
 import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
 import usePaneScroll from './usePaneScroll';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -36,7 +37,7 @@ import { labelColor } from '../../lib/labelColors';
 import {
   loadCustomCategories,
   loadCustomEvents,
-  loadTasks,
+  loadTasksRaw,
   updateCustomEvent,
   deleteCustomEvent,
 } from '../../lib/storage';
@@ -59,9 +60,11 @@ const GUTTER = 48;
 
 type Source =
   | { kind: 'event'; event: ScheduleEvent; custom?: CustomEvent }
-  | { kind: 'task'; task: Task }
+  // `projected`: an occurrence of a repeating series that is shown but not
+  // stored (decision 023); edits go to the series, ticking stores that day.
+  | { kind: 'task'; task: Task; projected?: boolean }
   // The rest of yesterday's overnight task (derived, opens the same popover).
-  | { kind: 'continuation'; task: Task };
+  | { kind: 'continuation'; task: Task; projected?: boolean };
 
 const domTimeStyle: React.CSSProperties = {
   height: 36,
@@ -99,6 +102,7 @@ export default function TimeboxPane({
   const scrollNode = useRef<HTMLElement | null>(null);
   const gridNode = useRef<HTMLElement | null>(null);
   const tasksById = useRef(new Map<string, Task>());
+  const projectedIds = useRef(new Set<string>());
   const handleRefs = useRef(new Map<string, (node: unknown) => void>());
   const setScrollRef = useCallback(
     (instance: unknown) => {
@@ -116,7 +120,8 @@ export default function TimeboxPane({
   const reload = useCallback(() => {
     loadCustomEvents().then(setEvents);
     loadCustomCategories().then(setCategories);
-    loadTasks().then(setTasks);
+    // Raw rows, tombstones included, so a skipped day blocks its projection.
+    loadTasksRaw().then(setTasks);
     loadLabels().then(setLabels);
   }, []);
 
@@ -160,7 +165,7 @@ export default function TimeboxPane({
           const task = tasksById.current.get(id);
           const start = toMinutes(task?.startTime);
           if (!task || start === null || !gridNode.current) return;
-          startResize(e, task, start, gridNode.current);
+          startResize(e, task, start, gridNode.current, projectedIds.current.has(id));
         };
         // RN's cursor type has no ns-resize; set it on the DOM node.
         el.style.cursor = 'ns-resize';
@@ -191,26 +196,29 @@ export default function TimeboxPane({
       map.set(`event:${e.id}`, { kind: 'event', event: e, custom: c });
       list.push({ id: `event:${e.id}`, startMin: s, endMin: en });
     }
-    // The filter hides tasks (not events) from the Timebox too.
-    const prevKey = dateKey(addDays(day, -1));
-    for (const t of filterTasks(tasks, filter)) {
-      if (t.deletedAt) continue;
-      if (t.dueDate === key) {
-        const item = taskToItem(t);
-        if (!item) continue;
-        map.set(`task:${t.id}`, { kind: 'task', task: t });
-        tasksById.current.set(t.id, t);
-        list.push({ ...item, id: `task:${t.id}` });
-      } else if (t.dueDate === prevKey) {
-        // The rest of an overnight task that started yesterday.
-        const rest = continuationOf(t);
-        if (!rest) continue;
-        map.set(rest.id, { kind: 'continuation', task: t });
-        list.push(rest);
-      }
+    // Stored tasks, projected occurrences of repeating series (decision 023) and
+    // the rest of yesterday's overnight tasks (decision 024); see
+    // lib/timeboxTasks.ts. The filter hides tasks (not events) from the Timebox too.
+    projectedIds.current.clear();
+    const { own, spill } = tasksForTimebox(tasks, key, todayKey);
+    for (const { task: t, projected } of own) {
+      if (!taskVisible(t, filter)) continue;
+      const item = taskToItem(t);
+      if (!item) continue;
+      map.set(`task:${t.id}`, { kind: 'task', task: t, projected });
+      tasksById.current.set(t.id, t);
+      if (projected) projectedIds.current.add(t.id);
+      list.push({ ...item, id: `task:${t.id}` });
+    }
+    for (const { task: t, projected } of spill) {
+      if (!taskVisible(t, filter)) continue;
+      const rest = continuationOf(t);
+      if (!rest) continue;
+      map.set(rest.id, { kind: 'continuation', task: t, projected });
+      list.push(rest);
     }
     return { sources: map, items: list };
-  }, [day, key, events, categories, tasks, filter]);
+  }, [day, key, todayKey, events, categories, tasks, filter]);
 
   const layout = useMemo(() => layoutItems(items), [items]);
   const total = totalScheduledMinutes(items);
@@ -341,7 +349,7 @@ export default function TimeboxPane({
                         </View>
                         {!isCompactBlock(b.height) && <Text style={styles.blockTime}>Continues from yesterday</Text>}
                       </Pressable>
-                      <TaskBlockPopover task={t} label={labels.find((p) => p.key === t.projectKey)} onChanged={onChanged} />
+                      <TaskBlockPopover task={t} label={labels.find((p) => p.key === t.projectKey)} onChanged={onChanged} projected={source.projected} />
                     </View>
                   </View>
                 );
@@ -371,6 +379,7 @@ export default function TimeboxPane({
                           id: t.id,
                           title: t.title,
                           duration: taskDuration(t),
+                          projected: source.projected,
                           grabOffsetMin: yToMinutes(e.clientY, grid.getBoundingClientRect().top) - start,
                         };
                       }) as never}
@@ -380,6 +389,7 @@ export default function TimeboxPane({
                         styles.taskBlock,
                         color && [styles.taskBlockLabelled, { backgroundColor: color.tint, borderLeftColor: color.edge }],
                         b.continues && styles.blockContinues,
+                        source.projected && styles.blockProjected,
                         resizing !== undefined && styles.taskBlockActive,
                       ]}
                       accessibilityRole="button"
@@ -407,7 +417,7 @@ export default function TimeboxPane({
                       )}
                     </Pressable>
                     {b.continues && <Continues />}
-                    <TaskBlockPopover task={t} label={labels.find((p) => p.key === t.projectKey)} onChanged={onChanged} />
+                    <TaskBlockPopover task={t} label={labels.find((p) => p.key === t.projectKey)} onChanged={onChanged} projected={source.projected} />
                     <View ref={handleRef(t.id) as never} style={styles.resizeHandle} accessibilityLabel={`Resize ${t.title}`} />
                     </View>
                   </View>
@@ -639,6 +649,8 @@ const styles = StyleSheet.create({
   // The rest of yesterday's task: lighter than a real block, so it reads as a
   // continuation and not as a task of this day.
   continuationBlock: { opacity: 0.62, borderStyle: 'dashed' },
+  // A projected occurrence reads a little lighter than a stored block.
+  blockProjected: { opacity: 0.82 },
   blockContinues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   continues: { position: 'absolute', right: 6, bottom: 2, flexDirection: 'row', alignItems: 'center', gap: 2 },
   continuesText: { fontSize: 10, color: Colors.textSecondary },

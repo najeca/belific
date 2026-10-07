@@ -13,7 +13,7 @@ import type { Project, Task } from '../../lib/types';
 import { isEditableTarget } from '../../lib/editable';
 import HoverPressable from './HoverPressable';
 import Popover, { togglePopover, useIsOpen, usePopoverAnchor, closePopover } from './Popover';
-import { DurationBody, LabelBody, MoveToDayBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody } from './TaskPopovers';
+import { DurationBody, LabelBody, MoveToDayBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import type { TaskOps } from './taskOps';
 
 // A task on the board or in the left list (checkpoint 8.2, decision 021). Every
@@ -34,6 +34,7 @@ export default function TaskCard({
   overdueFrom,
   divider,
   dropHighlight,
+  projected,
 }: {
   task: Task;
   ops: TaskOps;
@@ -49,6 +50,9 @@ export default function TaskCard({
   divider?: boolean;
   // "Add as subtask" while a dragged task is armed over this card.
   dropHighlight?: boolean;
+  // A projected occurrence of a repeating series (decision 023): not stored,
+  // lighter, edits apply to every day, ticking stores this day.
+  projected?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -70,6 +74,13 @@ export default function TaskCard({
     setCompleted: (d) => run(() => ops.setCompleted(d)),
     toggleSubtask: (id) => run(() => ops.toggleSubtask(id)),
     remove: () => run(() => ops.remove()),
+    series: ops.series
+      ? {
+          projected: ops.series.projected,
+          skipDay: () => run(() => ops.series!.skipDay()),
+          deleteSeries: () => run(() => ops.series!.deleteSeries()),
+        }
+      : undefined,
   };
 
   const id = task.id;
@@ -142,6 +153,7 @@ export default function TaskCard({
           divider && (variant === 'card' ? styles.cardGap : styles.rowGap),
           dragging && styles.dragging,
           dropHighlight && styles.dropTarget,
+          projected && styles.projected,
         ]}
         hoverStyle={variant === 'card' && color ? styles.labelledHover : styles.hover}
         // Not a button: RN web renders role button as a native <button>, and a
@@ -149,7 +161,9 @@ export default function TaskCard({
         accessibilityLabel={`Task ${task.title}`}
         // The board finds the card under a dragged task through this (a legacy
         // phone item is not a real task yet, so it is never a drop host).
-        {...(task.id.startsWith('dump:') ? {} : ({ dataSet: { taskCard: task.id } } as object))}
+        // A projected occurrence is never a host either: nothing can be dropped on it.
+        {...(task.id.startsWith('dump:') || projected ? {} : ({ dataSet: { taskCard: task.id } } as object))}
+        {...(projected ? ({ dataSet: { projected: '1' } } as object) : {})}
       >
         {(hovered) => (
           <>
@@ -189,7 +203,7 @@ export default function TaskCard({
               )}
               {/* Both icons are always laid out and only fade in on hover, so nothing
                   in the card moves when the pointer arrives or leaves. */}
-              <HeaderIcon id={`${id}:day`} icon="calendar-outline" a11y={`Move ${task.title} to day`} shown={!renaming && (hovered || dayOpen)}>
+              <HeaderIcon id={`${id}:day`} icon="calendar-outline" a11y={`Move ${task.title} to day`} shown={!renaming && !projected && (hovered || dayOpen)}>
                   {(anchor) => (
                     <Popover id={`${id}:day`} anchor={anchor} width={248}>
                       <MoveToDayBody task={task} ops={wrapped} done={() => closePopover(true)} />
@@ -198,8 +212,8 @@ export default function TaskCard({
                 </HeaderIcon>
               <HeaderIcon id={`${id}:more`} icon="ellipsis-horizontal" a11y={`More actions for ${task.title}`} shown={!renaming && (hovered || moreOpen)}>
                   {(anchor) => (
-                    <Popover id={`${id}:more`} anchor={anchor} width={200}>
-                      <OverflowBody ops={wrapped} done={() => closePopover()} />
+                    <Popover id={`${id}:more`} anchor={anchor} width={236}>
+                      <OverflowBody task={task} ops={wrapped} done={() => closePopover()} />
                     </Popover>
                   )}
                 </HeaderIcon>
@@ -310,7 +324,7 @@ export default function TaskCard({
             </View>
 
             {dropHighlight && <Text style={styles.dropText}>Add as subtask</Text>}
-            {expanded && <ExpandedBody task={task} ops={wrapped} cardNode={() => cardEl.current} />}
+            {expanded && <ExpandedBody task={task} ops={wrapped} cardNode={() => cardEl.current} projected={projected} />}
           </>
         )}
       </HoverPressable>
@@ -381,7 +395,7 @@ function Control({
 }
 
 // ---- expanded in place: notes and subtasks ----
-function ExpandedBody({ task, ops, cardNode }: { task: Task; ops: TaskOps; cardNode: () => HTMLElement | null }) {
+function ExpandedBody({ task, ops, cardNode, projected }: { task: Task; ops: TaskOps; cardNode: () => HTMLElement | null; projected?: boolean }) {
   const notesRef = useRef<TextInput>(null);
   const [notes, setNotes] = useState(task.notes ?? '');
   const [newText, setNewText] = useState('');
@@ -441,6 +455,7 @@ function ExpandedBody({ task, ops, cardNode }: { task: Task; ops: TaskOps; cardN
     // A Pressable so a press inside never reaches the card's own press (which
     // would collapse it), and marked so the board drag ignores it.
     <Pressable onPress={() => {}} style={styles.expanded} {...({ dataSet: { noDrag: '1' } } as object)}>
+      {projected && <SeriesNote />}
       <TextInput
         style={styles.notes}
         placeholder="Notes"
@@ -606,6 +621,8 @@ const styles = StyleSheet.create({
   // Hover on a tinted card: a hairline outline instead of replacing the tint.
   labelledHover: { outlineWidth: 1, outlineStyle: 'solid', outlineColor: Colors.border },
   dragging: { opacity: 0.4 },
+  // A projected occurrence reads a little lighter than a stored one.
+  projected: { opacity: 0.82 },
   dropTarget: { outlineWidth: 2, outlineStyle: 'solid', outlineColor: Colors.accent, borderRadius: 8 },
   dropText: { fontSize: 11, fontWeight: '700', color: Colors.accentText },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },

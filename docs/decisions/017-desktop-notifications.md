@@ -32,6 +32,9 @@ Deviations and additions:
 - **Replaces "fires at the start time" for tasks.** `Task.reminderMinutes` (undefined = default, -1 = off, 0 or more = minutes before) is carried in the payload for placed tasks. The scheduler fires a placed task at `start - lead` ("Starts in 10 minutes", or "Starting now" for 0), skips a task set to off, and skips a lead that is already in the past. The 48 hour window applies to the notification time. Dedupe, cancel on change and the late-timer rules are unchanged. Events still fire at their start time. Options: None, At start time, 5, 10, 30 minutes, 1 hour before; the bell on a card is filled when set to something other than the default and crossed when off.
 - The iPhone is unchanged and ignores the field (it round-trips it once the third migration is applied).
 
+## Update (2026-10-07, checkpoint 8.4, app 2.14.0): repeating tasks
+The 48 hour payload now also carries the occurrences of repeating series that are only shown, not stored (decision 023): a projected occurrence with a start time is sent as a placed task (id `rootId:date`, its own reminder lead), so a daily 05:00 routine notifies every day without being ticked. A day that has a stored occurrence sends that one only, and a skipped day (a tombstone) sends nothing. Tombstoned rows are never sent. The scheduler is unchanged: de-dupe and cancel on change work as before.
+
 ## Related Notes
 - [[docs/OPUS_PLAN_REVIEW]]
 - [[docs/decisions/009-desktop-platform-and-auth]]

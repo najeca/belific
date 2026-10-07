@@ -3,16 +3,15 @@ import { createDumpConverter } from './dumpConvert';
 import { planDropAsSubtask, toggleSubtask, undoDropAsSubtask, withAllDone, type SubtaskDropPlan } from './subtasks';
 import { generateId } from './data';
 import { buildNextOccurrence, nextOccurrenceId, nextOccurrence } from './recurrence';
-import { dateKey } from './kanban';
+import { dateKey, isDateKey } from './kanban';
 import { dumpItemToTask, newThought } from './thoughts';
 import type { BrainDumpItem, Task } from './types';
 
 // The ONE place a task is completed or un-completed (checkpoint 2b). Every
 // completion point must call setTaskCompleted rather than writing
-// `completed` itself, so a recurring task always gets its next occurrence.
-// Desktop calls it today (kanban checkbox, task form). When sync arrives
-// (checkpoint 5) the iOS app must call it too, otherwise a recurring task
-// completed on the phone would never create its next occurrence.
+// `completed` itself. The iPhone must complete tasks through it, so a
+// recurring task completed on the phone gets its next occurrence (the desktop
+// shows the next days from the series instead, see below).
 //
 // Un-completing never removes an occurrence that was already created. The next
 // occurrence counts from the later of the task's Day and today, so it is never
@@ -34,8 +33,14 @@ export function setTaskCompleted(task: Task, completed: boolean): Promise<void> 
     };
     await updateTask(done);
     // The next occurrence copies the subtasks, all unticked (from the ticked or
-    // unticked list alike).
-    if (completed && task.recurrence) await createNextOccurrence(task);
+    // unticked list alike). On the desktop a repeating task is a series whose
+    // next days are only SHOWN (lib/series.ts, decision 023), so nothing is
+    // created when a dated one is completed; one with no Day has nothing to
+    // project from and still gets its next dated copy. The iPhone, which shows
+    // only stored tasks, always creates it.
+    if (completed && task.recurrence && (!globalThis.belificDesktop || !isDateKey(task.dueDate))) {
+      await createNextOccurrence(task);
+    }
   });
   chain = run.catch(() => {});
   return run;

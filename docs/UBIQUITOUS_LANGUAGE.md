@@ -31,6 +31,11 @@ Never invent synonyms.
 | **Kanban** | The desktop Plan: a forward-only week board with one column per day (no Unscheduled column: tasks with no Day are the Brain Dump list). Tasks sit under the day they are planned for. |
 | **Day** | A Task's `dueDate`, redefined in decision 015 as the day the task is **planned** for, not a hard deadline. Absent means no Day: on desktop the task is on the Brain Dump list. |
 | **Placed task** | A Task with a Day and a `startTime`, shown as a block on Timebox. Sized by `durationMinutes` (default 30). One row, never copied into a `CustomEvent`. |
+| **Series** / **Template** | A repeating task on the desktop (decision 023): every stored row whose id is `root` or `root:date`. The template is its latest live row; it decides what every projected day looks like and its repeat rule. |
+| **Projected occurrence** | A day of a series that is shown on the board and Timebox but not stored (never synced, never in the past or the left list). Ticking it stores that day's occurrence. |
+| **Skip this day** | Hides one day of a series by tombstoning that day's occurrence (`root:date`). It never ends the series. |
+| **Day start** ("My day starts at") | Desktop setting, default 05:00: where the 24 hour Timebox opens (decision 024). Not synced. |
+| **Continuation** | The rest of an overnight task, drawn at the top of the next day's Timebox as "Continues from yesterday". Derived, never stored. |
 | **Label** | The UI word for a `Project`: a tag with a colour (decision 016). A Task has one. Not to be confused with a Custom Category (events only). |
 | **Quest** | The UI word for a Routine, shown in the Quests panel on desktop. Same data type, no separate "quest" table. |
 | **XP event** / **Level** | Proposed (decision 014): an append-only ledger row for a completed routine or task, and the level derived from lifetime XP. Not built. |

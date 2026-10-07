@@ -85,9 +85,12 @@ async function run() {
   await C.sleep(400);
   check('the card shows the repeat mark with "Every day"', await exists(inCard('Alpha', '[aria-label="Repeat: Every day"]')));
   await click(inCard('Alpha', '[aria-label="Mark Alpha complete"]'));
-  await C.waitFor(() => tasks().some((x) => x.id === `a:${tomorrow}`), 8000).catch(() => {});
-  const next = tasks().find((x) => x.id === `a:${tomorrow}`);
-  check('completing it creates the next occurrence on the following day', !!next && next.dueDate === tomorrow && next.recurrence === 'daily' && !next.completed);
+  await C.waitFor(() => tasks().some((x) => x.id === 'a' && x.completed), 8000).catch(() => {});
+  await C.sleep(700);
+  // Since 2.14.0 (decision 023) the desktop shows the following days from the
+  // series; completing a dated repeating task stores nothing for tomorrow.
+  check('completing it creates no stored copy for the following day', !tasks().some((x) => x.id === `a:${tomorrow}`));
+  check('the following day shows the routine as a projected card, not completed', await exists(q('[aria-label="Task Alpha"][data-projected]')));
   check('the original is completed', taskNamed('Alpha') === undefined || taskNamed('Alpha').completed === true);
 
   // ---- Bravo: Weekly with all seven days switches to Daily ----

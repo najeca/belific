@@ -229,3 +229,13 @@ test('8.2 mapper: at most 50 subtasks, junk reminder values become null, pulls r
   assert.equal(old.subtasks, undefined);
   assert.equal(old.reminderMinutes, undefined);
 });
+
+test('Actual time is gone (2.14.0): no actual_seconds is sent, and one that arrives is ignored', () => {
+  const t = { id: 't', title: 'T', completed: false, createdAt: T1, updatedAt: T2, durationMinutes: 45 } as Task & { actualSeconds?: number };
+  const caps = { serverUpdatedAt: true, taskPipeline: true };
+  const sent = taskToRemote({ ...t, actualSeconds: 5400 } as Task, caps);
+  assert.equal('actual_seconds' in sent, false);
+  const back = taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T2, actual_seconds: 5400 } as never);
+  assert.equal('actualSeconds' in back, false);
+  assert.equal(JSON.stringify(back).includes('5400'), false);
+});

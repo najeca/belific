@@ -18,6 +18,9 @@
 ## Update (2026-10-07, checkpoint 8.2, app 2.12.0)
 A planned task whose reminder is set to None (`reminderMinutes` -1) is left out of the grouped count. A task with no start time ignores the lead options (they are disabled in its dropdown, which shows the quiet note "Reminds at your daily reminder time"); only Default and None apply to it.
 
+## Update (2026-10-07, checkpoint 8.4, app 2.14.0): repeating tasks
+The grouped daily reminder counts projected occurrences of repeating series (decision 023) that are planned for the day, have no start time and are not completed, the same as stored tasks (a projected occurrence is never completed; ticking it stores it as completed and it leaves the count). A skipped day and a series that was ended are not counted. A projected occurrence whose reminder is set to None (-1) is left out, as for any task.
+
 ## Related Notes
 - [[docs/decisions/017-desktop-notifications]]
 - [[docs/decisions/002-local-notifications-only]]

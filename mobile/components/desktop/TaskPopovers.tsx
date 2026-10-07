@@ -542,8 +542,62 @@ export function LabelBody({ task, ops, done }: BodyProps) {
 }
 
 // ---------------------------------------------------------------- Overflow
-export function OverflowBody({ ops, done }: Pick<BodyProps, 'ops' | 'done'>) {
+// The quiet line on a card or block that stands for every day of a repeating
+// series (checkpoint 8.4, decision 023): its edits change the series.
+export const SERIES_NOTE = 'Repeating: changes apply to every day';
+
+export function SeriesNote() {
+  return <Text style={styles.seriesNote}>{SERIES_NOTE}</Text>;
+}
+
+export function OverflowBody({
+  task,
+  ops,
+  done,
+}: Pick<BodyProps, 'ops' | 'done'> & { task?: Pick<Task, 'dueDate' | 'completed'> }) {
   const [confirming, setConfirming] = useState(false);
+  const series = ops.series;
+  // A repeating task (stored or projected): skip one day, or delete the series.
+  if (series) {
+    const canSkip = !!task?.dueDate && !task.completed;
+    return (
+      <View style={styles.list}>
+        {confirming ? (
+          <View style={styles.confirm}>
+            <Text style={styles.muted}>Delete this repeating task?</Text>
+            <Pressable
+              onPress={async () => {
+                await series.deleteSeries();
+                done();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Confirm delete repeating task"
+            >
+              <Text style={styles.yes}>Yes</Text>
+            </Pressable>
+            <Pressable onPress={() => setConfirming(false)} accessibilityRole="button" accessibilityLabel="Cancel delete repeating task">
+              <Text style={styles.no}>No</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            {canSkip && (
+              <Row
+                label="Skip this day"
+                sub="Hides this day only"
+                onPress={async () => {
+                  await series.skipDay();
+                  done();
+                }}
+                a11y="Skip this day"
+              />
+            )}
+            <Row label="Delete repeating task" danger onPress={() => setConfirming(true)} a11y="Delete repeating task" />
+          </>
+        )}
+      </View>
+    );
+  }
   return (
     <View style={styles.list}>
       {confirming ? (
@@ -589,6 +643,7 @@ function Chip({ label, selected, onPress, a11y }: { label: string; selected: boo
 
 const styles = StyleSheet.create({
   list: { paddingBottom: 6 },
+  seriesNote: { paddingHorizontal: 12, paddingVertical: 4, fontSize: 12, color: Colors.textSecondary },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 12, paddingVertical: 6 },
   chip: { paddingHorizontal: 10, height: 30, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
   chipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },

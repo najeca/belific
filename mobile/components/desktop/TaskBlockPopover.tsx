@@ -8,8 +8,8 @@ import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
 import type { Project, Task } from '../../lib/types';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover } from './Popover';
-import { DurationBody, LabelBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody } from './TaskPopovers';
-import { opsForTask, type TaskOps } from './taskOps';
+import { DurationBody, LabelBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
 
 // Clicking a placed task on the Timebox opens this small popover anchored to
 // the block (checkpoint 8.2, never a modal). A menu of the same controls a
@@ -31,28 +31,38 @@ export default function TaskBlockPopover({
   task,
   label,
   onChanged,
+  projected,
 }: {
   task: Task;
   label?: Project;
   onChanged: () => void;
+  // A projected occurrence of a repeating series (not stored yet).
+  projected?: boolean;
 }) {
   return (
     <Popover id={blockPopoverId(task.id)} anchor={blockAnchor(task.id)} width={280}>
-      <Inner task={task} label={label} onChanged={onChanged} />
+      <Inner task={task} label={label} onChanged={onChanged} projected={projected} />
     </Popover>
   );
 }
 
-function Inner({ task, label, onChanged }: { task: Task; label?: Project; onChanged: () => void }) {
+function Inner({ task, label, onChanged, projected }: { task: Task; label?: Project; onChanged: () => void; projected?: boolean }) {
   const [view, setView] = useState<View_>('root');
   const [title, setTitle] = useState(task.title);
-  const base = opsForTask(task);
+  const base = projected ? opsForProjected(task) : opsForTask(task);
   const run = <T,>(fn: () => Promise<T>) => fn().then((r) => (onChanged(), r));
   const ops: TaskOps = {
     patch: (f) => run(() => base.patch(f)),
     setCompleted: (d) => run(() => base.setCompleted(d)),
     toggleSubtask: (id) => run(() => base.toggleSubtask(id)),
     remove: () => run(() => base.remove()),
+    series: base.series
+      ? {
+          projected: base.series.projected,
+          skipDay: () => run(() => base.series!.skipDay()),
+          deleteSeries: () => run(() => base.series!.deleteSeries()),
+        }
+      : undefined,
   };
   const back = () => setView('root');
   const todayKey = dateKey(new Date());
@@ -75,7 +85,7 @@ function Inner({ task, label, onChanged }: { task: Task; label?: Project; onChan
         {view === 'duration' && <DurationBody task={task} ops={ops} done={back} />}
         {view === 'reminder' && <ReminderBody task={task} ops={ops} done={back} />}
         {view === 'repeat' && <RepeatBody task={task} ops={ops} done={back} />}
-        {view === 'more' && <OverflowBody ops={ops} done={() => closePopover()} />}
+        {view === 'more' && <OverflowBody task={task} ops={ops} done={() => closePopover()} />}
       </View>
     );
   }
@@ -105,6 +115,7 @@ function Inner({ task, label, onChanged }: { task: Task; label?: Project; onChan
         />
       </View>
       <PopoverHeading>Task</PopoverHeading>
+      {projected && <SeriesNote />}
       <Row
         label="Duration"
         sub={placed ? `${formatClock(task.durationMinutes)}, starts ${task.startTime}` : formatClock(task.durationMinutes)}

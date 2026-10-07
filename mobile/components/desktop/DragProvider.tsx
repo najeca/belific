@@ -26,6 +26,7 @@ import { UNDO_MS, dwellArmed, nextDwell, resolveCardRelease, type DwellState, ty
 import { closePopover } from './Popover';
 import { isEditableTarget } from '../../lib/editable';
 import { convertDumpItem, dropAsSubtask, undoDropAsSubtaskPlan } from '../../lib/taskActions';
+import { patchSeries } from '../../lib/seriesActions';
 import type { BrainDumpItem, Task } from '../../lib/types';
 
 // Desktop drag and drop (checkpoint 4, decision 019): hand written pointer
@@ -52,6 +53,16 @@ export interface DragItem {
   duration: number;
   // Blocks only: minutes between the block's start and where it was grabbed.
   grabOffsetMin?: number;
+  // A projected occurrence of a repeating series (decision 023): it can only be
+  // dropped on the Timebox, which sets the start time of the whole series.
+  projected?: boolean;
+}
+
+// Only a stored, non repeating task can be merged into another card as a
+// subtask: a repeating task would leave its series with no rows, and a
+// projected occurrence has no row of its own.
+function canHost(item: DragItem): boolean {
+  return !!item.task && !item.projected && !item.task.recurrence;
 }
 
 export interface DragState {
@@ -90,7 +101,7 @@ interface DragApi {
   registerBoard: (reg: BoardReg | null) => void;
   // Ref callback factory for a drag source, cached per key.
   sourceRef: (key: string, getItem: (e: PointerEvent) => DragItem | null) => (node: unknown) => void;
-  startResize: (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement) => void;
+  startResize: (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected?: boolean) => void;
 }
 
 const DragContext = createContext<DragApi | null>(null);
@@ -209,7 +220,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
     if (edge === 0) armed.current = null;
     else if (!armed.current || armed.current.dir !== edge) armed.current = { dir: edge, at: performance.now() };
     // Hovering another task's card for 300 ms arms "Add as subtask".
-    const hid = cardUnder(x, y, p.item.id, !!p.item.task);
+    const hid = cardUnder(x, y, p.item.id, canHost(p.item));
     const at = performance.now();
     dwell.current = nextDwell(dwell.current, hid, at);
     const next: DragState = {
@@ -218,7 +229,9 @@ export default function DragProvider({ children, onChanged }: { children: React.
       x,
       y,
       target,
-      accepted: target ? canDrop(target, todayKey) : false,
+      // A projected occurrence only ever lands on the Timebox (its start time
+      // is the series' start time); no Day column and not the left list.
+      accepted: target ? canDrop(target, todayKey) && (!p.item.projected || target.kind === 'slot') : false,
       edge,
       subtaskHost: dwellArmed(dwell.current, hid, at) ? hid : null,
     };
@@ -260,7 +273,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
       moved = true;
     }
     // The highlight appears after the dwell even if the pointer stays still.
-    if (p.mode === 'move' && p.item.task) {
+    if (p.mode === 'move' && canHost(p.item)) {
       const hid = cardUnder(x, y, p.item.id, true);
       const armedNow = dwellArmed(dwell.current, hid, performance.now());
       if (armedNow !== (last.current?.subtaskHost != null)) moved = true;
@@ -310,13 +323,15 @@ export default function DragProvider({ children, onChanged }: { children: React.
     if (p.mode === 'resize') {
       const task = p.item.task;
       if (!task || !state.resizeDuration || state.resizeDuration === task.durationMinutes) return;
-      await updateTask({ ...task, durationMinutes: state.resizeDuration });
+      // Resizing a projected block changes the estimate of the whole series.
+      if (p.item.projected) await patchSeries(task, { durationMinutes: state.resizeDuration });
+      else await updateTask({ ...task, durationMinutes: state.resizeDuration });
       onChangedRef.current();
       return;
     }
     // Dropping on a card's own body, after the highlight showed, adds a subtask.
     // Anything else (a column, between cards, a release too early) is a Day drop.
-    if (p.item.task) {
+    if (canHost(p.item)) {
       const hovered = cardUnder(pointer.current.x, pointer.current.y, p.item.id, true);
       const outcome = resolveCardRelease(dwellAtRelease, hovered, p.item.id, performance.now());
       if (outcome.kind === 'subtask') {
@@ -337,7 +352,17 @@ export default function DragProvider({ children, onChanged }: { children: React.
     }
     if (!state.target || !state.accepted) return;
     const { task, item } = p.item;
-    if (task) {
+    if (task && p.item.projected) {
+      // Dropped on the Timebox: the start time (and the estimate, when it had
+      // none) is set for the whole series; the Day is never touched.
+      if (state.target.kind !== 'slot') return;
+      const patch = dropPatch(task, p.item.kind, state.target, todayKey);
+      if (!patch) return;
+      await patchSeries(task, {
+        startTime: patch.startTime,
+        ...(patch.durationMinutes !== undefined ? { durationMinutes: patch.durationMinutes } : {}),
+      });
+    } else if (task) {
       const patch = dropPatch(task, p.item.kind, state.target, todayKey);
       if (!patch) return;
       await updateTask({ ...task, ...patch });
@@ -458,13 +483,13 @@ export default function DragProvider({ children, onChanged }: { children: React.
   );
 
   const startResize = useCallback(
-    (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement) => {
+    (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected = false) => {
       if (e.button !== 0) return;
       e.stopPropagation();
       e.preventDefault();
       begin(e, {
         mode: 'resize',
-        item: { kind: 'block', task, id: task.id, title: task.title, duration: taskDuration(task) },
+        item: { kind: 'block', task, id: task.id, title: task.title, duration: taskDuration(task), projected },
         startMin,
         gridNode,
       });
@@ -514,6 +539,7 @@ function LiftedCard({ drag }: { drag: DragState }) {
   const t = drag.target;
   let hint: string | null = null;
   if (drag.subtaskHost) hint = 'Add as subtask';
+  else if (t && !drag.accepted && drag.item.projected && t.kind !== 'slot') hint = 'Repeating: set Repeat to Does not repeat to move it';
   else if (t && !drag.accepted) hint = 'Past day';
   else if (t?.kind === 'slot') hint = slotLabel(t.startMin, drag.item.duration);
   return (

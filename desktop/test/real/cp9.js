@@ -202,7 +202,7 @@ async function run() {
   const popText = await js(`${q('[role="dialog"][aria-label="Profile menu"]')}.innerText`);
   check('signed out: says Local only, not signed in', popText.includes('Local only, not signed in'), popText);
   check('signed out: one line about all your devices', popText.includes('Sign in to keep your tasks on all your devices'));
-  check('signed out: a Sign in with Apple button', await exists(`${q('[role="dialog"][aria-label="Profile menu"]')} && ${byLabel('Sign in with Apple')}`));
+  check('signed out: one Sign in button (2.18.0: Apple and Google are chosen on the Sign in page)', await exists(`${q('[role="dialog"][aria-label="Profile menu"]')} && ${byLabel('Sign in')}`) && !(await js(`${q('[role="dialog"][aria-label="Profile menu"]')}.innerText`)).includes('Continue with'));
   check('the popover is small: no full viewport overlay, no backdrop', await noNewOverlay());
   const pr = await rectOf(q('[role="dialog"][aria-label="Profile menu"]'));
   check('the popover stays inside the window and is under 320px wide', pr.left >= 0 && pr.right <= (await js('innerWidth')) && pr.w <= 320, JSON.stringify(pr));
@@ -221,12 +221,14 @@ async function run() {
 
   // Start the sign in from the popover (real auth-js, fake Supabase).
   await click(byLabel(iconOut));
-  await click(byLabel('Sign in with Apple'));
+  await click(byLabel('Sign in'));
+  await C.waitFor(async () => (await body()).includes('Continue with Apple'));
+  await click(byLabel('Continue with Apple'));
   await C.waitFor(() => opened.length === 1);
   const url = new URL(opened[0]);
   fake.challenge = url.searchParams.get('code_challenge');
-  check('Sign in with Apple in the popover starts the existing flow (browser opened once)', url.host === C.SUPABASE_HOST && url.pathname === '/auth/v1/authorize' && url.searchParams.get('provider') === 'apple');
-  check('the popover says to finish in the browser', (await js(`${q('[role="dialog"][aria-label="Profile menu"]')}.innerText`)).includes('Finish signing in in your browser'));
+  check('Continue with Apple on the Sign in page starts the existing flow (browser opened once)', url.host === C.SUPABASE_HOST && url.pathname === '/auth/v1/authorize' && url.searchParams.get('provider') === 'apple');
+  check('the Sign in page says to finish in the browser', (await body()).includes('Finish signing in in your browser'));
   const flowId = new URL(url.searchParams.get('redirect_to')).searchParams.get('sb_flow_id');
   app.emit('second-instance', {}, [process.execPath, `belific://auth-callback?${flowId ? `sb_flow_id=${flowId}&` : ''}code=GOODCODE`], '');
   await C.waitFor(() => exists(byLabel('Profile and account')), 20000);
@@ -236,7 +238,9 @@ async function run() {
   await C.waitFor(() => fake.restCalls > 0, 15000);
 
   // ======== A2. Signed in popover ========
-  check('the popover that was open for sign in now shows the signed in account', await popoverOpen('Profile menu'));
+  check('the Sign in page closed after the sign in (2.18.0)', !(await body()).includes('Continue with Apple'));
+  await click(byLabel('Profile and account'));
+  check('the profile icon now opens the signed in account', await popoverOpen('Profile menu'));
   const inText = await js(`${q('[role="dialog"][aria-label="Profile menu"]')}.innerText`);
   check('signed in: shows the account email', inText.includes('user-one-1111@example.test'), inText);
   check('signed in: shows sync status and last synced time', /Synced|Syncing|waiting|problem/i.test(inText) && /Last synced|Not synced yet/.test(inText), inText);

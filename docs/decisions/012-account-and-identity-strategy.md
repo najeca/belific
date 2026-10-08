@@ -8,7 +8,7 @@ Source: `docs/OPUS_PLAN_REVIEW.md` section 3.
 
 ---
 
-**Decision.** Desktop works fully signed out (local first, as on iOS). The first desktop sign in provider is **Sign in with Apple through the system browser** (Supabase `signInWithOAuth`, PKCE, redirect to `belific://auth-callback`, handled by `app.setAsDefaultProtocolClient` and the `second-instance` event). Because the user id is the same Apple `sub`, desktop reaches the same Supabase user as the iPhone, with no iOS release needed. Google is deferred. When it is added, it is linked from an already signed in session with `linkIdentity`, which needs manual linking enabled in the dashboard. A fresh Google sign in is never offered to a user who already has an Apple account.
+**Decision.** Desktop works fully signed out (local first, as on iOS). The first desktop sign in provider is **Sign in with Apple through the system browser** (Supabase `signInWithOAuth`, PKCE, redirect to `belific://auth-callback`, handled by `app.setAsDefaultProtocolClient` and the `second-instance` event). Because the user id is the same Apple `sub`, desktop reaches the same Supabase user as the iPhone, with no iOS release needed. Google was deferred at first. **Updated 2026-10-08 (checkpoint 12, decision 026):** Google is now offered on the desktop as a second sign in method, on the same Sign in page as Apple, through the same browser flow. The earlier plan to offer it only by `linkIdentity` from an already signed in session is not followed in 2.18.0, because it needs manual linking enabled in the dashboard; that route ("Add a sign in method") is left for 2.19.0. A person who signs in with Google while they have an Apple account may end with a second account (see `docs/ACCOUNT_LINKING_TEST.md`), and the account choice question still protects local data.
 
 **Setup Jethro must do.** Create an Apple Services ID grouped with the primary App ID `com.najeca.belific`, add the Supabase callback URL to it, generate the client secret, and add the Services ID to the Supabase Apple provider client id list next to the bundle id. Put a calendar reminder for secret rotation 5 months out. Add `belific://auth-callback` to the redirect allow list.
 
@@ -38,6 +38,10 @@ Changes to the built behaviour above, from the security review:
 ## Update (2026-10-07, checkpoint 9, app 2.15.0)
 The sign in is now started from the profile icon's popover (decision 025); the footer account line and the Settings modal are gone, and Sign out and Delete account live on the Settings page and the popover. The sign in flow, the pre sign in backup, the account choice modal and the revoke handling are unchanged.
 
+## Update (2026-10-08, checkpoint 12, app 2.18.0)
+A Sign in page (a page like Settings, with Back, Escape and focus return) now holds Continue with Apple and Continue with Google; the popover and Settings, Account have one Sign in button that opens it. Google uses the same system browser PKCE flow, callback and validation as Apple; `checkAuthorizeUrl` now allows exactly one provider from apple and google. The pure code is `mobile/lib/authCore.ts`; the desktop wiring is `desktopAuth.ts`; the iPhone wiring is untouched. The status stays Proposed: no real Apple or Google round trip has been tested. Setup: `docs/GOOGLE_SIGNIN_SETUP.md`. See decision 026.
+
 ## Related Notes
 - [[docs/OPUS_PLAN_REVIEW]]
 - [[docs/decisions/009-desktop-platform-and-auth]]
+- [[docs/decisions/026-sign-in-methods-and-linking]]

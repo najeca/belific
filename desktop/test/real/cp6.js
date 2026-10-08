@@ -143,9 +143,17 @@ async function run() {
   };
   const verifierNowhere = async () => keysSeen.size > 0 && !(await verifierInMemory()) && !verifierOnDisk();
   const secureFiles = () => (fs.existsSync(dataDir) ? fs.readdirSync(dataDir).filter((n) => n.startsWith('secure.')) : []);
+  // 2.18.0: the Sign in button opens the Sign in page, Continue with Apple starts the flow.
+  const clickApple = async () => {
+    if (!(await body()).includes('Continue with Apple')) {
+      await click('Sign in');
+      await C.waitFor(async () => (await body()).includes('Continue with Apple'));
+    }
+    await click('Continue with Apple');
+  };
   const startSignIn = async () => {
     const n = opened.length;
-    await click('Sign in with Apple');
+    await clickApple();
     await C.waitFor(() => opened.length === n + 1);
     fake.challenge = new URL(opened[n]).searchParams.get('code_challenge');
     return opened[n];
@@ -157,7 +165,7 @@ async function run() {
     if (expectMessage) await C.waitFor(async () => (await body()).includes(expectMessage), 15000);
   };
 
-  await click('Sign in with Apple');
+  await clickApple();
   await C.waitFor(() => opened.length === 1);
   const url = new URL(opened[0]);
   fake.challenge = url.searchParams.get('code_challenge');
@@ -250,7 +258,7 @@ async function run() {
   shell.openExternal = async () => {
     throw new Error('no browser');
   };
-  await click('Sign in with Apple');
+  await clickApple();
   await C.waitFor(async () => (await body()).includes('Could not open your browser'));
   shell.openExternal = realOpen;
   check('a failed begin leaves no code-verifier key anywhere', await verifierNowhere());
@@ -262,7 +270,7 @@ async function run() {
   await C.waitFor(() => logText().includes('sign in ended (too-many-failures)'));
   check('three failed attempts close the sign in and leave no verifier', await verifierNowhere());
   await tokenCall('GOODCODE').catch(() => {});
-  check('after it closed, even the right code is ignored', fake.tokenCalls >= 0 && (await body()).includes('Local only'));
+  check('after it closed, even the right code is ignored', fake.tokenCalls >= 0 && !(await body()).includes('Signed in as') && !(await js(`!!document.querySelector('[aria-label="Profile and account"]')`)));
 
   await startSignIn();
   check('expiry setup: a verifier exists', await verifierInMemory());

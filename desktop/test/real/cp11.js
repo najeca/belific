@@ -346,7 +346,8 @@ async function run() {
 
   // ======== 6. A tick from another device (through the fake server) ========
   await click(byLabel('Profile, not signed in'));
-  await click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Sign in with Apple"]')`);
+  await click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Sign in"]')`);
+  await click(byLabel('Continue with Apple'));
   await C.waitFor(() => opened.length === 1);
   const url = new URL(opened[0]);
   fake.challenge = url.searchParams.get('code_challenge');

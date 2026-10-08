@@ -10,6 +10,7 @@ import ProfileMenu from './ProfileMenu';
 import SettingsPage from './SettingsPage';
 import LabelsPage from './LabelsPage';
 import ProgressPage from './ProgressPage';
+import SignInPage from './SignInPage';
 import { DAY_START_EVENT } from './useDayStart';
 import { setShowStreaks, setStreaks } from './streakStore';
 import { closePopover, isPopoverOpen } from './Popover';
@@ -62,7 +63,8 @@ export default function DesktopHome() {
     closePopover();
     restore.current = openers.current.pop() ?? null;
     setView((cur) => {
-      const back = cur === 'labels' && previous.current === 'settings' ? 'settings' : 'home';
+      // Labels and Sign in go back to Settings when that is where they were opened.
+      const back = (cur === 'labels' || cur === 'signin') && previous.current === 'settings' ? 'settings' : 'home';
       previous.current = cur;
       return back;
     });
@@ -75,7 +77,7 @@ export default function DesktopHome() {
     const id = setTimeout(() => focusOpener(o), 0);
     return () => clearTimeout(id);
   }, [view]);
-  // Escape leaves a page (Settings, Labels, Progress), unless a popover has it or
+  // Escape leaves a page (Settings, Labels, Progress, Sign in), unless a popover has it or
   // the key is going to a field.
   useEffect(() => {
     if (view === 'home') return;
@@ -202,7 +204,7 @@ export default function DesktopHome() {
             <Text style={styles.backText}>Back</Text>
           </Pressable>
         )}
-        <ProfileMenu onOpenSettings={() => showView('settings')} onOpenProgress={() => showView('progress')} />
+        <ProfileMenu onOpenSettings={() => showView('settings')} onOpenProgress={() => showView('progress')} onOpenSignIn={() => showView('signin')} />
       </View>
       <View ref={panes} style={[styles.body, view !== 'home' && styles.hidden]} accessibilityElementsHidden={view !== 'home'}>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -215,16 +217,17 @@ export default function DesktopHome() {
           <TimeboxPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} />
         </View>
       </View>
-      {view === 'settings' && <SettingsPage onOpenLabels={() => showView('labels')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} />}
+      {view === 'settings' && <SettingsPage onOpenLabels={() => showView('labels')} onOpenSignIn={() => showView('signin')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} />}
       {view === 'labels' && <LabelsPage onChanged={onChanged} />}
       {view === 'progress' && <ProgressPage />}
+      {view === 'signin' && <SignInPage onDone={goBack} />}
       <AccountChoiceModal />
     </View>
     </DragProvider>
   );
 }
 
-type View_ = 'home' | 'settings' | 'labels' | 'progress';
+type View_ = 'home' | 'settings' | 'labels' | 'progress' | 'signin';
 
 interface Opener {
   el: HTMLElement | null;

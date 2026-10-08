@@ -15,18 +15,19 @@ import {
   type AccountDeps,
 } from './accountSwitch';
 import { isRevokePending, noteRevokeFailed, retryRevoke, type RevokeDeps } from './revokePending';
+import { FAILURE_TEXT, SIGN_IN_TEXT, accountLabel, beginFailureText, oauthOptions, type SignInProvider } from './authCore';
 
-// Desktop sign in with Apple through the system browser (decision 012,
-// checkpoint 6). Web/desktop only: nothing on iOS imports this file.
+// Desktop sign in with Apple or Google through the system browser (decision
+// 012, checkpoints 6 and 12). Web/desktop only: nothing on iOS imports this
+// file, and nothing here imports expo-apple-authentication.
 //
-// Flow: signInWithOAuth (PKCE, skipBrowserRedirect) builds the Apple URL and
+// Flow: signInWithOAuth (PKCE, skipBrowserRedirect) builds the provider URL and
 // stores the code verifier in the encrypted session store. The main process
 // opens the URL in the system browser, validates the belific://auth-callback
 // link (exact shape, started in this run, inside a time window, single use)
 // and hands only the code (plus the flow id) to completeAppleSignIn, which
 // exchanges it with the locally stored verifier. Nothing here logs a code or
-// a token.
-const REDIRECT_TO = 'belific://auth-callback';
+// a token. The pure parts (providers, options, wording) are in authCore.ts.
 
 export interface AuthUiState {
   busy: boolean;
@@ -56,37 +57,52 @@ export function subscribeAuthUi(listener: (s: AuthUiState) => void): () => void 
 
 function bridge() {
   const d = globalThis.belificDesktop;
-  if (!d) throw new Error('Sign in is only available in the desktop app.');
+  if (!d) throw new Error(FAILURE_TEXT.desktopOnly);
   return d;
 }
 
-const BEGIN_MESSAGES: Record<string, string> = {
-  'backup-failed': 'Could not make the safety backup, so sign in did not start. Nothing was changed.',
-  'no-browser': 'Could not open your browser.',
-  busy: 'A sign in is already open in your browser.',
-  refused: 'Sign in could not start.',
-};
-
-// Starts sign in: opens Apple's page in the system browser. The result
+// Starts sign in: opens the provider's page in the system browser. The result
 // arrives later through handleAuthCallback.
-export async function startAppleSignIn(): Promise<void> {
-  setUi({ busy: true, message: 'Finish signing in in your browser…' });
+async function startSignIn(provider: SignInProvider): Promise<void> {
+  setUi({ busy: true, message: SIGN_IN_TEXT.waiting });
   try {
     // A deliberate new attempt replaces any earlier one (main refuses a second
     // begin while one runs, and wipes the old verifier on cancel).
     await bridge().auth.cancel();
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo: REDIRECT_TO, skipBrowserRedirect: true },
-    });
-    if (error || !data?.url) throw new Error('Sign in could not start.');
+    const { data, error } = await supabase.auth.signInWithOAuth({ provider, options: oauthOptions(provider) });
+    if (error || !data?.url) throw new Error(FAILURE_TEXT.notStarted);
     const result = await bridge().auth.begin(data.url);
-    if (!result.ok) throw new Error(BEGIN_MESSAGES[result.reason ?? ''] ?? 'Sign in could not start.');
+    if (!result.ok) throw new Error(beginFailureText(result.reason));
   } catch (err) {
-    // A failed start leaves no verifier behind.
+    // A failed start leaves no verifier behind. Only our own sentences are
+    // shown: an error from the client or the network is never echoed.
     await globalThis.belificDesktop?.auth.cancel().catch(() => {});
-    setUi({ busy: false, message: err instanceof Error ? err.message : 'Sign in could not start.' });
+    const own = err instanceof Error && isOwnMessage(err.message);
+    setUi({ busy: false, message: own ? (err as Error).message : FAILURE_TEXT.notStarted });
   }
+}
+
+const OWN_MESSAGES: ReadonlySet<string> = new Set<string>([
+  FAILURE_TEXT.notStarted,
+  FAILURE_TEXT.desktopOnly,
+  beginFailureText('backup-failed'),
+  beginFailureText('no-browser'),
+  beginFailureText('busy'),
+]);
+
+function isOwnMessage(message: string): boolean {
+  return OWN_MESSAGES.has(message);
+}
+
+export const startAppleSignIn = (): Promise<void> => startSignIn('apple');
+export const startGoogleSignIn = (): Promise<void> => startSignIn('google');
+
+// "Not now" on the Sign in page while a browser sign in is open: ends it and
+// wipes its verifier. Without one running it does nothing.
+export async function cancelSignIn(): Promise<void> {
+  if (!ui.busy) return;
+  await globalThis.belificDesktop?.auth.cancel().catch(() => {});
+  setUi({ busy: false, message: null });
 }
 
 // A callback the main process has already validated. A failed exchange keeps
@@ -98,7 +114,7 @@ export async function handleAuthCallback(payload: {
   error?: boolean;
 }): Promise<void> {
   if (payload.error || !payload.code) {
-    setUi({ busy: false, message: 'Sign in was cancelled.' });
+    setUi({ busy: false, message: FAILURE_TEXT.cancelled });
     return;
   }
   let ok = false;
@@ -118,8 +134,8 @@ export async function handleAuthCallback(payload: {
   if (!ok) {
     setUi(
       ended
-        ? { busy: false, message: 'Sign in could not be completed. Please try again.' }
-        : { busy: true, message: 'Still waiting for you to finish signing in in your browser…' },
+        ? { busy: false, message: FAILURE_TEXT.notCompleted }
+        : { busy: true, message: SIGN_IN_TEXT.stillWaiting },
     );
     return;
   }
@@ -145,7 +161,7 @@ async function completeSignIn(): Promise<void> {
   const { data } = await supabase.auth.getSession();
   const userId = data.session?.user?.id;
   if (!userId) {
-    setUi({ message: 'Sign in could not be completed. Please try again.' });
+    setUi({ message: FAILURE_TEXT.notCompleted });
     return;
   }
   const decision = await decideOnSignIn(userId, accountDeps);
@@ -282,9 +298,7 @@ export async function deleteAccountDesktop(): Promise<void> {
 
 export async function getAccountLabel(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
-  const user = data.session?.user;
-  if (!user) return null;
-  return user.email ?? 'Apple account';
+  return accountLabel(data.session?.user);
 }
 
 export async function isSessionPersistent(): Promise<boolean> {

@@ -25,6 +25,9 @@ const { spawnSync } = require('node:child_process');
 const MARKERS = [
   'listenForAuthCallbacks',
   'startAppleSignIn',
+  'startGoogleSignIn',
+  'SignInPage',
+  'Continue with Google',
   'SettingsPage',
   'LabelsPage',
   'ProgressPage',

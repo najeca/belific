@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseCallback, AuthGate, WINDOW_MS } = require('../src/authLink');
+const { parseCallback, checkAuthorizeUrl, AuthGate, WINDOW_MS, PROVIDERS } = require('../src/authLink');
 
 const HOST = 'https://uucycebkpgwbktdytxvr.supabase.co';
 const FLOW = 'abcd1234efgh5678';
@@ -53,7 +53,8 @@ test('gate: begin accepts only the Belific Apple authorize URL', () => {
   const gate = new AuthGate(HOST);
   const refused = { ok: false, reason: 'refused' };
   assert.deepEqual(gate.begin('https://evil.example/auth/v1/authorize?provider=apple&redirect_to=belific%3A%2F%2Fauth-callback'), refused);
-  assert.deepEqual(gate.begin(`${HOST}/auth/v1/authorize?provider=google&redirect_to=belific%3A%2F%2Fauth-callback`), refused);
+  assert.deepEqual(gate.begin(`${HOST}/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fevil.example`), refused);
+  assert.deepEqual(gate.begin(`https://evil.example/auth/v1/authorize?provider=google&redirect_to=belific%3A%2F%2Fauth-callback`), refused);
   assert.deepEqual(gate.begin(`${HOST}/auth/v1/authorize?provider=apple&redirect_to=https%3A%2F%2Fevil.example`), refused);
   assert.deepEqual(gate.begin(`${HOST}/auth/v1/other?provider=apple&redirect_to=belific%3A%2F%2Fauth-callback`), refused);
   assert.deepEqual(gate.begin('javascript:alert(1)'), refused);
@@ -158,4 +159,55 @@ test('L4: a second begin while one is running is refused as busy; after expiry i
   assert.deepEqual(gate.begin(authorize(), 0), { ok: true });
   assert.deepEqual(gate.begin(authorize(), 5), { ok: false, reason: 'busy' });
   assert.deepEqual(gate.begin(authorize(), WINDOW_MS + 5), { ok: true });
+});
+
+// Checkpoint 12 (decision 026): the allow list is Apple and Google, nothing else.
+const redirect = encodeURIComponent('belific://auth-callback');
+const authorizeFor = (providerQuery) => `${HOST}/auth/v1/authorize?${providerQuery}&redirect_to=${redirect}&code_challenge=x&code_challenge_method=s256`;
+
+test('the allow list is exactly apple and google', () => {
+  assert.deepEqual(PROVIDERS, ['apple', 'google']);
+});
+
+test('checkAuthorizeUrl accepts Apple and Google the same way, with or without an account chooser', () => {
+  assert.deepEqual(checkAuthorizeUrl(authorizeFor('provider=apple'), HOST), { flowId: null });
+  assert.deepEqual(checkAuthorizeUrl(authorizeFor('provider=google'), HOST), { flowId: null });
+  assert.deepEqual(checkAuthorizeUrl(authorizeFor('provider=google&prompt=select_account'), HOST), { flowId: null });
+});
+
+test('checkAuthorizeUrl refuses every other provider, spelling and a second provider', () => {
+  for (const q of [
+    'provider=github',
+    'provider=email',
+    'provider=facebook',
+    'provider=Apple',
+    'provider=GOOGLE',
+    'provider=google%20',
+    'provider=',
+    'provider=apple&provider=github',
+    'provider=github&provider=apple',
+    'provider=google&provider=google',
+    'provider[]=google',
+    'prov=google',
+    '',
+  ]) {
+    assert.equal(checkAuthorizeUrl(authorizeFor(q), HOST), false, q);
+  }
+});
+
+test('a Google sign in goes through the same gate: one pending, a matching callback, one exchange', () => {
+  const gate = new AuthGate(HOST);
+  assert.deepEqual(gate.begin(authorizeFor('provider=google&prompt=select_account'), 1000), { ok: true });
+  assert.deepEqual(gate.begin(authorizeFor('provider=apple'), 1500), { ok: false, reason: 'busy' });
+  assert.deepEqual(gate.accept(link('code=g-123'), 2000), { ok: true, code: 'g-123', flowId: null });
+  assert.deepEqual(gate.finish(true, 2500), { ended: true });
+  assert.deepEqual(gate.accept(link('code=g-123'), 3000), { ok: false, reason: 'no-pending' });
+});
+
+test('a provider error link (the person said no) ends the same way for both providers', () => {
+  for (const q of ['provider=apple', 'provider=google']) {
+    const gate = new AuthGate(HOST);
+    gate.begin(authorizeFor(q), 1000);
+    assert.deepEqual(gate.accept(link('error=access_denied&error_description=anything'), 2000), { ok: false, reason: 'provider-error', ended: false });
+  }
 });

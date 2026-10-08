@@ -8,6 +8,22 @@ to know the current version and recent history.
 
 ---
 
+## 2.18.0 — 2026-10-08
+
+**A Sign in page with Apple and Google on the desktop. Desktop only; the iPhone app is unchanged. No migration, no database or dashboard contact, nothing deployed. (Checkpoint 12, part 1 of 2; email and password is 2.19.0, not started.)**
+
+- **Sign in page** (`SignInPage.tsx`, decision 026): a page inside the app like Settings and Progress, with Back, Escape and focus return. Continue with Apple, Continue with Google, Not now (it also ends a sign in that is waiting in the browser) and the line "You can use Belific without an account." The profile popover and Settings, Account now each have one **Sign in** button that opens it; the old "Sign in with Apple" buttons are gone. There is no "Use email" button yet.
+- **Google sign in** through the system browser, PKCE, the same `belific://auth-callback` callback and the same validation as Apple. Google gets an account chooser (`prompt=select_account`). `checkAuthorizeUrl` now allows exactly one provider from apple and google (a second `provider` parameter, other spellings and other providers are refused); `externalLinks.js` is unchanged in effect.
+- **Code layout:** `mobile/lib/authCore.ts` is new and pure (providers, the signInWithOAuth options, every sentence of the page and of a failure, the account label). `desktopAuth.ts` is the desktop wiring (`startAppleSignIn`, `startGoogleSignIn`, `cancelSignIn`). The phone wiring (`auth.ts`) is untouched. Failure sentences are provider agnostic, so Apple and Google fail with identical words, and an error from the client or the network is never shown.
+- **Account line:** the email, else "Apple account" or "Google account" (was always "Apple account").
+- **iOS marker gate:** `SignInPage`, `startGoogleSignIn` and `Continue with Google` added (16 markers; export checked, 0 hits).
+- **delete-account function (code only, NOT deployed):** it no longer logs the user id or any error text, and no longer returns raw error text; callers get "Unauthorized" or "The account could not be deleted". The deployed version still has the old behaviour until Jethro deploys this one.
+- **Docs:** `docs/GOOGLE_SIGNIN_SETUP.md`, `docs/ACCOUNT_LINKING_TEST.md`, decision 026 (Proposed), decision 012 updated, privacy and terms updated for Google (effective 8 October 2026; also fixed `%APPDATA%elific-desktop`, which had lost its backslash on the privacy page).
+- **Not built:** "Add a sign in method" in Settings, Account (needs manual linking switched on in the Supabase dashboard; left for 2.19.0), Apple token revocation on delete (findings only, in the session note).
+- Tests: `authCore.test.ts` (12), `authLink.test.js` (Google, refusals), `iosMarkers.test.ts`, real check `npm run test:real:cp12` (58 checks, fake Apple and Google pages inside the in process fake Supabase). cp6, cp9, cp10 and cp11 now start sign in through the Sign in page.
+
+---
+
 ## 2.17.0 — 2026-10-07
 
 **Streaks and a Progress page, derived from repeating series. Desktop only; the iPhone app is unchanged. No migration, no sync change, no database contact, no stored counters. (Checkpoint 11.)**

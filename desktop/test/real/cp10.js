@@ -154,7 +154,8 @@ async function run() {
 
   // ======== 1. Sign in (real PKCE against the fake) and let the first sync upload the seed ========
   await click(byLabel('Profile, not signed in'));
-  await click(byLabel('Sign in with Apple'));
+  await click(byLabel('Sign in'));
+  await click(byLabel('Continue with Apple'));
   await C.waitFor(() => opened.length === 1);
   const url = new URL(opened[0]);
   fake.challenge = url.searchParams.get('code_challenge');

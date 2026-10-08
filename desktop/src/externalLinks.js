@@ -3,7 +3,8 @@
 // review). Everything else is ignored. Exact https hosts, with a path prefix.
 // A future marketing site domain must be added here.
 const ALLOWED = [
-  // Sign in with Apple, through Supabase (main.js builds the URL checks too).
+  // Sign in with Apple or Google, through Supabase (authLink.js checks the
+  // provider and the redirect too).
   { host: 'uucycebkpgwbktdytxvr.supabase.co', path: '/auth/v1/authorize' },
   // Privacy policy and terms pages of the published site (privacy.html, terms.html).
   { host: 'najeca.github.io', path: '/belific/' },

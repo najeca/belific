@@ -142,8 +142,8 @@ function registerIpc() {
   });
 }
 
-// Opens the Apple sign in page in the SYSTEM browser, never in the app
-// window. Refuses any URL that is not the Belific Supabase authorize URL, and
+// Opens the Apple or Google sign in page in the SYSTEM browser, never in the
+// app window. Refuses any URL that is not the Belific Supabase authorize URL, and
 // takes the one-time "pre-signin" backup before the very first sign in.
 async function beginSignIn(url) {
   signIn.sweep();

@@ -118,7 +118,12 @@ function installFakeSupabase() {
       state.sessions.set(sid, user);
       return sid;
     },
-    users: { GOODCODE: 'user-one-1111', GOODCODE2: 'user-two-2222' },
+    users: { GOODCODE: 'user-one-1111', GOODCODE2: 'user-two-2222', GOODGOOGLE: 'user-google-3333' },
+    // cp12: the fake provider pages. GET /auth/v1/authorize answers with a small
+    // page named after the provider (a fake Apple or Google page) holding the
+    // link the real provider would end on, belific://auth-callback?code=...
+    authorizeCalls: [],
+    providerCodes: { apple: 'GOODCODE', google: 'GOODGOOGLE' },
   };
   const json = (status, body, extra = {}) =>
     new Response(body === null ? null : JSON.stringify(body), {
@@ -137,6 +142,20 @@ function installFakeSupabase() {
         status: 204,
         headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' },
       });
+    }
+    if (url.pathname === '/auth/v1/authorize' && request.method === 'GET') {
+      const provider = url.searchParams.get('provider') || '';
+      state.authorizeCalls.push({ provider, params: Object.fromEntries(url.searchParams) });
+      const code = state.providerCodes[provider];
+      if (!code) return json(400, { error: 'unsupported provider' });
+      state.challenge = url.searchParams.get('code_challenge');
+      const redirect = url.searchParams.get('redirect_to') || '';
+      const join = redirect.includes('?') ? '&' : '?';
+      const name = provider === 'google' ? 'Google' : 'Apple';
+      const page = `<!doctype html><html><body><h1>Fake ${name} sign in page</h1>` +
+        `<a id="continue" href="${redirect}${join}code=${code}">Continue</a>` +
+        `<a id="deny" href="${redirect}${join}error=access_denied&amp;error_description=The+user+said+no">Cancel</a></body></html>`;
+      return new Response(page, { status: 200, headers: { 'content-type': 'text/html' } });
     }
     if (url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'pkce') {
       state.tokenCalls += 1;

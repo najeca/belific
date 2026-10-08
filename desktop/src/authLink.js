@@ -1,5 +1,6 @@
 'use strict';
-// Sign in with Apple through the system browser (decision 012). Pure logic,
+// Sign in with Apple or Google through the system browser (decisions 012 and
+// 026). Pure logic,
 // no Electron imports, so it is unit tested.
 //
 // What Supabase's PKCE redirect really contains (auth-js 2.111): the client
@@ -17,6 +18,9 @@ const SCHEME = 'belific';
 const WINDOW_MS = 10 * 60 * 1000;
 const CODE_PATTERN = /^[A-Za-z0-9._~-]{1,512}$/;
 const FLOW_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+// The only providers the system browser may be opened for. Anything else
+// (email, github, a mixed case spelling, a second provider parameter) is refused.
+const PROVIDERS = ['apple', 'google'];
 
 // Returns { code, flowId } for a good link, { error: true, flowId } for a
 // provider error link, or null for anything else. Never throws, never logs.
@@ -44,7 +48,7 @@ function parseCallback(raw) {
 }
 
 // Checks the OAuth URL the renderer asks main to open: only the Belific
-// Supabase authorize endpoint, over https. Returns { flowId } (the id the
+// Supabase authorize endpoint, over https, for exactly one allowed provider. Returns { flowId } (the id the
 // client put into redirect_to, or null) or false if the URL is refused.
 function checkAuthorizeUrl(raw, supabaseHost) {
   let url;
@@ -54,7 +58,8 @@ function checkAuthorizeUrl(raw, supabaseHost) {
     return false;
   }
   if (url.origin !== supabaseHost || url.pathname !== '/auth/v1/authorize') return false;
-  if (url.searchParams.get('provider') !== 'apple') return false;
+  const providers = url.searchParams.getAll('provider');
+  if (providers.length !== 1 || !PROVIDERS.includes(providers[0])) return false;
   const redirect = url.searchParams.get('redirect_to');
   if (!redirect) return false;
   let r;
@@ -160,4 +165,4 @@ class AuthGate {
   }
 }
 
-module.exports = { parseCallback, checkAuthorizeUrl, AuthGate, CALLBACK, SCHEME, WINDOW_MS, MAX_FAILURES };
+module.exports = { parseCallback, checkAuthorizeUrl, AuthGate, CALLBACK, SCHEME, WINDOW_MS, MAX_FAILURES, PROVIDERS };

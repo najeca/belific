@@ -30,7 +30,7 @@ function cli(dir: string | undefined): { code: number | null; err: string } {
 }
 
 test('the marker list includes the checkpoint 11 markers and the earlier desktop ones', () => {
-  for (const m of ['ProgressPage', 'seriesStreak', 'SettingsPage', 'LabelsPage', 'RoutineConvertRow', 'listenForAuthCallbacks']) {
+  for (const m of ['ProgressPage', 'seriesStreak', 'SettingsPage', 'LabelsPage', 'RoutineConvertRow', 'listenForAuthCallbacks', 'startAppleSignIn', 'startGoogleSignIn', 'SignInPage', 'Continue with Google']) {
     assert.ok(markers.MARKERS.includes(m), m);
   }
 });

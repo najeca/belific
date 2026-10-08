@@ -3,7 +3,8 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import PaletteSwitch from './PaletteSwitch';
 import RoutineConvertRow from './RoutineConvertRow';
 import { Colors } from '../../lib/theme';
-import { deleteAccountDesktop, signOutDesktop, startAppleSignIn } from '../../lib/desktopAuth';
+import { deleteAccountDesktop, signOutDesktop } from '../../lib/desktopAuth';
+import { SIGN_IN_TEXT } from '../../lib/authCore';
 import { runFullSync } from '../../lib/sync';
 import { lastSyncedText, syncErrorText, syncLineText } from '../../lib/syncText';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -25,7 +26,7 @@ function openExternal(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-export default function SettingsPage({ onOpenLabels, labelCount, onChanged }: { onOpenLabels: () => void; labelCount: number; onChanged: () => void }) {
+export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, onChanged }: { onOpenLabels: () => void; onOpenSignIn: () => void; labelCount: number; onChanged: () => void }) {
   const { account, setAccount, persistent, ui, status } = useAccount();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -139,8 +140,8 @@ export default function SettingsPage({ onOpenLabels, labelCount, onChanged }: { 
             <>
               <Text style={styles.body}>Local only, not signed in. Sign in to keep your tasks on all your devices.</Text>
               <View style={styles.row}>
-                <Pressable onPress={() => startAppleSignIn()} accessibilityRole="button" style={styles.btnPrimary}>
-                  <Text style={styles.btnPrimaryText}>Sign in with Apple</Text>
+                <Pressable onPress={onOpenSignIn} accessibilityRole="button" accessibilityLabel={SIGN_IN_TEXT.openButton} style={styles.btnPrimary}>
+                  <Text style={styles.btnPrimaryText}>{SIGN_IN_TEXT.openButton}</Text>
                 </Pressable>
               </View>
             </>

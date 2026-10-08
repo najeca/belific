@@ -38,6 +38,12 @@ function corsHeaders(req: Request): Record<string, string> {
   };
 }
 
+// What a caller is ever told when something goes wrong: one sentence per
+// status, never a server error text, a table name or an id (checkpoint 12).
+// Details stay in the function log, and the log never holds a user id.
+const UNAUTHORIZED = { error: 'Unauthorized' };
+const FAILED = { error: 'The account could not be deleted' };
+
 function json(req: Request, body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -55,7 +61,7 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.log('[delete-account] missing Authorization header');
-      return json(req, { error: 'Missing Authorization header' }, 401);
+      return json(req, UNAUTHORIZED, 401);
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -65,7 +71,7 @@ Deno.serve(async (req: Request) => {
       `[delete-account] env present: url=${!!supabaseUrl} anon=${!!anonKey} service=${!!serviceRoleKey}`,
     );
     if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-      return json(req, { error: 'Server misconfigured: missing env vars' }, 500);
+      return json(req, FAILED, 500);
     }
 
     // Verifies the caller's own JWT — identifies exactly one real,
@@ -75,30 +81,30 @@ Deno.serve(async (req: Request) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: userError } = await userClient.auth.getUser();
-    console.log(`[delete-account] getUser -> user=${user?.id ?? 'none'} error=${userError?.message ?? 'none'}`);
+    console.log(`[delete-account] getUser -> ${userError || !user ? 'rejected' : 'ok'}`);
     if (userError || !user) {
-      return json(req, { error: `Unauthorized: ${userError?.message ?? 'no user'}` }, 401);
+      return json(req, UNAUTHORIZED, 401);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     for (const table of SYNCED_TABLES) {
       const { error } = await adminClient.from(table).delete().eq('user_id', user.id);
-      console.log(`[delete-account] delete ${table} -> ${error ? error.message : 'ok'}`);
+      console.log(`[delete-account] delete ${table} -> ${error ? 'failed' : 'ok'}`);
       if (error) {
-        return json(req, { error: `Failed deleting ${table}: ${error.message}` }, 500);
+        return json(req, FAILED, 500);
       }
     }
 
     const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id);
-    console.log(`[delete-account] deleteUser(${user.id}) -> ${deleteUserError ? deleteUserError.message : 'ok'}`);
+    console.log(`[delete-account] deleteUser -> ${deleteUserError ? 'failed' : 'ok'}`);
     if (deleteUserError) {
-      return json(req, { error: deleteUserError.message }, 500);
+      return json(req, FAILED, 500);
     }
 
     return json(req, { success: true }, 200);
-  } catch (e) {
-    console.error('[delete-account] unhandled exception', e);
-    return json(req, { error: `Unhandled: ${e instanceof Error ? e.message : String(e)}` }, 500);
+  } catch {
+    console.error('[delete-account] unhandled exception');
+    return json(req, FAILED, 500);
   }
 });

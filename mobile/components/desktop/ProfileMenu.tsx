@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { signOutDesktop, startAppleSignIn, type AuthUiState } from '../../lib/desktopAuth';
+import { signOutDesktop, type AuthUiState } from '../../lib/desktopAuth';
+import { SIGN_IN_TEXT } from '../../lib/authCore';
 import { runFullSync, type PublicSyncStatus } from '../../lib/sync';
 import { lastSyncedText, profileInitial, syncErrorText, syncLineText } from '../../lib/syncText';
 import Popover, { closePopover, Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
@@ -14,10 +15,11 @@ const POPOVER_ID = 'profile';
 // The one place for the account (checkpoint 9, decision 025): an icon at the
 // top right of the app, always visible, signed in or not. It opens the shared
 // small Popover, never a modal. Signed out it is a neutral person glyph and
-// the menu offers Sign in with Apple. Signed in it shows the user's initial
-// and the menu shows the account, sync status with Sync now, Settings and Sign
-// out. The sign in, sign out, account choice and revoke code is unchanged.
-export default function ProfileMenu({ onOpenSettings, onOpenProgress }: { onOpenSettings: () => void; onOpenProgress: () => void }) {
+// the menu has one Sign in button, which opens the Sign in page (checkpoint 12,
+// decision 026: Apple and Google are chosen there). Signed in it shows the
+// user's initial and the menu shows the account, sync status with Sync now,
+// Settings and Sign out. The sign out, account choice and revoke code is unchanged.
+export default function ProfileMenu({ onOpenSettings, onOpenProgress, onOpenSignIn }: { onOpenSettings: () => void; onOpenProgress: () => void; onOpenSignIn: () => void }) {
   const { account, status, ui } = useAccount();
   const { ref, get } = usePopoverAnchor();
   const open = useIsOpen(POPOVER_ID);
@@ -47,24 +49,23 @@ export default function ProfileMenu({ onOpenSettings, onOpenProgress }: { onOpen
         {signedIn ? (
           <SignedInBody account={account} status={status} ui={ui} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} />
         ) : (
-          <SignedOutBody busy={ui.busy} message={ui.message} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} />
+          <SignedOutBody busy={ui.busy} message={ui.message} onOpenSignIn={() => { closePopover(); onOpenSignIn(); }} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} />
         )}
       </Popover>
     </>
   );
 }
 
-function SignedOutBody({ busy, message, onOpenSettings, onOpenProgress }: { busy: boolean; message: string | null; onOpenSettings: () => void; onOpenProgress: () => void }) {
+function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings, onOpenProgress }: { busy: boolean; message: string | null; onOpenSignIn: () => void; onOpenSettings: () => void; onOpenProgress: () => void }) {
   return (
     <View>
     <View style={styles.body}>
       <Text style={styles.title}>Local only, not signed in</Text>
       <Text style={styles.note}>Sign in to keep your tasks on all your devices</Text>
-      <Pressable onPress={() => startAppleSignIn()} accessibilityRole="button" accessibilityLabel="Sign in with Apple" style={styles.primary}>
-        <Ionicons name="logo-apple" size={16} color={Colors.onAccent} />
-        <Text style={styles.primaryText}>Sign in with Apple</Text>
+      <Pressable onPress={onOpenSignIn} accessibilityRole="button" accessibilityLabel={SIGN_IN_TEXT.openButton} style={styles.primary}>
+        <Text style={styles.primaryText}>{SIGN_IN_TEXT.openButton}</Text>
       </Pressable>
-      {(busy || message) && <Text style={styles.hint}>{message ?? 'Finish signing in in your browser…'}</Text>}
+      {(busy || message) && <Text style={styles.hint}>{message ?? SIGN_IN_TEXT.waiting}</Text>}
     </View>
     <View style={styles.rows}>
       <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />

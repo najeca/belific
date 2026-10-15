@@ -1,12 +1,11 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from './supabase';
 import { ensureCurrentProject, onSignedIn, onSignedOut } from './sync';
+import { signOutThisDevice } from './phoneAuthCore';
 
-// Sign in with Apple is the only login method (see the accounts plan) —
-// deliberately no other social login, which per Apple guideline 4.8
-// means no "equivalent alternative" is required at all; 4.8 only
-// triggers when a THIRD-PARTY/social login is offered alongside Apple's
-// own, not when Apple is the sole option.
+// Sign in with Apple uses the native sheet (this file). Google (2.18.1) uses the
+// system browser and lives in phoneGoogleAuth.ts. Apple's guideline 4.8 is met
+// because Sign in with Apple is offered next to the third party login.
 export async function signInWithApple(): Promise<void> {
   // Before a session exists: state left by another project is reset first.
   await ensureCurrentProject();
@@ -34,9 +33,10 @@ export async function signInWithApple(): Promise<void> {
   onSignedIn().catch(() => {});
 }
 
+// Local scope only (2.18.1): the login is shared with the desktop and the other
+// apps, and the default (global) scope would sign all of them out.
 export async function signOut(): Promise<void> {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  await signOutThisDevice(supabase.auth);
   // Stop queueing and forget the queue and cursors (local data is kept).
   await onSignedOut();
 }
@@ -56,7 +56,7 @@ export async function deleteAccount(): Promise<void> {
   const { error } = await supabase.functions.invoke('delete-account');
   if (error) throw error;
   // The account no longer exists server-side — drop the now-invalid
-  // local session too.
-  await supabase.auth.signOut();
+  // local session too (this device only, see signOut).
+  await signOutThisDevice(supabase.auth);
   await onSignedOut();
 }

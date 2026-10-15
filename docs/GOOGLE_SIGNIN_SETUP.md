@@ -55,3 +55,6 @@ Values used below:
 - **"redirect_uri_mismatch":** the redirect URI in (c) is not exactly the Supabase callback URL.
 - **The browser finishes but Belific stays on "Finish signing in":** the redirect allow list in (d) step 3 is missing `belific://auth-callback`.
 - **Two Belific accounts for one person** (one Apple, one Google): see `docs/ACCOUNT_LINKING_TEST.md`.
+
+## The iPhone (2.18.1)
+The iPhone's Google sign in uses the **same** Google OAuth client, the same Supabase Google provider and the same callback URL as the desktop (`https://vlogfwnmaqorhialcqbr.supabase.co/auth/v1/callback`), and the same `belific://auth-callback` entry in Supabase's Redirect URLs. **No new Google client and no iOS client ID are needed**, because the phone signs in through the system browser, not a Google SDK. Nothing extra to do in Google Cloud or Supabase for the phone beyond the desktop steps above. Unverified until a device test.

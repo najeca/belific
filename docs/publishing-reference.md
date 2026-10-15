@@ -1,3 +1,5 @@
+> **STALE (marked 2026-10-15, kept, not deleted).** Written for the first WebView version of the app. Wrong today: the bundle id (it is `com.najeca.belific`, not `com.belific.app`), the WebView, the Pomodoro timer and weekly summary, "no account, no backend", and the EAS profiles `development` and `preview` (only `production` exists). For building and uploading use `docs/BELIFIC_EAS_TESTFLIGHT.md`; for what the app is, `docs/CURRENT_TRUTH.md`.
+
 # Belific — App Store Publishing Reference
 
 ---

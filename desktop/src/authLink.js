@@ -3,16 +3,20 @@
 // 026). Pure logic,
 // no Electron imports, so it is unit tested.
 //
-// What Supabase's PKCE redirect really contains (auth-js 2.111): the client
-// appends its own `sb_flow_id` to redirect_to, and the server appends `code`.
-// There is NO OAuth `state` in the redirect (state lives between Supabase
-// and Apple). So the callback is
-//   belific://auth-callback?sb_flow_id=<id>&code=<code>
-// and a failure is `?error=...&error_description=...`. Validation therefore
-// rests on: a sign in started in THIS run, inside a time window, single use;
-// the exact link shape; the flow id (when present) matching the one we
-// started; and finally the exchange itself, which needs the locally stored
-// code verifier, so a forged or replayed code cannot succeed.
+// What Supabase's PKCE redirect really contains (auth-js 2.111): the server
+// appends `code` to the redirect_to we sent. auth-js adds its own `sb_flow_id`
+// to redirect_to only when `experimental.appendPkceFlowIdToRedirects` is on,
+// and it is off here (the redirect allow list compares the whole URL including
+// the query string, so an extra parameter could stop the exact entry from
+// matching). There is NO OAuth `state` in the redirect either (state lives
+// between Supabase and the provider). So the callback is normally
+//   belific://auth-callback?code=<code>
+// (with `sb_flow_id=<id>` too if that option is ever turned on) and a failure
+// is `?error=...&error_description=...`. Validation therefore rests on: a sign
+// in started in THIS run, inside a time window, single use; the exact link
+// shape; the flow id, when the link carries one, matching the one we started
+// (none on both sides is a match); and finally the exchange itself, which needs
+// the locally stored code verifier, so a forged or replayed code cannot succeed.
 const CALLBACK = 'belific://auth-callback';
 const SCHEME = 'belific';
 const WINDOW_MS = 10 * 60 * 1000;

@@ -256,7 +256,7 @@ Nothing below has been done. Items marked (decision) need your answer before the
 8. Review this note; then tell me which code changes to make (the `environment` line in `eas.json`, and for options 2 and 3 the phone Google sign in with marker changes and tests).
 9. After the code is reviewed and committed by you: gates (7.1 step 7), then a Release build on a device if you have a Mac, otherwise accept that TestFlight is the first device test.
 10. Say "ready for EAS build". Run `eas build --platform ios --profile production`, then `eas submit --platform ios --profile production` (or Transporter). Do not submit for App Store review.
-11. Install from TestFlight. **Before the first sign in on the phone**, make your own safety copy of the phone's data (there is no in-app backup on iOS): the only copy of ~1,800 events outside the old project.
+11. Install from TestFlight. **Before that**, make an encrypted device backup of the iPhone from a computer (the app has no export or backup): see section 8.5, which replaces this list.
 12. Sign in with the account you chose. Watch Authentication, Users (exactly one new or existing user, as expected) and the row counts in the `belific` tables (events about 1,800 for that user). Because the phone shows no sync status, check the dashboard to see that the upload finished; leaving the app open on the screen for several minutes helps (the poll is 120 seconds; backoff after an error can reach 15 minutes).
 13. Check Landis and Proload still sign in and look unchanged.
 14. Only when the phone has moved and you have checked the data: retire the old project (not before; 2.1.0 users, if any besides you, still use it).
@@ -279,3 +279,99 @@ Nothing below has been done. Items marked (decision) need your answer before the
 ### 7.8 Could not verify
 
 The live state of the shared project (schema applied, privileges, exposed schema, Apple/Google provider settings, redirect URLs, whether a `delete-account` exists), EAS's stored environment variables and `appVersionSource`, whether 2.18.0 build 1 was uploaded before, a Mac for a device build, how Supabase links an Apple identity to the existing user in this project, the exact dashboard label for manual linking, `eas env` flag spellings, the request size and timeout behaviour of a 500 row upsert, and anything about the phone at runtime (all conclusions about the phone are from reading the code and the tests).
+
+## 8. Phone move checkpoint 2.18.1: what was built (2026-10-15, uncommitted, nothing run on a device)
+
+**Decisions recorded (Jethro):** option b, Google added to the iPhone so it lands on the same user as the desktop; Apple stays; linking Apple and Google comes before public release, not now; phone sign out becomes local scope; one-time waiver of the local Release build rule for a TestFlight only build, never for App Store review (`TESTING_PROTOCOL.md` 2a). Not done, by instruction: commit, push, staging, any EAS command, any live database, dashboard, Apple or Google contact, any change to user visible wording.
+
+### 8.1 What changed
+
+| Area | Files | Result |
+|---|---|---|
+| EAS | `mobile/eas.json` | `build.production.environment = "production"` only. The build number is raised by hand in `app.json` (section 9). |
+| Version | `mobile/app.json` | 2.18.1 (build number still "1"). The desktop installer name follows (`Belific-Setup-2.18.1.exe` at the next `npm run dist`; the installer on disk is still 2.18.0). |
+| Phone Google sign in | new `lib/phoneAuthCore.ts`, `lib/phoneGoogleFlow.ts`, `lib/phoneGoogleAuth.ts`; `app/settings.tsx`, `app/_layout.tsx` | A row under Apple, Cancel while waiting, fixed messages. System browser through `Linking`, no new native module, no new pod. |
+| Router | new `app/+native-intent.ts` | `belific://auth-callback` is sent to Settings and never becomes a screen. |
+| PKCE | `lib/supabase.ts` (`flowType: 'pkce'` on both platforms), `phoneAuthCore.ts` (SHA-256, `ensureSha256Challenge`) | See 8.2. |
+| Sign out | `lib/auth.ts` | Sign Out and Delete account call `signOutThisDevice` (scope local). |
+| Markers | `scripts/ios-markers.js`, `lib/iosMarkers.test.ts`, decision 018 | Two markers removed on purpose, five desktop only names added (19 markers, 0 hits in a fresh export). |
+| Docs | `docs/BELIFIC_EAS_TESTFLIGHT.md` (new), `CURRENT_TRUTH.md`, `CHANGELOG.md`, decisions 018 and 026, `GOOGLE_SIGNIN_SETUP.md`, `TESTING_PROTOCOL.md`, stale banners on `.claude/skills/workflow/eas-build/SKILL.md` and `docs/publishing-reference.md`, and `mobile/supabase/belific_schema/README.md` (marked ALREADY APPLIED LIVE in the previous checkpoint). | |
+| Tests | new `phoneAuthCore.test.ts`, `phoneGoogleFlow.test.ts`, `easConfig.test.ts`; changed `iosMarkers.test.ts` | |
+
+Desktop code was not edited. `authCore.ts` got a comment change only (it said nothing on the phone imports it).
+
+### 8.2 Findings made while building (these change earlier statements)
+
+1. **auth-js does not put `sb_flow_id` in the redirect by default.** It is opt-in (`experimental.appendPkceFlowIdToRedirects`, off here). The desktop's comment in `desktop/src/authLink.js` ("the client appends its own `sb_flow_id` to redirect_to") is therefore wrong for the current client options: the callback is `belific://auth-callback?code=...`, flow id null on both sides, and the desktop gate accepts that (null equals null). Nothing is broken, and turning it on would be risky: Supabase compares the redirect URL including its query string against the allow list, so an extra parameter could stop the exact entry `belific://auth-callback` from matching. **The phone therefore does not rely on a flow id in the link.** Its "state" is: a sign in started in this run is pending, ten minute window, one exchange at a time, three failures end it, a flow id that must match only if the link carries one (and a link with a flow id nobody asked for is refused), and the exchange is bound to this flow's stored verifier by passing the flow id the client returned when it built the URL. Not changed on the desktop (out of scope); the comment there should be corrected in a desktop change.
+2. **PKCE would have been plain on the phone.** auth-js falls back to `code_challenge_method=plain` when `crypto.subtle` or `TextEncoder` is missing (it only logs a warning), and Hermes has no `crypto.subtle`. A plain challenge is the verifier itself, visible in the browser address, so PKCE would protect nothing. Proven in a test with the real client and a crypto object that lacks `subtle` (method `plain`). Fix: a plain JavaScript SHA-256 (checked against Node's crypto for every length 0 to 300, random inputs and UTF-8), installed as `crypto.subtle.digest` only when missing (and a minimal `TextEncoder` only when missing), plus a gate that **refuses to open the browser** unless the URL has `code_challenge_method=s256` and a 43 character challenge. The same test then shows s256 and a challenge equal to the SHA-256 of the stored verifier.
+3. **Switching `flowType` to `pkce` on the phone** does not change Apple: `signInWithIdToken` does not use it. It does change the shared client on the phone, so `phoneAuthCore.test.ts` runs the real supabase-js client in pkce mode.
+4. **Nothing else revokes other sessions.** All `auth.signOut(` calls in app code (`sync.ts` project guard, `desktopAuth.ts` three, `phoneAuthCore.ts` one) use `scope: 'local'`, enforced by a source scan test; no `scope: 'global'` or `'others'`, no `auth.admin`; the delete-account function does not sign anyone out. Not checked (dashboard): Supabase's project wide "single session per user" and session time-box settings, which belong to the shared project and could end sessions on their own.
+5. **`eas.json` settings checked offline** against the installed eas-cli 18.8.1 schema (`@expo/eas-json`): `build.<profile>.environment`, `build.<profile>.autoIncrement` and `cli.appVersionSource` are valid; an invented key is rejected. This proves the spelling only, not how they behave.
+
+### 8.3 Tests and gates (this checkpoint)
+
+- `npx tsc --noEmit`: clean.
+- `mobile` `npm test`: 470 pass, 0 fail (was 432; new: `phoneAuthCore` 19, `phoneGoogleFlow` 14, `easConfig` 4, `iosMarkers` +1).
+- `desktop` `npm test`: 84 pass, 0 fail.
+- iOS export (`npx expo export --platform ios`, folder outside the repo) and `npm run check:ios-markers`: OK, 19 markers, 0 hits. Positive controls in the bundle: "Sign in with Google", "Cancel Google sign in", `ensureSha256Challenge`, the new project ref; the old ref is absent. (`belificDesktop` and `secureKv` strings are in the bundle already, through `kv.ts`, unchanged.)
+- Security scan: passed.
+- Real checks (web export rebuilt first so they run the new code): `test:real:cp6` 61/61, `test:real:cp12` 58/58. Both use the in process fake Supabase only.
+- Not run again: cp7 to cp11 (nothing in the desktop shell, storage or sync was touched; the shared files changed are `supabase.ts` flowType (unchanged for the desktop), `auth.ts`, `settings.tsx` and `_layout.tsx` which the desktop does not use apart from `_layout`'s web guard).
+
+### 8.4 What cannot be tested without a device (or the real project)
+
+- That iOS returns `belific://auth-callback` to the app after Safari, and what the "Open in Belific?" prompt looks like.
+- That expo-router, given `/settings` from `+native-intent.ts`, does not show an unmatched route screen on a cold or warm return (only its documented contract is used).
+- Hermes `TextEncoder` and the speed of the JavaScript SHA-256 (it hashes one 112 character string; the code installs a `TextEncoder` if missing).
+- The Google and Supabase side: the shared client, the redirect list entry and the callback accepting the phone's request. The desktop already works, which is good evidence but not a phone test.
+- Anything about Landis and Proload, and what the first sign in does to the shared user.
+- That `Linking.openURL` leaves a usable app state if the person never returns (the Cancel row ends it; a late link is ignored).
+
+### 8.5 Final ordered step list for Jethro (replaces 7.6)
+
+1. Review the diff (`git status`, `git diff --stat`, the new files). Commit when you are happy; nothing was committed.
+2. Dashboard, shared project, **append only**: add `com.najeca.belific` to the Apple Client IDs (read the field first, keep every other app's entries). Google needs nothing new for the phone. Confirm `belific://auth-callback` is in the Redirect URLs (it must be, the desktop Google sign in works).
+3. Check no other app already has a `delete-account` function in the shared project. Do not deploy ours.
+4. EAS variables: `eas whoami`, `eas env:list --environment production`, then update or create `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (flags: check `--help`), then list again and read the URL back. See `docs/BELIFIC_EAS_TESTFLIGHT.md` section 4.
+5. Check App Store Connect that 2.18.1 build 1 was never used; raise `buildNumber` in `app.json` by hand if it was or for any rebuild (section 3 of that file).
+6. Safety copies: an **encrypted device backup** of the iPhone (Finder or iTunes), and a backup of the old project's data (Supabase dashboard of the old project). The phone has no export.
+7. Say "ready for EAS build". Then in `mobile/`: `eas build --platform ios --profile production`; wait; `eas submit --platform ios --profile production` (or Transporter). TestFlight internal group only; do not submit for review.
+8. Install from TestFlight and run the checks in `docs/BELIFIC_EAS_TESTFLIGHT.md` section 5, step 9 (Google round trip, same user as the desktop, rows in `belific`, desktop sees the phone's data, phone Sign Out leaves the desktop signed in). Because the phone shows no sync status, watch the dashboard row counts.
+9. Check Landis and Proload still sign in. Keep the old project. If anything is wrong, roll back as in section 6 of that file.
+10. Before the build is shown to anyone but you: privacy page and terms (Google on the iPhone), the delete-account decision and wording, linking ("Add a sign in method"), and the iOS catch-up list in `CURRENT_TRUTH.md` (visible sync status first). Then retire the old project only after the phone has moved.
+
+### 8.6 Risks
+
+1. **First device test is the TestFlight build** (waiver). A launch crash or a sign in that never returns costs one of 15 monthly builds. Mitigation: gates above, and rollback (reinstall 2.1.0) in the build doc.
+2. **EAS variables wrong or stale:** crash at launch (missing) or silently the old project (stale).
+3. **Safari round trip, router redirect, SHA-256 on Hermes** are untested (8.4). If Hermes had a `crypto.subtle` of its own the shim is skipped; if `TextEncoder` is missing the shim provides one.
+4. **Shared user:** Google on the phone lands on Jethro's existing Landis user, and the phone's first pass merges its local data (events about 1,800, tasks, routines) into that user's `belific` rows next to the desktop's 36 tasks, 10 projects and 2 brain dump items. Additive, but same name labels become duplicates, and Brain Dump and tasks from both devices appear together.
+5. **Apple on the phone** may still make a separate user (private relay, or no automatic link). If Jethro signs in with Apple on the phone after Google, he may see a second, empty account. Linking comes before public release.
+6. **The old project's Apple user data (about 1,800 events) is not migrated server side.** It reaches the new project only because the phone uploads its local copy. Anything only on the old project (other devices, a deleted app) is not copied.
+7. **No phone backup and no account choice** at first sign in; no sync status afterwards. Use the device backup and the dashboard.
+8. **Public pages and delete wording are not updated** (privacy page and terms say Google is Windows only; the phone's Delete Account alert still says it deletes the account). Do not let anyone else install it.
+9. **Stale tools:** the Landis `eas-build` skill and `docs/publishing-reference.md` would build the wrong thing; both are marked.
+10. **Desktop comment on `sb_flow_id` is wrong** (8.2 item 1); harmless today, correct it in a desktop change.
+11. **Version bump to 2.18.1 changes the desktop installer name;** rebuild with `npm run dist` before testing the desktop at 2.18.1. The currently installed desktop is whatever was last installed.
+12. **eas-cli version:** `environment` and the build number keys exist in the installed 18.8.1 schema; `cli.version >= 12.0.0` in `eas.json` does not guarantee an older CLI knows them.
+
+### 8.7 Could not verify
+
+Everything in 8.4; EAS stored variables and what `eas env:*` flags look like; the behaviour of `appVersionSource: remote` and `autoIncrement` for an app with existing App Store builds; whether 2.18.1 build 1 exists in App Store Connect; whether a Mac is available; the shared project's live state (Apple/Google providers, redirect list, session settings, an existing `delete-account`); how Supabase links an Apple identity to the existing user; the privacy page and terms effect on App Review.
+
+## 9. Review changes after checkpoint 8 (2026-10-15)
+
+Jethro accepted the phone checkpoint with four changes, then asked for two commits. Done in the working tree before committing:
+
+1. **Audited SHA-256.** The hand written SHA-256 is gone. `lib/phoneAuthCore.ts` imports `sha256` from `@noble/hashes/sha2` (**`@noble/hashes` 1.8.0, MIT, zero dependencies, pinned exactly in `mobile/package.json` and the lock file**; the 1.x line is the one with published audits. 2.x is ESM only and newer; not used). Every byte string our own code hashes is built by `asciiBytes` (no `TextEncoder`), and the challenge is base64url encoded by our own `base64url` (no `btoa`), checked against the RFC 7636 example and Node. The digest installed for auth-js still receives whatever bytes auth-js builds with its `TextEncoder` (a minimal one is installed only if the platform has none). Tests keep comparing with Node's crypto (lengths 0 to 300, random, UTF-8), and a test runs the whole chain with `TextEncoder` deleted.
+2. **Where the PKCE verifier's randomness comes from (proved from the installed auth-js 2.111 source, `dist/main/lib/helpers.js`):**
+   - `generatePKCEVerifier()` takes `crypto.getRandomValues(new Uint32Array(56))` and keeps the last two hex digits of each value (112 hex characters). It uses **`Math.random` only when `typeof crypto === 'undefined'`**. If `crypto` exists but `getRandomValues` is missing it **throws**; it does not fall back. `generatePKCEFlowId()` falls back to `Math.random` when `crypto.getRandomValues` is missing (the flow id only picks a storage slot and is not a secret).
+   - On the phone `mobile/index.js` requires `react-native-get-random-values` (1.11.0) before `expo-router/entry`. It sets `global.crypto.getRandomValues` if there is none. That function uses `ExpoCrypto.getRandomValues` when present, otherwise the native module `RNGetRandomValues`, whose iOS source calls **`SecRandomCopyBytes(kSecRandomDefault, ...)`** and throws if it fails. **Its one insecure branch** is `Math.random`, used only when `__DEV__` is true and `nativeCallSyncHook` is undefined (JavaScript debugging in Chrome); a Release/TestFlight build has `__DEV__` false.
+   - So in a Release build the verifier is secure, by the source. The gate now **proves it at run time instead of trusting it:** (a) `randomnessIsSecure()` calls `crypto.getRandomValues` twice with `Math.random` watched and refuses if the function is missing, throws, touches `Math.random`, returns constant bytes or the same bytes twice; (b) after `signInWithOAuth` the app reads the verifier auth-js stored for that flow (key `sb-<ref>-auth-token-flow-<flowId>-code-verifier`, a test compares this name with the real client's) and `PhoneAuthGate.begin` opens the browser only if it is 112 lower case hex characters (the `Math.random` branch makes 56 characters from an alphabet with capitals and `-._~`, so it cannot be mistaken) **and** its SHA-256, computed from our own bytes, equals the `code_challenge` in the URL and the method is `s256`. Any failure: the browser stays closed and the person sees "Sign in could not start."
+   - Tests: the real client with `crypto` absent (Math.random branch, refused), with a controlled `getRandomValues` (the verifier is exactly its bytes, 56 values requested), with and without `crypto.subtle`; the polyfill's insecure branch copied into a test (refused); constant, repeated, throwing and missing sources; flow tests where each of those keeps the browser closed and makes no OAuth call.
+   - **Cannot be proved without a device:** that on the phone `global.crypto.getRandomValues` is the native one (the pod linked in the EAS build, `__DEV__` false in that build); the run time checks refuse a bad source but only a device shows which branch ran. Also still unproved: Hermes `TextEncoder`, the speed of the JavaScript hash (one 112 character string), the Safari round trip and the router redirect.
+3. **Desktop comment fixed** (`desktop/src/authLink.js`, comment only; the diff has no code line): the callback normally has no `sb_flow_id`, the option is opt-in and off, and a null flow id on both sides is a match.
+4. **Build numbers kept simple.** `eas.json` has only `environment: "production"`. No `appVersionSource`, no `autoIncrement` (`easConfig.test.ts` now forbids both). The build number is raised by hand in `mobile/app.json`; `docs/BELIFIC_EAS_TESTFLIGHT.md` section 3 says so and tells Jethro to check in App Store Connect that 2.18.1 build 1 is unused (unverified; no access). Where earlier sections of this note say the build number settings are "proposed" (8.1, 8.2 item 5, 8.5 step 5, 8.6 item 12, 8.7), this section replaces them.
+
+### 9.1 Gates after the review changes
+`tsc` clean; `mobile` node tests 475 pass / 0 fail; `desktop` node tests 84 pass / 0 fail; iOS export (Metro bundled `@noble/hashes`) and `check:ios-markers`: OK, 19 markers, 0 hits (positive controls `randomnessIsSecure`, `pkceVerifierStorageKey`, "Sign in with Google" present; old project ref absent); security scan passed; `test:real:cp6` 61/61 and `test:real:cp12` 58/58 on a rebuilt web export (fake Supabase only).

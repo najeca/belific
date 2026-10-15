@@ -8,6 +8,23 @@ to know the current version and recent history.
 
 ---
 
+## 2.18.1 — 2026-10-15
+
+**The iPhone gets Google sign in, signs out locally, and the build is ready for a TestFlight only run against the shared project. Nothing deployed, no EAS command run, no dashboard or database contact. (Phone move checkpoint.)**
+
+- **Settings, Account (iPhone):** a "Sign in with Google" row under "Sign in with Apple" (a Cancel row and a short fixed message while the browser is open). Google opens the system browser (Linking, no new native module), PKCE, and comes back through `belific://auth-callback`. Apple is unchanged.
+- **Phone callback rules** (`lib/phoneAuthCore.ts`, `phoneGoogleFlow.ts`, `phoneGoogleAuth.ts`): the exact Belific authorize URL only, Google only, redirect exactly `belific://auth-callback`; a link is accepted only for a sign in started in this run, within 10 minutes, once, three failures end it; quiet, fixed sentences. The flow id is in the link only if auth-js is told to add it (it is off, and stays off: the redirect allow list compares the query string); the exchange is bound to this flow's stored verifier instead.
+- **Real PKCE on the phone.** Hermes has no `crypto.subtle`, and auth-js then silently falls back to a **plain** challenge (the verifier itself in the browser address). The phone installs `@noble/hashes` (audited, pinned at 1.8.0) as `crypto.subtle.digest` when missing, and the gate **refuses** to open the browser unless the challenge is S256 **and** the PKCE verifier (read back from the session store) came from secure randomness: it has the shape of auth-js's `crypto.getRandomValues` branch, hashes to exactly the challenge in the URL (hash of bytes the app builds itself, no TextEncoder), and `crypto.getRandomValues` itself passes a run time check that it never touches `Math.random`. `flowType` is now `pkce` on both platforms (Apple's `signInWithIdToken` is unaffected).
+- **expo-router** no longer sees the callback as a screen: `app/+native-intent.ts` sends `belific://auth-callback` to Settings.
+- **Phone sign out is local scope** (Sign Out and Delete account): the default global scope would have signed out the desktop and the other apps that share the login.
+- **iOS marker gate:** `startGoogleSignIn` and `Continue with Google` removed on purpose; five desktop only auth names added (19 markers, 0 hits). Decisions 018 and 026 updated.
+- **`eas.json`:** the production profile reads the `production` EAS environment (`"environment": "production"`); no values in the repo. The build number stays in `app.json` and is raised by hand (`docs/BELIFIC_EAS_TESTFLIGHT.md` section 3); no `appVersionSource`, no `autoIncrement`.
+- **Docs:** `docs/BELIFIC_EAS_TESTFLIGHT.md` (variables, build, TestFlight only, the one-time waiver, rollback), stale banners on the Landis `eas-build` skill and `docs/publishing-reference.md`, the waiver in `TESTING_PROTOCOL.md`.
+- Tests: `phoneAuthCore.test.ts` (callback, URL check, gate, real supabase-js PKCE with and without WebCrypto, SHA-256 against Node, the verifier randomness proof, native intent, sign out scope), `phoneGoogleFlow.test.ts` (fakes), `easConfig.test.ts`, `iosMarkers.test.ts`. Not testable without a device: end of `phoneAuthCore.test.ts` and `docs/sessions/2026-10-15-project-move.md` section 8.
+- **Not changed (user visible wording):** the delete texts, `privacy.html` and `terms.html` (they still say Google is Windows only: update before anyone but Jethro installs the phone build).
+
+---
+
 ## 2.18.0 — 2026-10-08
 
 **A Sign in page with Apple and Google on the desktop. Desktop only; the iPhone app is unchanged. No migration, no database or dashboard contact, nothing deployed. (Checkpoint 12, part 1 of 2; email and password is 2.19.0, not started.)**

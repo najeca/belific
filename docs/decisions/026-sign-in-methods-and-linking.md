@@ -22,6 +22,8 @@ Source: Jethro's instruction for checkpoint 12, answers 1 to 6 (app 2.18.0, with
 
 **Why.** Many people have no Apple device on their computer and a Google account is the common alternative. A separate page keeps the popover small and gives the privacy lines room. Doing Apple and Google first, with the same tested flow, adds the least new surface; passwords add the most (storage, resets, codes, email) and are split off.
 
+**Note (2026-10-15, 2.18.1, phone move checkpoint).** Jethro chose option b: **the iPhone also offers Google**, so the phone lands on the same user as the desktop (and as Landis, the login is shared). Apple stays. The bullet above ("The iPhone is unchanged") is superseded for 2.18.1. Linking an Apple and a Google sign in for one person ("Add a sign in method", `linkIdentity`, needs the manual linking switch in Supabase) comes **before any public release**, not in this build. The phone signs out with the local scope only, so signing out of the phone does not sign out the desktop or the other apps. Apple's rule about equivalent login options is met because Sign in with Apple is offered next to Google. The privacy page and terms still say Google is Windows only and must be updated before anyone but Jethro can install the phone build.
+
 ## Related Notes
 - [[docs/decisions/012-account-and-identity-strategy]]
 - [[docs/decisions/025-profile-icon-settings-labels-pages]]

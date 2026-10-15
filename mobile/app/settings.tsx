@@ -35,6 +35,7 @@ import {
 import { seedOwnerSchedule } from '../lib/ownerSeed';
 import { supabase } from '../lib/supabase';
 import { signInWithApple, signOut, deleteAccount } from '../lib/auth';
+import { phoneGoogle } from '../lib/phoneGoogleAuth';
 import type { Session } from '@supabase/supabase-js';
 
 // Read from app.json's expo.version at runtime rather than hardcoded —
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
   const ownerTapCount = useRef(0);
   const [session, setSession] = useState<Session | null>(null);
   const [authBusy, setAuthBusy] = useState(false);
+  const [google, setGoogle] = useState(phoneGoogle.getState());
 
   useEffect(() => {
     async function checkPermissions() {
@@ -85,6 +87,9 @@ export default function SettingsScreen() {
     });
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Google sign in (system browser): its waiting state and fixed messages.
+  useEffect(() => phoneGoogle.subscribe(setGoogle), []);
 
   async function handleSignIn() {
     setAuthBusy(true);
@@ -318,20 +323,38 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </>
           ) : (
-            <TouchableOpacity
-              style={styles.row}
-              onPress={handleSignIn}
-              disabled={authBusy}
-              activeOpacity={0.7}
-              accessibilityLabel="Sign in with Apple"
-              accessibilityRole="button"
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="logo-apple" size={18} color={Colors.textPrimary} style={{ marginRight: 10 }} />
-                <Text style={styles.rowLabel}>Sign in with Apple</Text>
-              </View>
-              {authBusy && <ActivityIndicator size="small" color={Colors.textSecondary} />}
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.row}
+                onPress={handleSignIn}
+                disabled={authBusy || google.busy}
+                activeOpacity={0.7}
+                accessibilityLabel="Sign in with Apple"
+                accessibilityRole="button"
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="logo-apple" size={18} color={Colors.textPrimary} style={{ marginRight: 10 }} />
+                  <Text style={styles.rowLabel}>Sign in with Apple</Text>
+                </View>
+                {authBusy && <ActivityIndicator size="small" color={Colors.textSecondary} />}
+              </TouchableOpacity>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                style={styles.row}
+                onPress={() => (google.busy ? phoneGoogle.cancel() : phoneGoogle.start().catch(() => {}))}
+                disabled={authBusy}
+                activeOpacity={0.7}
+                accessibilityLabel={google.busy ? 'Cancel Google sign in' : 'Sign in with Google'}
+                accessibilityRole="button"
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="logo-google" size={18} color={Colors.textPrimary} style={{ marginRight: 10 }} />
+                  <Text style={styles.rowLabel}>{google.busy ? 'Cancel Google sign in' : 'Sign in with Google'}</Text>
+                </View>
+                {google.busy && <ActivityIndicator size="small" color={Colors.textSecondary} />}
+              </TouchableOpacity>
+              {google.message && <Text style={styles.authNote}>{google.message}</Text>}
+            </>
           )}
         </View>
 
@@ -480,6 +503,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.danger,
     fontWeight: '600',
+  },
+  authNote: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
   },
   aboutRow: {
     flexDirection: 'row',

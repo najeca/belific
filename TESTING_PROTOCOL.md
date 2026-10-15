@@ -20,6 +20,10 @@ unless Jethro explicitly says:
 EAS iOS builds are limited to 15 per month. Every unauthorised build is a
 wasted resource.
 
+## 2a. ONE-TIME WAIVER, RECORDED 2026-10-15 (phone move, 2.18.1)
+
+Jethro waived the "local Release build first" rule **once**, for a **TestFlight only** build of 2.18.1 (the Windows PC cannot build for iOS and no Mac is confirmed). It is **never** a waiver for App Store review, a second build or a public release. "ready for EAS build" is still needed for each `eas build` and `eas submit`. Conditions and rollback: `docs/BELIFIC_EAS_TESTFLIGHT.md`.
+
 ## 3. THE GATE BETWEEN LOCAL AND EAS
 
 ```

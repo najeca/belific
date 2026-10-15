@@ -2,8 +2,11 @@
 // no network, no storage, so it is unit tested and can never leak a token: it
 // only ever sees provider names, reasons and the public parts of a user.
 //
-// Desktop only. Nothing on the iPhone imports this file (the phone signs in
-// with Apple's native sheet in lib/auth.ts and offers no other method).
+// Written for the desktop. Since 2.18.1 the iPhone imports it too, for its Google
+// sign in: only the pure parts (provider names, REDIRECT_TO, oauthOptions, the
+// failure sentences, the account label). The Sign in page wording stays here, but
+// the desktop page itself and everything that talks to Electron do not
+// (lib/phoneAuthCore.ts and the iOS marker script keep that apart).
 
 export type SignInProvider = 'apple' | 'google';
 

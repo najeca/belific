@@ -25,9 +25,17 @@ const { spawnSync } = require('node:child_process');
 const MARKERS = [
   'listenForAuthCallbacks',
   'startAppleSignIn',
-  'startGoogleSignIn',
+  // 2.18.1 (phone move checkpoint): 'startGoogleSignIn' and 'Continue with
+  // Google' were removed from this list ON PURPOSE. The iPhone now has its own
+  // Google sign in (lib/phoneGoogleAuth.ts, "Sign in with Google" in Settings)
+  // and imports the pure parts of authCore.ts, which hold the desktop Sign in
+  // page's wording. The desktop only parts stay protected by the names below.
   'SignInPage',
-  'Continue with Google',
+  'signOutDesktop',
+  'deleteAccountDesktop',
+  'answerAccountChoice',
+  'restoreAccountChoice',
+  'handleAuthCallback',
   'SettingsPage',
   'LabelsPage',
   'ProgressPage',

@@ -29,13 +29,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: authStorage,
     autoRefreshToken: true,
     persistSession: true,
-    // No web OAuth redirect flow — Sign in with Apple's native sheet
-    // returns an identity token directly, exchanged via
-    // signInWithIdToken (see auth.ts). Never a URL to detect.
+    // No URL to detect: Apple's native sheet returns an identity token
+    // (signInWithIdToken, auth.ts) and the browser sign in hands its code to the
+    // app itself (desktop: main process; iPhone: phoneGoogleAuth.ts).
     detectSessionInUrl: false,
-    // The desktop signs in through the system browser with PKCE (decision
-    // 012). iOS keeps the default; its native sheet uses signInWithIdToken.
-    flowType: globalThis.belificDesktop ? 'pkce' : 'implicit',
+    // PKCE on both platforms. The desktop and (since 2.18.1) the iPhone sign in
+    // with Google through the system browser; Sign in with Apple on the iPhone
+    // still uses its native sheet and signInWithIdToken, which flowType does not
+    // affect. React Native has no crypto.subtle, so the phone installs a SHA-256
+    // digest before it starts (lib/phoneAuthCore.ts) and refuses a plain challenge.
+    flowType: 'pkce',
   },
 });
 

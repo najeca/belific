@@ -30,8 +30,24 @@ function cli(dir: string | undefined): { code: number | null; err: string } {
 }
 
 test('the marker list includes the checkpoint 11 markers and the earlier desktop ones', () => {
-  for (const m of ['ProgressPage', 'seriesStreak', 'SettingsPage', 'LabelsPage', 'RoutineConvertRow', 'listenForAuthCallbacks', 'startAppleSignIn', 'startGoogleSignIn', 'SignInPage', 'Continue with Google']) {
+  for (const m of ['ProgressPage', 'seriesStreak', 'SettingsPage', 'LabelsPage', 'RoutineConvertRow', 'listenForAuthCallbacks', 'startAppleSignIn', 'SignInPage']) {
     assert.ok(markers.MARKERS.includes(m), m);
+  }
+});
+
+test('2.18.1: the phone gets its own Google sign in, so two markers were removed on purpose and desktop only auth names were added', () => {
+  for (const removed of ['startGoogleSignIn', 'Continue with Google']) assert.ok(!markers.MARKERS.includes(removed), `${removed} is no longer a marker`);
+  for (const added of ['signOutDesktop', 'deleteAccountDesktop', 'answerAccountChoice', 'restoreAccountChoice', 'handleAuthCallback']) {
+    assert.ok(markers.MARKERS.includes(added), added);
+  }
+  // the desktop only code itself still defines these names, so the gate is not empty
+  const desktopAuth = fs.readFileSync(path.resolve(import.meta.dirname, 'desktopAuth.ts'), 'utf8');
+  for (const name of ['signOutDesktop', 'deleteAccountDesktop', 'answerAccountChoice', 'restoreAccountChoice', 'handleAuthCallback', 'startGoogleSignIn']) assert.match(desktopAuth, new RegExp(name));
+  // and no phone file defines or uses a desktop only marker
+  const phoneFiles = ['phoneGoogleAuth.ts', 'phoneGoogleFlow.ts', 'phoneAuthCore.ts', 'auth.ts', '../app/settings.tsx', '../app/+native-intent.ts'];
+  for (const f of phoneFiles) {
+    const text = fs.readFileSync(path.resolve(import.meta.dirname, f), 'utf8');
+    for (const m of markers.MARKERS) assert.ok(!text.includes(m), `${f} contains the desktop only marker ${m}`);
   }
 });
 

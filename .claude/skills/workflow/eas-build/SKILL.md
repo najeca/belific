@@ -4,6 +4,8 @@ description: Trigger a local EAS build for the Landis iOS app. Use when a new pr
 disable_model_invocation: true
 ---
 
+> **STALE for Belific (marked 2026-10-15, kept, not deleted).** This is the **Landis** skill: bundle `com.landis.app`, paths under `apps/mobile`, `--local` builds, `EXPO_PUBLIC_API_URL`. Its scripts do not fit this repo (`mobile/`, bundle `com.najeca.belific`) and must not be run for Belific. Use `docs/BELIFIC_EAS_TESTFLIGHT.md`. Jethro's "ready for EAS build" rule still applies (`TESTING_PROTOCOL.md`).
+
 # EAS Build
 
 ## Instructions

@@ -9,6 +9,7 @@ import { requestPermissions } from '../lib/notifications';
 import { seedDevEvents } from '../lib/devSeed';
 import { migrateToSyncableSchema } from '../lib/storage';
 import { runFullSync, startSyncLoop } from '../lib/sync';
+import { watchGoogleLinks } from '../lib/phoneGoogleAuth';
 import { Colors } from '../lib/theme';
 
 Notifications.setNotificationHandler({
@@ -110,7 +111,13 @@ function RootLayoutInner() {
 
     // Foreground, every 120 s while active, and shortly after each local
     // write (lib/sync.ts startSyncLoop, decision 013 item 5).
-    return startSyncLoop();
+    const stopSync = startSyncLoop();
+    // The Google sign in comes back as a belific://auth-callback link.
+    const stopLinks = Platform.OS === 'web' ? () => {} : watchGoogleLinks();
+    return () => {
+      stopSync();
+      stopLinks();
+    };
   }, []);
 
   return (

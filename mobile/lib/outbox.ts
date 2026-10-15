@@ -11,8 +11,8 @@ import type { RoutineCompletion } from './types';
 // Only active while sync is enabled (a signed in session). A signed out
 // device (the default, and the desktop until checkpoint 6) queues nothing;
 // its local rows are uploaded by the first full pass after it signs in.
-const OUTBOX_KEY = 'belific_sync_outbox';
-const ENABLED_KEY = 'belific_sync_enabled';
+export const OUTBOX_KEY = 'belific_sync_outbox';
+export const ENABLED_KEY = 'belific_sync_enabled';
 
 const lock = createMutex();
 let cache: OutboxState | null = null;

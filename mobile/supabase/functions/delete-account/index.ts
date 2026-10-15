@@ -1,23 +1,19 @@
-// Account deletion (Apple guideline 5.1.1(v)): removes every row this
-// user owns across all 7 synced tables, then the auth user itself, in
-// that order. Must run server-side with the service-role key — the
-// client can never delete its own auth user directly, Supabase's
-// client SDK has no self-delete call for that reason.
+// "Delete Belific data" (the Edge Function is still called delete-account).
+// Removes every row the calling user owns in the belific schema, across all 7
+// tables, and nothing else. It does NOT delete the auth user: since the move to
+// the shared Landis, Proload and Belific project that user belongs to the other
+// apps too. Whether Apple's account deletion rule (5.1.1(v)) is met by this is
+// an open decision for Jethro (docs/sessions/2026-10-15-project-move.md).
 //
-// SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY are
-// injected automatically into every Edge Function's environment —
-// nothing to configure.
+// The rows are deleted with the caller's OWN JWT, so row level security
+// (user_id = auth.uid()) is a second wall behind the explicit user_id filter:
+// even a bug here could only ever reach the caller's rows. No service role key
+// is used, so none is read.
+//
+// SUPABASE_URL and SUPABASE_ANON_KEY are injected automatically into every Edge
+// Function's environment, nothing to configure. The rules live in core.ts.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-
-const SYNCED_TABLES = [
-  'custom_events',
-  'brain_dump_items',
-  'routines',
-  'routine_completions',
-  'tasks',
-  'projects',
-  'custom_categories',
-] as const;
+import { deleteOwnRows, verifiedUserId } from './core.ts';
 
 // CORS (checkpoint 5, review section 4): only the Windows desktop app's own
 // origin may call this from a page. The iPhone calls it from native code,
@@ -66,39 +62,27 @@ Deno.serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    console.log(
-      `[delete-account] env present: url=${!!supabaseUrl} anon=${!!anonKey} service=${!!serviceRoleKey}`,
-    );
-    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    console.log(`[delete-account] env present: url=${!!supabaseUrl} anon=${!!anonKey}`);
+    if (!supabaseUrl || !anonKey) {
       return json(req, FAILED, 500);
     }
 
-    // Verifies the caller's own JWT — identifies exactly one real,
-    // already-authenticated user; there is no other way to reach this
-    // function's admin-privileged deletion path.
+    // The caller's own client: every request carries their JWT, so RLS applies.
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
+    // Asks the auth server to verify the JWT. The id used below comes from
+    // here and nowhere else; the request body is never read.
     const { data: { user }, error: userError } = await userClient.auth.getUser();
-    console.log(`[delete-account] getUser -> ${userError || !user ? 'rejected' : 'ok'}`);
-    if (userError || !user) {
+    const userId = userError ? null : verifiedUserId(user);
+    console.log(`[delete-account] getUser -> ${userId ? 'ok' : 'rejected'}`);
+    if (!userId) {
       return json(req, UNAUTHORIZED, 401);
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
-    for (const table of SYNCED_TABLES) {
-      const { error } = await adminClient.from(table).delete().eq('user_id', user.id);
-      console.log(`[delete-account] delete ${table} -> ${error ? 'failed' : 'ok'}`);
-      if (error) {
-        return json(req, FAILED, 500);
-      }
-    }
-
-    const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id);
-    console.log(`[delete-account] deleteUser -> ${deleteUserError ? 'failed' : 'ok'}`);
-    if (deleteUserError) {
+    const result = await deleteOwnRows(userClient, userId);
+    console.log(`[delete-account] delete rows -> ${result.ok ? 'ok' : `failed at ${result.table}`}`);
+    if (!result.ok) {
       return json(req, FAILED, 500);
     }
 

@@ -10,7 +10,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const MAIN = path.join(__dirname, '..', '..', 'main.js');
-const SUPABASE_HOST = 'uucycebkpgwbktdytxvr.supabase.co';
+const SUPABASE_HOST = 'vlogfwnmaqorhialcqbr.supabase.co';
 
 function realFolders() {
   const appData = app.getPath('appData');

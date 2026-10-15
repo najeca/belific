@@ -1,6 +1,9 @@
 # Google sign in for the desktop app: setup guide for Jethro
 
-Desktop Google sign in (decision 026, app 2.18.0) is built and tested against fakes, but it **cannot work until you do the steps below**. They are all dashboard clicks; nothing here was done for you, and no dashboard or live service was touched while building it. Do them in order. The Supabase project ref is `uucycebkpgwbktdytxvr`.
+> **Moved to the shared project (2026-10-15).** Belific now uses the project shared with Landis and Proload, ref `vlogfwnmaqorhialcqbr`, and the callback URL is `https://vlogfwnmaqorhialcqbr.supabase.co/auth/v1/callback`. Everything below uses that URL. The Apple and Google settings of that project are shared, so read the section "Shared with Landis and Proload" in `docs/CURRENT_TRUTH.md` before saving anything in a provider. Where this guide says to replace a value, first check that no other app still uses it. Nothing here has been done for you.
+
+
+Desktop Google sign in (decision 026, app 2.18.0) is built and tested against fakes, but it **cannot work until you do the steps below**. They are all dashboard clicks; nothing here was done for you, and no dashboard or live service was touched while building it. Do them in order. The Supabase project ref is `vlogfwnmaqorhialcqbr`.
 
 **Unverified:** the wording and the position of the buttons in the Google Cloud console and the Supabase dashboard below are written from memory of how they looked, not checked against today's screens. Both change often. If a name does not match, look for the closest one and tell me what you saw, so this guide can be corrected.
 
@@ -10,7 +13,7 @@ Values used below:
 
 | Thing | Value |
 |---|---|
-| Supabase callback URL (Google's "Authorized redirect URI") | `https://uucycebkpgwbktdytxvr.supabase.co/auth/v1/callback` |
+| Supabase callback URL (Google's "Authorized redirect URI") | `https://vlogfwnmaqorhialcqbr.supabase.co/auth/v1/callback` |
 | Desktop redirect (Supabase redirect allow list) | `belific://auth-callback` |
 | Scopes the app needs | `openid`, `email`, `profile` (the basic ones) |
 
@@ -32,7 +35,7 @@ Values used below:
 
 1. Open **Credentials**, then **Create credentials**, then **OAuth client ID**.
 2. Application type: **Web application**. Name: `Belific Supabase`.
-3. **Authorized redirect URIs**: add exactly `https://uucycebkpgwbktdytxvr.supabase.co/auth/v1/callback`. Nothing else is needed. Leave **Authorized JavaScript origins** empty.
+3. **Authorized redirect URIs**: if the shared project already has a Google client, edit that one instead of making a second (the Google provider takes one client); add exactly `https://vlogfwnmaqorhialcqbr.supabase.co/auth/v1/callback`. Nothing else is needed. Leave **Authorized JavaScript origins** empty.
 4. Create. Copy the **Client ID** and the **Client secret**. Keep the secret out of the repository, chat and notes. Unlike the Apple secret, this one does not expire on a schedule.
 
 ## (d) Turn Google on in Supabase

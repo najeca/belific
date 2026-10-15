@@ -11,6 +11,7 @@ import type { RoutineCompletion } from './types.ts';
 
 type Row = Record<string, unknown>;
 type AnyTable = TimestampedTable | 'routine_completions';
+const REQUIRED_PROFILE = 'belific';
 const EXTRA_COLUMNS = ['subtasks', 'reminder_minutes'];
 const PIPELINE_COLUMNS = ['duration_minutes', 'start_time', 'recurrence', 'recurrence_days', 'recurrence_month_day', 'color_key'];
 
@@ -39,9 +40,13 @@ class FakeServer {
     this.clock += 1000;
     if (this.caps.serverUpdatedAt) r.server_updated_at = new Date(this.clock).toISOString().replace('Z', '+00:00');
   }
-  private check() {
+  // Like PostgREST: a request that does not name the belific schema (the
+  // Accept-Profile / Content-Profile header the client adds from db.schema)
+  // is refused, so a client that forgot the schema fails every test here.
+  private check(profile: string | null = REQUIRED_PROFILE) {
     this.calls += 1;
     if (!this.online) throw new TypeError('Network request failed');
+    if (profile !== REQUIRED_PROFILE) throw new Error('PGRST106: The schema must be one of the following: belific');
   }
 
   // What a 2.1.0 iPhone does: a full row with deleted_at null, no new columns.
@@ -58,15 +63,15 @@ class FakeServer {
     return this.all(t).find((r) => (r.id ?? r.key) === id);
   }
 
-  adapter(userId: string | null): ServerAdapter {
+  adapter(userId: string | null, profile: string | null = REQUIRED_PROFILE): ServerAdapter {
     return {
       userId: async () => userId,
       probe: async () => {
-        this.check();
+        this.check(profile);
         return { ...this.caps };
       },
       selectPage: async (t: AnyTable, q: PageQuery) => {
-        this.check();
+        this.check(profile);
         if (q.since && !this.caps.serverUpdatedAt) throw new Error('column server_updated_at does not exist');
         let list = this.all(t).filter((r) => r.user_id === userId);
         if (q.since) list = list.filter((r) => parseTime(r.server_updated_at) >= parseTime(q.since));
@@ -78,7 +83,7 @@ class FakeServer {
         return list.slice(q.from, end).map((r) => ({ ...r }));
       },
       upsert: async (t: AnyTable, rows: Row[]) => {
-        this.check();
+        this.check(profile);
         if (this.gate) await this.gate;
         if (this.upsertsBeforeFailure !== null) {
           if (this.upsertsBeforeFailure === 0) throw new Error('upsert failed: 500 internal');
@@ -98,7 +103,7 @@ class FakeServer {
         }
       },
       deleteCompletion: async (routineId: string, date: string) => {
-        this.check();
+        this.check(profile);
         this.table('routine_completions').delete(`${userId}|${routineId}|${date}`);
       },
     };
@@ -556,4 +561,16 @@ test('8.2 a server without the subtasks and reminder columns: not sent, kept loc
   await phone.engine.sync();
   assert.deepEqual(phone.row('tasks', 't1')?.subtasks, subtasks);
   assert.equal(phone.row('tasks', 't1')?.reminderMinutes, 10);
+});
+
+test('the fake server refuses a client that does not name the belific schema', async () => {
+  const server = new FakeServer();
+  for (const profile of [null, 'public']) {
+    const adapter = server.adapter('u1', profile);
+    await assert.rejects(adapter.probe(), /PGRST106/);
+    await assert.rejects(adapter.selectPage('tasks', { from: 0, to: 9 }, { serverUpdatedAt: true, taskPipeline: true }), /PGRST106/);
+    await assert.rejects(adapter.upsert('tasks', [{ user_id: 'u1', id: 'a' }]), /PGRST106/);
+    await assert.rejects(adapter.deleteCompletion('r', '2026-10-01'), /PGRST106/);
+  }
+  assert.equal(server.all('tasks').length, 0);
 });

@@ -38,7 +38,8 @@ function scan(files: Record<string, string>): { code: number; out: string } {
 const FN = 'mobile/supabase/functions/delete-account/index.ts';
 
 test('PASS: the real delete-account function, as it exists, is accepted', () => {
-  assert.ok(REAL_FUNCTION.includes(NAME), 'the real function still reads the variable');
+  // Since the move to the shared project the function deletes with the caller's own JWT (RLS), no service role key.
+  assert.ok(!REAL_FUNCTION.includes(NAME), 'the real function no longer reads the service role key');
   const r = scan({ [FN]: REAL_FUNCTION });
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /No hardcoded credentials/);

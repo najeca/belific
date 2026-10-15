@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { parseCallback, checkAuthorizeUrl, AuthGate, WINDOW_MS, PROVIDERS } = require('../src/authLink');
 
-const HOST = 'https://uucycebkpgwbktdytxvr.supabase.co';
+const HOST = 'https://vlogfwnmaqorhialcqbr.supabase.co';
 const FLOW = 'abcd1234efgh5678';
 const authorize = (flow = FLOW) =>
   `${HOST}/auth/v1/authorize?provider=apple&redirect_to=${encodeURIComponent(

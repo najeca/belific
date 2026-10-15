@@ -1,6 +1,9 @@
 # Apple sign in for the desktop app: setup guide for Jethro
 
-Desktop sign in (decision 012, app 2.10.0) is built and tested against fakes, but it **cannot work until you do the steps below**. They are all dashboard clicks; nothing here was done for you. Do them in order. Keep the Supabase project ref handy: `uucycebkpgwbktdytxvr`.
+> **Moved to the shared project (2026-10-15).** Belific now uses the project shared with Landis and Proload, ref `vlogfwnmaqorhialcqbr`, and the callback URL is `https://vlogfwnmaqorhialcqbr.supabase.co/auth/v1/callback`. Everything below uses that URL. The Apple and Google settings of that project are shared, so read the section "Shared with Landis and Proload" in `docs/CURRENT_TRUTH.md` before saving anything in a provider. Where this guide says to replace a value, first check that no other app still uses it. Nothing here has been done for you.
+
+
+Desktop sign in (decision 012, app 2.10.0) is built and tested against fakes, but it **cannot work until you do the steps below**. They are all dashboard clicks; nothing here was done for you. Do them in order. Keep the Supabase project ref handy: `vlogfwnmaqorhialcqbr`.
 
 You need: your Apple Developer account, the Supabase dashboard, and about 30 minutes.
 
@@ -10,8 +13,8 @@ Values used below (change the Services ID name if you prefer, but use the same o
 |---|---|
 | Primary App ID (already exists) | `com.najeca.belific` |
 | New Services ID | `com.najeca.belific.signin` |
-| Supabase callback URL (Apple's "Return URL") | `https://uucycebkpgwbktdytxvr.supabase.co/auth/v1/callback` |
-| Supabase domain (Apple's "Domain") | `uucycebkpgwbktdytxvr.supabase.co` |
+| Supabase callback URL (Apple's "Return URL") | `https://vlogfwnmaqorhialcqbr.supabase.co/auth/v1/callback` |
+| Supabase domain (Apple's "Domain") | `vlogfwnmaqorhialcqbr.supabase.co` |
 | Desktop redirect | `belific://auth-callback` |
 
 ## (a) Create the Services ID and group it with the App ID
@@ -28,8 +31,8 @@ Values used below (change the Services ID name if you prefer, but use the same o
 
 Still in the Configure dialog from (a):
 
-1. **Domains and Subdomains**: `uucycebkpgwbktdytxvr.supabase.co`
-2. **Return URLs**: `https://uucycebkpgwbktdytxvr.supabase.co/auth/v1/callback`
+1. **Domains and Subdomains**: `vlogfwnmaqorhialcqbr.supabase.co`
+2. **Return URLs**: `https://vlogfwnmaqorhialcqbr.supabase.co/auth/v1/callback`
 3. Click **Next**, **Done**, then **Continue**, then **Save** on the Services ID page.
 
 (Apple only accepts https return URLs. That is why the app does not point Apple at `belific://`: Apple redirects to Supabase, and Supabase redirects to `belific://auth-callback` afterwards, see (e).)
@@ -52,11 +55,11 @@ Apple's "client secret" is a signed token. It expires after at most 6 months, so
 
 ## (d) Add the Services ID to the Supabase Apple provider
 
-1. Open the Supabase dashboard, project `uucycebkpgwbktdytxvr`.
+1. Open the Supabase dashboard, project `vlogfwnmaqorhialcqbr`.
 2. **Authentication**, then **Sign In / Providers** (older dashboards: **Providers**), then **Apple**.
 3. Make sure **Enable Sign in with Apple** is on.
-4. **Client IDs**: this is a comma separated list. Put the bundle id first, then the Services ID, no spaces: `com.najeca.belific,com.najeca.belific.signin`. Keep the bundle id: the iPhone's native sign in depends on it.
-5. **Secret Key (for OAuth)**: paste the token from (c5). (When you regenerate every 5 months, only this field changes.)
+4. **Client IDs**: this is a comma separated list. **On the shared project it already holds the other apps' IDs: keep every one of them and add Belific's** `com.najeca.belific` and `com.najeca.belific.signin` (no spaces). Keep the bundle id: the iPhone's native sign in depends on it. Removing another app's ID breaks that app.
+5. **Secret Key (for OAuth)**: paste the token from (c5). **Shared field:** there is one secret for the whole provider, made for one Services ID. If Landis or Proload already have a secret here for their own Services ID, do not overwrite it before reading the table in `docs/CURRENT_TRUTH.md` (unverified whether one secret can serve two Services IDs). (When you regenerate every 5 months, only this field changes.)
 6. Click **Save**.
 
 ## (e) Allow the desktop redirect
@@ -70,13 +73,13 @@ Apple's "client secret" is a signed token. It expires after at most 6 months, so
 
 This is the open item in decision 012: it is believed that a Services ID under the same team returns the same Apple `sub` (so the same Supabase user) as the native iPhone flow. It is not yet proven. **Test with a throwaway Apple ID, not your own, first.**
 
-1. Make sure the two migrations from checkpoint 5 are applied (see `docs/sessions/2026-10-06-cp5.md`), or accept that the app will use its schema fallback.
+1. Make sure the `belific` schema file (`mobile/supabase/belific_schema/001_belific_schema.sql`) has been applied by hand and `belific` is under Data API, Exposed schemas. Until then every sync request fails.
 2. Sign in on the iPhone with the throwaway Apple ID (a TestFlight or development build is fine). Add one task so there is something to see.
 3. In the Supabase dashboard, **Authentication**, then **Users**: note the one new row and its **User UID**.
 4. On the desktop, open Belific, click the account line at the bottom of the left pane ("Local only · not signed in"), click **Sign in with Apple**, and sign in with the same throwaway Apple ID in the browser that opens.
 5. Back in the dashboard, **Users** must still show **one** row for that person with the same User UID, with `apple` as the provider. If a **second** row appeared, the `sub` differs: stop, do not sign in with your real Apple ID, and tell me; the plan then changes (decision 012's fallback is email based linking).
 6. On the desktop the task from step 2 should appear within a couple of minutes (or click **Sync now** in Settings).
-7. Clean up: in the desktop Settings click **Delete account** (this also exercises the delete path), or delete the user in the dashboard.
+7. Clean up: in the desktop Settings click **Delete account**. On the shared project this removes the user's rows in the `belific` schema but **not the user** (the user is shared with the other apps); to remove the throwaway user, follow `docs/NEW_PROJECT_SYNC_TEST.md`.
 8. Only after this passes, sign in with your own Apple ID. The desktop takes a backup named `pre-signin` before its first ever sign in (Settings, **Open backups folder**).
 
 ## (g) Confirm Electron's origin for the delete account CORS rule
@@ -94,7 +97,7 @@ then open `http://localhost:9222/json` in Chrome: the page's `url` should start 
 After you deploy the function, test the rule with:
 
 ```
-curl -i -X OPTIONS https://uucycebkpgwbktdytxvr.supabase.co/functions/v1/delete-account -H "Origin: app://belific" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: authorization,content-type"
+curl -i -X OPTIONS https://vlogfwnmaqorhialcqbr.supabase.co/functions/v1/delete-account -H "Origin: app://belific" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: authorization,content-type"
 ```
 
 You should see `Access-Control-Allow-Origin: app://belific`. **If the origin is different** (for example `app://belific/` or `null`): edit `ALLOWED_ORIGINS` in the function to the exact origin string, redeploy the function, and run the curl again. If it is missing, Delete account on the desktop shows "The account could not be deleted. Please try again."

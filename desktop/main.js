@@ -41,7 +41,7 @@ const APP_USER_MODEL_ID = 'com.najeca.belific.desktop';
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
 const TRAY_ICON_PATH = path.join(__dirname, 'assets', 'tray.png');
 const HIDDEN_TICK_MS = 120 * 1000;
-const SUPABASE_HOST = 'https://uucycebkpgwbktdytxvr.supabase.co';
+const SUPABASE_HOST = 'https://vlogfwnmaqorhialcqbr.supabase.co';
 const CSP = [
   "default-src 'self'",
   "style-src 'self' 'unsafe-inline'",

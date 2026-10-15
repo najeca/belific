@@ -9,7 +9,7 @@ const { SecureStore } = require('../src/secureStore');
 const { SignIn } = require('../src/signin');
 const { WINDOW_MS } = require('../src/authLink');
 
-const HOST = 'https://uucycebkpgwbktdytxvr.supabase.co';
+const HOST = 'https://vlogfwnmaqorhialcqbr.supabase.co';
 const authorize = `${HOST}/auth/v1/authorize?provider=apple&redirect_to=${encodeURIComponent('belific://auth-callback')}`;
 const link = (code) => `belific://auth-callback?code=${code}`;
 const cipher = { isAvailable: () => true, encrypt: (s) => Buffer.from(s), decrypt: (b) => b.toString() };

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import { onSignedIn, onSignedOut } from './sync';
+import { ensureCurrentProject, onSignedIn, onSignedOut } from './sync';
 import { authStorage, kv } from './kv';
 import { clearAllData } from './storage';
 import {
@@ -66,6 +66,8 @@ function bridge() {
 async function startSignIn(provider: SignInProvider): Promise<void> {
   setUi({ busy: true, message: SIGN_IN_TEXT.waiting });
   try {
+    // Before a session exists: state left by another project is reset first.
+    await ensureCurrentProject();
     // A deliberate new attempt replaces any earlier one (main refuses a second
     // begin while one runs, and wipes the old verifier on cancel).
     await bridge().auth.cancel();
@@ -119,6 +121,7 @@ export async function handleAuthCallback(payload: {
   }
   let ok = false;
   try {
+    await ensureCurrentProject();
     const { data, error } = await supabase.auth.exchangeCodeForSession(
       payload.code,
       payload.flowId ? { flowId: payload.flowId } : undefined,
@@ -176,6 +179,7 @@ async function completeSignIn(): Promise<void> {
 // An unanswered choice survives a relaunch (the hold flag is persisted).
 export async function restoreAccountChoice(): Promise<void> {
   try {
+    await ensureCurrentProject();
     const pending = await pendingChoice(accountDeps);
     if (pending && !ui.choice) setUi({ choice: pending });
   } catch {

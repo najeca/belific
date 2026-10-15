@@ -1,5 +1,7 @@
 import { authStorage } from './kv';
 import { createClient } from '@supabase/supabase-js';
+import { DB_SCHEMA } from './dbSchema';
+import { projectFingerprint } from './projectGuard';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -17,7 +19,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // optional (see the accounts plan) — this client is only ever touched
 // by code paths behind an explicit "Sign in with Apple" action; nothing
 // on app launch requires a session to exist.
+// Belific's tables live in the "belific" schema of the shared Belific Landis
+// Proload project (the "public" schema belongs to Landis). Only table queries
+// use this; auth is project wide. "belific" must be listed under Data API,
+// Exposed schemas, in the Supabase dashboard.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  db: { schema: DB_SCHEMA },
   auth: {
     storage: authStorage,
     autoRefreshToken: true,
@@ -31,3 +38,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     flowType: globalThis.belificDesktop ? 'pkce' : 'implicit',
   },
 });
+
+// Which project and schema this build talks to; sync state is tied to it (projectGuard.ts).
+export const PROJECT_FINGERPRINT = projectFingerprint(supabaseUrl, DB_SCHEMA);

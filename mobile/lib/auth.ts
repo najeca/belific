@@ -1,6 +1,6 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from './supabase';
-import { onSignedIn, onSignedOut } from './sync';
+import { ensureCurrentProject, onSignedIn, onSignedOut } from './sync';
 
 // Sign in with Apple is the only login method (see the accounts plan) —
 // deliberately no other social login, which per Apple guideline 4.8
@@ -8,6 +8,8 @@ import { onSignedIn, onSignedOut } from './sync';
 // triggers when a THIRD-PARTY/social login is offered alongside Apple's
 // own, not when Apple is the sole option.
 export async function signInWithApple(): Promise<void> {
+  // Before a session exists: state left by another project is reset first.
+  await ensureCurrentProject();
   const credential = await AppleAuthentication.signInAsync({
     requestedScopes: [
       AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -44,11 +46,12 @@ export async function signOut(): Promise<void> {
 // just deactivation. The client can never delete its own auth user
 // directly (Supabase's client SDK has no self-delete call — that
 // requires the service-role admin API, which must never ship in the
-// app) — this invokes the delete-account Edge Function instead, which
-// deletes every row across all 7 synced tables for this user, then
-// the auth user itself, in that order. Not one transaction: if a table
-// fails it stops early, and the on delete cascade on user_id covers the
-// rest once the auth user goes (gap V7i).
+// app) — this invokes the delete-account Edge Function instead.
+// Since the move to the shared Landis, Proload and Belific project the
+// function deletes only this user's rows in the belific schema (7 tables)
+// and NOT the auth user, which the other apps share. Whether that meets
+// the guideline is an open decision (docs/sessions/2026-10-15-project-move.md).
+// Not one transaction: if a table fails it stops early and the call errors.
 export async function deleteAccount(): Promise<void> {
   const { error } = await supabase.functions.invoke('delete-account');
   if (error) throw error;

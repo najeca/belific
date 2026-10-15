@@ -164,7 +164,7 @@ test('L4: the page may not touch secure.* keys or the first sign in flag', () =>
 test('L3: only the allow listed https pages open in the browser', () => {
   const { isAllowedExternal } = require('../src/externalLinks');
   for (const ok of [
-    'https://uucycebkpgwbktdytxvr.supabase.co/auth/v1/authorize?provider=apple',
+    'https://vlogfwnmaqorhialcqbr.supabase.co/auth/v1/authorize?provider=apple',
     'https://najeca.github.io/belific/privacy.html',
     'https://github.com/najeca/belific/issues',
   ]) assert.equal(isAllowedExternal(ok), true, ok);

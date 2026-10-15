@@ -5,7 +5,7 @@
 const ALLOWED = [
   // Sign in with Apple or Google, through Supabase (authLink.js checks the
   // provider and the redirect too).
-  { host: 'uucycebkpgwbktdytxvr.supabase.co', path: '/auth/v1/authorize' },
+  { host: 'vlogfwnmaqorhialcqbr.supabase.co', path: '/auth/v1/authorize' },
   // Privacy policy and terms pages of the published site (privacy.html, terms.html).
   { host: 'najeca.github.io', path: '/belific/' },
   // Support: the issue tracker linked from privacy.html and terms.html.

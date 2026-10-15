@@ -10,7 +10,7 @@ The earlier plan (P0 to P3, 2026-09-02) is kept for the record at `docs/archive/
 2. Every meaningful change bumps `mobile/app.json`'s `expo.version` and gets a dated entry in `docs/CHANGELOG.md`, in the same commit as the change.
 3. No dark patterns: no streak-guilt, no fabricated urgency, no engagement-bait notifications, no fake progress. Any gamification must be honest and reversible (decision 007; visuals per decision 008).
 4. Verify against actual code and a real build/device test, not memory, not "should work."
-5. Never touch the Landis project or its Supabase instance (ref `vlogfwnmaqorhialcqbr`). Belific's Supabase project is a different ref (`uucycebkpgwbktdytxvr`) in the same org. Double-check before any Supabase MCP/CLI call.
+5. Belific now shares a Supabase project with Landis and Proload (ref `vlogfwnmaqorhialcqbr`). Use only the `belific` schema; never touch `public`, Landis or Proload. Double-check the ref and schema before any Supabase MCP/CLI call.
 6. Build gate before calling shared code done (decision 018, proposed): `npx tsc --noEmit`, the `node --test` suite, and an iOS JS bundle export, all runnable on Windows. A real device Release build is still required before anything is called shipped to iOS (batched, on the Mac Mini if kept, or via a TestFlight/EAS build Jethro explicitly approves).
 
 ## Outstanding from the old plan (still real)

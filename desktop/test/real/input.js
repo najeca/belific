@@ -29,6 +29,15 @@ function makeInput(win, shotsDir) {
     win.webContents.sendInputEvent({ type: 'mouseUp', x: r.x, y: r.y, button: 'left', clickCount: 1 });
     await C.sleep(wait);
   };
+  // Moves the real mouse over an element without pressing it (a hover).
+  const hover = async (expr, wait = 300) => {
+    const r = await rectOf(expr);
+    if (!r) throw new Error(`no element for ${expr}`);
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: r.x - 1, y: r.y });
+    await C.sleep(100);
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: r.x, y: r.y });
+    await C.sleep(wait);
+  };
   const key = async (keyCode, modifiers = [], wait = 250) => {
     win.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
     win.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });
@@ -54,7 +63,7 @@ function makeInput(win, shotsDir) {
     fs.mkdirSync(shotsDir, { recursive: true });
     fs.writeFileSync(path.join(shotsDir, `${name}.png`), (await win.webContents.capturePage()).toPNG());
   };
-  return { js, body, waitBody, visible, byLabel, click, key, enter, type, exists, activeLabel, blur, dialog, textOf, shot };
+  return { js, body, waitBody, visible, byLabel, click, hover, key, enter, type, exists, activeLabel, blur, dialog, textOf, shot };
 }
 
 // Local date keys, shifted by whole days (calendar arithmetic).

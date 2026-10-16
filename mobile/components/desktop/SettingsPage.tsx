@@ -13,6 +13,9 @@ import { DAY_START_OPTIONS, isDayStart } from '../../lib/dayStart';
 import { DAY_START_EVENT } from './useDayStart';
 import { useAccount } from './useAccount';
 import { STREAK_TEXT } from '../../lib/seriesStreak';
+import { exportMyData } from '../../lib/exportActions';
+import { exportMessage } from '../../lib/dataExport';
+import { dayStamp, downloadText } from './download';
 
 // The Settings page (checkpoint 9, decision 025): a view inside the app, not
 // an overlay. It replaces the old Settings modal; every setting and its
@@ -34,6 +37,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   const [prefs, setPrefs] = useState<DesktopSettings | null>(null);
   const [licences, setLicences] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [exportNote, setExportNote] = useState<string | null>(null);
 
   const desktop = globalThis.belificDesktop;
   useEffect(() => {
@@ -99,6 +103,20 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
 
   const line = syncLineText(status, now);
   const error = syncErrorText(status);
+
+  // Your own data, as it is on this computer: JSON (every table) or CSV (the
+  // tasks). Never a sign in session or a token (lib/dataExport.ts).
+  async function onExport(what: 'json' | 'csv') {
+    setExportNote(null);
+    try {
+      const result = await exportMyData(desktop?.version ?? '');
+      if (what === 'json') downloadText(`belific-data-${dayStamp()}.json`, result.json, 'application/json');
+      else downloadText(`belific-tasks-${dayStamp()}.csv`, result.csv, 'text/csv');
+      setExportNote(exportMessage(result, what));
+    } catch {
+      setExportNote('The export could not be made. Nothing was saved.');
+    }
+  }
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -239,6 +257,20 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               <Text style={styles.btnText}>Export data…</Text>
             </Pressable>
           </View>
+          <View style={styles.row}>
+            <Pressable onPress={() => onExport('json')} accessibilityRole="button" accessibilityLabel="Export my data as JSON" style={styles.btn}>
+              <Text style={styles.btnText}>📤 My data (JSON)</Text>
+            </Pressable>
+            <Pressable onPress={() => onExport('csv')} accessibilityRole="button" accessibilityLabel="Export my tasks as CSV" style={styles.btn}>
+              <Text style={styles.btnText}>📤 My tasks (CSV)</Text>
+            </Pressable>
+          </View>
+          {exportNote && (
+            <Text style={styles.hint} accessibilityLabel="Export note">
+              {exportNote}
+            </Text>
+          )}
+          <Text style={styles.hint}>JSON has every table; CSV has the tasks, one row each. Only data on this computer is used, and no sign in session or token is ever included.</Text>
           <Text style={styles.hint}>A copy of your data is saved to the backups folder once a day, and the newest 14 are kept.</Text>
           <RoutineConvertRow onChanged={onChanged} />
         </Section>

@@ -171,9 +171,11 @@ function makeDevice(server: FakeServer, opts: { userId?: string | null; clockOff
     rows: (t: TimestampedTable) => data.tables.get(t) ?? [],
     row: (t: TimestampedTable, id: string) => (data.tables.get(t) ?? []).find((r) => keyOf(t, r) === id),
     // Like storage.ts: stamp, save and queue inside the storage lock.
-    async put(t: TimestampedTable, row: Row, queue = true) {
+    // keepStamp: write the row's own updatedAt (a delete writes deletedAt and
+    // updatedAt as the same instant, which the Trash relies on).
+    async put(t: TimestampedTable, row: Row, queue = true, keepStamp = false) {
       await lock.run(async () => {
-        const stamped = { ...row, updatedAt: new Date(clock()).toISOString() };
+        const stamped = keepStamp ? { ...row } : { ...row, updatedAt: new Date(clock()).toISOString() };
         const list = (data.tables.get(t) ?? []).filter((r) => keyOf(t, r) !== keyOf(t, stamped));
         data.tables.set(t, [...list, stamped]);
         if (queue) await outbox.update((s) => enqueue(s, [{ table: t, key: keyOf(t, stamped), op: 'upsert', row: stamped }]));
@@ -693,4 +695,46 @@ test('phase 5 rollover: run twice and from two devices through the real engine, 
   await a.engine.sync();
   await b.engine.sync();
   assert.equal(JSON.stringify(server.all('tasks')), before, 'a second run writes nothing at all');
+});
+
+test('phase 6 Trash: two devices restore the same item at the same time: exactly one new task, and the entry leaves the Trash on both after sync', async () => {
+  const { planRestore, trashEntries } = await import('./trash.ts');
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };
+  const a = makeDevice(server);
+  const b = makeDevice(server);
+  await a.put('tasks', task('x', 'Write report', { durationMinutes: 45, actualMinutes: 20, projectKey: 'w' }));
+  await a.engine.sync();
+  await b.engine.sync();
+  // The delete, as deleteTask writes it: deletedAt and updatedAt the same instant, an hour ago.
+  const at = new Date(Date.now() - 3600000).toISOString();
+  await a.put('tasks', { ...a.row('tasks', 'x'), deletedAt: at, updatedAt: at }, true, true);
+  await a.engine.sync();
+  await b.engine.sync();
+  const view = (d: ReturnType<typeof makeDevice>) => d.rows('tasks') as unknown as Parameters<typeof trashEntries>[0];
+  for (const d of [a, b]) assert.equal(trashEntries(view(d), Date.now()).length, 1, 'both devices list it');
+  // Both press Restore before either has synced.
+  for (const d of [a, b]) {
+    const [entry] = trashEntries(view(d), Date.now());
+    const plan = planRestore(entry.row, view(d), [{ key: 'w' }], [], new Date().toISOString())!;
+    await d.put('tasks', plan.create as unknown as Row);
+    await d.put('tasks', plan.touch as unknown as Row);
+  }
+  for (let i = 0; i < 2; i++) {
+    await a.engine.sync();
+    await b.engine.sync();
+  }
+  const live = server.all('tasks').filter((r) => !r.deleted_at);
+  assert.equal(live.length, 1, 'exactly one new task on the server');
+  assert.equal(live[0].id, 'restored_x');
+  assert.equal(live[0].title, 'Write report');
+  assert.equal(live[0].duration_minutes, 45);
+  assert.equal(live[0].actual_minutes, 20);
+  assert.equal(server.all('tasks').filter((r) => r.deleted_at).length, 1, 'the old tombstone stays');
+  for (const d of [a, b]) {
+    assert.equal(d.rows('tasks').filter((r) => !r.deletedAt && r.title === 'Write report').length, 1, 'one live task on each device');
+    assert.deepEqual(trashEntries(view(d), Date.now()), [], 'the entry left the Trash');
+  }
+  // Pressing Restore again, on either device, finds nothing to do.
+  for (const d of [a, b]) assert.equal(planRestore(d.row('tasks', 'x') as never, view(d), [], [], new Date().toISOString()), null);
 });

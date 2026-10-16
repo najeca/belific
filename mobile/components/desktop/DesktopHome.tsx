@@ -11,6 +11,8 @@ import SettingsPage from './SettingsPage';
 import LabelsPage from './LabelsPage';
 import ProgressPage from './ProgressPage';
 import QuestsPage from './QuestsPage';
+import AnalyticsPage from './AnalyticsPage';
+import TrashPage from './TrashPage';
 import PlanningFlow from './PlanningFlow';
 import SignInPage from './SignInPage';
 import { DAY_START_EVENT } from './useDayStart';
@@ -380,7 +382,7 @@ export default function DesktopHome() {
           >
             <Text style={styles.keysText}>⌨️</Text>
           </Pressable>
-        <ProfileMenu onOpenSettings={() => showView('settings')} onOpenProgress={() => showView('progress')} onOpenSignIn={() => showView('signin')} />
+        <ProfileMenu onOpenSettings={() => showView('settings')} onOpenProgress={() => showView('progress')} onOpenSignIn={() => showView('signin')} onOpenAnalytics={() => showView('analytics')} onOpenTrash={() => showView('trash')} />
         </View>
       </View>
       <View ref={panes} style={[styles.body, view !== 'home' && styles.hidden]} accessibilityElementsHidden={view !== 'home'}>
@@ -417,6 +419,8 @@ export default function DesktopHome() {
       {view === 'labels' && <LabelsPage onChanged={onChanged} />}
       {view === 'progress' && <ProgressPage />}
       {view === 'quests' && <QuestsPage refreshKey={refreshKey} />}
+      {view === 'analytics' && <AnalyticsPage refreshKey={refreshKey} />}
+      {view === 'trash' && <TrashPage refreshKey={refreshKey} />}
       {view === 'signin' && <SignInPage onDone={goBack} />}
       {view === 'home' && <TaskDetailPanel refreshKey={refreshKey} />}
       {view === 'home' && overlay?.kind === 'help' && <ShortcutHelp />}
@@ -430,7 +434,7 @@ export default function DesktopHome() {
   );
 }
 
-type View_ = 'home' | 'settings' | 'labels' | 'progress' | 'signin' | 'quests';
+type View_ = 'home' | 'settings' | 'labels' | 'progress' | 'signin' | 'quests' | 'analytics' | 'trash';
 
 // Puts the keyboard on the first visible match, once the panes have drawn.
 function focusFirst(selector: string): void {

@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 2.23.0 — 2026-10-16 (build plan phase 6, Analytics, Trash, data export)
+
+**Desktop only. No schema change, no sync change.**
+
+- **Analytics** (📊 in the profile menu, a page): ranges work week (Mon to Fri), last 7 days, last 14 days, last month, last 3 months, custom (a year at most). Cards: tasks completed against the period before (neutral words: more, fewer, the same), actual against estimated (over finished tasks with an estimate; a missing actual is 0), the average age of Brain Dump thoughts. Charts: time per day (by tasks or by time, grouped into weeks for long ranges), estimated against actual per task (outline against solid, so colour is never the only signal), tasks by label (percentages that add to 100). The completed list, grouped by day or label, with a CSV download (formula looking titles are written as text). Every bar shows its number, has a name for assistive technology, and hover or press shows it in a readout. Chart colours are at least 3:1 on the surface (tested). Empty states say what is missing and nothing more.
+- **Trash** (🗑️ in the profile menu): tasks deleted in the last 30 days. **Restore makes a NEW task with the same fields and a new id** (`restored_<oldId>`, deterministic, so two devices restoring at once make one task); the old tombstone stays and is touched so the entry leaves the Trash on every device. A deleted repeating task is one entry that restores as one plain task (its repeat was cleared when it was deleted). Skipped days are not in the Trash. A task merged into another one is told apart by its effect and shown with "Merged into another task" and no Restore button. There is no delete forever: tombstones stay for sync (90 days; 400 for repeating days).
+- **Data export** (Settings, Data): "My data (JSON)" has every table, "My tasks (CSV)" one row per task. Only data on this computer; deleted rows left out; anything secret looking (a token, session, password) is left out and counted; the message says how many rows were exported.
+- Real check `desktop/test/real/p6.js` (39 checks); unit tests for the CSV, analytics, Trash, export and chart colours, and a two device restore through the real sync engine.
+
 ## 2.22.0 — 2026-10-16 (build plan phase 5, Daily Planning, Daily Shutdown, rollover)
 
 **Desktop only (the iPhone gets the flows in a later step). No schema change, no sync change.**

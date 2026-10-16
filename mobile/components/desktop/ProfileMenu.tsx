@@ -19,7 +19,19 @@ const POPOVER_ID = 'profile';
 // decision 026: Apple and Google are chosen there). Signed in it shows the
 // user's initial and the menu shows the account, sync status with Sync now,
 // Settings and Sign out. The sign out, account choice and revoke code is unchanged.
-export default function ProfileMenu({ onOpenSettings, onOpenProgress, onOpenSignIn }: { onOpenSettings: () => void; onOpenProgress: () => void; onOpenSignIn: () => void }) {
+export default function ProfileMenu({
+  onOpenSettings,
+  onOpenProgress,
+  onOpenSignIn,
+  onOpenAnalytics,
+  onOpenTrash,
+}: {
+  onOpenSettings: () => void;
+  onOpenProgress: () => void;
+  onOpenSignIn: () => void;
+  onOpenAnalytics: () => void;
+  onOpenTrash: () => void;
+}) {
   const { account, status, ui } = useAccount();
   const { ref, get } = usePopoverAnchor();
   const open = useIsOpen(POPOVER_ID);
@@ -47,16 +59,16 @@ export default function ProfileMenu({ onOpenSettings, onOpenProgress, onOpenSign
       </Pressable>
       <Popover id={POPOVER_ID} anchor={get} width={288} label="Profile menu">
         {signedIn ? (
-          <SignedInBody account={account} status={status} ui={ui} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} />
+          <SignedInBody account={account} status={status} ui={ui} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} onOpenAnalytics={() => { closePopover(); onOpenAnalytics(); }} onOpenTrash={() => { closePopover(); onOpenTrash(); }} />
         ) : (
-          <SignedOutBody busy={ui.busy} message={ui.message} onOpenSignIn={() => { closePopover(); onOpenSignIn(); }} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} />
+          <SignedOutBody busy={ui.busy} message={ui.message} onOpenSignIn={() => { closePopover(); onOpenSignIn(); }} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} onOpenAnalytics={() => { closePopover(); onOpenAnalytics(); }} onOpenTrash={() => { closePopover(); onOpenTrash(); }} />
         )}
       </Popover>
     </>
   );
 }
 
-function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings, onOpenProgress }: { busy: boolean; message: string | null; onOpenSignIn: () => void; onOpenSettings: () => void; onOpenProgress: () => void }) {
+function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings, onOpenProgress, onOpenAnalytics, onOpenTrash }: { busy: boolean; message: string | null; onOpenSignIn: () => void; onOpenSettings: () => void; onOpenProgress: () => void; onOpenAnalytics: () => void; onOpenTrash: () => void }) {
   return (
     <View>
     <View style={styles.body}>
@@ -69,13 +81,15 @@ function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings, onOpenProg
     </View>
     <View style={styles.rows}>
       <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
+      <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />
+      <Row label="🗑️ Trash" onPress={onOpenTrash} a11y="Trash" />
       <Row label="Settings" onPress={onOpenSettings} a11y="Settings" />
     </View>
     </View>
   );
 }
 
-function SignedInBody({ account, status, ui, onOpenSettings, onOpenProgress }: { account: string; status: PublicSyncStatus; ui: AuthUiState; onOpenSettings: () => void; onOpenProgress: () => void }) {
+function SignedInBody({ account, status, ui, onOpenSettings, onOpenProgress, onOpenAnalytics, onOpenTrash }: { account: string; status: PublicSyncStatus; ui: AuthUiState; onOpenSettings: () => void; onOpenProgress: () => void; onOpenAnalytics: () => void; onOpenTrash: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   const [syncing, setSyncing] = useState(false);
   // The "last synced" wording moves on while the menu is open.
@@ -119,6 +133,8 @@ function SignedInBody({ account, status, ui, onOpenSettings, onOpenProgress }: {
       <View style={styles.rows}>
         <Row label={syncing || status.state === 'syncing' ? 'Syncing…' : 'Sync now'} onPress={syncNow} disabled={syncing || status.state === 'syncing'} a11y="Sync now" />
         <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
+        <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />
+        <Row label="🗑️ Trash" onPress={onOpenTrash} a11y="Trash" />
         <Row label="Settings" onPress={onOpenSettings} a11y="Settings" />
         <Row label="Sign out" onPress={signOut} a11y="Sign out" />
       </View>

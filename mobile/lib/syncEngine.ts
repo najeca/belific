@@ -19,6 +19,7 @@ import {
   enqueue,
   hasExtrasValues,
   hasPipelineValues,
+  hasPlannerValues,
   maxServerTime,
   mergeCompletions,
   mergeRows,
@@ -27,6 +28,7 @@ import {
   recordFailure,
   recordSuccess,
   removeSent,
+  tableReady,
   type Caps,
   type OutboxEntry,
   type OutboxState,
@@ -150,21 +152,26 @@ export function createSyncEngine(deps: {
     await local.setMeta(META.seenCompletions, JSON.stringify([...seen]));
   }
 
-  // Detects the schema; when migration 2 first appears, queues every local
-  // row that holds values the server could not store until now.
+  // Detects the schema; when migration 2, 3 or 002 first appears, queues every
+  // local row that holds values the server could not store until now.
   async function loadCaps(): Promise<Caps> {
     const next = await server.probe();
     const prevRaw = await local.getMeta(META.caps);
     const prev: Caps | null = prevRaw ? (JSON.parse(prevRaw) as Caps) : null;
     const pipelineAppeared = next.taskPipeline && !!prev && !prev.taskPipeline;
     const extrasAppeared = !!next.taskExtras && !!prev && !prev.taskExtras;
-    if (pipelineAppeared || extrasAppeared) {
+    const plannerAppeared = !!next.planner && !!prev && !prev.planner;
+    if (pipelineAppeared || extrasAppeared || plannerAppeared) {
       await local.withLock(async () => {
         const items: Array<{ table: TimestampedTable; key: string; op: 'upsert'; row: Record<string, unknown> }> = [];
         for (const table of ['tasks', 'projects'] as const) {
           const spec = TABLE_SPECS[table];
           for (const row of await local.load(table)) {
-            if ((pipelineAppeared && hasPipelineValues(table, row)) || (extrasAppeared && hasExtrasValues(table, row))) {
+            if (
+              (pipelineAppeared && hasPipelineValues(table, row)) ||
+              (extrasAppeared && hasExtrasValues(table, row)) ||
+              (plannerAppeared && hasPlannerValues(table, row))
+            ) {
               items.push({ table, key: spec.keyOf(row), op: 'upsert', row });
             }
           }
@@ -178,6 +185,8 @@ export function createSyncEngine(deps: {
   }
 
   async function pullTable(table: TimestampedTable, c: Caps): Promise<void> {
+    // A table the server does not have yet (migration 002 not applied).
+    if (!tableReady(table, c)) return;
     const spec = TABLE_SPECS[table];
     const cursor = c.serverUpdatedAt ? await local.getMeta(META.cursor(table)) : null;
     const mode: 'full' | 'incremental' = cursor ? 'incremental' : 'full';
@@ -274,6 +283,8 @@ export function createSyncEngine(deps: {
     try {
       const c = caps ?? (await loadCaps());
       for (const table of TIMESTAMPED_TABLES) {
+        // Entries for a table the server lacks stay queued until it appears.
+        if (!tableReady(table, c)) continue;
         const spec = TABLE_SPECS[table];
         const entries = state.entries.filter((e) => e.table === table && e.op === 'upsert' && e.row);
         for (const batch of chunk(entries, batchSize)) {

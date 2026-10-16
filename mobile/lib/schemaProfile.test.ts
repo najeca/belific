@@ -59,7 +59,7 @@ test('the app client is created with the belific schema', () => {
 test('every data request of the sync server carries the belific profile header', async () => {
   const seen: Seen[] = [];
   const server = createSupabaseServer(client(seen, DB_SCHEMA), async () => 'u1');
-  const caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true };
+  const caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };
 
   assert.deepEqual(await server.probe(), caps);
   for (const table of [...TIMESTAMPED_TABLES, 'routine_completions' as const]) {
@@ -88,4 +88,32 @@ test('control: a client without the schema is refused by the fake, as by PostgRE
   await assert.rejects(server.selectPage('tasks', { from: 0, to: 9 }, { serverUpdatedAt: true, taskPipeline: true }), /schema/i);
   await assert.rejects(server.upsert('tasks', [{ user_id: 'u1', id: 'a' }]), /schema/i);
   await assert.rejects(server.deleteCompletion('r', '2026-10-01'), /schema/i);
+});
+
+test('before migration 002 the probe reads the missing tables as "not yet", never as a failure', async () => {
+  const missing = (async (input: unknown) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const table = url.pathname.replace('/rest/v1/', '');
+    if (table === 'lists' || table === 'user_settings') {
+      return new Response(JSON.stringify({ code: 'PGRST205', message: `Could not find the table 'belific.${table}' in the schema cache` }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const select = url.searchParams.get('select') ?? '';
+    if (['actual_minutes', 'emoji'].includes(select)) {
+      return new Response(JSON.stringify({ code: '42703', message: `column ${table}.${select} does not exist` }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json', 'Content-Range': '*/0' } });
+  }) as typeof fetch;
+  const c = createClient(URL_, KEY, {
+    db: { schema: DB_SCHEMA },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { fetch: missing },
+  });
+  const server = createSupabaseServer(c, async () => 'u1');
+  assert.deepEqual(await server.probe(), { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: false });
 });

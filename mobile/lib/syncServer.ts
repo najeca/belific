@@ -17,6 +17,8 @@ const ON_CONFLICT: Record<AnyTable, string> = {
   tasks: 'user_id,id',
   projects: 'user_id,key',
   custom_categories: 'user_id,key',
+  lists: 'user_id,key',
+  user_settings: 'user_id,key',
   routine_completions: 'user_id,routine_id,date',
 };
 
@@ -27,6 +29,8 @@ const ORDER: Record<AnyTable, string[]> = {
   tasks: ['id'],
   projects: ['key'],
   custom_categories: ['key'],
+  lists: ['key'],
+  user_settings: ['key'],
   routine_completions: ['routine_id', 'date'],
 };
 
@@ -35,11 +39,15 @@ interface PgError {
   message?: string;
 }
 
+// A missing column, or (for the tables migration 002 adds) a missing table.
+// Both mean "not migrated yet", never a failure.
 function isMissingColumn(error: PgError): boolean {
   return (
     error.code === '42703' ||
     error.code === 'PGRST204' ||
-    /column .* does not exist|could not find the .* column/i.test(error.message ?? '')
+    error.code === '42P01' ||
+    error.code === 'PGRST205' ||
+    /column .* does not exist|could not find the .* column|relation .* does not exist|could not find the table/i.test(error.message ?? '')
   );
 }
 
@@ -60,14 +68,24 @@ export function createSupabaseServer(
     // Which migrations the server has: both work before and after (see
     // docs/sessions/2026-10-06-cp5.md, "before and after the migrations").
     async probe(): Promise<Caps> {
-      const [serverUpdatedAt, taskCols, projectCols, subtasksCol, reminderCol] = await Promise.all([
+      const [serverUpdatedAt, taskCols, projectCols, subtasksCol, reminderCol, ...planner] = await Promise.all([
         columnExists('tasks', 'server_updated_at'),
         columnExists('tasks', 'duration_minutes'),
         columnExists('projects', 'color_key'),
         columnExists('tasks', 'subtasks'),
         columnExists('tasks', 'reminder_minutes'),
+        // Migration 002 runs in one transaction; one probe per table it changes.
+        columnExists('tasks', 'actual_minutes'),
+        columnExists('projects', 'emoji'),
+        columnExists('lists', 'sort_order'),
+        columnExists('user_settings', 'value'),
       ]);
-      return { serverUpdatedAt, taskPipeline: taskCols && projectCols, taskExtras: subtasksCol && reminderCol };
+      return {
+        serverUpdatedAt,
+        taskPipeline: taskCols && projectCols,
+        taskExtras: subtasksCol && reminderCol,
+        planner: planner.every(Boolean),
+      };
     },
     async selectPage(table: AnyTable, q: PageQuery): Promise<Record<string, unknown>[]> {
       const userId = await getUserId();

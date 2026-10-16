@@ -17,6 +17,8 @@ export const BELIFIC_TABLES = [
   'tasks',
   'projects',
   'custom_categories',
+  'lists',
+  'user_settings',
 ] as const;
 
 // The user id comes only from the user the auth server verified from the JWT.

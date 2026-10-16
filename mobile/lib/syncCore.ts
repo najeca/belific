@@ -24,6 +24,8 @@ import type {
   RoutineCompletion,
   Subtask,
   Task,
+  TaskList,
+  UserSetting,
   WeekDay,
 } from './types.ts';
 
@@ -33,7 +35,9 @@ export type TimestampedTable =
   | 'routines'
   | 'tasks'
   | 'projects'
-  | 'custom_categories';
+  | 'custom_categories'
+  | 'lists'
+  | 'user_settings';
 export type SyncTable = TimestampedTable | 'routine_completions';
 
 export const TIMESTAMPED_TABLES: TimestampedTable[] = [
@@ -43,7 +47,13 @@ export const TIMESTAMPED_TABLES: TimestampedTable[] = [
   'tasks',
   'projects',
   'custom_categories',
+  'lists',
+  'user_settings',
 ];
+
+// Tables that only exist once migration 002 is applied. Until then they are
+// never pulled or pushed; their outbox entries wait (see tableReady).
+export const PLANNER_TABLES: readonly TimestampedTable[] = ['lists', 'user_settings'];
 
 // --- Time ---
 
@@ -157,6 +167,10 @@ export interface Caps {
   // Migration 3 (20261007120000): tasks.subtasks and tasks.reminder_minutes.
   // Optional so a stored older caps value reads as false.
   taskExtras?: boolean;
+  // Migration 002 (belific_schema/002_lists_settings_timer.sql): the tasks
+  // timer, list and emoji columns, projects.emoji, and the lists and
+  // user_settings tables. Optional for the same reason as taskExtras.
+  planner?: boolean;
 }
 
 export const NO_CAPS: Caps = { serverUpdatedAt: false, taskPipeline: false };
@@ -173,13 +187,37 @@ export const TASK_PIPELINE_FIELDS = [
 export const PROJECT_PIPELINE_FIELDS = ['colorKey'] as const;
 // Local task fields that wait for migration 3.
 export const TASK_EXTRA_FIELDS = ['subtasks', 'reminderMinutes'] as const;
+// Local fields that wait for migration 002.
+export const TASK_PLANNER_FIELDS = ['actualMinutes', 'timerStartedAt', 'listKey', 'emoji'] as const;
+export const PROJECT_PLANNER_FIELDS = ['emoji'] as const;
 
 export function preserveFieldsFor(table: TimestampedTable, caps: Caps): string[] {
   if (table === 'tasks') {
-    return [...(caps.taskPipeline ? [] : TASK_PIPELINE_FIELDS), ...(caps.taskExtras ? [] : TASK_EXTRA_FIELDS)];
+    return [
+      ...(caps.taskPipeline ? [] : TASK_PIPELINE_FIELDS),
+      ...(caps.taskExtras ? [] : TASK_EXTRA_FIELDS),
+      ...(caps.planner ? [] : TASK_PLANNER_FIELDS),
+    ];
   }
-  if (table === 'projects' && !caps.taskPipeline) return [...PROJECT_PIPELINE_FIELDS];
+  if (table === 'projects') {
+    return [...(caps.taskPipeline ? [] : PROJECT_PIPELINE_FIELDS), ...(caps.planner ? [] : PROJECT_PLANNER_FIELDS)];
+  }
   return [];
+}
+
+// Whether the server has this table at all. A table that is not ready is
+// skipped by pull and push alike, so its rows stay local and queued.
+export function tableReady(table: SyncTable, caps: Caps): boolean {
+  return !PLANNER_TABLES.includes(table as TimestampedTable) || caps.planner === true;
+}
+
+// A local task or label that carries values only migration 002 can store
+// (queued again once it appears). Rows of the new tables need nothing here:
+// they have no cursor yet, so the first pull is a full pass that uploads them.
+export function hasPlannerValues(table: TimestampedTable, row: Record<string, unknown>): boolean {
+  const fields: readonly string[] =
+    table === 'tasks' ? TASK_PLANNER_FIELDS : table === 'projects' ? PROJECT_PLANNER_FIELDS : [];
+  return fields.some((f) => row[f] !== undefined && row[f] !== null);
 }
 
 // A local row that carries values the server could not store before
@@ -345,6 +383,16 @@ export function sanitizeTime(v: unknown): string | null {
 export function sanitizeRule(v: unknown): RecurrenceRule | null {
   return typeof v === 'string' && (RULES as string[]).includes(v) ? (v as RecurrenceRule) : null;
 }
+// What goes up in tasks.recurrence. A rule this version does not know (one a
+// newer client wrote, e.g. 'annual' in phase 4) is sent back unchanged, never
+// wiped: the column is text with no CHECK, and the series code treats an
+// unknown rule as "no days" (series.ts occursOn, recurrence.ts default), so
+// keeping it is harmless here and lets the newer device keep its value.
+export const MAX_RULE_LENGTH = 32;
+export function sanitizeRecurrence(v: unknown): string | null {
+  if (sanitizeRule(v)) return v as RecurrenceRule;
+  return typeof v === 'string' && v.length > 0 && v.length <= MAX_RULE_LENGTH && /^[a-z_]+$/.test(v) ? v : null;
+}
 export function sanitizeDays(v: unknown): WeekDay[] | null {
   if (!Array.isArray(v)) return null;
   const days = WEEK_DAYS.filter((d) => v.includes(d));
@@ -378,6 +426,38 @@ export function sanitizeSubtasks(v: unknown): Subtask[] | null {
 // -1 (off) or 0 to 1440 minutes before; anything else is no value (default).
 export function sanitizeReminder(v: unknown): number | null {
   return typeof v === 'number' && Number.isInteger(v) && v >= -1 && v <= 1440 ? v : null;
+}
+
+// Migration 002 values. A year of minutes is far above any real total and
+// still keeps a corrupt number out of the column.
+export const MAX_ACTUAL_MINUTES = 525600;
+export function sanitizeActual(v: unknown): number | null {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= MAX_ACTUAL_MINUTES ? v : null;
+}
+// A parseable time, sent as ISO (Postgres may return "+00:00"; both parse).
+export function sanitizeInstant(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const t = Date.parse(v);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+}
+// One emoji is a short string, but a ZWJ family or a flag sequence runs to a
+// dozen code units; 32 allows those and nothing like a sentence. Not checked
+// for "is an emoji": the picker decides what goes in.
+export const MAX_EMOJI_LENGTH = 32;
+export function sanitizeEmoji(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  return s.length > 0 && s.length <= MAX_EMOJI_LENGTH ? s : null;
+}
+export function sanitizeKey(v: unknown): string | null {
+  return typeof v === 'string' && v.length > 0 && v.length <= 80 ? v : null;
+}
+export function sanitizeSortOrder(v: unknown): number {
+  return typeof v === 'number' && Number.isInteger(v) && Math.abs(v) <= 1_000_000_000 ? v : 0;
+}
+export const MAX_SETTING_VALUE = 4000;
+export function sanitizeSettingValue(v: unknown): string {
+  return typeof v === 'string' ? v.slice(0, MAX_SETTING_VALUE) : '';
 }
 
 type Remote = Record<string, unknown>;
@@ -484,13 +564,19 @@ export function taskToRemote(t: Task, caps: Caps): Remote {
   if (caps.taskPipeline) {
     row.duration_minutes = sanitizeDuration(t.durationMinutes);
     row.start_time = sanitizeTime(t.startTime);
-    row.recurrence = sanitizeRule(t.recurrence);
+    row.recurrence = sanitizeRecurrence(t.recurrence);
     row.recurrence_days = sanitizeDays(t.recurrenceDays);
     row.recurrence_month_day = sanitizeMonthDay(t.recurrenceMonthDay);
   }
   if (caps.taskExtras) {
     row.subtasks = sanitizeSubtasks(t.subtasks);
     row.reminder_minutes = sanitizeReminder(t.reminderMinutes);
+  }
+  if (caps.planner) {
+    row.actual_minutes = sanitizeActual(t.actualMinutes);
+    row.timer_started_at = sanitizeInstant(t.timerStartedAt);
+    row.list_key = sanitizeKey(t.listKey);
+    row.emoji = sanitizeEmoji(t.emoji);
   }
   return withDeleted(row, t.deletedAt);
 }
@@ -512,6 +598,10 @@ export function taskFromRemote(r: Remote): Task {
     recurrenceMonthDay: opt(r, 'recurrence_month_day'),
     subtasks: sanitizeSubtasks(r.subtasks) ?? undefined,
     reminderMinutes: sanitizeReminder(r.reminder_minutes) ?? undefined,
+    actualMinutes: sanitizeActual(r.actual_minutes) ?? undefined,
+    timerStartedAt: sanitizeInstant(r.timer_started_at) ?? undefined,
+    listKey: sanitizeKey(r.list_key) ?? undefined,
+    emoji: sanitizeEmoji(r.emoji) ?? undefined,
     origin: opt(r, 'origin'),
     updatedAt: String(r.updated_at),
     deletedAt: opt(r, 'deleted_at'),
@@ -521,6 +611,7 @@ export function taskFromRemote(r: Remote): Task {
 export function projectToRemote(p: Project, caps: Caps): Remote {
   const row: Remote = { key: p.key, name: p.name, created_at: p.createdAt, updated_at: p.updatedAt };
   if (caps.taskPipeline) row.color_key = typeof p.colorKey === 'string' ? p.colorKey : null;
+  if (caps.planner) row.emoji = sanitizeEmoji(p.emoji);
   return withDeleted(row, p.deletedAt);
 }
 export function projectFromRemote(r: Remote): Project {
@@ -530,6 +621,44 @@ export function projectFromRemote(r: Remote): Project {
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
     colorKey: opt(r, 'color_key'),
+    emoji: sanitizeEmoji(r.emoji) ?? undefined,
+    deletedAt: opt(r, 'deleted_at'),
+  };
+}
+
+export function listToRemote(l: TaskList): Remote {
+  return withDeleted(
+    {
+      key: l.key,
+      name: l.name,
+      emoji: sanitizeEmoji(l.emoji),
+      sort_order: sanitizeSortOrder(l.sortOrder),
+      created_at: l.createdAt,
+      updated_at: l.updatedAt,
+    },
+    l.deletedAt,
+  );
+}
+export function listFromRemote(r: Remote): TaskList {
+  return {
+    key: String(r.key),
+    name: String(r.name),
+    emoji: sanitizeEmoji(r.emoji) ?? undefined,
+    sortOrder: sanitizeSortOrder(r.sort_order),
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+    deletedAt: opt(r, 'deleted_at'),
+  };
+}
+
+export function settingToRemote(s: UserSetting): Remote {
+  return withDeleted({ key: s.key, value: sanitizeSettingValue(s.value), updated_at: s.updatedAt }, s.deletedAt);
+}
+export function settingFromRemote(r: Remote): UserSetting {
+  return {
+    key: String(r.key),
+    value: sanitizeSettingValue(r.value),
+    updatedAt: String(r.updated_at),
     deletedAt: opt(r, 'deleted_at'),
   };
 }
@@ -621,6 +750,20 @@ export const TABLE_SPECS: Record<TimestampedTable, TableSpec> = {
     keyOf: byKey,
     toRemote: (r) => categoryToRemote(r as unknown as CustomCategory),
     fromRemote: (r) => clean(categoryFromRemote(r)) as unknown as Record<string, unknown>,
+  },
+  lists: {
+    table: 'lists',
+    keyColumn: 'key',
+    keyOf: byKey,
+    toRemote: (r) => listToRemote(r as unknown as TaskList),
+    fromRemote: (r) => clean(listFromRemote(r)) as unknown as Record<string, unknown>,
+  },
+  user_settings: {
+    table: 'user_settings',
+    keyColumn: 'key',
+    keyOf: byKey,
+    toRemote: (r) => settingToRemote(r as unknown as UserSetting),
+    fromRemote: (r) => clean(settingFromRemote(r)) as unknown as Record<string, unknown>,
   },
 };
 

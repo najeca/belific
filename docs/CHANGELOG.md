@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## Build plan phase 1 (data foundations) — 2026-10-16, no version bump
+
+**No user visible change, so `expo.version` stays 2.18.1. Migration 002 applied by Jethro through the Supabase migration tool (`20261016153525 belific_lists_settings_timer`). Nothing deployed.**
+
+- **Schema 002** (`mobile/supabase/belific_schema/002_lists_settings_timer.sql`): `tasks.actual_minutes` (NULL = 0), `tasks.timer_started_at`, `tasks.list_key`, `tasks.emoji`, `projects.emoji`, and the tables `lists` and `user_settings`, in the 001 house style.
+- **Sync:** 9 tables; a `planner` capability gates the new tables and fields (kept locally and queued until the server has them); sanitisers for every new value; an unknown repeat rule is sent back unchanged instead of wiped.
+- **Storage:** lists and user settings (local, synced). **Timer maths:** `mobile/lib/taskTimer.ts`. No UI yet.
+- **delete-account (code only):** also deletes from `lists` and `user_settings`. Still never deployed to the shared project.
+- **Decision 027:** no XP, levels or multiplier; streaks on recurring tasks only. Supersedes 014 and the XP parts of 008.
+- Docs: `docs/belific-build-plan.md` updated with Jethro's phase 1 decisions; `docs/build-progress.md` added.
+
 ## 2.18.1 — 2026-10-15
 
 **The iPhone gets Google sign in, signs out locally, and the build is ready for a TestFlight only run against the shared project. Nothing deployed, no EAS command run, no dashboard or database contact. (Phone move checkpoint.)**

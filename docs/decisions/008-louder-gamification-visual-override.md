@@ -1,7 +1,7 @@
 # Decision 008 — Louder Gamification Visual Language (overrides 007's visual-language flag)
 
 **Date:** 2026-09-28
-**Status:** Decided — confirmed directly by Jethro in session
+**Status:** Decided — confirmed directly by Jethro in session. **The XP parts (XP bars, level badges, multiplier tags, reward pops, the `xpGold` accent) are superseded by [[027-no-xp-streaks-on-recurring-tasks-only]] (2026-10-16):** there is no XP or level, and streaks use the core palette.
 
 ---
 

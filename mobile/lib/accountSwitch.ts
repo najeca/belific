@@ -100,4 +100,6 @@ export const USER_DATA_KEYS = [
   'belific_routine_completions',
   'belific_tasks',
   'belific_projects',
+  'belific_lists',
+  'belific_user_settings',
 ];

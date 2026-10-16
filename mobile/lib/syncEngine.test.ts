@@ -13,6 +13,8 @@ type Row = Record<string, unknown>;
 type AnyTable = TimestampedTable | 'routine_completions';
 const REQUIRED_PROFILE = 'belific';
 const EXTRA_COLUMNS = ['subtasks', 'reminder_minutes'];
+const PLANNER_COLUMNS = ['actual_minutes', 'timer_started_at', 'list_key', 'emoji'];
+const PLANNER_TABLES: AnyTable[] = ['lists', 'user_settings'];
 const PIPELINE_COLUMNS = ['duration_minutes', 'start_time', 'recurrence', 'recurrence_days', 'recurrence_month_day', 'color_key'];
 
 // --- Fake Supabase: composite keys, merge-duplicates upserts (only supplied
@@ -43,10 +45,12 @@ class FakeServer {
   // Like PostgREST: a request that does not name the belific schema (the
   // Accept-Profile / Content-Profile header the client adds from db.schema)
   // is refused, so a client that forgot the schema fails every test here.
-  private check(profile: string | null = REQUIRED_PROFILE) {
+  private check(profile: string | null = REQUIRED_PROFILE, t?: AnyTable) {
     this.calls += 1;
     if (!this.online) throw new TypeError('Network request failed');
     if (profile !== REQUIRED_PROFILE) throw new Error('PGRST106: The schema must be one of the following: belific');
+    // Before migration 002 the two new tables do not exist.
+    if (t && PLANNER_TABLES.includes(t) && !this.caps.planner) throw new Error(`PGRST205: Could not find the table 'belific.${t}' in the schema cache`);
   }
 
   // What a 2.1.0 iPhone does: a full row with deleted_at null, no new columns.
@@ -71,7 +75,7 @@ class FakeServer {
         return { ...this.caps };
       },
       selectPage: async (t: AnyTable, q: PageQuery) => {
-        this.check(profile);
+        this.check(profile, t);
         if (q.since && !this.caps.serverUpdatedAt) throw new Error('column server_updated_at does not exist');
         let list = this.all(t).filter((r) => r.user_id === userId);
         if (q.since) list = list.filter((r) => parseTime(r.server_updated_at) >= parseTime(q.since));
@@ -83,7 +87,7 @@ class FakeServer {
         return list.slice(q.from, end).map((r) => ({ ...r }));
       },
       upsert: async (t: AnyTable, rows: Row[]) => {
-        this.check(profile);
+        this.check(profile, t);
         if (this.gate) await this.gate;
         if (this.upsertsBeforeFailure !== null) {
           if (this.upsertsBeforeFailure === 0) throw new Error('upsert failed: 500 internal');
@@ -94,6 +98,9 @@ class FakeServer {
         }
         if (!this.caps.taskExtras) {
           for (const r of rows) for (const c of EXTRA_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
+        }
+        if (!this.caps.planner && (t === 'tasks' || t === 'projects')) {
+          for (const r of rows) for (const c of PLANNER_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
         }
         for (const r of rows) {
           const key = this.pk(t, r);
@@ -150,7 +157,8 @@ function makeDevice(server: FakeServer, opts: { userId?: string | null; clockOff
   const make = () =>
     createSyncEngine({ server: server.adapter(userId), local, outbox, now: clock, pageSize: 1000, batchSize: opts.batchSize ?? 500 });
   let engine = make();
-  const keyOf = (t: TimestampedTable, r: Row) => String(t === 'projects' || t === 'custom_categories' ? r.key : r.id);
+  const keyOf = (t: TimestampedTable, r: Row) =>
+    String(t === 'projects' || t === 'custom_categories' || t === 'lists' || t === 'user_settings' ? r.key : r.id);
 
   return {
     data,
@@ -573,4 +581,77 @@ test('the fake server refuses a client that does not name the belific schema', a
     await assert.rejects(adapter.deleteCompletion('r', '2026-10-01'), /PGRST106/);
   }
   assert.equal(server.all('tasks').length, 0);
+});
+
+test('002 a server without lists, settings and the timer columns: nothing sent or pulled, kept locally, uploaded when it appears, then reaches the other device', async () => {
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: false };
+  const desk = makeDevice(server);
+  const started = '2026-10-16T09:00:00.000Z';
+  await desk.put('tasks', task('t1', 'Write', { actualMinutes: 25, timerStartedAt: started, listKey: 'l1', emoji: '✍️' }));
+  await desk.put('projects', { key: 'p1', name: 'Work', colorKey: 'sage', emoji: '💼', createdAt: '2026-10-01T00:00:00.000Z' });
+  await desk.put('lists', { key: 'l1', name: 'Reading', emoji: '📚', sortOrder: 2, createdAt: '2026-10-01T00:00:00.000Z' });
+  await desk.put('user_settings', { key: 'feature.pomodoro', value: 'true' });
+  await desk.engine.sync();
+  assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
+  for (const c of PLANNER_COLUMNS) assert.equal(server.get('tasks', 't1')?.[c], undefined, `${c} not sent`);
+  assert.equal(server.get('projects', 'p1')?.emoji, undefined);
+  assert.equal(server.all('lists').length + server.all('user_settings').length, 0);
+  assert.equal(desk.data.outbox.entries.filter((e) => e.table === 'lists' || e.table === 'user_settings').length, 2, 'waiting in the outbox');
+  // an older client renames the task on the server; the local values survive the pull
+  server.legacyUpsert('tasks', { ...server.get('tasks', 't1'), title: 'Write (renamed)', updated_at: new Date(Date.now() + 1000).toISOString() });
+  await desk.engine.sync();
+  const t = desk.row('tasks', 't1')!;
+  assert.equal(t.title, 'Write (renamed)');
+  assert.equal(t.actualMinutes, 25);
+  assert.equal(t.timerStartedAt, started);
+  assert.equal(t.listKey, 'l1');
+  assert.equal(t.emoji, '✍️');
+  // migration 002 applied: the probe flips, the rows go up
+  server.caps = { ...server.caps, planner: true };
+  await desk.engine.sync();
+  assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
+  assert.equal(desk.data.outbox.entries.length, 0);
+  const st = server.get('tasks', 't1')!;
+  assert.equal(st.actual_minutes, 25);
+  assert.equal(parseTime(st.timer_started_at), parseTime(started));
+  assert.equal(st.list_key, 'l1');
+  assert.equal(st.emoji, '✍️');
+  assert.equal(server.get('projects', 'p1')?.emoji, '💼');
+  assert.equal(server.get('lists', 'l1')?.sort_order, 2);
+  assert.equal(server.get('user_settings', 'feature.pomodoro')?.value, 'true');
+  // a second device sees every field
+  const phone = makeDevice(server);
+  await phone.engine.sync();
+  assert.equal(phone.row('tasks', 't1')?.actualMinutes, 25);
+  assert.equal(parseTime(phone.row('tasks', 't1')?.timerStartedAt), parseTime(started));
+  assert.equal(phone.row('tasks', 't1')?.listKey, 'l1');
+  assert.equal(phone.row('projects', 'p1')?.emoji, '💼');
+  assert.deepEqual(
+    { name: phone.row('lists', 'l1')?.name, emoji: phone.row('lists', 'l1')?.emoji, sortOrder: phone.row('lists', 'l1')?.sortOrder },
+    { name: 'Reading', emoji: '📚', sortOrder: 2 },
+  );
+  assert.equal(phone.row('user_settings', 'feature.pomodoro')?.value, 'true');
+});
+
+test('002 a timer stopped on one device stops on the other; a deleted list is a tombstone everywhere', async () => {
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };
+  const desk = makeDevice(server);
+  const phone = makeDevice(server);
+  await phone.put('tasks', task('t1', 'Read', { timerStartedAt: '2026-10-16T09:00:00.000Z' }));
+  await phone.put('lists', { key: 'l1', name: 'Reading', sortOrder: 0, createdAt: '2026-10-01T00:00:00.000Z' });
+  await phone.engine.sync();
+  await desk.engine.sync();
+  assert.ok(desk.row('tasks', 't1')?.timerStartedAt, 'running on the desk too');
+  // the desk stops it: timerStartedAt removed locally, sent as null
+  const { timerStartedAt: _t, ...stopped } = desk.row('tasks', 't1')!;
+  await desk.put('tasks', { ...stopped, actualMinutes: 30 });
+  await desk.remove('lists', 'l1');
+  await desk.engine.sync();
+  assert.equal(server.get('tasks', 't1')?.timer_started_at, null);
+  await phone.engine.sync();
+  assert.equal(phone.row('tasks', 't1')?.timerStartedAt, undefined, 'stopped on the phone');
+  assert.equal(phone.row('tasks', 't1')?.actualMinutes, 30);
+  assert.ok(phone.row('lists', 'l1')?.deletedAt, 'list tombstone reached the phone');
 });

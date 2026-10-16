@@ -218,7 +218,39 @@ export interface Task {
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';
+  // Build plan phase 1 (migration 002). Kept locally while the server lacks
+  // the columns, like the fields above. Whole minutes actually spent; absent
+  // means 0. The timer adds to it when it stops (lib/taskTimer.ts).
+  actualMinutes?: number;
+  // ISO time the timer was started; absent when it is not running. Synced, so
+  // a timer started on one device shows on the other.
+  timerStartedAt?: string;
+  // The TaskList this task belongs to. Absent with no dueDate = Brain Dump.
+  listKey?: string;
+  // One emoji. On a series root it is the quest's emoji.
+  emoji?: string;
   // See CustomEvent.updatedAt / deletedAt above — same sync bookkeeping.
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+// A list of tasks beside Brain Dump (build plan phase 1, migration 002).
+// Brain Dump itself is not a row: it is the tasks with no dueDate and no listKey.
+export interface TaskList {
+  key: string;
+  name: string;
+  emoji?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+// A setting that follows the person across devices (migration 002). The value
+// is text; each setting's reader parses it and falls back to its default.
+export interface UserSetting {
+  key: string;
+  value: string;
   updatedAt: string;
   deletedAt?: string;
 }
@@ -243,4 +275,6 @@ export interface Project {
   // checkpoint 5 must merge local only fields on pull. Desktop only; the
   // iPhone never reads it.
   colorKey?: string;
+  // One emoji beside the colour (migration 002).
+  emoji?: string;
 }

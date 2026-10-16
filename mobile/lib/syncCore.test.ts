@@ -23,9 +23,23 @@ import {
   sanitizeTime,
   taskFromRemote,
   taskToRemote,
+  MAX_ACTUAL_MINUTES,
+  hasPlannerValues,
+  listFromRemote,
+  listToRemote,
+  preserveFieldsFor,
+  sanitizeActual,
+  sanitizeEmoji,
+  sanitizeInstant,
+  sanitizeKey,
+  sanitizeSettingValue,
+  sanitizeSortOrder,
+  settingFromRemote,
+  settingToRemote,
+  tableReady,
   type OutboxEntry,
 } from './syncCore.ts';
-import type { Task } from './types.ts';
+import type { Task, TaskList, UserSetting } from './types.ts';
 
 test('times are parsed, never compared as strings (V7d)', () => {
   const z = '2026-10-06T10:00:00.123Z';
@@ -238,4 +252,86 @@ test('Actual time is gone (2.14.0): no actual_seconds is sent, and one that arri
   const back = taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T2, actual_seconds: 5400 } as never);
   assert.equal('actualSeconds' in back, false);
   assert.equal(JSON.stringify(back).includes('5400'), false);
+});
+
+test('002 mapper: timer, list and emoji only go up once the server has them, and read back', () => {
+  const t: Task = { id: 't', title: 'T', completed: false, createdAt: T1, updatedAt: T2, actualMinutes: 40, timerStartedAt: '2026-10-16T09:00:00.000Z', listKey: 'l1', emoji: 'E' };
+  const before = taskToRemote(t, { serverUpdatedAt: true, taskPipeline: true, taskExtras: true });
+  for (const c of ['actual_minutes', 'timer_started_at', 'list_key', 'emoji']) assert.equal(c in before, false, c);
+  const after = taskToRemote(t, { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true });
+  assert.equal(after.actual_minutes, 40);
+  assert.equal(after.timer_started_at, '2026-10-16T09:00:00.000Z');
+  assert.equal(after.list_key, 'l1');
+  assert.equal(after.emoji, 'E');
+  // a stopped timer and no list are sent as null, so they clear on the server
+  const cleared = taskToRemote({ ...t, timerStartedAt: undefined, listKey: undefined }, { serverUpdatedAt: true, taskPipeline: true, planner: true });
+  assert.equal(cleared.timer_started_at, null);
+  assert.equal(cleared.list_key, null);
+  const back = taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T2, actual_minutes: 40, timer_started_at: '2026-10-16T09:00:00+00:00', list_key: 'l1', emoji: 'E' });
+  assert.equal(back.actualMinutes, 40);
+  assert.equal(back.timerStartedAt, '2026-10-16T09:00:00.000Z');
+  assert.equal(back.listKey, 'l1');
+  assert.equal(back.emoji, 'E');
+  const p = { key: 'p', name: 'P', createdAt: T1, updatedAt: T2, emoji: 'E' };
+  assert.equal('emoji' in projectToRemote(p, { serverUpdatedAt: true, taskPipeline: true }), false);
+  assert.equal(projectToRemote(p, { serverUpdatedAt: true, taskPipeline: true, planner: true }).emoji, 'E');
+  assert.equal(projectFromRemote({ key: 'p', name: 'P', created_at: T1, updated_at: T2, emoji: 'E' }).emoji, 'E');
+});
+
+test('002 sanitisers: junk becomes null (or the default) instead of failing a batch', () => {
+  assert.equal(sanitizeActual(0), 0);
+  assert.equal(sanitizeActual(-1), null);
+  assert.equal(sanitizeActual(2.5), null);
+  assert.equal(sanitizeActual(MAX_ACTUAL_MINUTES + 1), null);
+  assert.equal(sanitizeInstant('nonsense'), null);
+  assert.equal(sanitizeInstant(5), null);
+  assert.equal(sanitizeEmoji('  '), null);
+  assert.equal(sanitizeEmoji('x'.repeat(33)), null);
+  assert.equal(sanitizeEmoji(' E '), 'E');
+  assert.equal(sanitizeKey(''), null);
+  assert.equal(sanitizeSortOrder(1.5), 0);
+  assert.equal(sanitizeSortOrder('3'), 0);
+  assert.equal(sanitizeSettingValue(3), '');
+  assert.equal(sanitizeSettingValue('y'.repeat(5000)).length, 4000);
+});
+
+test('002 lists and settings: round trip, tombstones carry deleted_at, live rows never do', () => {
+  const l: TaskList = { key: 'l1', name: 'Reading', emoji: 'E', sortOrder: 3, createdAt: T1, updatedAt: T2 };
+  const sent = listToRemote(l);
+  assert.deepEqual(sent, { key: 'l1', name: 'Reading', emoji: 'E', sort_order: 3, created_at: T1, updated_at: T2 });
+  assert.deepEqual(listFromRemote({ ...sent, user_id: 'u', server_updated_at: T2, deleted_at: null }), { ...l, deletedAt: undefined });
+  assert.equal(listToRemote({ ...l, deletedAt: T2 }).deleted_at, T2);
+  const s: UserSetting = { key: 'feature.pomodoro', value: 'true', updatedAt: T2 };
+  assert.deepEqual(settingToRemote(s), { key: 'feature.pomodoro', value: 'true', updated_at: T2 });
+  assert.equal(settingFromRemote({ key: 'k', value: 'v', updated_at: T2, deleted_at: T2 }).deletedAt, T2);
+});
+
+test('002 gating: the new tables wait for the planner capability; old fields are preserved until then', () => {
+  const old = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true };
+  assert.equal(tableReady('lists', old), false);
+  assert.equal(tableReady('user_settings', old), false);
+  assert.equal(tableReady('tasks', old), true);
+  assert.equal(tableReady('routine_completions', old), true);
+  assert.equal(tableReady('lists', { ...old, planner: true }), true);
+  assert.deepEqual(preserveFieldsFor('tasks', old), ['actualMinutes', 'timerStartedAt', 'listKey', 'emoji']);
+  assert.deepEqual(preserveFieldsFor('projects', old), ['emoji']);
+  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true }), []);
+  assert.equal(hasPlannerValues('tasks', { actualMinutes: 0 }), true);
+  assert.equal(hasPlannerValues('tasks', { title: 'x' }), false);
+  assert.equal(hasPlannerValues('lists', { emoji: 'E' }), false);
+});
+
+test('a repeat rule this version does not know is kept on upload, never wiped', () => {
+  const caps = { serverUpdatedAt: true, taskPipeline: true };
+  const base: Task = { id: 't', title: 'T', completed: false, createdAt: T1, updatedAt: T2 };
+  assert.equal(taskToRemote({ ...base, recurrence: 'monthly' }, caps).recurrence, 'monthly');
+  // a newer client wrote 'annual'; this one pulls it and sends it back as it was
+  const pulled = taskFromRemote({ id: 't', title: 'T', completed: false, created_at: T1, updated_at: T2, recurrence: 'annual' });
+  assert.equal(pulled.recurrence, 'annual');
+  assert.equal(taskToRemote({ ...pulled, title: 'Renamed' }, caps).recurrence, 'annual');
+  // junk is still cleared
+  for (const junk of ['', 'DROP TABLE', 'x'.repeat(33), 5, null]) {
+    assert.equal(taskToRemote({ ...base, recurrence: junk as never }, caps).recurrence, null, String(junk));
+  }
+  assert.equal(taskToRemote(base, caps).recurrence, null);
 });

@@ -1,5 +1,5 @@
 // "Delete Belific data" (the Edge Function is still called delete-account).
-// Removes every row the calling user owns in the belific schema, across all 7
+// Removes every row the calling user owns in the belific schema, across all 9
 // tables, and nothing else. It does NOT delete the auth user: since the move to
 // the shared Landis, Proload and Belific project that user belongs to the other
 // apps too. Whether Apple's account deletion rule (5.1.1(v)) is met by this is

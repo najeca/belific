@@ -12,17 +12,21 @@ import {
   loadBrainDumpItemsRaw,
   loadCustomCategoriesRaw,
   loadCustomEventsRaw,
+  loadListsRaw,
   loadProjectsRaw,
   loadRoutineCompletions,
   loadRoutinesRaw,
   loadTasksRaw,
+  loadUserSettingsRaw,
   saveBrainDumpItems,
   saveCustomCategories,
   saveCustomEvents,
+  saveLists,
   saveProjects,
   saveRoutineCompletions,
   saveRoutines,
   saveTasks,
+  saveUserSettings,
 } from './storage';
 import { TIMESTAMPED_TABLES, type TimestampedTable } from './syncCore';
 import { META, createSyncEngine, type LocalAdapter, type SyncStatus } from './syncEngine';
@@ -51,6 +55,8 @@ const LOADERS: Record<TimestampedTable, () => Promise<object[]>> = {
   tasks: loadTasksRaw,
   projects: loadProjectsRaw,
   custom_categories: loadCustomCategoriesRaw,
+  lists: loadListsRaw,
+  user_settings: loadUserSettingsRaw,
 };
 const SAVERS: Record<TimestampedTable, (rows: never[]) => Promise<void>> = {
   custom_events: saveCustomEvents,
@@ -59,6 +65,8 @@ const SAVERS: Record<TimestampedTable, (rows: never[]) => Promise<void>> = {
   tasks: saveTasks,
   projects: saveProjects,
   custom_categories: saveCustomCategories,
+  lists: saveLists,
+  user_settings: saveUserSettings,
 };
 
 const local: LocalAdapter = {

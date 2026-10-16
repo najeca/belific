@@ -11,6 +11,8 @@ import type {
   Routine,
   RoutineCompletion,
   Task,
+  TaskList,
+  UserSetting,
 } from './types';
 
 import { storageLock } from './lock';
@@ -33,6 +35,8 @@ const KEYS = {
   ROUTINE_COMPLETIONS: 'belific_routine_completions',
   TASKS: 'belific_tasks',
   PROJECTS: 'belific_projects',
+  LISTS: 'belific_lists',
+  USER_SETTINGS: 'belific_user_settings',
   SCHEMA_MIGRATED_V2: 'belific_schema_migrated_v2',
 } as const;
 
@@ -600,6 +604,97 @@ export function patchProjects(
   });
 }
 
+// --- Lists (build plan phase 1, migration 002) ---
+// Brain Dump is not a list row: it is the tasks with no dueDate and no listKey.
+
+export async function loadListsRaw(): Promise<TaskList[]> {
+  try {
+    const data = await kv.getItem(KEYS.LISTS);
+    return data ? (JSON.parse(data) as TaskList[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function loadLists(): Promise<TaskList[]> {
+  const all = await loadListsRaw();
+  const { visible, changed } = pruneAndHideTombstones(all);
+  if (changed) await storageLock.run(async () => saveLists(pruneAndHideTombstones(await loadListsRaw()).forStorage));
+  return visible.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+}
+
+export async function saveLists(lists: TaskList[]): Promise<void> {
+  try {
+    await kv.setItem(KEYS.LISTS, JSON.stringify(lists));
+  } catch {
+    // noop
+  }
+}
+
+// Adds or replaces one list by key; stamps updatedAt and queues it.
+export function putList(list: TaskList): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadListsRaw();
+    const stamped = { ...list, updatedAt: new Date().toISOString() };
+    const found = existing.some((l) => l.key === list.key);
+    await saveLists(found ? existing.map((l) => (l.key === list.key ? stamped : l)) : [...existing, stamped]);
+    await queueRows('lists', [stamped]);
+  });
+}
+
+// Tombstoned, like deleteProject. Callers move the list's tasks first.
+export function deleteList(key: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadListsRaw();
+    const now = new Date().toISOString();
+    let tombstoned: TaskList | undefined;
+    const merged = existing.map((l) => {
+      if (l.key !== key) return l;
+      tombstoned = { ...l, deletedAt: now, updatedAt: now };
+      return tombstoned;
+    });
+    await saveLists(merged);
+    if (tombstoned) await queueRows('lists', [tombstoned]);
+  });
+}
+
+// --- User settings (migration 002) ---
+// Settings that follow the person across devices. UI state (collapsed panes,
+// the last view) stays in its own local keys and never comes here.
+
+export async function loadUserSettingsRaw(): Promise<UserSetting[]> {
+  try {
+    const data = await kv.getItem(KEYS.USER_SETTINGS);
+    return data ? (JSON.parse(data) as UserSetting[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveUserSettings(settings: UserSetting[]): Promise<void> {
+  try {
+    await kv.setItem(KEYS.USER_SETTINGS, JSON.stringify(settings));
+  } catch {
+    // noop
+  }
+}
+
+// The stored value, or null when the setting was never set (use the default).
+export async function loadUserSetting(key: string): Promise<string | null> {
+  const row = (await loadUserSettingsRaw()).find((s) => s.key === key && !s.deletedAt);
+  return row ? row.value : null;
+}
+
+export function setUserSetting(key: string, value: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadUserSettingsRaw();
+    const row: UserSetting = { key, value, updatedAt: new Date().toISOString() };
+    const found = existing.some((s) => s.key === key);
+    await saveUserSettings(found ? existing.map((s) => (s.key === key ? row : s)) : [...existing, row]);
+    await queueRows('user_settings', [row]);
+  });
+}
+
 export async function clearAllData(): Promise<void> {
   try {
     await kv.multiRemove([
@@ -613,6 +708,8 @@ export async function clearAllData(): Promise<void> {
       KEYS.ROUTINE_COMPLETIONS,
       KEYS.TASKS,
       KEYS.PROJECTS,
+      KEYS.LISTS,
+      KEYS.USER_SETTINGS,
       KEYS.SCHEMA_MIGRATED_V2,
       // Sync bookkeeping (lib/outbox.ts, lib/syncEngine.ts META): with the
       // data gone, the next sync must start from a full pass again.
@@ -625,6 +722,8 @@ export async function clearAllData(): Promise<void> {
       'belific_sync_cursor_tasks',
       'belific_sync_cursor_projects',
       'belific_sync_cursor_custom_categories',
+      'belific_sync_cursor_lists',
+      'belific_sync_cursor_user_settings',
     ]);
   } catch {
     // noop

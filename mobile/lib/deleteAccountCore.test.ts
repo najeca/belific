@@ -11,7 +11,14 @@ import { TABLE_SPECS, TIMESTAMPED_TABLES } from './syncCore.ts';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'supabase/functions/delete-account/index.ts'), 'utf8');
-const SQL = fs.readFileSync(path.join(ROOT, 'supabase/belific_schema/001_belific_schema.sql'), 'utf8');
+// Every numbered schema file, applied in order (001, 002, ...); rollbacks excluded.
+const SCHEMA_DIR = path.join(ROOT, 'supabase/belific_schema');
+const SQL = fs
+  .readdirSync(SCHEMA_DIR)
+  .filter((f) => /^\d{3}_.*\.sql$/.test(f) && !f.includes('rollback'))
+  .sort()
+  .map((f) => fs.readFileSync(path.join(SCHEMA_DIR, f), 'utf8'))
+  .join('\n');
 // Code only: comments may mention anything.
 const CODE = INDEX.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
 
@@ -32,10 +39,10 @@ function recordingClient(failTable?: string) {
   return { client, log };
 }
 
-test('the table list is exactly the seven synced tables, and the ones the schema file creates', () => {
+test('the table list is exactly the synced tables, and the ones the schema files create', () => {
   assert.deepEqual(
     [...BELIFIC_TABLES].sort(),
-    ['brain_dump_items', 'custom_categories', 'custom_events', 'projects', 'routine_completions', 'routines', 'tasks'],
+    ['brain_dump_items', 'custom_categories', 'custom_events', 'lists', 'projects', 'routine_completions', 'routines', 'tasks', 'user_settings'],
   );
   assert.deepEqual([...BELIFIC_TABLES].sort(), [...TIMESTAMPED_TABLES, 'routine_completions'].sort());
   assert.ok(Object.keys(TABLE_SPECS).every((t) => (BELIFIC_TABLES as readonly string[]).includes(t)));

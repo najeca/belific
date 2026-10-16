@@ -102,7 +102,11 @@ Phase 5 **done 2026-10-16 (2.22.0)**, desktop only, see `docs/build-progress.md`
 
 Phase 6, Analytics, Trash, data export. Analytics is derived from existing data plus actual_minutes. Date ranges: current work week, last 7 days, last 14 days, last month, last 3 months, custom. Cards: tasks completed against the previous period, actual against estimated, average age of Brain Dump tasks. Charts: time per day (by task count or by time), estimated against actual per task, tasks by label (percentage). A completed task list with grouping and CSV download. Trash view with restore. Account data export as JSON and CSV.
 
+**Phase 6 done 2026-10-16 (2.23.0)**, desktop only, see `docs/build-progress.md` and decision 030.
+
 Phase 7, settings and power features. Power feature toggles (off means the field or screen is hidden, which keeps the default UI minimal): due dates with reminders, priority, daily planning, pomodoro, templates, analytics, attachments. Labels becomes an overlay. "Reset local cache and resync" for debugging the outbox. Pomodoro on the task timer. Task templates.
+
+**Phase 7 done 2026-10-16 (2.24.0)**, desktop only, see `docs/build-progress.md` and decision 030. Attachments are a toggle with "Coming later" and no storage; reminder delivery is unchanged.
 
 Phase 8, calendar connections. See section 7.
 

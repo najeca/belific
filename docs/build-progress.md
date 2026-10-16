@@ -2,7 +2,7 @@
 
 The running record of `docs/belific-build-plan.md`. A new session can start cold from the plan and this file: read both, then `docs/CURRENT_TRUTH.md` for anything outside the plan. Add a checkpoint at the end of every phase.
 
-Branch: `v2-redesign`. App version: **2.22.0** (phase 2 is 2.19.0, phase 3 is 2.20.0, phase 4 is 2.21.0, phase 5 is 2.22.0; phases 4 and 5 bumped in their own commits). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
+Branch: `v2-redesign`. App version: **2.24.0** (phase 2 is 2.19.0, phase 3 is 2.20.0, phase 4 is 2.21.0, phase 5 is 2.22.0, phase 6 is 2.23.0, phase 7 is 2.24.0; phases 4 to 7 bumped in their own commits). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
 
 ## Where things stand
 
@@ -13,7 +13,9 @@ Branch: `v2-redesign`. App version: **2.22.0** (phase 2 is 2.19.0, phase 3 is 2.
 | 3 Desktop layout | **Done 2026-10-16** (second commit). Collapsible panes remembered, V between Kanban and Calendar, Calendar day, week and month, all day row, current time line, search, show only today, quick capture. Desktop only. |
 | 4 Quests | **Done 2026-10-16** (commit `3935fd8`, 2.21.0). Desktop and iPhone. Period streaks, Every year, the iPhone's Brain Dump on tasks and Convert routines. |
 | 5 Daily Planning, Shutdown, rollover | **Done 2026-10-16** (2.22.0). Desktop only. |
-| 6 to 9 | Not started. Phase 6 (Analytics, Trash, export) is next, after Jethro's go. |
+| 6 Analytics, Trash, data export | **Done 2026-10-16** (commit `85bb6dc`, 2.23.0). Desktop only. |
+| 7 Power features | **Done 2026-10-16** (2.24.0). Desktop only. |
+| 8 and 9 | Not started. Phase 8 is next, after Jethro's go. |
 | iOS adaptation | Steps 1 (Brain Dump on tasks) and 2 (Convert routines) **done in code** with phase 4, plus the Quests tab. Not run on a device. Phases 2, 3 and 5 have no iPhone UI yet. |
 
 ## Decisions in force (from Jethro, 2026-10-16)
@@ -190,6 +192,63 @@ Desktop:
 
 iPhone (TestFlight, signed in to the shared project): see the phase 4 and 5 report in the conversation; the list is repeated in `docs/CURRENT_TRUTH.md`, "iPhone checks for 2.22.0".
 
+## Checkpoint: phase 6, Analytics, Trash, data export (2026-10-16, 2.23.0)
+
+No schema change. Desktop only. Commit `85bb6dc`.
+
+- `lib/analytics.ts` (ranges, cards, charts, completed list, CSV), `lib/csv.ts`, `lib/chartColors.ts` (the two chart colours and a label colour darkened to at least 3:1), `lib/trash.ts` and `lib/trashActions.ts` (what the Trash shows, Restore), `lib/dataExport.ts` and `lib/exportActions.ts`. UI: `AnalyticsPage.tsx`, `TrashPage.tsx`, the Data section of `SettingsPage.tsx`, profile menu rows.
+- **Trash restore (Jethro's design, two changes).** A delete is a tombstone whose `deletedAt` equals its `updatedAt` and which has no repeat rule. Restore makes a NEW task with the same fields and a deterministic id (`restored_<oldId>`, then `restored2_...`), and touches the old tombstone so the entry leaves the Trash on every device; nothing is ever un-deleted. **Merged tasks:** a merge into another task as a subtask writes the same kind of tombstone as a delete, so the two cannot be told apart by their data. I detect a merge by its effect (a live task has a subtask with the same normalised title, changed no earlier than 10 seconds before the tombstone) and show such an entry as "Merged into another task" with **no Restore button**. This is a guess and can be wrong in either direction (see the choices below). **Two devices restoring the same item** is tested through the real sync engine: exactly one new task, and the entry leaves the Trash on both devices.
+- **Verification:** typecheck; all tests; security scan; iOS export and marker gate (16 markers, 0 hits); real check `desktop/test/real/p6.js` (39); every older real check re-run.
+
+## Checkpoint: phase 7, power features (2026-10-16, 2.24.0)
+
+No schema change. Desktop only. Every new piece of state is a `user_settings` row: `feature.<name>` (on or off) and `template.<id>` (JSON, at most 4000 characters). Pomodoro state is local to the computer (kv, never synced).
+
+- `lib/features.ts`, `lib/pomodoro.ts`, `lib/templates.ts`, `lib/templateActions.ts`, `lib/resetCache.ts`, `lib/resetActions.ts`, `deleteUserSetting` in `lib/storage.ts`. UI: `featureStore.ts`, `pomodoroStore.ts`, `LabelsOverlay.tsx`, `TemplatePicker.tsx`, `TemplatesManager.tsx`, `ResetCacheRow.tsx`, and the toggles read in `DesktopHome`, `TaskCard`, `TaskBlockPopover`, `TaskDetailPanel`, `ProfileMenu`, `TimerWidget`, `SettingsPage`.
+- **Toggles hide, never delete.** Due dates and reminders: only the reminder bell and the Reminder option (reminders already set keep working; the Day field is the board itself and stays). Priority: the flag, the Priority field and row. Planning: the strip buttons and Ctrl+Shift+P. Analytics: the profile menu row. Pomodoro and templates: their buttons. Attachments: a "Coming later" row, nothing stored.
+- **Labels is an overlay** (a new overlay kind), over Settings or the home panes; Escape, its button or a press outside closes it; focus returns to the opener. Labels gain an emoji (the field exists since phase 2).
+- **Pomodoro** is a countdown over the single task timer (`lib/pomodoro.ts`): it only calls the ordinary start and stop commands, so one timer at a time, whole-minute rounding and the over-24-hours question are the timer's own.
+- **Reset local cache and resync** refuses unless signed in, a full sync finished after the click, the outbox is empty, and (under the storage lock) is still empty; tested for each refusal, plus a real-app refuse when signed out.
+- **Verification:** typecheck; all tests (654); security scan; iOS export and marker gate (16 markers, 0 hits); desktop tests; real check `desktop/test/real/p7.js` (54). `cp9` and `cp11` were changed to expect a Labels overlay (their other checks are unchanged); p6, p5, p4, p2, p3, cp6, cp8c to cp8h and cp9 to cp12 all pass.
+- **Not verified:** the reset's success path against a real signed in account (only the refuse cases and the mocked engine are tested; the real app check runs signed out); two real devices; anything on an iPhone (phase 7 has no iPhone UI).
+
+## Decisions I made on my own (phases 6 and 7)
+
+Phase 6:
+1. **Merge detection is a heuristic** (same normalised title as a subtask of a live task, updated no earlier than 10 seconds before the delete). A real delete that happens to share a subtask's title right after would be hidden from Restore; a merge whose subtask was renamed straight away would show a Restore button.
+2. **Restore of a repeating task brings back one plain task** (the repeat rule was cleared when the series was deleted and cannot be recovered). Skipped days are not in the Trash.
+3. **Restore drops the timer, a list or label that no longer exists and every repeat field.**
+4. **Ranges:** the work week is Monday to Friday; last month and last 3 months are calendar months back from today; a custom range is at most a year.
+5. **Time is counted on the day a task was completed**, not spread over the days it was worked on.
+6. **The export JSON has the nine tables; the CSV is tasks only.** A key or field that looks secret (token, secret, password, session, credential, api key, auth, private key) is left out and counted in the message.
+7. **Charts:** sage for actual, a clay brown for estimated (outline against solid so colour is never the only signal); label colours darkened to at least 3:1 where needed.
+
+Phase 7:
+8. **Toggle defaults:** reminders, priority, planning and analytics on (so nothing disappears on update); pomodoro and templates off.
+9. **"Due dates and reminders" hides the reminder bell and option only.** The Day field stays because it is the Kanban board and the Calendar.
+10. **Pomodoro lengths are fixed at 25 and 5 minutes** (other values are supported in the code and the saved state, with no settings screen for them yet). No long break after four rounds.
+11. **The countdown is local to the computer** (kv), not a synced setting, so two computers can never fight over it. After a restart it is found again if its task timer still runs.
+12. **A pomodoro never counts minutes itself.** Take a break uses the ordinary stop; a timer over 24 hours asks first and the pomodoro simply ends.
+13. **A template** holds the title, emoji, notes, estimate, priority, label and step titles, trimmed to fit one setting (notes first, then the last steps); at most 50. A label that was deleted since is dropped when a task is made. Templates are not offered in Daily Shutdown step 2 (the brief did not ask for it).
+14. **A template is deleted by a tombstone** (`deleteUserSetting`), never by removing the row.
+15. **Reset counts a sync as done only if it finished idle with a success time newer than the click**; an older "idle" does not count.
+16. **Emoji reading of "Settings, Labels and Progress pages":** a system emoji on each Settings section title and on the Progress heading and each repeating task (the task's own emoji), and an emoji picker on every label in the Labels overlay.
+17. **"Open Labels page" is now "Open Labels"** in Settings (the page is gone), and `cp9`/`cp11` expect that.
+
+## Check by hand (phases 6 and 7)
+
+1. Analytics: pick each range; compare the cards against what you remember doing; hover or click bars; download the CSV and open it in a spreadsheet (a title that starts with = must show as text).
+2. Trash: delete a task, a repeating task, a task with a note; open Trash; Restore each; the new task has the same fields and the entry leaves Trash. Merge one task into another and look for it in Trash (it should say "Merged into another task" with no Restore button). Check that a real delete is not wrongly hidden as a merge.
+3. On two computers (once signed in): restore the same item on both before they sync; after a sync there is exactly one new task and the Trash is empty on both.
+4. Settings, Data: Export my data (JSON) and my tasks (CSV); check the row counts in the message; search the JSON for anything that looks like a token.
+5. Settings, Power features: switch each off and look at a task card, the details panel and the strip; switch it back on and nothing is lost. Do it on one computer and watch the other follow after a sync.
+6. Labels: open it from Settings, give a label an emoji, close it with Escape, with its button and by clicking outside.
+7. Pomodoro (switch it on): start one on a card; let a focus period finish (25 minutes, or change your clock) and take the break; check the task's Actual time grew by whole minutes; start another task's timer and see the pomodoro end.
+8. Templates (switch them on): save a task as a template, make a new task from it, rename and delete it in Settings; check it appears on the other computer after a sync.
+9. Settings, Data, Reset local cache and resync: signed in with everything synced, it should reset and bring everything back. Then make a change while offline and press Reset: it must refuse and say how many changes are waiting. Signed out it must refuse.
+
+iPhone: nothing in phases 6 and 7 touches the phone UI. The shared code (`deleteUserSetting` in `storage.ts`, the emoji on `seriesStreak`) is compiled into it and passed the iOS export and marker gate; run the usual TestFlight smoke test when you next build.
+
 ## Next session
 
-Phase 6 (Analytics, Trash, data export), after Jethro's go. Read the plan's phase 4 and section 0 items 3, 4, 7 and 9, and the open questions above (triweekly section, annual month). The Quests screen is the only other thing that changes the desktop screen (with Profile). Shared pieces to reuse: `lib/series.ts`, `lib/seriesStreak.ts`, `lib/seriesActions.ts`, `lib/taskTotals.ts`, `lib/timerSession.ts`, `uiStore.ts` (overlays, details panel), `usePaneState.ts`, `lib/shortcuts.ts` (add keys there, never elsewhere). Real checks: `desktop/test/real/p2.js` and `p3.js` (build first with `node desktop/scripts/build-web.js`, then `cd desktop && npx electron test/real/p3.js`).
+Phase 8, after Jethro's go (read the plan's section 3 and section 7). Read the plan's phase 4 and section 0 items 3, 4, 7 and 9, and the open questions above (triweekly section, annual month). The Quests screen is the only other thing that changes the desktop screen (with Profile). Shared pieces to reuse: `lib/series.ts`, `lib/seriesStreak.ts`, `lib/seriesActions.ts`, `lib/taskTotals.ts`, `lib/timerSession.ts`, `uiStore.ts` (overlays, details panel), `usePaneState.ts`, `lib/shortcuts.ts` (add keys there, never elsewhere). Real checks: `desktop/test/real/p2.js` and `p3.js` (build first with `node desktop/scripts/build-web.js`, then `cd desktop && npx electron test/real/p3.js`).

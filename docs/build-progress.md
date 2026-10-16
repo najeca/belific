@@ -2,7 +2,7 @@
 
 The running record of `docs/belific-build-plan.md`. A new session can start cold from the plan and this file: read both, then `docs/CURRENT_TRUTH.md` for anything outside the plan. Add a checkpoint at the end of every phase.
 
-Branch: `v2-redesign`. App version: **2.20.0** (phase 2 is 2.19.0, phase 3 is 2.20.0). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
+Branch: `v2-redesign`. App version: **2.22.0** (phase 2 is 2.19.0, phase 3 is 2.20.0, phase 4 is 2.21.0, phase 5 is 2.22.0; phases 4 and 5 bumped in their own commits). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
 
 ## Where things stand
 
@@ -11,8 +11,10 @@ Branch: `v2-redesign`. App version: **2.20.0** (phase 2 is 2.19.0, phase 3 is 2.
 | 1 Data foundations | **Done 2026-10-16.** Migration 002 applied live; sync mapping, storage and timer maths in code with tests. No UI. |
 | 2 Task model and timer | **Done 2026-10-16** (commit `c15e9d4`). Details panel, timer and floating widget, lists, label emoji, duplicate, soft delete, estimate against actual, shortcut registry and help. Desktop only. |
 | 3 Desktop layout | **Done 2026-10-16** (second commit). Collapsible panes remembered, V between Kanban and Calendar, Calendar day, week and month, all day row, current time line, search, show only today, quick capture. Desktop only. |
-| 4 to 9 | Not started. Phase 4 (Quests) is next, after Jethro's go. |
-| iOS adaptation | Not started (see "iOS adaptation" in plan section 3). |
+| 4 Quests | **Done 2026-10-16** (commit `3935fd8`, 2.21.0). Desktop and iPhone. Period streaks, Every year, the iPhone's Brain Dump on tasks and Convert routines. |
+| 5 Daily Planning, Shutdown, rollover | **Done 2026-10-16** (2.22.0). Desktop only. |
+| 6 to 9 | Not started. Phase 6 (Analytics, Trash, export) is next, after Jethro's go. |
+| iOS adaptation | Steps 1 (Brain Dump on tasks) and 2 (Convert routines) **done in code** with phase 4, plus the Quests tab. Not run on a device. Phases 2, 3 and 5 have no iPhone UI yet. |
 
 ## Decisions in force (from Jethro, 2026-10-16)
 
@@ -132,6 +134,62 @@ See the end of the phase 3 report in the conversation, repeated here so a cold s
 9. Delete a task with Ctrl+Delete, then answer No, then Yes. Duplicate one. Press Shift+/.
 10. Sign in on both devices and watch an estimate, an emoji or a timer set on one appear on the other after Sync now.
 
+## Checkpoint: phase 4, Quests (2026-10-16, 2.21.0)
+
+No schema change, no sync change. Decision 029 (Proposed).
+
+**What runs on user data (agreed with Jethro before it was written):**
+- **Convert routines** (iPhone Settings, Data, and the desktop as before): only when pressed, after the dry run and a confirmation. Writes one task row `rt_<routineId>` per live routine (daily, dated that day, reminder off) and tombstones the routine row; routine_completions are never touched. Undo ends the series and gives each routine back as a new row with its ticks copied (the old ids stay tombstoned). The iPhone has no backup step.
+- **iPhone Brain Dump:** new captures are tasks; an old item is converted only when edited (new task, item tombstoned). Nothing moves in bulk. Not reversible, same as on the desktop.
+- **Quest actions** write the same rows as a board card: one tap stores and completes an occurrence (reopenable), Skip writes the existing skip tombstone (not reversible), Today sets an occurrence's Day to today, Timebox also sets its start time.
+
+**Shared logic (`mobile/lib/`, all tested):** `quests.ts` (sections, periods, period state, period streak, due state, the one tap target, wording), `questActions.ts`, Every year in `repeat.ts`, `recurrence.ts` and `series.ts` (`occursAnnually`, `annualDayIn`, the date number in `recurrenceMonthDay`), `series.ownDay` and `Series.anchorKey` (the template and the anchor read an occurrence's own day), longer local keep for monthly and annual skips. `syncCore` knows `annual` (an older client already kept it).
+
+**Desktop:** the Quests page (🎯 Quests in the top strip, Back returns), the Every year choice with its warning and "Every device is updated" tick in the Repeat control, and Repeats in the details panel (the same RepeatBody component in a popover, not a fork).
+
+**iPhone:** a Quests tab (same quests and actions, no Timebox), Brain Dump on tasks (`app/(tabs)/inbox.tsx`), Convert routines (`app/components/RoutineConvertSection.tsx`). Events never offer Every year (`AddEventModal`). The iOS marker gate drops `convertRoutines`, `undoConversion` and `routineConvertActions` on purpose (the desktop's `RoutineConvertRow`, `routine-convert` and its wording stay markers); 16 markers, 0 hits.
+
+**Verification:** typecheck, all tests (streaks across month ends, leap years, every 2026 clock change, five time zones in child processes with their own TZ), security scan, iOS export plus marker gate. Real check `desktop/test/real/p4.js` (29). p2, p3, cp6, cp8c to cp8h and cp9 to cp12 still pass (cp8d's pinned Repeat list now ends with Every year). Not verified: anything on an iPhone.
+
+## Checkpoint: phase 5, Daily Planning, Daily Shutdown, rollover (2026-10-16, 2.22.0)
+
+No schema change. Desktop only.
+
+- `lib/rollover.ts`: rollover (earlier unfinished, not a series row, Day to today, time kept) and carry to tomorrow (Shutdown, chosen tasks of today). `lib/planningDraft.ts`: the draft (edits, added tasks), the preview, what Finish writes (the draft, then the rollover or carry for tasks the draft did not decide). `lib/planningActions.ts`: Finish, worked out from the latest stored rows, completions through `setTaskCompleted`.
+- `components/desktop/PlanningFlow.tsx`: Daily Planning (4 steps) and Daily Shutdown (2 steps) as full screen overlays with a step rail (step, title, helper, figures, Next or Finish, back arrow, Cancel). Escape is Cancel everywhere in the flow.
+- Keys: Ctrl+Shift+P (Planning), Shift+T, Shift+B, Left, Right (cards), Ctrl+I (time section on a card). Strip buttons 🌅 (Planning) and 🌙 (Shutdown).
+- **Verification:** unit tests (rollover idempotent, two devices in either order, inputs never changed, the draft never touches stored rows, what Finish writes), a two device test through the real sync engine and its fake server (both roll, one result, a second run writes nothing), and the real check `desktop/test/real/p5.js` (34): Cancel and Escape leave `belific_tasks.kv` byte for byte as it was after every kind of draft change; Finish; a second Planning writes nothing; Shutdown; the keys and the typing guard. The older real checks pass again.
+
+## Decisions I made on my own (phases 4 and 5)
+
+1. **A finished current period counts** toward the streak (an unfinished one is neutral). "Neutral until it ends" read as: never a reset before the period is over.
+2. **"Due this week" / "Due this month" / "Due this year"** for an earlier day of the period not done yet (the three texts in the brief cover the other cases).
+3. **Every year stores its date number in `recurrence_month_day`.** Without it the rule drifted to Feb 28 after the first non-leap year (a test caught it).
+4. **`series.ownDay`:** the template and anchor read an occurrence's own day. The series model did not allow moving an occurrence; this was the smallest change that lets Today work without moving the rule. Today and Timebox are not offered for the series' root row.
+5. **Timebox from the Quests screen** gives the occurrence the next half hour (the brief asked for a drop into the Timebox; the Quests page is a separate page, so no drag).
+6. **Monthly and annual skips are kept ten years locally** so a long streak never breaks when a skip ages out.
+7. **Other repeats** section for a rule this version does not know.
+8. **Quests is a page** (like Progress) reached from the top strip; Progress stays.
+9. **The iPhone Convert has no backup step** (no backup folder on the phone).
+10. **iPhone Brain Dump shows tasks with no Day and no live list**; a task in a list shows only in Tasks on the phone.
+11. **Planning step 4 sets a time from a half hour list**, not by dragging.
+12. **Shutdown starts with every unfinished task of today ticked** to go to tomorrow.
+13. **Phase 5 has no iPhone UI** (no Planning or Shutdown on the phone yet), so rollover runs only on the desktop.
+14. **Ctrl+I** shows or hides a time row (actual, estimated, start or stop) on a card; it does nothing on a repeating task's projected card.
+15. **Left from the left list** does nothing; Right goes to the first day on the board.
+
+## Check by hand (phases 4 and 5)
+
+Desktop:
+1. Open 🎯 Quests: every repeating task is there, in the right section; streaks look right against what you remember doing.
+2. Tick a quest, tick it again (reopens), Skip one, put one on Today and on the Timebox; check the board and the Timebox.
+3. Give a task Every year from the Repeat control: the warning, the tick, then Apply.
+4. Run Daily Planning on a real morning: tick a missed task, pull tasks in, push some to tomorrow, give times, Finish. Then open it again and Cancel at every step: nothing changes.
+5. Run Daily Shutdown in the evening: untick a few in "What you missed", Finish, check tomorrow.
+6. Shift+T, Shift+B, Left, Right, Ctrl+I, Ctrl+Shift+P; and type those letters in a box.
+
+iPhone (TestFlight, signed in to the shared project): see the phase 4 and 5 report in the conversation; the list is repeated in `docs/CURRENT_TRUTH.md`, "iPhone checks for 2.22.0".
+
 ## Next session
 
-Phase 4 (Quests), after Jethro's go. Read the plan's phase 4 and section 0 items 3, 4, 7 and 9, and the open questions above (triweekly section, annual month). The Quests screen is the only other thing that changes the desktop screen (with Profile). Shared pieces to reuse: `lib/series.ts`, `lib/seriesStreak.ts`, `lib/seriesActions.ts`, `lib/taskTotals.ts`, `lib/timerSession.ts`, `uiStore.ts` (overlays, details panel), `usePaneState.ts`, `lib/shortcuts.ts` (add keys there, never elsewhere). Real checks: `desktop/test/real/p2.js` and `p3.js` (build first with `node desktop/scripts/build-web.js`, then `cd desktop && npx electron test/real/p3.js`).
+Phase 6 (Analytics, Trash, data export), after Jethro's go. Read the plan's phase 4 and section 0 items 3, 4, 7 and 9, and the open questions above (triweekly section, annual month). The Quests screen is the only other thing that changes the desktop screen (with Profile). Shared pieces to reuse: `lib/series.ts`, `lib/seriesStreak.ts`, `lib/seriesActions.ts`, `lib/taskTotals.ts`, `lib/timerSession.ts`, `uiStore.ts` (overlays, details panel), `usePaneState.ts`, `lib/shortcuts.ts` (add keys there, never elsewhere). Real checks: `desktop/test/real/p2.js` and `p3.js` (build first with `node desktop/scripts/build-web.js`, then `cd desktop && npx electron test/real/p3.js`).

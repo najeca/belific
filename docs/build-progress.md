@@ -2,7 +2,7 @@
 
 The running record of `docs/belific-build-plan.md`. A new session can start cold from the plan and this file: read both, then `docs/CURRENT_TRUTH.md` for anything outside the plan. Add a checkpoint at the end of every phase.
 
-Branch: `v2-redesign`. App version: 2.18.1 and NOT bumped by phases 2 and 3 although the desktop changed for the user: `mobile/lib/easConfig.test.ts` pins `app.json` at 2.18.1 (the TestFlight build) and Jethro said not to edit that file. Bump both together when the iPhone build is next made.
+Branch: `v2-redesign`. App version: **2.20.0** (phase 2 is 2.19.0, phase 3 is 2.20.0). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
 
 ## Where things stand
 
@@ -104,7 +104,7 @@ No schema change. Desktop only.
 
 ## Decisions I made on my own (phases 2 and 3)
 
-1. **No version bump** (see the top of this file): the pinned test and the instruction not to edit it.
+1. **No version bump at first** (the pinned test and the instruction not to edit it); then bumped to 2.19.0 and 2.20.0 on Jethro's instruction (see the top of this file).
 2. **The existing Repeats control on cards and in the block menu is left as it is.** "Leave Repeats out or disabled" was applied to the new surfaces: the details panel has no Repeats field. Removing the working control would have been a regression.
 3. **Pane layout lives in user_settings (`ui.panes`) with a local fallback**, as the brief says. This contradicts plan section 2 ("UI state such as collapsed panes stays local"); the brief is newer. Consequence: two desktops with different screens share a layout, last write wins, and the value is read once at start.
 4. **One timer at a time.** Starting a second stops the first. Not stated in the plan; chosen so two clocks never count the same hour. If two arrive from two devices, the most recently started is the active one in the widget and the rest are listed as "+N more running".

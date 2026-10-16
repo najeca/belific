@@ -8,18 +8,18 @@ to know the current version and recent history.
 
 ---
 
-## Build plan phase 3 (desktop layout) — 2026-10-16, no version bump
+## 2.20.0 — 2026-10-16 (build plan phase 3, desktop layout)
 
-**Desktop only. No schema change. The version stays 2.18.1 because `mobile/lib/easConfig.test.ts` pins it for the TestFlight build and was not to be edited; bump with the next iPhone build.**
+**Desktop only. No schema change. `mobile/app.json` is now 2.20.0 (a feature, so a minor bump); the iPhone code is unchanged, the version is shared. Phases 2 and 3 were committed before the bump, so it was made afterwards in its own commit (the CHANGELOG rule says to bump in the same commit as the feature; from here on it is).**
 
 - **Panes:** the left and right panes collapse to rails (`[`, `]`, or the buttons in the top strip) and the centre works with either, or both, hidden. The layout is remembered in the user_settings row `ui.panes` with a local fallback.
 - **Calendar** in the centre, switched with **V** (Tab keeps normal focus): **D** day, **W** week, **M** month; the 24 hour grid with an all day row, a current time line and overnight tasks; its own Filter. The Timebox on the right gets the current time line too.
 - **Search** (Ctrl+K), **quick capture** (Q into the list shown, T onto today, Shift+Enter keeps the box open) and **show only today** (Shift+F).
 - Real check `desktop/test/real/p3.js` (52 checks); new tests for the pane state, the calendar maths and search.
 
-## Build plan phase 2 (task model and timer) — 2026-10-16, no version bump
+## 2.19.0 — 2026-10-16 (build plan phase 2, task model and timer)
 
-**Desktop only. No schema change. Same version note as phase 3.**
+**Desktop only. No schema change. A feature, so a minor bump; 2.20.0 followed the same day with phase 3.**
 
 - **Task details panel** (every field, an overlay), the **timer** (start and stop on the card, in the panel or with Ctrl+Shift+Enter; one at a time; a timer over 24 hours asks first) with a **floating timer** that survives navigation and a restart, **actual time** (whole minutes), estimate presets 5 min to 2 h plus custom, **lists** beside Brain Dump, **emoji** on tasks, labels and lists, **duplicate**, estimate against actual per day and list.
 - **Keyboard shortcuts** from one registry, with the help overlay on Shift+/; nothing fires while typing.

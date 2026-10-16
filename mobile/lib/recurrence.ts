@@ -8,7 +8,7 @@
 // 'YYYY-MM-DD' keys.
 import type { RecurrenceRule, Task, WeekDay } from './types.ts';
 import { WEEKDAYS, addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
-import { effectiveDays, monthDayOf } from './repeat.ts';
+import { annualDayIn, effectiveDays, monthDayOf } from './repeat.ts';
 import { copyForNextOccurrence } from './subtasks.ts';
 
 // The chain's root id is the part before the first ':'. Existing ids (UUID v4
@@ -87,6 +87,11 @@ export function nextOccurrence(
       const sameMonth = clampedMonthDay(base.getFullYear(), base.getMonth(), md);
       if (sameMonth.getTime() > base.getTime()) return dateKey(sameMonth);
       return dateKey(clampedMonthDay(base.getFullYear(), base.getMonth() + 1, md));
+    }
+    case 'annual': {
+      // Every year on the Day's date (Feb 29 falls on Feb 28 in other years).
+      const same = annualDayIn(base.getFullYear(), dayKey, task.recurrenceMonthDay);
+      return dateKey(same.getTime() > base.getTime() ? same : annualDayIn(base.getFullYear() + 1, dayKey, task.recurrenceMonthDay));
     }
     default:
       return null;

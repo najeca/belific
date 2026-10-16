@@ -41,9 +41,13 @@ const MARKERS = [
   'ProgressPage',
   'seriesStreak',
   'RoutineConvertRow',
-  'convertRoutines',
-  'undoConversion',
-  'routineConvertActions',
+  // 2.21.0 (build plan phase 4): 'convertRoutines', 'undoConversion' and
+  // 'routineConvertActions' were removed from this list ON PURPOSE. The iPhone
+  // now has its own Convert in Settings, Data (app/components/
+  // RoutineConvertSection.tsx), with the desktop's dry run, confirmation and
+  // Undo, so it imports lib/routineConvertActions.ts. The desktop's own row
+  // (RoutineConvertRow, its backup step 'routine-convert' and its wording
+  // 'Convert routines from your iPhone') stays protected below.
   'routine-convert',
   'Convert routines from your iPhone',
   'Show streaks',

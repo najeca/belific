@@ -94,7 +94,7 @@ export function seriesStreak(input: StreakInput): SeriesStreak | null {
   if (first < floor) first = floor;
 
   const template = series.template;
-  const anchor = template.dueDate as string;
+  const anchor = series.anchorKey;
   const states = new Map<string, DayState>();
   let run = 0;
   let best = 0;

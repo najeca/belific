@@ -187,3 +187,11 @@ test('buildNextOccurrence copies the details, resets completion and drops the ti
   assert.equal(buildNextOccurrence({ ...built, completed: true }, TODAY, 'x')!.id, 'root1:2026-10-12');
   assert.equal(buildNextOccurrence({ ...task, recurrence: undefined }, TODAY, 'x'), null);
 });
+
+test('every year: the next one is a year on, the 29th of Feb comes back in a leap year (iPhone next copy)', () => {
+  assert.equal(nextOccurrence({ recurrence: 'annual', dueDate: '2026-10-16', recurrenceMonthDay: 16 }, '2026-10-16'), '2027-10-16');
+  assert.equal(nextOccurrence({ recurrence: 'annual', dueDate: '2024-02-29', recurrenceMonthDay: 29 }, '2024-03-01'), '2025-02-28');
+  assert.equal(nextOccurrence({ recurrence: 'annual', dueDate: '2027-02-28', recurrenceMonthDay: 29 }, '2027-02-28'), '2028-02-29');
+  // overdue: never in the past
+  assert.equal(nextOccurrence({ recurrence: 'annual', dueDate: '2025-05-01', recurrenceMonthDay: 1 }, '2026-10-16'), '2027-05-01');
+});

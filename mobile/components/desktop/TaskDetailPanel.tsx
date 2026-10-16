@@ -16,7 +16,10 @@ import { isTextEntryTarget } from '../../lib/editable';
 import type { EventPriority, Project, Task, TaskList } from '../../lib/types';
 import EmojiField from './EmojiField';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
-import { isPopoverOpen } from './Popover';
+import Popover, { closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
+import { RepeatBody } from './TaskPopovers';
+import { shortRepeat } from '../../lib/repeat';
+import { dateKey } from '../../lib/kanban';
 import { opsForTask, type TaskOps } from './taskOps';
 import { toggleTimer, useNow } from './timerUi';
 import { closeDetail, notifyChanged, useDetailId } from './uiStore';
@@ -29,7 +32,7 @@ import { closeDetail, notifyChanged, useDetailId } from './uiStore';
 // (a blur or Enter for text, a click for choices), through the same task
 // commands as the card, so a change here and on the card are the same change.
 //
-// A repeating task has no Repeats field here: repeating is phase 4.
+// Repeats (phase 4) is the card's own Repeat control, opened from here.
 export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) {
   const id = useDetailId();
   const [task, setTask] = useState<Task | null>(null);
@@ -248,6 +251,10 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
           {actualBad && <Text style={styles.bad}>Not a time. Try 45m, 1h 30m or 130.</Text>}
         </Field>
 
+        <Field glyph="🔁" label="Repeats">
+          <RepeatField task={task} ops={ops} onSaved={onSaved} />
+        </Field>
+
         <Field glyph="🏷️" label="Label">
           <select
             value={task.projectKey ?? ''}
@@ -343,6 +350,32 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+// The Repeat control of the card (TaskPopovers.RepeatBody), opened from the
+// panel: the same component, the same rules and the same writes; nothing forked.
+function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved: () => void }) {
+  const { ref, get } = usePopoverAnchor();
+  const id = `detail:${task.id}:repeat`;
+  const open = useIsOpen(id);
+  const wrapped: TaskOps = { ...ops, patch: (f) => ops.patch(f).then(onSaved) };
+  return (
+    <>
+      <Pressable
+        ref={ref as never}
+        onPress={() => togglePopover(id, get)}
+        style={[styles.quiet, open && styles.chipOn, { alignSelf: 'flex-start' }]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`Repeat: ${task.recurrence ? shortRepeat(task, dateKey(new Date())) ?? 'repeats' : 'Does not repeat'}`}
+      >
+        <Text style={[styles.quietText, open && styles.chipTextOn]}>{task.recurrence ? shortRepeat(task, dateKey(new Date())) ?? 'Repeats' : 'Does not repeat'}</Text>
+      </Pressable>
+      <Popover id={id} anchor={get} width={300}>
+        <RepeatBody task={task} ops={wrapped} done={() => closePopover(true)} />
+      </Popover>
+    </>
   );
 }
 

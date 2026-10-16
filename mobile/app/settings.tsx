@@ -36,6 +36,7 @@ import { seedOwnerSchedule } from '../lib/ownerSeed';
 import { supabase } from '../lib/supabase';
 import { signInWithApple, signOut, deleteAccount } from '../lib/auth';
 import { phoneGoogle } from '../lib/phoneGoogleAuth';
+import RoutineConvertSection from './components/RoutineConvertSection';
 import type { Session } from '@supabase/supabase-js';
 
 // Read from app.json's expo.version at runtime rather than hardcoded —
@@ -361,6 +362,7 @@ export default function SettingsScreen() {
         {/* Data section */}
         <Text style={styles.sectionHeader}>Data</Text>
         <View style={styles.card}>
+          <RoutineConvertSection />
           <TouchableOpacity
             style={styles.dangerRow}
             onPress={handleClearAll}

@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.21.0 — 2026-10-16 (build plan phase 4, Quests)
+
+**Desktop and iPhone. No schema change, no sync change.**
+
+- **Quests** on the desktop (🎯 Quests in the top strip, a page like Progress) and the iPhone (a new Quests tab): every repeating series, in Daily, Weekly, Every 2 weeks, Every few weeks (every 3 weeks), Monthly, Every year and Other repeats (a rule from a newer device), so no repeating task is hidden. One card each: emoji, name, how it repeats, what is due this period ("Due today", "Due this week", "Done this week", "Next: Fri"), current and best streak (never a zero, never a warning), one tap to complete (a second tap reopens), a planned skip, Today, and Timebox (desktop).
+- **Streaks counted in periods** (`lib/quests.ts`): days, weeks, fortnights, stretches of 3 weeks, months, years. A period counts when every scheduled day in it is done or skipped; all skipped is neutral; the current period never ends a run. Derived from the stored rows and a converted routine's old ticks, never stored. Tested across month ends, leap years, daylight saving changes and five time zones.
+- **Every year** repeat: stored as `annual` in the existing rule text with its date number in `recurrence_month_day`, so a Feb 29 repeat falls on Feb 28 and comes back on the 29th. Choosing it shows a warning and needs "Every device is updated" ticked before Apply. An older Belific keeps the rule.
+- **Putting a quest on today** stores its occurrence with today as its Day; the occurrence still stands for its own day, so the rule and the streak do not move (`series.ownDay`, the series template and anchor now read it).
+- **Repeats in the details panel**: the card's own Repeat control, opened from the panel.
+- **iPhone:** Brain Dump captures tasks (old Brain Dump items stay until edited, then become tasks, as on the desktop); **Convert routines** in Settings, Data with the desktop's dry run, confirmation and Undo (no backup step: the phone has none). The iOS marker gate drops `convertRoutines`, `undoConversion` and `routineConvertActions` on purpose.
+- Skips of monthly and annual series are kept locally for ten years (their streaks look back that far); others 400 days as before.
+- Real check `desktop/test/real/p4.js` (29 checks).
+
 ## 2.20.0 — 2026-10-16 (build plan phase 3, desktop layout)
 
 **Desktop only. No schema change. `mobile/app.json` is now 2.20.0 (a feature, so a minor bump); the iPhone code is unchanged, the version is shared. Phases 2 and 3 were committed before the bump, so it was made afterwards in its own commit (the CHANGELOG rule says to bump in the same commit as the feature; from here on it is).**

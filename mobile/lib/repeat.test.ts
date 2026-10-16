@@ -26,7 +26,11 @@ import {
   ruleFor,
   shortRepeat,
   toggleDay,
+  ANNUAL_WARNING,
+  annualDayIn,
+  occursAnnually,
 } from './repeat.ts';
+import { dateKey } from './kanban.ts';
 import { buildNextOccurrence, nextOccurrence } from './recurrence.ts';
 import type { Task, WeekDay } from './types.ts';
 
@@ -38,9 +42,9 @@ const WFS: WeekDay[] = ['Wed', 'Fri', 'Sun'];
 
 const nx = (task: Partial<Task>, today: string) => nextOccurrence(task, today);
 
-test('five choices in order: Does not repeat, Daily, Weekly, Every 2 weeks, Monthly', () => {
-  assert.deepEqual(REPEAT_CHOICES.map((c) => c.label), ['Does not repeat', 'Daily', 'Weekly', 'Every 2 weeks', 'Monthly']);
-  assert.deepEqual(REPEAT_CHOICES.map((c) => c.kind), ['none', 'daily', 'weekly', 'biweekly', 'monthly']);
+test('six choices in order: Does not repeat, Daily, Weekly, Every 2 weeks, Monthly, Every year', () => {
+  assert.deepEqual(REPEAT_CHOICES.map((c) => c.label), ['Does not repeat', 'Daily', 'Weekly', 'Every 2 weeks', 'Monthly', 'Every year']);
+  assert.deepEqual(REPEAT_CHOICES.map((c) => c.kind), ['none', 'daily', 'weekly', 'biweekly', 'monthly', 'annual']);
 });
 
 test('Daily stores recurrence daily with no days or month day, summary and no-Day case', () => {
@@ -251,4 +255,21 @@ test('ordinals', () => {
   // Since 4.3 the stored number always wins (it is an explicit field)
   assert.equal(monthDayOf({ recurrenceMonthDay: 31, dueDate: '2027-02-27' }, MON), 31);
   assert.equal(monthDayOf({ dueDate: '2027-02-27' }, MON), 27);
+});
+
+test('every year: needs a Day, keeps its date number, says what will happen, Feb 29 note', () => {
+  assert.equal(resolveRepeat('annual', [], undefined, null), null);
+  assert.deepEqual(resolveRepeat('annual', [], '2026-10-16', null), { dueDate: '2026-10-16', recurrence: 'annual', recurrenceDays: undefined, recurrenceMonthDay: 16 });
+  assert.equal(repeatSummary('annual', [], '2026-10-16', null), 'Repeats every year on 16 Oct');
+  assert.equal(repeatSummary('annual', [], '2028-02-29', null), 'Repeats every year on 29 Feb. In other years it falls on 28 Feb.');
+  assert.match(repeatSummary('annual', [], undefined, null), /Give the task a Day first/);
+  assert.equal(repeatKindOf('annual'), 'annual', 'opening the control never turns it into another rule');
+  assert.equal(shortRepeat({ recurrence: 'annual', dueDate: '2027-02-28', recurrenceMonthDay: 29 }, '2026-10-16'), 'Every year 29 Feb');
+  assert.equal(shortRepeat({ recurrence: 'annual', dueDate: '2026-10-16' }, '2026-10-16'), 'Every year 16 Oct');
+  assert.deepEqual(initialDays({ recurrence: 'annual', dueDate: '2026-10-16' }, '2026-10-16'), []);
+  assert.equal(dateKey(annualDayIn(2027, '2024-02-29')), '2027-02-28');
+  assert.equal(dateKey(annualDayIn(2028, '2027-02-28', 29)), '2028-02-29');
+  assert.equal(occursAnnually('2026-10-16', '2025-10-16'), true);
+  assert.equal(occursAnnually('2026-10-17', '2025-10-16'), false);
+  assert.match(ANNUAL_WARNING, /every device/);
 });

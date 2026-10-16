@@ -74,7 +74,8 @@ async function run() {
   // ---- Alpha: pick Daily, apply, complete, next occurrence is tomorrow ----
   await click(inCard('Alpha', '[aria-label^="Repeat"]'));
   const labels = await js(`Array.from(document.querySelectorAll('[data-popover] [aria-label^="Repeat "]')).map((e) => e.getAttribute('aria-label')).filter((l) => l !== 'Repeat summary')`);
-  check('options in order: Does not repeat, Daily, Weekly, Every 2 weeks, Monthly', labels.join('|') === 'Repeat Does not repeat|Repeat Daily|Repeat Weekly|Repeat Every 2 weeks|Repeat Monthly', labels.join('|'));
+  // 2.21.0 (build plan phase 4) added Every year at the end.
+  check('options in order: Does not repeat, Daily, Weekly, Every 2 weeks, Monthly, Every year', labels.join('|') === 'Repeat Does not repeat|Repeat Daily|Repeat Weekly|Repeat Every 2 weeks|Repeat Monthly|Repeat Every year', labels.join('|'));
   await click(inPopover('[aria-label="Repeat Daily"]'));
   check('Daily shows the summary "Repeats every day."', (await text(inPopover('[aria-label="Repeat summary"]'))) === 'Repeats every day.');
   check('no day chips are shown for Daily', !(await exists(inPopover('[aria-label="Weekdays"]'))));

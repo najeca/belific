@@ -10,6 +10,7 @@ import ProfileMenu from './ProfileMenu';
 import SettingsPage from './SettingsPage';
 import LabelsPage from './LabelsPage';
 import ProgressPage from './ProgressPage';
+import QuestsPage from './QuestsPage';
 import SignInPage from './SignInPage';
 import { DAY_START_EVENT } from './useDayStart';
 import { setShowStreaks, setStreaks } from './streakStore';
@@ -327,6 +328,10 @@ export default function DesktopHome() {
               <Text style={styles.stripEmoji}>📅</Text>
               <Text style={[styles.segText, paneState.onlyToday && styles.segTextOn]}>Only today</Text>
             </Pressable>
+            <Pressable onPress={() => showView('quests')} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Quests">
+              <Text style={styles.stripEmoji}>🎯</Text>
+              <Text style={styles.segText}>Quests</Text>
+            </Pressable>
             <Pressable onPress={() => openOverlay({ kind: 'search' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Search tasks">
               <Text style={styles.stripEmoji}>🔎</Text>
             </Pressable>
@@ -390,6 +395,7 @@ export default function DesktopHome() {
       {view === 'settings' && <SettingsPage onOpenLabels={() => showView('labels')} onOpenSignIn={() => showView('signin')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} />}
       {view === 'labels' && <LabelsPage onChanged={onChanged} />}
       {view === 'progress' && <ProgressPage />}
+      {view === 'quests' && <QuestsPage refreshKey={refreshKey} />}
       {view === 'signin' && <SignInPage onDone={goBack} />}
       {view === 'home' && <TaskDetailPanel refreshKey={refreshKey} />}
       {view === 'home' && overlay?.kind === 'help' && <ShortcutHelp />}
@@ -402,7 +408,7 @@ export default function DesktopHome() {
   );
 }
 
-type View_ = 'home' | 'settings' | 'labels' | 'progress' | 'signin';
+type View_ = 'home' | 'settings' | 'labels' | 'progress' | 'signin' | 'quests';
 
 // A hidden pane's place on the screen: a narrow rail with the pane's emoji and a
 // button that brings the pane back.

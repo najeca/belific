@@ -13,7 +13,7 @@
 import type { RecurrenceRule, Task, WeekDay } from './types.ts';
 import { WEEKDAYS, addDays, dateKey, formatDayLabel, isDateKey, parseDateKey } from './kanban.ts';
 
-export type RepeatKind = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+export type RepeatKind = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'annual';
 
 export const REPEAT_CHOICES: Array<{ kind: RepeatKind; label: string }> = [
   { kind: 'none', label: 'Does not repeat' },
@@ -21,7 +21,40 @@ export const REPEAT_CHOICES: Array<{ kind: RepeatKind; label: string }> = [
   { kind: 'weekly', label: 'Weekly' },
   { kind: 'biweekly', label: 'Every 2 weeks' },
   { kind: 'monthly', label: 'Monthly' },
+  { kind: 'annual', label: 'Every year' },
 ];
+
+// Annual repeats are new in 2.21.0 (build plan phase 4). An older Belific keeps
+// the rule (sync never wipes a rule it does not know) but shows the task as
+// repeating with no days. The Repeat control says so, and asks for a tick
+// before the first annual repeat is applied.
+export const ANNUAL_WARNING =
+  'Every year is new. Update Belific on every device you use (this computer, any other computer and your iPhone) before you choose it: an older version keeps the repeat but shows no days for it.';
+export const ANNUAL_CONFIRM = 'Every device is updated';
+
+// The day an annual repeat falls on in `year`: the anchor's month, on the
+// repeat's own date number (recurrenceMonthDay, stored when the repeat is set,
+// so a Feb 29 repeat that fell on Feb 28 last year is the 29th again in a leap
+// year), or the month's last day when the year has no such date.
+export function annualDayIn(year: number, anchorKey: string, monthDay?: number): Date {
+  const a = parseDateKey(anchorKey);
+  const want = monthDay !== undefined && monthDay >= 1 && monthDay <= 31 ? Math.floor(monthDay) : a.getDate();
+  const last = new Date(year, a.getMonth() + 1, 0).getDate();
+  return new Date(year, a.getMonth(), Math.min(want, last));
+}
+
+export function occursAnnually(dayKey: string, anchorKey: string, monthDay?: number): boolean {
+  if (!isDateKey(dayKey) || !isDateKey(anchorKey)) return false;
+  const d = parseDateKey(dayKey);
+  return dateKey(annualDayIn(d.getFullYear(), anchorKey, monthDay)) === dayKey;
+}
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// "16 Oct"
+export function dayAndMonth(key: string): string {
+  const d = parseDateKey(key);
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+}
 
 // Monday first, for chips and every list of days.
 export const WEEK_ORDER: WeekDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -57,6 +90,9 @@ export function repeatKindOf(rule: RecurrenceRule | undefined): RepeatKind {
   if (rule === 'daily') return 'daily';
   if (rule === 'weekly') return 'weekly';
   if (rule === 'monthly') return 'monthly';
+  // Kept as itself, so opening the control on an annual task never turns it
+  // into another rule.
+  if (rule === 'annual') return 'annual';
   return 'biweekly';
 }
 
@@ -97,7 +133,7 @@ export function initialDays(
 ): WeekDay[] {
   if (!task?.recurrence) return [];
   if (task.recurrence === 'daily') return [...WEEK_ORDER];
-  if (task.recurrence === 'monthly') return [];
+  if (task.recurrence === 'monthly' || task.recurrence === 'annual') return [];
   return effectiveDays(task, todayKey);
 }
 
@@ -216,6 +252,12 @@ export function resolveRepeat(
       recurrenceMonthDay: monthDay,
     };
   }
+  if (kind === 'annual') {
+    // Every year on the task's own Day: it needs one.
+    if (!day) return null;
+    // The date number is kept with the rule (see annualDayIn).
+    return { dueDate: day, recurrence: 'annual', recurrenceDays: undefined, recurrenceMonthDay: parseDateKey(day).getDate() };
+  }
   return { dueDate: day, recurrence: undefined, recurrenceDays: undefined, recurrenceMonthDay: undefined };
 }
 
@@ -237,7 +279,12 @@ export function repeatSummary(
   if (kind === 'none') return 'Does not repeat';
   if (kind === 'daily') return 'Repeats every day.';
   const resolved = resolveRepeat(kind, days, dayKey, monthDay);
-  if (!resolved) return kind === 'monthly' ? 'Enter a day from 1 to 31' : 'Choose at least one day';
+  if (!resolved) return kind === 'monthly' ? 'Enter a day from 1 to 31' : kind === 'annual' ? 'Give the task a Day first: it repeats on that date every year' : 'Choose at least one day';
+  if (kind === 'annual' && resolved.dueDate) {
+    const d = parseDateKey(resolved.dueDate);
+    const leapDay = d.getMonth() === 1 && d.getDate() === 29;
+    return `Repeats every year on ${dayAndMonth(resolved.dueDate)}${leapDay ? '. In other years it falls on 28 Feb.' : ''}`;
+  }
   const starts = resolved.movedFrom && resolved.dueDate ? `, starts ${formatDayLabel(resolved.dueDate)}` : '';
   if (kind === 'monthly') {
     const md = resolved.recurrenceMonthDay ?? 1;
@@ -269,6 +316,12 @@ export function shortRepeat(
       return `Every 3 wks ${effectiveDays(task, todayKey).join(' ')}`;
     case 'monthly':
       return `Monthly ${ordinal(monthDayOf(task, todayKey))}`;
+    case 'annual': {
+      if (!isDateKey(task.dueDate)) return 'Every year';
+      const md = task.recurrenceMonthDay;
+      const d = parseDateKey(task.dueDate);
+      return `Every year ${md && md >= 1 && md <= 31 ? md : d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+    }
     default:
       return undefined;
   }

@@ -18,15 +18,41 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { createBrainDumpItem, STARTER_BRAIN_DUMP } from '../../lib/data';
+import { STARTER_BRAIN_DUMP } from '../../lib/data';
 import {
   loadBrainDumpItems,
-  addBrainDumpItem,
-  updateBrainDumpItem,
+  loadListsRaw,
+  loadTasks,
+  updateTask,
+  deleteTask,
   deleteBrainDumpItem,
   shouldShowStarterRoutine,
 } from '../../lib/storage';
-import type { BrainDumpItem } from '../../lib/types';
+import { createThought, editDumpItem } from '../../lib/taskActions';
+import { splitThoughts, rowId, type ThoughtRow } from '../../lib/thoughts';
+import { effectiveListKey } from '../../lib/lists';
+import { dateKey } from '../../lib/kanban';
+
+// Brain Dump on the iPhone (build plan phase 4, iOS adaptation step 1): the
+// thing you capture IS a task, as on the desktop. The list is every incomplete
+// task with no Day and no list, plus the old Brain Dump items, which stay
+// exactly as they are until they are edited: the first edit makes the item a
+// task and tombstones the item (lib/dumpConvert.ts, the desktop's own path).
+// Nothing is moved in bulk.
+interface Thought {
+  title: string;
+  notes: string;
+}
+function thoughtOf(row: ThoughtRow): Thought {
+  return row.kind === 'task' ? { title: row.task.title, notes: row.task.notes ?? '' } : { title: row.item.title, notes: row.item.notes };
+}
+
+async function loadThoughts(): Promise<ThoughtRow[]> {
+  const [tasks, items, lists] = await Promise.all([loadTasks(), loadBrainDumpItems(), loadListsRaw()]);
+  // Lists are desktop only until a later iPhone step: a task in a list is not
+  // Brain Dump (it shows in Tasks).
+  return splitThoughts(tasks.filter((t) => effectiveListKey(t, lists) === undefined), items, dateKey(new Date())).rows;
+}
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -45,7 +71,7 @@ function DumpCard({
   onPress,
   onDelete,
 }: {
-  item: BrainDumpItem;
+  item: Thought;
   onPress: () => void;
   onDelete: () => void;
 }) {
@@ -107,28 +133,32 @@ function DumpCard({
 // anywhere in this flow. Deleting lives entirely in the swipe gesture,
 // not duplicated here.
 function DumpEditForm({
-  item,
+  row,
   onClose,
   onSaved,
 }: {
-  item: BrainDumpItem;
+  row: ThoughtRow;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const item = thoughtOf(row);
   const [title, setTitle] = useState(item.title);
   const [notes, setNotes] = useState(item.notes);
 
   useEffect(() => {
     setTitle(item.title);
     setNotes(item.notes);
-  }, [item.id]);
+  }, [rowId(row)]);
 
   const canSave = title.trim().length > 0;
 
   async function handleSave() {
     if (!canSave) return;
-    await updateBrainDumpItem({ ...item, title: title.trim(), notes: notes.trim() });
+    const fields = { title: title.trim(), notes: notes.trim() || undefined };
+    // An old Brain Dump item becomes a task on this first edit.
+    if (row.kind === 'task') await updateTask({ ...row.task, ...fields });
+    else await editDumpItem(row.item, fields);
     onSaved();
   }
 
@@ -186,16 +216,16 @@ function DumpEditForm({
 
 export default function InboxScreen() {
   const insets = useSafeAreaInsets();
-  const [items, setItems] = useState<BrainDumpItem[]>([]);
+  const [items, setItems] = useState<ThoughtRow[]>([]);
   const [captureText, setCaptureText] = useState('');
   const [editVisible, setEditVisible] = useState(false);
-  const [activeItem, setActiveItem] = useState<BrainDumpItem | undefined>(undefined);
+  const [activeItem, setActiveItem] = useState<ThoughtRow | undefined>(undefined);
   const [starterMode, setStarterMode] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useFocusEffect(
     useCallback(() => {
-      loadBrainDumpItems().then(setItems);
+      loadThoughts().then(setItems);
       shouldShowStarterRoutine().then(setStarterMode);
     }, []),
   );
@@ -203,21 +233,22 @@ export default function InboxScreen() {
   async function handleCapture() {
     const trimmed = captureText.trim();
     if (!trimmed) return;
-    await addBrainDumpItem(createBrainDumpItem(trimmed));
+    await createThought(trimmed);
     setCaptureText('');
-    loadBrainDumpItems().then(setItems);
+    loadThoughts().then(setItems);
     inputRef.current?.focus();
   }
 
-  function openEdit(item: BrainDumpItem) {
+  function openEdit(item: ThoughtRow) {
     setActiveItem(item);
     setEditVisible(true);
   }
 
-  async function handleDeleteItem(item: BrainDumpItem) {
+  async function handleDeleteItem(item: ThoughtRow) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setItems((prev) => prev.filter((i) => i.id !== item.id));
-    await deleteBrainDumpItem(item.id);
+    setItems((prev) => prev.filter((i) => rowId(i) !== rowId(item)));
+    if (item.kind === 'task') await deleteTask(item.task.id);
+    else await deleteBrainDumpItem(item.item.id);
   }
 
   function handleEditClose() {
@@ -228,10 +259,11 @@ export default function InboxScreen() {
   function handleEditSaved() {
     setEditVisible(false);
     setActiveItem(undefined);
-    loadBrainDumpItems().then(setItems);
+    loadThoughts().then(setItems);
   }
 
-  const sorted = [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  // Newest first (splitThoughts already sorts them).
+  const sorted = items;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -283,13 +315,13 @@ export default function InboxScreen() {
       ) : (
         <FlatList
           data={sorted}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => rowId(item)}
           style={styles.list}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <DumpCard
-              item={item}
+              item={thoughtOf(item)}
               onPress={() => openEdit(item)}
               onDelete={() => handleDeleteItem(item)}
             />
@@ -305,7 +337,7 @@ export default function InboxScreen() {
         onDismiss={handleEditClose}
       >
         {activeItem && (
-          <DumpEditForm item={activeItem} onClose={handleEditClose} onSaved={handleEditSaved} />
+          <DumpEditForm row={activeItem} onClose={handleEditClose} onSaved={handleEditSaved} />
         )}
       </Modal>
     </View>

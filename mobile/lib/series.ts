@@ -22,7 +22,7 @@
 // and is only a template of last resort (when nothing else is live).
 import type { Subtask, Task, WeekDay } from './types.ts';
 import { WEEKDAYS, addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
-import { effectiveDays, monthDayOf } from './repeat.ts';
+import { effectiveDays, monthDayOf, occursAnnually } from './repeat.ts';
 import { nextOccurrenceId, rootTaskId } from './recurrence.ts';
 import { copyForNextOccurrence } from './subtasks.ts';
 
@@ -48,6 +48,7 @@ export function isUpcomingOccurrence(id: string, todayKey: string): boolean {
 // long run would break silently when a skip aged out. Local only: the server
 // never prunes, nothing is synced differently, no migration.
 export const OCCURRENCE_TOMBSTONE_KEEP_DAYS = 400;
+export const LONG_TOMBSTONE_KEEP_DAYS = 3700;
 
 // Is this tombstone one the local prune must keep? A skipped day of a series:
 // its id carries the day (`root:date`), or it is a row that still has a repeat
@@ -60,7 +61,10 @@ export function keepsOccurrenceTombstone(
 ): boolean {
   const day = idDate(task.id) ?? (task.recurrence && isDateKey(task.dueDate) ? task.dueDate : undefined);
   if (!day) return false;
-  return day >= dateKey(addDays(parseDateKey(todayKey), -OCCURRENCE_TOMBSTONE_KEEP_DAYS));
+  // Monthly and annual streaks look back ten years (quests.LOOKBACK_DAYS), so
+  // their skips are kept as long; every other skip 400 days.
+  const keep = task.recurrence === 'monthly' || task.recurrence === 'annual' ? LONG_TOMBSTONE_KEEP_DAYS : OCCURRENCE_TOMBSTONE_KEEP_DAYS;
+  return day >= dateKey(addDays(parseDateKey(todayKey), -keep));
 }
 
 // The series fields a projection and a template carry.
@@ -72,15 +76,26 @@ export interface Series {
   template: Task;
   // The first Day the series has a row on: nothing projects before it.
   startKey: string;
+  // Where the rule is counted from (every N weeks, the month day of an old
+  // monthly task, the date of an annual one): the template's own day.
+  anchorKey: string;
   // Every Day that already has a row (live or tombstoned), by Day or by id:
   // a projection never lands on one of these.
   taken: Set<string>;
 }
 
+// The day a row stands for in its series: the date in its id for an occurrence
+// (`root:date`), else its Day. An occurrence moved to another Day (a quest put
+// on today's plan, build plan phase 4) still stands for its own day, so moving
+// one can never change which row is the template or where the rule is anchored.
+export function ownDay(row: Pick<Task, 'id' | 'dueDate'>): string | undefined {
+  return idDate(row.id) ?? (isDateKey(row.dueDate) ? row.dueDate : undefined);
+}
+
 function laterRow(a: Task, b: Task): boolean {
   // true when a should be preferred over b as "the latest"
-  const ad = a.dueDate as string;
-  const bd = b.dueDate as string;
+  const ad = ownDay(a) as string;
+  const bd = ownDay(b) as string;
   if (ad !== bd) return ad > bd;
   return (a.updatedAt ?? '') > (b.updatedAt ?? '') || ((a.updatedAt ?? '') === (b.updatedAt ?? '') && a.id > b.id);
 }
@@ -100,7 +115,8 @@ export function seriesOfRows(root: string, rows: Task[]): Series | null {
   const template = latestOf(live) ?? latestOf(dated.filter((r) => !!r.recurrence));
   if (!template || !template.recurrence) return null;
   const taken = new Set<string>();
-  let startKey = template.dueDate as string;
+  const anchorKey = ownDay(template) as string;
+  let startKey = anchorKey;
   for (const r of rows) {
     const dates = [isDateKey(r.dueDate) ? r.dueDate : undefined, idDate(r.id)];
     for (const d of dates) {
@@ -109,7 +125,7 @@ export function seriesOfRows(root: string, rows: Task[]): Series | null {
       if (d < startKey) startKey = d;
     }
   }
-  return { root, template, startKey, taken };
+  return { root, template, startKey, anchorKey, taken };
 }
 
 export function groupByRoot(tasks: Task[]): Map<string, Task[]> {
@@ -161,6 +177,8 @@ export function occursOn(
       const md = monthDayOf({ recurrenceMonthDay: rule.recurrenceMonthDay, dueDate: anchorKey }, anchorKey);
       return day.getDate() === Math.min(md, lastDayOfMonth(day));
     }
+    case 'annual':
+      return occursAnnually(dayKey, anchorKey, rule.recurrenceMonthDay);
     default:
       return false;
   }
@@ -214,7 +232,7 @@ export function projectOccurrences(
     if (!series) continue;
     for (const day of dayKeys) {
       if (!isDateKey(day) || day < floor || day < series.startKey || series.taken.has(day)) continue;
-      if (occursOn(series.template, day, series.template.dueDate as string)) {
+      if (occursOn(series.template, day, series.anchorKey)) {
         out.push(occurrenceFromTemplate(series.template, day, series.template.updatedAt));
       }
     }

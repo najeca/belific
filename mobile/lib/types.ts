@@ -74,7 +74,9 @@ export interface ScheduleEvent {
   priority?: EventPriority;
 }
 
-export type RecurrenceRule = 'daily' | 'weekly' | 'biweekly' | 'triweekly' | 'monthly';
+// 'annual' (build plan phase 4): every year on the series' own date, stored in
+// the same text column (no schema change). Feb 29 falls on Feb 28 in other years.
+export type RecurrenceRule = 'daily' | 'weekly' | 'biweekly' | 'triweekly' | 'monthly' | 'annual';
 
 // Absent means 'normal' — only 'low'/'high' are ever stored explicitly,
 // so every already-saved event needs no migration.

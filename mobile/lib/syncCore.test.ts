@@ -335,3 +335,14 @@ test('a repeat rule this version does not know is kept on upload, never wiped', 
   }
   assert.equal(taskToRemote(base, caps).recurrence, null);
 });
+
+test('every year goes up and comes back as itself, with its date number', () => {
+  const caps = { serverUpdatedAt: true, taskPipeline: true };
+  const t: Task = { id: 'a', title: 'A', completed: false, createdAt: T1, updatedAt: T2, dueDate: '2028-02-29', recurrence: 'annual', recurrenceMonthDay: 29 };
+  const sent = taskToRemote(t, caps);
+  assert.equal(sent.recurrence, 'annual');
+  assert.equal(sent.recurrence_month_day, 29);
+  const back = taskFromRemote({ ...sent, completed: false });
+  assert.equal(back.recurrence, 'annual');
+  assert.equal(back.recurrenceMonthDay, 29);
+});

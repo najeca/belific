@@ -371,7 +371,7 @@ export function mergeCompletions(input: {
 // --- Mappers (local camelCase <-> remote snake_case) ---
 
 const WEEK_DAYS: WeekDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const RULES: RecurrenceRule[] = ['daily', 'weekly', 'biweekly', 'triweekly', 'monthly'];
+const RULES: RecurrenceRule[] = ['daily', 'weekly', 'biweekly', 'triweekly', 'monthly', 'annual'];
 
 // Bad values become null instead of failing a whole upload batch.
 export function sanitizeDuration(v: unknown): number | null {

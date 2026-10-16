@@ -48,7 +48,8 @@ const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 const DEFAULT_CATEGORY: CategoryKey = 'free';
 const DEFAULT_DURATION_MINUTES = 30;
 type RecurrenceChoice = RecurrenceRule | 'none';
-const RECURRENCE_CHOICES: RecurrenceChoice[] = ['none', ...(Object.keys(RECURRENCE_LABELS) as RecurrenceRule[])];
+// Events materialise their rows up front and have no annual rule: tasks only.
+const RECURRENCE_CHOICES: RecurrenceChoice[] = ['none', ...(Object.keys(RECURRENCE_LABELS) as RecurrenceRule[]).filter((r) => r !== 'annual')];
 // Rules where a specific weekday selection is meaningful — daily is every
 // day regardless, monthly follows the anchor's calendar day-of-month.
 const DAY_PICKER_RULES: RecurrenceRule[] = ['weekly', 'biweekly', 'triweekly'];

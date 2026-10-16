@@ -9,6 +9,8 @@ import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel,
 import { availableSuggestions, findLabelByName, normalizeName } from '../../lib/labelRules';
 import { REMINDER_OPTIONS, NO_START_NOTE, optionEnabled, reminderState } from '../../lib/reminder';
 import {
+  ANNUAL_CONFIRM,
+  ANNUAL_WARNING,
   REPEAT_CHOICES,
   WEEKDAY_SET,
   WEEKEND_SET,
@@ -310,6 +312,10 @@ export function RepeatBody({ task, ops, done }: BodyProps) {
   const monthDay = parseMonthDay(monthText);
   const resolved = resolveRepeat(repeat, days, day, monthDay);
   const summary = repeatSummary(repeat, days, day, monthDay);
+  // Every year is new in 2.21.0: before a task is first made annual, the person
+  // confirms every device has been updated (an older Belific shows no days).
+  const [annualOk, setAnnualOk] = useState(false);
+  const needsAnnualOk = repeat === 'annual' && task.recurrence !== 'annual' && !annualOk;
 
   function choose(kind: RepeatKind) {
     setRepeat(kind);
@@ -318,7 +324,7 @@ export function RepeatBody({ task, ops, done }: BodyProps) {
   }
 
   function apply() {
-    if (!resolved) return;
+    if (!resolved || needsAnnualOk) return;
     // A day based repeat moves the Day to the first chosen weekday on or after
     // it (the summary line says so first). Saving rules are unchanged.
     ops.patch({
@@ -387,6 +393,12 @@ export function RepeatBody({ task, ops, done }: BodyProps) {
           </View>
         </>
       )}
+      {repeat === 'annual' && task.recurrence !== 'annual' && (
+        <View style={styles.annual} accessibilityLabel="Every year warning">
+          <Text style={styles.annualText}>⚠️ {ANNUAL_WARNING}</Text>
+          <Chip label={ANNUAL_CONFIRM} selected={annualOk} onPress={() => setAnnualOk((v) => !v)} a11y={ANNUAL_CONFIRM} />
+        </View>
+      )}
       {/* Always says exactly what will happen. */}
       <Text style={[popoverStyles.note, resolved === null && popoverStyles.noteWarn]} accessibilityLabel="Repeat summary">
         {summary}
@@ -394,8 +406,8 @@ export function RepeatBody({ task, ops, done }: BodyProps) {
       <View style={styles.footer}>
         <Pressable
           onPress={apply}
-          disabled={!resolved}
-          style={[styles.applyBtn, !resolved && styles.disabled]}
+          disabled={!resolved || needsAnnualOk}
+          style={[styles.applyBtn, (!resolved || needsAnnualOk) && styles.disabled]}
           accessibilityRole="button"
           accessibilityLabel="Apply repeat"
         >
@@ -759,6 +771,8 @@ function Chip({ label, selected, onPress, a11y }: { label: string; selected: boo
 
 const styles = StyleSheet.create({
   list: { paddingBottom: 6 },
+  annual: { paddingHorizontal: 12, paddingVertical: 6, gap: 6 },
+  annualText: { fontSize: 12, color: Colors.textPrimary },
   seriesNote: { paddingHorizontal: 12, paddingVertical: 4, fontSize: 12, color: Colors.textSecondary },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 12, paddingVertical: 6 },
   chip: { paddingHorizontal: 10, height: 30, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },

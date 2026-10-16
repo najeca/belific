@@ -309,6 +309,8 @@ export const RECURRENCE_LABELS: Record<RecurrenceRule, string> = {
   biweekly: 'Every 2 weeks',
   triweekly: 'Every 3 weeks',
   monthly: 'Monthly',
+  // Tasks only (build plan phase 4); events never offer it (AddEventModal).
+  annual: 'Every year',
 };
 
 // Shared between EventForm and TaskForm — 'normal' is UI-only, never

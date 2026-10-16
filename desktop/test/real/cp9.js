@@ -371,9 +371,11 @@ async function run() {
   check('File, Settings… brings up the Settings page', true);
 
   // ======== C. The Labels page ========
-  await click(byLabel('Open Labels page'));
+  await click(byLabel('Open Labels'));
   await C.waitFor(async () => (await body()).toUpperCase().includes('ADD A LABEL'), 6000);
-  check('Labels opens as a page, not an overlay', await noNewOverlay());
+  // Phase 7: Labels is an overlay over Settings, not a page.
+  check('Labels opens as an overlay over Settings (Settings text still there, a dialog named Labels)', (await body()).toUpperCase().includes('NOTIFICATIONS') && (await exists(q('[role="dialog"][aria-label="Labels"]'))));
+  baseline.add('DIV:Close labels');
   const lText = await body();
   check('lists every label with its open task count', lText.includes('Work') && lText.includes('2 open tasks') && lText.includes('Home') && lText.includes('No open tasks') && lText.includes('Errands') && lText.includes('1 open task'), lText);
   check('there is no reordering control', !(await exists(q('[aria-label^="Reorder label"]'))));
@@ -445,9 +447,9 @@ async function run() {
   check('Delete: the other labels\' tasks are untouched', taskNamed('Alpha').projectKey === 'work' && taskNamed('Charlie').projectKey === 'home');
 
   // Back, back.
-  await click(byLabel('Back'));
-  await C.waitFor(async () => (await body()).toUpperCase().includes('PLANNING'), 4000);
-  check('Back from Labels returns to Settings', (await body()).toUpperCase().includes('NOTIFICATIONS'));
+  await click(`document.querySelector('[role="dialog"][aria-label="Labels"] [aria-label="Close"]')`);
+  await C.sleep(300);
+  check('Closing the Labels overlay leaves Settings showing, focus back on the button that opened it', (await body()).toUpperCase().includes('NOTIFICATIONS') && !(await exists(q('[role="dialog"][aria-label="Labels"]'))) && (await activeLabel()) === 'Open Labels', String(await activeLabel()));
   await click(byLabel('Back'));
   await C.waitFor(() => panesHidden().then((h) => !h), 4000);
   check('Back again returns to the panes', !(await panesHidden()));

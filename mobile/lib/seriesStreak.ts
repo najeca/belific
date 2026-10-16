@@ -37,6 +37,8 @@ export interface StreakDay {
 export interface SeriesStreak {
   root: string;
   title: string;
+  // The task's emoji, when it has one.
+  emoji?: string;
   // Short rule text for the Progress page: "Every day", "Mon Thu".
   repeat: string;
   // 'days' for a daily series; every other rule counts scheduled occurrences.
@@ -145,6 +147,7 @@ export function seriesStreak(input: StreakInput): SeriesStreak | null {
   return {
     root,
     title: template.title,
+    ...(template.emoji ? { emoji: template.emoji } : {}),
     repeat: shortRepeat(template, todayKey) ?? '',
     unit: template.recurrence === 'daily' ? 'days' : 'times',
     current: run,

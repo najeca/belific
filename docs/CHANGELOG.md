@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 2.24.0 — 2026-10-16 (build plan phase 7, power features)
+
+**Desktop only. No schema change, no sync change.** Every new piece of state is a `user_settings` row, which already existed and already syncs.
+
+- **Power feature toggles** (Settings, ⚡ Power features): due dates and reminders, priority, daily planning, pomodoro, task templates, analytics, attachments. One `feature.<name>` row each (`on` or `off`), so a choice follows you to your other computer. Off means hidden, never deleted: turn it on again and everything is there (a reminder already set keeps working). Reminders, priority, planning and analytics start on (today's screens are unchanged); pomodoro and templates start off. Attachments are a "Coming later" row with no switch: nothing is stored or uploaded.
+- **Labels is an overlay**, not a page: it opens over Settings (or anything else), closes with Escape, its button or a press outside, and focus returns to the button that opened it. Each label has an emoji.
+- **Pomodoro** (🍅, on a card and in the details panel): a countdown laid over the one task timer, never a second timer. Starting it starts the task's timer the ordinary way (so starting it stops any other timer); when the 25 minutes are up the floating timer offers a break or keep going; a break stops the task timer exactly like any stop (whole minutes, rounded down, a timer over 24 hours asks first) and counts 5 minutes with no task timer running; skipping or finishing the break starts the next focus period. Starting another task's timer, or stopping this one, ends the pomodoro. The countdown is this computer's own state (never synced) and is found again after a restart.
+- **Task templates**: "Save as template" in the details panel stores the title, estimate, notes, priority, label and steps (no Day, no progress) as one `template.<id>` row; 📑 beside the Brain Dump capture makes a new task from one in the list showing; Settings renames and deletes them. A template is trimmed to fit one setting (the notes first, then the last steps, never the title); 50 at most.
+- **Reset local cache and resync** (Settings, Data): asks first, then does a full sync, then clears this computer's copy and downloads it again. It REFUSES, and clears nothing, if you are signed out (this computer would hold the only copy), the sync did not finish, anything is left in the outbox, or a write slipped in while resetting (checked again under the storage lock). Every refusal says so in words.
+- Emoji on the Settings sections, the Progress heading and each repeating task there, and the Labels overlay.
+- Real check `desktop/test/real/p7.js` (54 checks); unit tests for the toggles, pomodoro, templates and every refuse case of the reset. The Labels checks in cp9 and cp11 now expect an overlay.
+
 ## 2.23.0 — 2026-10-16 (build plan phase 6, Analytics, Trash, data export)
 
 **Desktop only. No schema change, no sync change.**

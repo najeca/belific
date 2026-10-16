@@ -13,6 +13,7 @@ export type Overlay =
   | { kind: 'search' }
   | { kind: 'capture'; mode: 'list' | 'today' }
   | { kind: 'flow'; mode: 'planning' | 'shutdown' }
+  | { kind: 'labels' }
   | null;
 
 export interface TimerConfirm {

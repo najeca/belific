@@ -8,6 +8,7 @@ import { runFullSync, type PublicSyncStatus } from '../../lib/sync';
 import { lastSyncedText, profileInitial, syncErrorText, syncLineText } from '../../lib/syncText';
 import Popover, { closePopover, Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { useAccount } from './useAccount';
+import { useFeature } from './featureStore';
 import { STREAK_TEXT } from '../../lib/seriesStreak';
 
 const POPOVER_ID = 'profile';
@@ -69,6 +70,7 @@ export default function ProfileMenu({
 }
 
 function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings, onOpenProgress, onOpenAnalytics, onOpenTrash }: { busy: boolean; message: string | null; onOpenSignIn: () => void; onOpenSettings: () => void; onOpenProgress: () => void; onOpenAnalytics: () => void; onOpenTrash: () => void }) {
+  const showAnalytics = useFeature('analytics');
   return (
     <View>
     <View style={styles.body}>
@@ -81,7 +83,7 @@ function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings, onOpenProg
     </View>
     <View style={styles.rows}>
       <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
-      <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />
+      {showAnalytics && <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />}
       <Row label="🗑️ Trash" onPress={onOpenTrash} a11y="Trash" />
       <Row label="Settings" onPress={onOpenSettings} a11y="Settings" />
     </View>
@@ -90,6 +92,7 @@ function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings, onOpenProg
 }
 
 function SignedInBody({ account, status, ui, onOpenSettings, onOpenProgress, onOpenAnalytics, onOpenTrash }: { account: string; status: PublicSyncStatus; ui: AuthUiState; onOpenSettings: () => void; onOpenProgress: () => void; onOpenAnalytics: () => void; onOpenTrash: () => void }) {
+  const showAnalytics = useFeature('analytics');
   const [now, setNow] = useState(() => Date.now());
   const [syncing, setSyncing] = useState(false);
   // The "last synced" wording moves on while the menu is open.
@@ -133,7 +136,7 @@ function SignedInBody({ account, status, ui, onOpenSettings, onOpenProgress, onO
       <View style={styles.rows}>
         <Row label={syncing || status.state === 'syncing' ? 'Syncing…' : 'Sync now'} onPress={syncNow} disabled={syncing || status.state === 'syncing'} a11y="Sync now" />
         <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
-        <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />
+        {showAnalytics && <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />}
         <Row label="🗑️ Trash" onPress={onOpenTrash} a11y="Trash" />
         <Row label="Settings" onPress={onOpenSettings} a11y="Settings" />
         <Row label="Sign out" onPress={signOut} a11y="Sign out" />

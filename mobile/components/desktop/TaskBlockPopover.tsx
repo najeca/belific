@@ -11,6 +11,7 @@ import type { Project, Task } from '../../lib/types';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover } from './Popover';
 import { ActualBody, DurationBody, LabelBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import StreakLine from './StreakLine';
+import { useFeatures } from './featureStore';
 import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
 
 // Clicking a placed task on the Timebox opens this small popover anchored to
@@ -58,6 +59,7 @@ export default function TaskBlockPopover({
 }
 
 function Inner({ task, label, onChanged, projected }: { task: Task; label?: Project; onChanged: () => void; projected?: boolean }) {
+  const feats = useFeatures();
   const [view, setView] = useState<View_>('root');
   const [title, setTitle] = useState(task.title);
   const base = projected ? opsForProjected(task) : opsForTask(task);
@@ -152,20 +154,20 @@ function Inner({ task, label, onChanged, projected }: { task: Task; label?: Proj
         onPress={() => setView('label')}
         a11y="Label"
       />
-      <Row
+      {feats.priority && <Row
         label="Priority"
         sub={task.priority ?? 'normal'}
         trailing={<Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />}
         onPress={() => setView('priority')}
         a11y="Priority"
-      />
-      <Row
+      />}
+      {feats.dueDates && <Row
         label="Reminder"
         sub={reminderLabel(task.reminderMinutes)}
         trailing={<Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />}
         onPress={() => setView('reminder')}
         a11y="Reminder"
-      />
+      />}
       <Row
         label="Repeat"
         sub={task.recurrence ? (shortRepeat(task, todayKey) ?? 'Repeats') : 'Does not repeat'}

@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { formatClock, parseDuration } from '../../lib/duration';
 import { activeTimerTask } from '../../lib/timerSession';
+import { loadTasksRaw } from '../../lib/storage';
+import { describe, isPhaseOver } from '../../lib/pomodoro';
+import { endPomodoro, keepFocusing, reconcilePomodoro, startNextFocus, takeBreak, usePomodoro } from './pomodoroStore';
+import { useFeature } from './featureStore';
 import { formatTaskTime } from '../../lib/taskTotals';
 import { answerTimerConfirm, stopOneTimer, useNow, useRunningTimers } from './timerUi';
 import { openDetail, useTimerConfirm } from './uiStore';
@@ -21,9 +25,26 @@ export default function TimerWidget({ refreshKey }: { refreshKey: number }) {
   const running = useRunningTimers(refreshKey);
   const confirm = useTimerConfirm();
   const active = activeTimerTask(running);
-  const now = useNow(!!active);
+  const pomoOn = useFeature('pomodoro');
+  const pomo = usePomodoro();
+  const now = useNow(!!active || !!pomo);
   const [custom, setCustom] = useState('');
   const [invalid, setInvalid] = useState(false);
+  const [pomoTitle, setPomoTitle] = useState('');
+  const mountedAt = useRef(Date.now());
+  // A pomodoro lives only while the timer it is laid over does (pomodoro.ts), and
+  // shown only while the feature is on (switching it off ends it, featureStore).
+  useEffect(() => {
+    // Not in the first seconds: the running timers are still being read.
+    if (pomo && pomoOn && now - mountedAt.current > 4000) reconcilePomodoro(running, now);
+  }, [pomo, pomoOn, running, now]);
+  const pomoTaskId = pomo?.taskId;
+  useEffect(() => {
+    if (!pomoTaskId) return;
+    loadTasksRaw()
+      .then((tasks) => setPomoTitle(tasks.find((t) => t.id === pomoTaskId)?.title ?? ''))
+      .catch(() => {});
+  }, [pomoTaskId]);
 
   if (confirm) {
     const title = running.find((t) => t.id === confirm.taskId)?.title ?? 'A task';
@@ -71,6 +92,27 @@ export default function TimerWidget({ refreshKey }: { refreshKey: number }) {
     );
   }
 
+  const pomoLine = pomo && pomoOn ? describe(pomo, now) : null;
+  const pomoOver = pomo && pomoOn ? isPhaseOver(pomo, now) : false;
+
+  // A break: no task timer runs, so the widget is the countdown on its own.
+  if (!active && pomo && pomoOn && pomo.phase === 'break') {
+    return (
+      <View style={[styles.widget, styles.ask]} accessibilityRole="timer" accessibilityLabel="Pomodoro break">
+        <Text style={styles.askTitle} accessibilityLabel="Pomodoro status">{pomoLine}</Text>
+        <Text style={styles.askText}>{pomoOver ? 'Ready for the next focus period' : 'No task timer is running during the break.'} {pomoTitle ? `Next: ${pomoTitle}` : ''}</Text>
+        <View style={styles.askRow}>
+          <Pressable style={styles.btn} onPress={() => startNextFocus()} accessibilityRole="button" accessibilityLabel="Start the next focus period">
+            <Text style={styles.btnText}>🍅 {pomoOver ? 'Start next focus' : 'Skip the break'}</Text>
+          </Pressable>
+          <Pressable style={styles.btnQuiet} onPress={() => endPomodoro()} accessibilityRole="button" accessibilityLabel="End the pomodoro">
+            <Text style={styles.btnQuietText}>End</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   if (!active) return null;
   const seconds = Math.max(0, Math.floor((now - Date.parse(active.timerStartedAt as string)) / 1000));
   const others = running.length - 1;
@@ -87,7 +129,18 @@ export default function TimerWidget({ refreshKey }: { refreshKey: number }) {
           {formatTaskTime(active, now)}
           {others > 0 ? `   +${others} more running` : ''}
         </Text>
+        {pomoLine && pomo?.taskId === active.id && <Text style={styles.sub} accessibilityLabel="Pomodoro status">{pomoLine}</Text>}
       </Pressable>
+      {pomoOver && pomo?.phase === 'focus' && pomo.taskId === active.id && (
+        <View style={styles.pomoBtns}>
+          <Pressable style={styles.btn} onPress={() => takeBreak()} accessibilityRole="button" accessibilityLabel="Take a break">
+            <Text style={styles.btnText}>☕ Break</Text>
+          </Pressable>
+          <Pressable style={styles.btnQuiet} onPress={() => keepFocusing()} accessibilityRole="button" accessibilityLabel="Keep going">
+            <Text style={styles.btnQuietText}>Keep going</Text>
+          </Pressable>
+        </View>
+      )}
       <Pressable onPress={() => stopOneTimer(active.id)} style={styles.stop} accessibilityRole="button" accessibilityLabel={`Stop the timer for ${active.title}`}>
         <Ionicons name="pause" size={18} color={Colors.onAccent} />
       </Pressable>
@@ -124,6 +177,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 6px 24px rgba(38,37,31,0.16)',
   } as never,
   ask: { flexDirection: 'column', alignItems: 'stretch', gap: 8, maxWidth: 420 },
+  pomoBtns: { gap: 6 },
   info: { flex: 1, minWidth: 0, gap: 2 },
   title: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   sub: { fontSize: 12, color: Colors.textSecondary },

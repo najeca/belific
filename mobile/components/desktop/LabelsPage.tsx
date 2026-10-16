@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { LABEL_COLORS, labelColor } from '../../lib/labelColors';
 import { availableSuggestions, deletedLabelTarget, findLabelByName } from '../../lib/labelRules';
 import { openCountText, openTaskCounts } from '../../lib/labelUsage';
-import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
+import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor, setLabelEmoji } from '../../lib/labels';
+import EmojiField from './EmojiField';
 import { loadTasks } from '../../lib/storage';
 import type { Project, Task } from '../../lib/types';
 import Popover, { closePopover, Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
@@ -16,6 +17,8 @@ import Popover, { closePopover, Row, togglePopover, useIsOpen, usePopoverAnchor 
 // tasks move to a same named label, otherwise lose the label), add from the
 // suggestions or by typing. Duplicate names are refused as everywhere else.
 // No reordering. The trash button is always there (no hover only controls).
+// Since build plan phase 7 this is the BODY of the Labels overlay
+// (LabelsOverlay.tsx), not a page; each label also has an emoji.
 export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
   const [labels, setLabels] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -55,9 +58,7 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
   }
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.column}>
-        <Text style={styles.heading}>Labels</Text>
+    <View style={styles.column}>
         <View style={styles.card}>
           {loaded && labels.length === 0 && <Text style={styles.empty}>No labels yet. Add one below.</Text>}
           {labels.map((label, i) => (
@@ -114,8 +115,7 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
             </>
           )}
         </View>
-      </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -138,6 +138,7 @@ function LabelRow({
   const [name, setName] = useState(label.name);
   const [problem, setProblem] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const cancelled = useRef(false);
   const colorId = `label-color:${label.key}`;
   const { ref, get } = usePopoverAnchor();
@@ -203,6 +204,15 @@ function LabelRow({
         >
           <View style={[styles.swatch, { backgroundColor: color?.edge ?? Colors.border }]} />
         </Pressable>
+        <Pressable
+          onPress={() => setEmojiOpen((o) => !o)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: emojiOpen }}
+          accessibilityLabel={`Emoji of ${label.name}`}
+          style={[styles.swatchBtn, emojiOpen && styles.swatchBtnOpen]}
+        >
+          <Text style={styles.emoji}>{label.emoji ?? '🙂'}</Text>
+        </Pressable>
         <View style={styles.nameWrap}>
           {editing ? (
             <TextInput
@@ -247,6 +257,19 @@ function LabelRow({
           <Ionicons name="trash-outline" size={18} color={Colors.textSecondary} />
         </Pressable>
       </View>
+      {emojiOpen && (
+        <View style={styles.confirm}>
+          <EmojiField
+            label={`Emoji for ${label.name}`}
+            value={label.emoji}
+            onChange={async (e) => {
+              if (e === label.emoji) return;
+              await setLabelEmoji(label.key, e);
+              await onChanged();
+            }}
+          />
+        </View>
+      )}
       {confirming && (
         <View style={styles.confirm}>
           <Text style={styles.body}>
@@ -298,6 +321,7 @@ const styles = StyleSheet.create({
   swatchBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
   swatchBtnOpen: { borderColor: Colors.accent },
   swatch: { width: 18, height: 18, borderRadius: 9 },
+  emoji: { fontSize: 18 },
   nameWrap: { flex: 1, minWidth: 0 },
   name: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   nameInput: {

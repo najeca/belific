@@ -22,6 +22,8 @@ import StreakLine from './StreakLine';
 import { ActualBody, DurationBody, LabelBody, MoveToDayBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import type { TaskOps } from './taskOps';
 import { notifyChanged, openDetail } from './uiStore';
+import { useFeatures } from './featureStore';
+import { startFocus } from './pomodoroStore';
 import { toggleTimer, useNow } from './timerUi';
 
 // A task on the board or in the left list (checkpoint 8.2, decision 021). Every
@@ -99,6 +101,7 @@ export default function TaskCard({
   const running = isTimerRunning(task);
   const clock = formatClock(task.durationMinutes);
   const placed = !!task.dueDate && !!task.startTime;
+  const feats = useFeatures();
   const bell = reminderState(task.reminderMinutes);
   const repeatText = task.recurrence ? shortRepeat(task, todayKey) : undefined;
   const subCount = counterLabel(task.subtasks);
@@ -395,6 +398,7 @@ export default function TaskCard({
                 <Text style={styles.counter}>{subCount}</Text>
               </Pressable>
 
+              {feats.priority && (
               <Control id={`${id}:priority`} a11y={`Priority: ${task.priority ?? 'normal'}`} style={styles.icon}>
                 {(anchor) => (
                   <>
@@ -405,7 +409,9 @@ export default function TaskCard({
                   </>
                 )}
               </Control>
+              )}
 
+              {feats.dueDates && (
               <Control id={`${id}:reminder`} a11y={`Reminder: ${bell === 'default' ? 'default' : bell === 'off' ? 'off' : 'set'}`} style={styles.icon}>
                 {(anchor) => (
                   <>
@@ -416,6 +422,7 @@ export default function TaskCard({
                   </>
                 )}
               </Control>
+              )}
 
               {!projected && (
                 <>
@@ -428,6 +435,17 @@ export default function TaskCard({
                   >
                     <Ionicons name={running ? 'pause' : 'play'} size={14} color={running ? Colors.accentText : Colors.textSecondary} />
                   </Pressable>
+                  {feats.pomodoro && !task.completed && (
+                    <Pressable
+                      onPress={() => startFocus(task)}
+                      style={styles.icon}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Start a pomodoro on ${task.title}`}
+                      {...({ dataSet: { ctl: 'pomodoro' } } as object)}
+                    >
+                      <Text style={{ fontSize: 13 }}>🍅</Text>
+                    </Pressable>
+                  )}
                   <Control id={`${id}:actual`} ctl="actual" a11y={`Actual time of ${task.title}`} style={styles.actualBtn}>
                     {(anchor) => (
                       <>

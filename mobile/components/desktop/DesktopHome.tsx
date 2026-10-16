@@ -8,7 +8,7 @@ import TimeboxPane from './TimeboxPane';
 import DragProvider from './DragProvider';
 import ProfileMenu from './ProfileMenu';
 import SettingsPage from './SettingsPage';
-import LabelsPage from './LabelsPage';
+import LabelsOverlay from './LabelsOverlay';
 import ProgressPage from './ProgressPage';
 import QuestsPage from './QuestsPage';
 import AnalyticsPage from './AnalyticsPage';
@@ -28,7 +28,9 @@ import CalendarPane from './CalendarPane';
 import QuickCapture from './QuickCapture';
 import SearchPalette from './SearchPalette';
 import { usePaneState } from './usePaneState';
-import { closeOverlay, openDetail, openOverlay, requestGoToday, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
+import { refreshFeatures, useFeatures } from './featureStore';
+import { restorePomodoro } from './pomodoroStore';
+import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
 import { dateKey as todayDateKey } from '../../lib/kanban';
 import { RAIL_WIDTH, paneLayout, showCalendar, toggleCenter, toggleLeft, toggleOnlyToday, toggleRight, type CalendarView } from '../../lib/paneState';
 import { kv } from '../../lib/kv';
@@ -79,7 +81,7 @@ export default function DesktopHome() {
     restore.current = openers.current.pop() ?? null;
     setView((cur) => {
       // Labels and Sign in go back to Settings when that is where they were opened.
-      const back = (cur === 'labels' || cur === 'signin') && previous.current === 'settings' ? 'settings' : 'home';
+      const back = cur === 'signin' && previous.current === 'settings' ? 'settings' : 'home';
       previous.current = cur;
       return back;
     });
@@ -98,7 +100,7 @@ export default function DesktopHome() {
     if (view === 'home') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-      if (isPopoverOpen() || isTextEntryTarget(e.target)) return;
+      if (isPopoverOpen() || isOverlayOpen() || isTextEntryTarget(e.target)) return;
       e.preventDefault();
       goBack();
     };
@@ -199,6 +201,14 @@ export default function DesktopHome() {
     restoreSelectedList();
   }, []);
   const overlay = useOverlay();
+  const features = useFeatures();
+  // The power feature toggles (user_settings) are read again whenever data changes.
+  useEffect(() => {
+    refreshFeatures();
+  }, [refreshKey]);
+  useEffect(() => {
+    restorePomodoro();
+  }, []);
   // The layout (panes open or hidden, Kanban or Calendar, the Calendar view, show
   // only today), remembered in user_settings with a local fallback.
   const [paneState, updatePanes] = usePaneState();
@@ -221,7 +231,10 @@ export default function DesktopHome() {
     dayView: () => updatePanes((s) => showCalendar(s, 'day')),
     weekView: () => updatePanes((s) => showCalendar(s, 'week')),
     monthView: () => updatePanes((s) => showCalendar(s, 'month')),
-    dailyPlanning: () => openOverlay({ kind: 'flow', mode: 'planning' }),
+    dailyPlanning: () => {
+      if (!features.planning) return false;
+      openOverlay({ kind: 'flow', mode: 'planning' });
+    },
     // Shift+T: the board on this week, the keyboard on today's first task.
     goToday: () => {
       updatePanes((s) => ({ ...s, center: 'kanban' }));
@@ -241,6 +254,8 @@ export default function DesktopHome() {
     if (!overlay) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
+      // The Labels overlay has fields of its own that use Escape; it closes itself.
+      if (overlay.kind === 'labels') return;
       e.preventDefault();
       closeOverlay();
     };
@@ -345,12 +360,16 @@ export default function DesktopHome() {
               <Text style={styles.stripEmoji}>📅</Text>
               <Text style={[styles.segText, paneState.onlyToday && styles.segTextOn]}>Only today</Text>
             </Pressable>
-            <Pressable onPress={() => openOverlay({ kind: 'flow', mode: 'planning' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Daily Planning">
-              <Text style={styles.stripEmoji}>🌅</Text>
-            </Pressable>
-            <Pressable onPress={() => openOverlay({ kind: 'flow', mode: 'shutdown' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Daily Shutdown">
-              <Text style={styles.stripEmoji}>🌙</Text>
-            </Pressable>
+            {features.planning && (
+              <>
+                <Pressable onPress={() => openOverlay({ kind: 'flow', mode: 'planning' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Daily Planning">
+                  <Text style={styles.stripEmoji}>🌅</Text>
+                </Pressable>
+                <Pressable onPress={() => openOverlay({ kind: 'flow', mode: 'shutdown' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Daily Shutdown">
+                  <Text style={styles.stripEmoji}>🌙</Text>
+                </Pressable>
+              </>
+            )}
             <Pressable onPress={() => showView('quests')} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Quests">
               <Text style={styles.stripEmoji}>🎯</Text>
               <Text style={styles.segText}>Quests</Text>
@@ -415,8 +434,7 @@ export default function DesktopHome() {
         </View>
         {layout.right.collapsed && <Rail side="right" emoji="🕐" label="Show the right pane" onPress={() => updatePanes(toggleRight)} />}
       </View>
-      {view === 'settings' && <SettingsPage onOpenLabels={() => showView('labels')} onOpenSignIn={() => showView('signin')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} />}
-      {view === 'labels' && <LabelsPage onChanged={onChanged} />}
+      {view === 'settings' && <SettingsPage onOpenLabels={() => openOverlay({ kind: 'labels' })} onOpenSignIn={() => showView('signin')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} />}
       {view === 'progress' && <ProgressPage />}
       {view === 'quests' && <QuestsPage refreshKey={refreshKey} />}
       {view === 'analytics' && <AnalyticsPage refreshKey={refreshKey} />}
@@ -426,6 +444,7 @@ export default function DesktopHome() {
       {view === 'home' && overlay?.kind === 'help' && <ShortcutHelp />}
       {view === 'home' && overlay?.kind === 'capture' && <QuickCapture key={overlay.mode} mode={overlay.mode} />}
       {view === 'home' && overlay?.kind === 'search' && <SearchPalette />}
+      {overlay?.kind === 'labels' && <LabelsOverlay onChanged={onChanged} />}
       {view === 'home' && overlay?.kind === 'flow' && <PlanningFlow key={overlay.mode} mode={overlay.mode} />}
       <TimerWidget refreshKey={refreshKey} />
       <AccountChoiceModal />
@@ -434,7 +453,7 @@ export default function DesktopHome() {
   );
 }
 
-type View_ = 'home' | 'settings' | 'labels' | 'progress' | 'signin' | 'quests' | 'analytics' | 'trash';
+type View_ = 'home' | 'settings' | 'progress' | 'signin' | 'quests' | 'analytics' | 'trash';
 
 // Puts the keyboard on the first visible match, once the panes have drawn.
 function focusFirst(selector: string): void {

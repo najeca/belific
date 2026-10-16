@@ -16,6 +16,10 @@ import { STREAK_TEXT } from '../../lib/seriesStreak';
 import { exportMyData } from '../../lib/exportActions';
 import { exportMessage } from '../../lib/dataExport';
 import { dayStamp, downloadText } from './download';
+import ResetCacheRow from './ResetCacheRow';
+import TemplatesManager from './TemplatesManager';
+import { setFeature, useFeatures } from './featureStore';
+import { FEATURES } from '../../lib/features';
 
 // The Settings page (checkpoint 9, decision 025): a view inside the app, not
 // an overlay. It replaces the old Settings modal; every setting and its
@@ -38,6 +42,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   const [licences, setLicences] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [exportNote, setExportNote] = useState<string | null>(null);
+  const features = useFeatures();
 
   const desktop = globalThis.belificDesktop;
   useEffect(() => {
@@ -123,7 +128,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
       <View style={styles.column}>
         <Text style={styles.heading}>Settings</Text>
 
-        <Section title="Account">
+        <Section title="Account" emoji="👤">
           {signedIn ? (
             <>
               <Text style={styles.body}>Signed in as {account}</Text>
@@ -175,7 +180,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           {(ui.message || note) && <Text style={styles.hint}>{note ?? ui.message}</Text>}
         </Section>
 
-        <Section title="Sync">
+        <Section title="Sync" emoji="🔄">
           <Text style={[styles.body, line.warn && { color: Colors.danger }]}>{line.text}</Text>
           <Text style={styles.hint}>{lastSyncedText(status.lastSuccessAt, now)}</Text>
           <Text style={styles.hint}>Last error: {error ?? 'None'}</Text>
@@ -193,7 +198,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
 
         {prefs && (
           <>
-            <Section title="Planning">
+            <Section title="Planning" emoji="🗓️">
               <View style={styles.timeRow}>
                 <Text style={styles.body}>My day starts at</Text>
                 <select
@@ -218,7 +223,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               <Text style={styles.hint}>{STREAK_TEXT.settingHint}</Text>
             </Section>
 
-            <Section title="Notifications">
+            <Section title="Notifications" emoji="🔔">
               <ToggleRow label="Event starts" value={prefs.notifyEvents} onChange={(v) => setPref({ notifyEvents: v })} />
               <ToggleRow label="Tasks placed on the Timebox" value={prefs.notifyTasks} onChange={(v) => setPref({ notifyTasks: v })} />
               <ToggleRow label="Daily reminder of tasks planned for today" value={prefs.dailyReminder} onChange={(v) => setPref({ dailyReminder: v })} />
@@ -248,7 +253,25 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           </>
         )}
 
-        <Section title="Data">
+        <Section title="Power features" emoji="⚡">
+          <Text style={styles.hint}>Turn off what you do not use and it disappears from the screen. Nothing is deleted: turn it on again and it is all still there.</Text>
+          {FEATURES.map((f) => (
+            <View key={f.key}>
+              {f.comingLater ? (
+                <View style={styles.toggleRow} accessibilityLabel={`${f.label}, coming later`}>
+                  <Text style={[styles.body, { flex: 1 }]}>{f.emoji} {f.label}</Text>
+                  <Text style={styles.hint}>Coming later</Text>
+                </View>
+              ) : (
+                <ToggleRow label={`${f.emoji} ${f.label}`} value={features[f.key]} onChange={(v) => setFeature(f.key, v)} />
+              )}
+              <Text style={styles.hint}>{f.hint}</Text>
+            </View>
+          ))}
+          {features.templates && <TemplatesManager />}
+        </Section>
+
+        <Section title="Data" emoji="💾">
           <View style={styles.row}>
             <Pressable onPress={() => desktop?.actions.openBackups()} accessibilityRole="button" style={styles.btn}>
               <Text style={styles.btnText}>Open backups folder</Text>
@@ -273,20 +296,21 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           <Text style={styles.hint}>JSON has every table; CSV has the tasks, one row each. Only data on this computer is used, and no sign in session or token is ever included.</Text>
           <Text style={styles.hint}>A copy of your data is saved to the backups folder once a day, and the newest 14 are kept.</Text>
           <RoutineConvertRow onChanged={onChanged} />
+          <ResetCacheRow onChanged={onChanged} />
         </Section>
 
-        <Section title="Labels">
+        <Section title="Labels" emoji="🏷️">
           <Text style={styles.body}>
             {labelCount === 0 ? 'No labels yet.' : labelCount === 1 ? '1 label.' : `${labelCount} labels.`} Rename them, change their colour or delete them.
           </Text>
           <View style={styles.row}>
-            <Pressable onPress={onOpenLabels} accessibilityRole="button" accessibilityLabel="Open Labels page" style={styles.btn}>
+            <Pressable onPress={onOpenLabels} accessibilityRole="button" accessibilityLabel="Open Labels" style={styles.btn}>
               <Text style={styles.btnText}>Manage labels</Text>
             </Pressable>
           </View>
         </Section>
 
-        <Section title="About">
+        <Section title="About" emoji="ℹ️">
           <Text style={styles.body}>Belific {desktop?.version ?? ''}</Text>
           <View style={styles.row}>
             <Pressable onPress={() => openExternal(PRIVACY_URL)} accessibilityRole="link" accessibilityLabel="Privacy policy" style={styles.btn}>
@@ -307,10 +331,10 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, emoji, children }: { title: string; emoji?: string; children: React.ReactNode }) {
   return (
     <View style={styles.section} accessibilityLabel={`${title} settings`}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={styles.sectionTitle}>{emoji ? `${emoji} ${title}` : title}</Text>
       {children}
     </View>
   );

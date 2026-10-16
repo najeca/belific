@@ -21,6 +21,8 @@ import type { BrainDumpItem, Project, Task, TaskList } from '../../lib/types';
 import ListSwitcher from './ListSwitcher';
 import { useSelectedList } from './uiStore';
 import { useTick } from './timerUi';
+import { useFeature } from './featureStore';
+import TemplatePicker from './TemplatePicker';
 
 // Desktop Brain Dump (decision 009, product flow 2c): the thing you capture IS
 // the task. Typing a thought and pressing Enter creates a Task straight away
@@ -45,6 +47,7 @@ export default function BrainDumpPane({
   const [projects, setProjects] = useState<Project[]>([]);
   const [lists, setLists] = useState<TaskList[]>([]);
   const selectedRaw = useSelectedList();
+  const templatesOn = useFeature('templates');
   const [captureText, setCaptureText] = useState('');
   const [doneOpen, setDoneOpen] = useState(false);
   const captureRef = useRef<TextInput>(null);
@@ -135,6 +138,7 @@ export default function BrainDumpPane({
         >
           <Ionicons name="add" size={20} color={Colors.onAccent} />
         </Pressable>
+        {templatesOn && <TemplatePicker listKey={selected} refreshKey={refreshKey} onChanged={onChanged} />}
       </View>
 
       <ScrollView ref={scrollRef('left') as never} style={styles.list} showsVerticalScrollIndicator={false}>

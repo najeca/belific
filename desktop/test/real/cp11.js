@@ -279,11 +279,11 @@ async function run() {
   await click(byLabel('Profile, not signed in'));
   await click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`);
   await C.waitFor(async () => (await body()).toUpperCase().includes('PLANNING'), 8000);
-  await click(byLabel('Open Labels page'));
-  await C.waitFor(async () => (await body()).includes('Labels') && !(await body()).toUpperCase().includes('PLANNING'), 8000);
+  await click(byLabel('Open Labels'));
+  await C.waitFor(async () => (await exists(`document.querySelector('[role="dialog"][aria-label="Labels"]')`)), 8000);
   await press('Escape');
   await C.sleep(400);
-  check('Escape on the Labels page goes back to Settings, focus on the button that opened it', (await body()).toUpperCase().includes('PLANNING') && (await activeLabel()) === 'Open Labels page', String(await activeLabel()));
+  check('Escape on the Labels overlay closes it, Settings still showing, focus on the button that opened it', (await body()).toUpperCase().includes('PLANNING') && !(await exists(`document.querySelector('[role="dialog"][aria-label="Labels"]')`)) && (await activeLabel()) === 'Open Labels', String(await activeLabel()));
 
   // ======== 4. "Show streaks" ========
   check('Settings has "Show streaks", on by default, with its plain hint', (await body()).includes('Show streaks') && (await body()).includes('once it reaches 2'));

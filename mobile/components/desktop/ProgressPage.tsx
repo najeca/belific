@@ -23,7 +23,7 @@ export default function ProgressPage() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} accessibilityLabel="Progress">
       <View style={styles.column}>
         <Text style={styles.heading} accessibilityRole="header">
-          {STREAK_TEXT.progressTitle}
+          📈 {STREAK_TEXT.progressTitle}
         </Text>
         <Text style={styles.hint}>{STREAK_TEXT.progressIntro}</Text>
         {sorted.length === 0 ? (

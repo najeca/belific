@@ -23,6 +23,9 @@ import { dateKey } from '../../lib/kanban';
 import { opsForTask, type TaskOps } from './taskOps';
 import { toggleTimer, useNow } from './timerUi';
 import { closeDetail, notifyChanged, useDetailId } from './uiStore';
+import { useFeatures } from './featureStore';
+import { startFocus } from './pomodoroStore';
+import { saveTemplateFromTask } from '../../lib/templateActions';
 
 // The task details panel (build plan phase 2): every field of a task in one
 // place, as fields and not as steps. It opens beside the board (Open details in
@@ -87,6 +90,10 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
   const [actualText, setActualText] = useState('');
   const [actualBad, setActualBad] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const feats = useFeatures();
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplName, setTplName] = useState('');
+  const [tplNote, setTplNote] = useState<string | null>(null);
   const running = isTimerRunning(task);
   const now = useNow(running);
   const titleRef = useRef<TextInput>(null);
@@ -230,6 +237,16 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
               <Ionicons name={running ? 'pause' : 'play'} size={14} color={running ? Colors.onAccent : Colors.accentText} />
               <Text style={[styles.bigBtnText, running && styles.bigBtnTextOn]}>{running ? 'Stop' : 'Start'}</Text>
             </Pressable>
+            {feats.pomodoro && !task.completed && (
+              <Pressable
+                onPress={() => startFocus(task)}
+                style={styles.bigBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Start a pomodoro"
+              >
+                <Text style={styles.bigBtnText}>🍅 Pomodoro</Text>
+              </Pressable>
+            )}
             <TextInput
               style={[styles.input, actualBad && styles.inputBad]}
               value={actualText}
@@ -272,13 +289,15 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
           </select>
         </Field>
 
-        <Field glyph="🚩" label="Priority">
-          <View style={styles.chips}>
-            {([[undefined, 'Normal'], ['high', 'High'], ['low', 'Low']] as Array<[EventPriority | undefined, string]>).map(([p, name]) => (
-              <Chip key={name} label={name} on={priority === p} onPress={() => patch({ priority: p })} />
-            ))}
-          </View>
-        </Field>
+        {feats.priority && (
+          <Field glyph="🚩" label="Priority">
+            <View style={styles.chips}>
+              {([[undefined, 'Normal'], ['high', 'High'], ['low', 'Low']] as Array<[EventPriority | undefined, string]>).map(([p, name]) => (
+                <Chip key={name} label={name} on={priority === p} onPress={() => patch({ priority: p })} />
+              ))}
+            </View>
+          </Field>
+        )}
 
         <Field glyph="📝" label="Notes">
           <TextInput
@@ -324,6 +343,20 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
           >
             <Text style={styles.quietText}>Duplicate</Text>
           </Pressable>
+          {feats.templates && (
+            <Pressable
+              onPress={() => {
+                setTplName(task.title.slice(0, 40));
+                setTplNote(null);
+                setTplOpen((o) => !o);
+              }}
+              style={styles.quiet}
+              accessibilityRole="button"
+              accessibilityLabel="Save as template"
+            >
+              <Text style={styles.quietText}>📑 Save as template</Text>
+            </Pressable>
+          )}
           {confirming ? (
             <View style={styles.row}>
               <Text style={styles.muted}>Delete?</Text>
@@ -348,6 +381,38 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
             </Pressable>
           )}
         </View>
+        {feats.templates && tplOpen && (
+          <View style={styles.row} accessibilityLabel="Save as template form">
+            <TextInput
+              style={styles.input}
+              value={tplName}
+              onChangeText={setTplName}
+              onSubmitEditing={async () => {
+                const t = await saveTemplateFromTask(task, tplName);
+                setTplNote(t ? `Saved the template ${t.name}.` : 'There are already 50 templates. Delete one in Settings first.');
+                if (t) setTplOpen(false);
+              }}
+              placeholder="Template name"
+              placeholderTextColor={Colors.textSecondary}
+              maxLength={40}
+              autoFocus
+              accessibilityLabel="Template name"
+            />
+            <Pressable
+              onPress={async () => {
+                const t = await saveTemplateFromTask(task, tplName);
+                setTplNote(t ? `Saved the template ${t.name}.` : 'There are already 50 templates. Delete one in Settings first.');
+                if (t) setTplOpen(false);
+              }}
+              style={styles.bigBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Save the template"
+            >
+              <Text style={styles.bigBtnText}>Save</Text>
+            </Pressable>
+          </View>
+        )}
+        {tplNote && <Text style={styles.muted} accessibilityLabel="Template note">{tplNote}</Text>}
       </ScrollView>
     </View>
   );

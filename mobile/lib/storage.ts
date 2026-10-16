@@ -695,6 +695,23 @@ export function setUserSetting(key: string, value: string): Promise<void> {
   });
 }
 
+// Deletes a setting (a tombstone, like any delete; it syncs). Used for template
+// rows, whose keys are unique ids, so a deleted key is never written again.
+export function deleteUserSetting(key: string): Promise<void> {
+  return storageLock.run(async () => {
+    const existing = await loadUserSettingsRaw();
+    const now = new Date().toISOString();
+    let tombstoned: UserSetting | undefined;
+    const merged = existing.map((s) => {
+      if (s.key !== key) return s;
+      tombstoned = { ...s, deletedAt: now, updatedAt: now };
+      return tombstoned;
+    });
+    await saveUserSettings(merged);
+    if (tombstoned) await queueRows('user_settings', [tombstoned]);
+  });
+}
+
 export async function clearAllData(): Promise<void> {
   try {
     await kv.multiRemove([

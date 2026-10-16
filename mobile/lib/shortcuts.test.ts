@@ -78,6 +78,34 @@ test('the registry never takes a key the app menu or the editor needs', () => {
   }
 });
 
+test('phase 5 keys: planning, today, Brain Dump, the days either side, the time section; never while typing', () => {
+  const homeKeys: Array<[string, Parameters<typeof press>[1], string]> = [
+    ['P', { ctrl: true, shift: true }, 'dailyPlanning'],
+    ['T', { shift: true }, 'goToday'],
+    ['B', { shift: true }, 'firstBrainDump'],
+  ];
+  for (const [k, mods, id] of homeKeys) {
+    assert.equal(shortcutFor(press(k, mods), home), id, id);
+    assert.equal(shortcutFor(press(k, mods), { typing: true, scope: 'home' }), null, `${id} while typing`);
+  }
+  const cardKeys: Array<[string, Parameters<typeof press>[1], string]> = [
+    ['ArrowLeft', {}, 'prevDay'],
+    ['ArrowRight', {}, 'nextDay'],
+    ['i', { ctrl: true }, 'toggleTimeSection'],
+  ];
+  for (const [k, mods, id] of cardKeys) {
+    assert.equal(shortcutFor(press(k, mods), card), id, id);
+    assert.equal(shortcutFor(press(k, mods), { typing: true, scope: 'card' }), null, `${id} while typing`);
+  }
+  // plain T is still quick capture for today, plain B nothing
+  assert.equal(shortcutFor(press('t'), home), 'newTaskToday');
+  assert.equal(shortcutFor(press('b'), home), null);
+  // Ctrl+P (print) and Ctrl+Shift+P differ
+  assert.equal(shortcutFor(press('p', { ctrl: true }), home), null);
+  assert.equal(displayKeys('Left'), '←');
+  assert.equal(displayKeys('Right'), '→');
+});
+
 test('a task key is ignored by the home handler and the other way round', () => {
   assert.equal(shortcutFor(press('c'), home), null);
   assert.equal(shortcutFor(press('c'), card), 'complete');

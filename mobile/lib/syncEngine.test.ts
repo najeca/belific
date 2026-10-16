@@ -655,3 +655,42 @@ test('002 a timer stopped on one device stops on the other; a deleted list is a 
   assert.equal(phone.row('tasks', 't1')?.actualMinutes, 30);
   assert.ok(phone.row('lists', 'l1')?.deletedAt, 'list tombstone reached the phone');
 });
+
+test('phase 5 rollover: run twice and from two devices through the real engine, one result, nothing more written', async () => {
+  const { planRollover } = await import('./rollover.ts');
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };
+  const a = makeDevice(server);
+  const b = makeDevice(server);
+  const TODAY = '2026-10-16';
+  await a.put('tasks', task('late', 'Late task', { dueDate: '2026-10-14', startTime: '09:30' }));
+  await a.put('tasks', task('done', 'Done task', { dueDate: '2026-10-14', completed: true }));
+  await a.put('tasks', task('rep', 'Repeating', { dueDate: '2026-10-14', recurrence: 'daily' }));
+  await a.engine.sync();
+  await b.engine.sync();
+  // Both devices press Finish on the same morning, each from its own copy.
+  const roll = async (d: ReturnType<typeof makeDevice>) => {
+    const rows = d.rows('tasks') as unknown as Parameters<typeof planRollover>[0];
+    for (const p of planRollover(rows, TODAY)) await d.put('tasks', { ...d.row('tasks', p.id), ...p.fields });
+  };
+  await roll(a);
+  await roll(b);
+  await a.engine.sync();
+  await b.engine.sync();
+  await a.engine.sync();
+  for (const d of [a, b]) {
+    assert.equal(d.row('tasks', 'late')?.dueDate, TODAY);
+    assert.equal(d.row('tasks', 'late')?.startTime, '09:30', 'a placed task keeps its time');
+    assert.equal(d.row('tasks', 'done')?.dueDate, '2026-10-14', 'a completed task stays');
+    assert.equal(d.row('tasks', 'rep')?.dueDate, '2026-10-14', 'a repeating task stays');
+  }
+  assert.equal(server.get('tasks', 'late')?.due_date, TODAY);
+  // Running it again on either device finds nothing to do.
+  for (const d of [a, b]) assert.deepEqual(planRollover(d.rows('tasks') as never, TODAY), []);
+  const before = JSON.stringify(server.all('tasks'));
+  await roll(a);
+  await roll(b);
+  await a.engine.sync();
+  await b.engine.sync();
+  assert.equal(JSON.stringify(server.all('tasks')), before, 'a second run writes nothing at all');
+});

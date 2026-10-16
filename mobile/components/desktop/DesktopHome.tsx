@@ -11,6 +11,7 @@ import SettingsPage from './SettingsPage';
 import LabelsPage from './LabelsPage';
 import ProgressPage from './ProgressPage';
 import QuestsPage from './QuestsPage';
+import PlanningFlow from './PlanningFlow';
 import SignInPage from './SignInPage';
 import { DAY_START_EVENT } from './useDayStart';
 import { setShowStreaks, setStreaks } from './streakStore';
@@ -25,7 +26,8 @@ import CalendarPane from './CalendarPane';
 import QuickCapture from './QuickCapture';
 import SearchPalette from './SearchPalette';
 import { usePaneState } from './usePaneState';
-import { closeOverlay, openDetail, openOverlay, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
+import { closeOverlay, openDetail, openOverlay, requestGoToday, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
+import { dateKey as todayDateKey } from '../../lib/kanban';
 import { RAIL_WIDTH, paneLayout, showCalendar, toggleCenter, toggleLeft, toggleOnlyToday, toggleRight, type CalendarView } from '../../lib/paneState';
 import { kv } from '../../lib/kv';
 import { isTextEntryTarget } from '../../lib/editable';
@@ -217,6 +219,19 @@ export default function DesktopHome() {
     dayView: () => updatePanes((s) => showCalendar(s, 'day')),
     weekView: () => updatePanes((s) => showCalendar(s, 'week')),
     monthView: () => updatePanes((s) => showCalendar(s, 'month')),
+    dailyPlanning: () => openOverlay({ kind: 'flow', mode: 'planning' }),
+    // Shift+T: the board on this week, the keyboard on today's first task.
+    goToday: () => {
+      updatePanes((s) => ({ ...s, center: 'kanban' }));
+      requestGoToday();
+      focusFirst(`[data-day-col="${todayDateKey(new Date())}"] [data-card-focus]`);
+    },
+    // Shift+B: the left pane on Brain Dump, the keyboard on its first task.
+    firstBrainDump: () => {
+      updatePanes((s) => ({ ...s, leftCollapsed: false }));
+      selectList(null);
+      focusFirst('[data-pane="left"] [data-card-focus]');
+    },
   });
   // Escape closes an open overlay (help, search, quick capture) wherever the
   // keyboard focus is; the overlays that have a field also handle it themselves.
@@ -328,6 +343,12 @@ export default function DesktopHome() {
               <Text style={styles.stripEmoji}>📅</Text>
               <Text style={[styles.segText, paneState.onlyToday && styles.segTextOn]}>Only today</Text>
             </Pressable>
+            <Pressable onPress={() => openOverlay({ kind: 'flow', mode: 'planning' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Daily Planning">
+              <Text style={styles.stripEmoji}>🌅</Text>
+            </Pressable>
+            <Pressable onPress={() => openOverlay({ kind: 'flow', mode: 'shutdown' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Daily Shutdown">
+              <Text style={styles.stripEmoji}>🌙</Text>
+            </Pressable>
             <Pressable onPress={() => showView('quests')} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Quests">
               <Text style={styles.stripEmoji}>🎯</Text>
               <Text style={styles.segText}>Quests</Text>
@@ -401,6 +422,7 @@ export default function DesktopHome() {
       {view === 'home' && overlay?.kind === 'help' && <ShortcutHelp />}
       {view === 'home' && overlay?.kind === 'capture' && <QuickCapture key={overlay.mode} mode={overlay.mode} />}
       {view === 'home' && overlay?.kind === 'search' && <SearchPalette />}
+      {view === 'home' && overlay?.kind === 'flow' && <PlanningFlow key={overlay.mode} mode={overlay.mode} />}
       <TimerWidget refreshKey={refreshKey} />
       <AccountChoiceModal />
     </View>
@@ -409,6 +431,19 @@ export default function DesktopHome() {
 }
 
 type View_ = 'home' | 'settings' | 'labels' | 'progress' | 'signin' | 'quests';
+
+// Puts the keyboard on the first visible match, once the panes have drawn.
+function focusFirst(selector: string): void {
+  let tries = 0;
+  const attempt = () => {
+    const el = Array.from(document.querySelectorAll<HTMLElement>(selector)).find((e) => e.getBoundingClientRect().width > 0);
+    if (el) {
+      el.focus({ preventScroll: true });
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    } else if (++tries < 6) setTimeout(attempt, 150);
+  };
+  setTimeout(attempt, 60);
+}
 
 // A hidden pane's place on the screen: a narrow rail with the pane's emoji and a
 // button that brings the pane back.

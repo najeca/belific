@@ -45,7 +45,14 @@ export type ShortcutId =
   | 'selectLabel'
   | 'toggleTimer'
   | 'duplicateTask'
-  | 'deleteTask';
+  | 'deleteTask'
+  // Phase 5
+  | 'dailyPlanning'
+  | 'goToday'
+  | 'firstBrainDump'
+  | 'prevDay'
+  | 'nextDay'
+  | 'toggleTimeSection';
 
 export type ShortcutGroup = 'General' | 'Navigation' | 'Task';
 export type ShortcutScope = 'home' | 'card';
@@ -92,7 +99,17 @@ export const PHASE3_SHORTCUTS: ShortcutDef[] = [
   { id: 'monthView', keys: 'M', label: 'Calendar month view', group: 'Navigation', scope: 'home' },
 ];
 
-export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS];
+// Phase 5: Daily Planning, the keys left unwired in phase 3.
+export const PHASE5_SHORTCUTS: ShortcutDef[] = [
+  { id: 'dailyPlanning', keys: 'Ctrl+Shift+P', label: 'Daily Planning', group: 'General', scope: 'home' },
+  { id: 'goToday', keys: 'Shift+T', label: 'Go to today and its first task', group: 'Navigation', scope: 'home' },
+  { id: 'firstBrainDump', keys: 'Shift+B', label: 'First Brain Dump task', group: 'Navigation', scope: 'home' },
+  { id: 'prevDay', keys: 'Left', label: 'First task of the day before', group: 'Navigation', scope: 'card' },
+  { id: 'nextDay', keys: 'Right', label: 'First task of the next day', group: 'Navigation', scope: 'card' },
+  { id: 'toggleTimeSection', keys: 'Ctrl+I', label: 'Show or hide the time on the card', group: 'Task', scope: 'card' },
+];
+
+export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS, ...PHASE5_SHORTCUTS];
 
 // ---- matching ----
 
@@ -184,7 +201,7 @@ export function shortcutGroups(): Array<{ group: ShortcutGroup; items: ShortcutD
 // How a spec is shown in the overlay: "Ctrl+Shift+Enter", "Shift+/" -> "Shift+?"
 // is NOT done: the overlay shows what is typed on a US keyboard.
 export function displayKeys(spec: string): string {
-  return spec.replace('Down', '↓').replace('Up', '↑');
+  return spec.replace(/^Down$/, '↓').replace(/^Up$/, '↑').replace(/^Left$/, '←').replace(/^Right$/, '→');
 }
 
 // ---- building an event from a spec (tests, and the help overlay's checks) ----

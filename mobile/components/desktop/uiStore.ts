@@ -8,7 +8,12 @@ import { kv } from '../../lib/kv';
 // cards and the overlays can all reach it without threading props through the
 // panes. Nothing here is stored except the selected list (kv, local).
 
-export type Overlay = { kind: 'help' } | { kind: 'search' } | { kind: 'capture'; mode: 'list' | 'today' } | null;
+export type Overlay =
+  | { kind: 'help' }
+  | { kind: 'search' }
+  | { kind: 'capture'; mode: 'list' | 'today' }
+  | { kind: 'flow'; mode: 'planning' | 'shutdown' }
+  | null;
 
 export interface TimerConfirm {
   taskId: string;
@@ -30,9 +35,10 @@ interface State {
   selectedList: string | null;
   reveal: RevealRequest | null;
   timerConfirm: TimerConfirm | null;
+  goToday: number;
 }
 
-let state: State = { overlay: null, detailId: null, selectedList: null, reveal: null, timerConfirm: null };
+let state: State = { overlay: null, detailId: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0 };
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const subscribe = (l: () => void) => {
@@ -89,6 +95,14 @@ export const useReveal = () => use((s) => s.reveal);
 export function requestReveal(r: Omit<RevealRequest, 'nonce'>): void {
   nonce += 1;
   set({ reveal: { ...r, nonce } });
+}
+
+// ---- Shift+T: the board goes to this week ----
+let todayNonce = 0;
+export const useGoToday = () => use((s) => s.goToday);
+export function requestGoToday(): void {
+  todayNonce += 1;
+  set({ goToday: todayNonce });
 }
 
 // ---- a stale timer waiting for an answer ----

@@ -26,7 +26,7 @@ import { stepWeekStart, taskDuration } from '../../lib/drag';
 import { loadTasksRaw } from '../../lib/storage';
 import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
 import { useTick } from './timerUi';
-import { useReveal } from './uiStore';
+import { useGoToday, useReveal } from './uiStore';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
@@ -125,6 +125,14 @@ export default function KanbanPane({
   const atCurrentWeek = shownWeekStart.getTime() === currentWeekStart.getTime();
   const weekAll = useMemo(() => weekDays(shownWeekStart, todayKey), [shownWeekStart.getTime(), todayKey]);
   const days = useMemo(() => (onlyToday ? weekAll.filter((d) => d.key === todayKey) : weekAll), [weekAll, onlyToday, todayKey]);
+  // Shift+T: this week.
+  const goToday = useGoToday();
+  useEffect(() => {
+    if (!goToday) return;
+    setJumpOpen(false);
+    setWeekStart(currentWeekStart);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goToday]);
   // Search results ask the board to show the week of a task (never before this week).
   const reveal = useReveal();
   useEffect(() => {
@@ -210,7 +218,7 @@ export default function KanbanPane({
   }));
 
   const renderColumn = (col: BoardColumn) => (
-          <View key={col.id} ref={columnRef(col.id) as never} style={[styles.column, dropDay === col.id && styles.columnTarget]}>
+          <View key={col.id} ref={columnRef(col.id) as never} style={[styles.column, dropDay === col.id && styles.columnTarget]} {...({ dataSet: { dayCol: col.id } } as object)}>
             <View style={styles.columnHeader}>
               <Text style={[styles.columnTitle, col.isToday && styles.columnTitleToday]} numberOfLines={1}>
                 {col.title}

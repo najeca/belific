@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 2.22.0 — 2026-10-16 (build plan phase 5, Daily Planning, Daily Shutdown, rollover)
+
+**Desktop only (the iPhone gets the flows in a later step). No schema change, no sync change.**
+
+- **Daily Planning** (Ctrl+Shift+P, or the sunrise button in the top strip), 4 steps: review yesterday's work and what was missed (tick any that were actually done), choose today's tasks from a list or add new ones, move what can wait to tomorrow or next week, give tasks a time against a small Timebox with an all day row and the current time line. **Daily Shutdown** (the moon button), 2 steps: what was done today (corrections allowed) and what is left over (ticked ones go to tomorrow), then tomorrow's list with "N already planned tasks, M tasks from Today".
+- Both are full screen overlays with a step rail. **Everything is a draft until Finish; Cancel or Escape changes nothing** (checked byte for byte in the real app).
+- **Rollover** runs only on Finish: Planning moves unfinished tasks of earlier days to today, Shutdown moves the chosen unfinished tasks of today to tomorrow. Never a repeating task, a placed task keeps its time, and it is worked out from the latest stored rows at Finish. Idempotent: twice, or from two devices through the sync engine, it gives one result and a second run writes nothing.
+- **Keys:** Ctrl+Shift+P Daily Planning, Shift+T today's first task, Shift+B the first Brain Dump task, Left and Right the first task of the day before or after, Ctrl+I the time section on a card. None fires while typing.
+- Real check `desktop/test/real/p5.js` (34 checks).
+
 ## 2.21.0 — 2026-10-16 (build plan phase 4, Quests)
 
 **Desktop and iPhone. No schema change, no sync change.**

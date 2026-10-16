@@ -65,6 +65,8 @@ export default function TaskCard({
   const [expanded, setExpanded] = useState(false);
   // Ctrl+Delete opens the More menu already asking "Delete? Yes / No".
   const [deleteArmed, setDeleteArmed] = useState(false);
+  // Ctrl+I: the time section (actual against estimated, start or stop).
+  const [showTime, setShowTime] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(task.title);
   const cancelled = useRef(false);
@@ -165,6 +167,25 @@ export default function TaskCard({
       case 'deleteTask':
         setDeleteArmed(true);
         return click('more');
+      case 'toggleTimeSection':
+        if (proj) return false;
+        setShowTime((v) => !v);
+        return true;
+      case 'prevDay':
+      case 'nextDay': {
+        // The first task of the column before or after this card's day; from
+        // the left list, Right goes to the first day on the board.
+        const cols = Array.from(document.querySelectorAll<HTMLElement>('[data-day-col]')).filter((n) => n.offsetParent !== null);
+        const mine = el.closest<HTMLElement>('[data-day-col]');
+        const at = mine ? cols.indexOf(mine) : -1;
+        const target = mine ? cols[at + (sc === 'nextDay' ? 1 : -1)] : sc === 'nextDay' ? cols[0] : undefined;
+        const first = target?.querySelector<HTMLElement>('[data-card-focus]');
+        if (first) {
+          first.focus({ preventScroll: true });
+          first.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+        return true;
+      }
       case 'nextTask':
       case 'prevTask': {
         const all = Array.from(document.querySelectorAll<HTMLElement>('[data-card-focus]')).filter((n) => n.offsetParent !== null);
@@ -328,6 +349,17 @@ export default function TaskCard({
             <StreakLine task={task} />
 
             {running && !projected && <Text style={styles.timerActive}>⏱️ Timer active</Text>}
+            {showTime && !projected && (
+              <View style={styles.timeSection} accessibilityLabel={`Time of ${task.title}`}>
+                <Text style={styles.timeSectionText}>
+                  ⏱️ Actual <ActualText task={task} />   ⏳ Estimated {clock}
+                </Text>
+                <Pressable onPress={() => toggleTimer(task)} style={styles.timeBtn} accessibilityRole="button" accessibilityLabel={running ? `Stop timer for ${task.title}` : `Start timer for ${task.title}`}>
+                  <Ionicons name={running ? 'pause' : 'play'} size={12} color={Colors.accentText} />
+                  <Text style={styles.timeBtnText}>{running ? 'Stop' : 'Start'}</Text>
+                </Pressable>
+              </View>
+            )}
             <View style={styles.controls}>
               <Pressable
                 onPress={() => wrapped.setCompleted(!task.completed)}
@@ -792,6 +824,10 @@ const styles = StyleSheet.create({
   glyphQuiet: { opacity: 0.45 },
   labelEmoji: { fontSize: 13 },
   timerActive: { fontSize: 11, fontWeight: '600', color: Colors.accentText },
+  timeSection: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingVertical: 2 },
+  timeSectionText: { fontSize: 12, color: Colors.textPrimary },
+  timeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 24, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
+  timeBtnText: { fontSize: 11, color: Colors.accentText },
   actualBtn: { paddingHorizontal: 5, height: 24, borderRadius: 8, justifyContent: 'center' },
   actualText: { fontSize: 11, color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
   actualMuted: { color: Colors.textSecondary },

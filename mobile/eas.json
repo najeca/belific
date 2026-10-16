@@ -11,5 +11,8 @@
         "distribution": "store"
       }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }

@@ -25,12 +25,19 @@ test('no variable values, keys or project addresses are in eas.json', () => {
 });
 
 test('only environment is added: no appVersionSource and no autoIncrement (the build number is raised by hand in app.json)', () => {
-  const allowedTop = new Set(['cli', 'build']);
+  const allowedTop = new Set(['cli', 'build', 'submit']);
   for (const k of Object.keys(eas)) assert.ok(allowedTop.has(k), k);
+  assert.equal(eas.appVersionSource, undefined);
+  assert.doesNotMatch(raw, /appVersionSource|autoIncrement/);
   const allowedProfile = new Set(['environment', 'ios']);
   for (const k of Object.keys(eas.build.production)) assert.ok(allowedProfile.has(k), k);
   const allowedCli = new Set(['version']);
   for (const k of Object.keys(eas.cli)) assert.ok(allowedCli.has(k), k);
+});
+
+test('submit.production exists and is empty: Apple details are asked for interactively, never stored', () => {
+  assert.deepEqual(Object.keys(eas.submit), ['production']);
+  assert.deepEqual(eas.submit.production, {});
 });
 
 test('the app is 2.18.1, bundle com.najeca.belific, scheme belific (the callback link)', () => {

@@ -5,6 +5,8 @@
 
 Source: Jethro's instruction for checkpoint 8.3 (reference: the Ellie planner).
 
+**Update (2026-10-16): Actual time and the timer came back** in a new form, by the build plan (feature 4, `docs/belific-build-plan.md`) and [[028-desktop-timer-shortcuts-and-layout]]: `actualMinutes` (whole minutes, NULL means 0) and `timerStartedAt`, migration 002, with the 24 hour question for a forgotten timer. The old `actualSeconds` field stays removed and is still stripped from stored tasks (`lib/legacyTask.ts`). Nothing below describes the current behaviour.
+
 ---
 
 **Decision.** A task has an **Estimated** time (the existing `durationMinutes`) and an **Actual** time (new `Task.actualSeconds`, whole seconds). A simple timer on the expanded card adds to Actual. The app only reports these numbers.

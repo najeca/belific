@@ -2,15 +2,16 @@
 
 The running record of `docs/belific-build-plan.md`. A new session can start cold from the plan and this file: read both, then `docs/CURRENT_TRUTH.md` for anything outside the plan. Add a checkpoint at the end of every phase.
 
-Branch: `v2-redesign`. App version: 2.18.1 (phase 1 changed no user visible behaviour, so no bump).
+Branch: `v2-redesign`. App version: 2.18.1 and NOT bumped by phases 2 and 3 although the desktop changed for the user: `mobile/lib/easConfig.test.ts` pins `app.json` at 2.18.1 (the TestFlight build) and Jethro said not to edit that file. Bump both together when the iPhone build is next made.
 
 ## Where things stand
 
 | Phase | State |
 |---|---|
 | 1 Data foundations | **Done 2026-10-16.** Migration 002 applied live; sync mapping, storage and timer maths in code with tests. No UI. |
-| 2 Task model and timer | Not started. Next. Wait for Jethro's go. |
-| 3 to 9 | Not started. |
+| 2 Task model and timer | **Done 2026-10-16** (commit `c15e9d4`). Details panel, timer and floating widget, lists, label emoji, duplicate, soft delete, estimate against actual, shortcut registry and help. Desktop only. |
+| 3 Desktop layout | **Done 2026-10-16** (second commit). Collapsible panes remembered, V between Kanban and Calendar, Calendar day, week and month, all day row, current time line, search, show only today, quick capture. Desktop only. |
+| 4 to 9 | Not started. Phase 4 (Quests) is next, after Jethro's go. |
 | iOS adaptation | Not started (see "iOS adaptation" in plan section 3). |
 
 ## Decisions in force (from Jethro, 2026-10-16)
@@ -64,6 +65,73 @@ Working rules (from Jethro): one phase at a time; no new libraries without justi
 - Phase 4: annual needs a month as well as a day. `recurrence_month_day` exists; a month column (or deriving the month from the series start day) is a phase 4 decision, and a column would be migration 003.
 - `docs/belific_schema_draft.sql` is withdrawn and left uncommitted; delete it or keep it out of the repo.
 
+## Checkpoint: phase 2, task model and timer (2026-10-16)
+
+No schema change, no sync change: everything uses the phase 1 fields (`actualMinutes`, `timerStartedAt`, `listKey`, `emoji`, `Project.emoji`, lists, user settings). Desktop only; the iOS screens were only kept compiling.
+
+**Shared logic (pure, in `mobile/lib/`, each with tests):**
+- `taskTotals.ts`: estimate and actual per task, day or list; a missing actual is 0; a running timer counts for the time it has run; text `0:25 / 1:30` (actual first); nothing planned and nothing spent shows no text. Over the estimate only tints the figure (never a warning).
+- `timerSession.ts`: running timers, the active one (most recently started), and the plan for starting one: **one timer at a time**, starting a second stops the first and adds its whole minutes; another timer running over 24 hours returns `confirm` and nothing is written. `taskTimer.ts` (phase 1) holds the maths: whole minutes rounded down, a future start counts 0, over 24 hours asks.
+- `taskCopy.ts` (duplicate: keeps title, notes, priority, label, list, emoji, Day, estimate, reminder, subtasks with new ids unticked; drops progress, actual, timer, time slot, repeat and series), `lists.ts` (names, duplicates, counts, a task whose list was deleted reads as Brain Dump), `emoji.ts` (one emoji kept from typed or pasted text; suggestions), `shortcuts.ts` (the registry).
+- Commands that write (desktop only): `timerActions.ts`, `taskCommands.ts` (duplicate, capture into a list or a day, create, rename, re-emoji and delete lists; deleting a list sends its tasks back to Brain Dump), `labels.ts` (`setLabelEmoji`, `createLabel(name, emoji?)`).
+- Estimate presets are now 5, 10, 15, 30, 45 min, 1h, 1h 30m, 2h plus the custom field; stored values such as 20m, 3h and 4h still display and parse.
+
+**Desktop UI (`mobile/components/desktop/`):**
+- **Task details panel** (`TaskDetailPanel.tsx`): every field as a field, an overlay on the right of the home screen, not a screen. Title, emoji, complete, list, Day, estimate (presets and custom), actual (typed, plus start or stop), label, priority, notes, subtasks (tick only), duplicate, delete. No Repeats field (phase 4). Opens from the card's More menu or **O** on a focused card; Escape closes.
+- **Card:** emoji before the title; actual time beside a play or pause button; "Timer active" line; the small icons are emoji (🔁 ☑️ 🚩 🔔 📅) with quiet and full strength states; label shows its emoji. The More menu has Open details, Duplicate task, Delete task.
+- **Floating timer** (`TimerWidget.tsx`): mounted once at the home root, outside the page switch, so it stays over Settings, Labels and Progress. It reads running timers from the stored tasks (every 8 seconds and on every change), so it survives an app restart and shows a timer started on the other device after a sync. Shows the task, the run so far (m:ss) and actual / estimate, one button to stop. A timer over 24 hours shows a question there instead (add all, add none, or type a time); nothing is added until it is answered.
+- **Lists** (`ListSwitcher.tsx`): a button at the top of the left pane names the list (Brain Dump by default); the popover lists them with counts, creates a list (name and emoji), and for the shown list renames, re-emojis or deletes it. The shown list is remembered locally (`belific_desktop_list`, UI state, not synced). New tasks typed in the capture box go to the shown list.
+- **Totals:** the left pane header shows actual / estimate for what waits in the list; each board column shows it for its day.
+- **Shortcuts:** `shortcuts.ts` is the one registry and the help overlay (Shift+/ or the ⌨️ button) is generated from it, so it lists only wired keys. Card keys (act on the card with the keyboard focus): C complete, S show or hide notes and subtasks, Ctrl+S new subtask, O details, Ctrl+E estimate, Ctrl+B actual, Ctrl+L label, Ctrl+Shift+Enter timer, Ctrl+Shift+D duplicate, Ctrl+Delete delete (opens the More menu already asking "Delete? Yes / No"), Up and Down between cards. Home keys: Shift+/ help, Q capture. **Nothing fires while typing in an input, textarea, select or contenteditable, while a popover or overlay is open, or on a held key (except the arrows); Tab, Space and Alt are never shortcuts.** Tests enumerate every registered key against these rules.
+- Pane headings and empty states use emoji (🧠 🗓️ 🕐 📆).
+
+**Verification:** typecheck clean; `npm test` green; security scan passed. Real app check `desktop/test/real/p2.js` (42 checks, real key and text input): a timer left running is found on launch and stopped from the widget (whole minutes), a 30 hour timer asks and adds the typed 90 minutes, Shift+/ and the typing guard, a task created, estimated, labelled, timed, given an actual time, completed, duplicated and deleted from the keyboard, the details panel, lists, day totals, label and task emoji. The older real checks cp6, cp8c to cp8h and cp9 to cp12 all still pass. Not verified: two real devices (a timer started on one showing on the other); that is a sync of fields already proven against the fake server.
+
+## Checkpoint: phase 3, desktop layout (2026-10-16)
+
+No schema change. Desktop only.
+
+- **Panes** (`lib/paneState.ts`, `usePaneState.ts`): left and right panes collapse to a narrow rail (buttons in the top strip, `[` and `]`, or the rail itself). A collapsed pane stays mounted (hidden), so its list, week and scroll are there when it returns. The centre never hides and works with either sidebar hidden, or both. State is `leftCollapsed`, `rightCollapsed`, `center` (kanban or calendar), `calendar` (day, week, month) and `onlyToday`, stored as JSON in the **user_settings row `ui.panes`** (synced when signed in) with a **local fallback** `belific_desktop_panes`; the setting is read first, then the local copy, then the default; a damaged value in either place falls back and never breaks the screen; both are written on every change and neither write can throw. Loaded once at start, so a change made on the other device shows at the next start, not live.
+- **Centre toggle:** Kanban or Calendar, with **V** (not Tab; Tab keeps normal focus order) or the buttons in the top strip. Both stay mounted so each keeps its state.
+- **Calendar** (`CalendarPane.tsx`, `lib/calendarView.ts`): **D**, **W**, **M** open it in day, week or month view from either centre view. Day and week are the 24 hour grid (00:00 to 24:00, opens at "My day starts at" or about an hour before now when today is shown, scrolls the whole day) with an **all day row** (tasks with a Day and no time), a **current time line** (accent line and dot, today's column) and overnight tasks continuing on the next day. Month lists each day's tasks (first three and "+N more"); a day opens that day. It shows stored tasks, the days of repeating series, events, and the filter (it has its own Filter button); a block or chip opens the same task menu as the Timebox. Header: previous, title, next, Day/Week/Month, Today, actual / estimate of what the view shows.
+- **Timebox** (right pane) also gets the current time line.
+- **Show only today** (**Shift+F**, or the button): the board shows just today's column, the Calendar shows today's day view, the Timebox goes to today.
+- **Quick capture** (`QuickCapture.tsx`): **Q** into the list shown, **T** onto today; Enter adds and closes, Shift+Enter adds and keeps the box open, Escape closes and returns focus. Works with the left pane hidden.
+- **Search** (`SearchPalette.tsx`, `lib/taskSearch.ts`): **Ctrl+K**; title, notes, subtasks, label and list, case and accent insensitive, every word must match, title matches first. Enter shows the task where it lives (the board's week, or its list on the left, expanding the pane) and puts the keyboard on its card; a card that cannot be found (hidden by the filter, or finished) opens its details instead.
+- Registry additions: Ctrl+K, T, Shift+F, `[`, `]`, V, D, W, M. Help overlay regenerates from them.
+
+**Verification:** typecheck clean; `npm test` green (new: paneState, calendarView, taskSearch, shortcut phase 3 and reserved key tests); security scan passed. Real check `desktop/test/real/p3.js` (52 checks): panes hidden one at a time and both (the board still works), `[` and `]`, the layout saved in both places and still there after a reload, V and the unchanged Tab, V W D M typed in a box staying text, day, week and month, all day row, 24 hour grid, time line, a block opening the task menu, Next and Today, Shift+F, Q and T, Shift+Enter, capture with a pane hidden, search by a word in the notes, search jumping to a task three weeks away and to a task in a list, no match. Older real checks re-run after the layout change (see the commit message). Screens checked by eye in the real app: default, both panes hidden, day, week, month, details, timer, search.
+
+## Decisions I made on my own (phases 2 and 3)
+
+1. **No version bump** (see the top of this file): the pinned test and the instruction not to edit it.
+2. **The existing Repeats control on cards and in the block menu is left as it is.** "Leave Repeats out or disabled" was applied to the new surfaces: the details panel has no Repeats field. Removing the working control would have been a regression.
+3. **Pane layout lives in user_settings (`ui.panes`) with a local fallback**, as the brief says. This contradicts plan section 2 ("UI state such as collapsed panes stays local"); the brief is newer. Consequence: two desktops with different screens share a layout, last write wins, and the value is read once at start.
+4. **One timer at a time.** Starting a second stops the first. Not stated in the plan; chosen so two clocks never count the same hour. If two arrive from two devices, the most recently started is the active one in the widget and the rest are listed as "+N more running".
+5. **The Calendar shows and opens; it does not take drops.** Dragging a task into an hour slot stays on the Timebox (right pane), because the drag layer and its drop zones are the Timebox's. The Timebox got the time line but **not** an all day row (the board column already shows a day's untimed tasks).
+6. **Shortcuts I chose that are not in the plan's list:** O (open details), Ctrl+Shift+D (duplicate), `[` and `]` (hide panes), Ctrl+Delete opens the More menu at "Delete? Yes / No" rather than deleting at once (there is no Trash view yet, phase 6). **Plan keys not wired:** Ctrl+I (time section), Shift+T, Shift+B, Left and Right between days, Ctrl+Enter, Enter to edit (Enter still expands the card), Esc to deselect (Escape still collapses), Ctrl+Shift+P (phase 5). The help overlay lists only what is wired.
+7. **Duplicate drops the repeat, the time slot, progress and the timer** (a copy of a series member would start a second series).
+8. **Delete is soft** through the existing `deleteTask` tombstone (`deletedAt`); a Trash view to restore is phase 6.
+9. **Estimate presets:** 20m, 3h and 4h left the list (the brief's list); existing values are unaffected.
+10. **Emoji:** applied to the card controls, pane headings, the top strip, lists, labels, tasks, help, search, capture and empty states. **Not done:** the Settings, Labels and Progress pages' own rows (not touched in this batch). Ionicons kept only for chevrons, close, check circles, the drag handle, play and pause, and the More (ellipsis) button, which has no natural emoji.
+11. **Calendar and Kanban both exist while one is hidden** (mounted, `display: none`), so neither forgets its week or scroll.
+12. **A search result for a hidden or finished task opens its details** instead of doing nothing.
+13. **The floating timer's stop button uses the pause icon** (allowed by the brief) but stops the timer and adds the time; starting again resumes counting from the stored total.
+
+## Check by hand in the desktop app
+
+See the end of the phase 3 report in the conversation, repeated here so a cold start has it:
+1. Start a timer (Ctrl+Shift+Enter on a card), **quit the app completely and open it again**: the floating timer is still there and counting. Stop it from the widget: the actual time on the card grows by whole minutes.
+2. With a timer running, press Start on another task: the first stops and its minutes are added.
+3. Collapse the left pane, quit and reopen: it is still collapsed. With a second computer signed in, change the layout on one and restart the other.
+4. Open the Calendar (V). Try D, W, M, the arrows, Today, a block, a month day. Check the current time line against the clock, and that scrolling reaches 00:00 and 24:00.
+5. Look at it at the smallest window size (1024 wide): the top strip buttons, the card controls (they wrap), the Calendar week.
+6. Press Win+. in an emoji box (details panel, new list) and pick an emoji from the Windows picker.
+7. Drag a task from the left pane onto the Timebox and onto a board day with a pane collapsed on the other side.
+8. Check the emoji look right on your screen (Segoe UI Emoji) and none look out of place against the sage palette.
+9. Delete a task with Ctrl+Delete, then answer No, then Yes. Duplicate one. Press Shift+/.
+10. Sign in on both devices and watch an estimate, an emoji or a timer set on one appear on the other after Sync now.
+
 ## Next session
 
-Phase 2 (task model and timer), after Jethro's go. Read the plan's phase 2 and section 0 items 8 to 10 first. The timer UI calls `lib/taskTimer.ts`; totals use `shownMinutes` and treat NULL as 0; lists use `loadLists` and `putList`.
+Phase 4 (Quests), after Jethro's go. Read the plan's phase 4 and section 0 items 3, 4, 7 and 9, and the open questions above (triweekly section, annual month). The Quests screen is the only other thing that changes the desktop screen (with Profile). Shared pieces to reuse: `lib/series.ts`, `lib/seriesStreak.ts`, `lib/seriesActions.ts`, `lib/taskTotals.ts`, `lib/timerSession.ts`, `uiStore.ts` (overlays, details panel), `usePaneState.ts`, `lib/shortcuts.ts` (add keys there, never elsewhere). Real checks: `desktop/test/real/p2.js` and `p3.js` (build first with `node desktop/scripts/build-web.js`, then `cd desktop && npx electron test/real/p3.js`).

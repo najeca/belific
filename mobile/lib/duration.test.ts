@@ -40,9 +40,11 @@ test('chip text is H:MM, 0:00 when no duration is set', () => {
   assert.equal(formatClock(Number.NaN), '0:00');
 });
 
-test('preset list: 5 min to 4h, labelled as in the dropdown', () => {
-  assert.deepEqual(DURATION_PRESETS, [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240]);
-  assert.deepEqual(DURATION_PRESETS.map(presetLabel), ['5 min', '10 min', '15 min', '20 min', '30 min', '45 min', '1h', '1h 30m', '2h', '3h', '4h']);
+test('preset list: 5 min to 2h, labelled as in the dropdown', () => {
+  assert.deepEqual(DURATION_PRESETS, [5, 10, 15, 30, 45, 60, 90, 120]);
+  assert.deepEqual(DURATION_PRESETS.map(presetLabel), ['5 min', '10 min', '15 min', '30 min', '45 min', '1h', '1h 30m', '2h']);
+  // a value stored with the older, longer list still formats and parses
+  for (const m of [20, 180, 240]) assert.equal(parseDuration(presetLabel(m)), m);
 });
 
 test('parsing: every form the dropdown accepts', () => {

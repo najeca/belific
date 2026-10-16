@@ -4,17 +4,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { dateKey } from '../../lib/kanban';
 import { splitThoughts, rowId } from '../../lib/thoughts';
-import { loadBrainDumpItems, loadTasks } from '../../lib/storage';
+import { loadBrainDumpItems, loadLists, loadTasks } from '../../lib/storage';
+import { listCounts, resolveSelectedList, tasksInList } from '../../lib/lists';
+import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
+import { createTaskIn } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
-import { createThought, setTaskCompleted } from '../../lib/taskActions';
+import { setTaskCompleted } from '../../lib/taskActions';
 import TaskCard from './TaskCard';
 import { matchesLabels, type TaskFilter } from '../../lib/taskFilter';
 import { dumpAsTask, opsForDump, opsForTask } from './taskOps';
 import { useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { taskDuration } from '../../lib/drag';
-import type { BrainDumpItem, Project, Task } from '../../lib/types';
+import type { BrainDumpItem, Project, Task, TaskList } from '../../lib/types';
+import ListSwitcher from './ListSwitcher';
+import { useSelectedList } from './uiStore';
+import { useTick } from './timerUi';
 
 // Desktop Brain Dump (decision 009, product flow 2c): the thing you capture IS
 // the task. Typing a thought and pressing Enter creates a Task straight away
@@ -37,6 +43,8 @@ export default function BrainDumpPane({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [dumpItems, setDumpItems] = useState<BrainDumpItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [lists, setLists] = useState<TaskList[]>([]);
+  const selectedRaw = useSelectedList();
   const [captureText, setCaptureText] = useState('');
   const [doneOpen, setDoneOpen] = useState(false);
   const captureRef = useRef<TextInput>(null);
@@ -53,6 +61,7 @@ export default function BrainDumpPane({
     loadTasks().then(setTasks);
     loadBrainDumpItems().then(setDumpItems);
     loadLabels().then(setProjects);
+    loadLists().then(setLists);
   }, []);
 
   useEffect(() => {
@@ -63,19 +72,27 @@ export default function BrainDumpPane({
   // Only the label part of the filter applies here: the list already holds
   // just incomplete tasks, and Done today keeps its own line. A legacy phone
   // item has no label, so it shows with "No label" or with no label filter.
+  // The list shown: a named list, or Brain Dump (the default, and the fallback
+  // when the remembered list was deleted). Legacy phone items live in Brain Dump.
+  const selected = resolveSelectedList(selectedRaw, lists);
+  const counts = useMemo(() => listCounts(tasks, lists), [tasks, lists]);
   const { rows, doneToday } = useMemo(
     () =>
       splitThoughts(
-        tasks.filter((t) => matchesLabels(t, filter)),
-        dumpItems.filter((i) => matchesLabels({}, filter)),
+        tasksInList(tasks, selected, lists).filter((t) => matchesLabels(t, filter)),
+        selected === undefined ? dumpItems.filter((i) => matchesLabels({}, filter)) : [],
         todayKey,
       ),
-    [tasks, dumpItems, todayKey, filter],
+    [tasks, dumpItems, todayKey, filter, selected, lists],
   );
+  // Estimate against actual for what waits in this list (a running timer counts).
+  const now = useTick(30000);
+  const totals = useMemo(() => totalsOf(rows.map((r) => (r.kind === 'task' ? r.task : dumpAsTask(r.item))), now), [rows, now]);
+  const totalsText = formatTotals(totals);
 
   async function handleCapture() {
     if (!captureText.trim()) return;
-    await createThought(captureText);
+    await createTaskIn(captureText, { listKey: selected });
     setCaptureText('');
     onChanged();
     captureRef.current?.focus();
@@ -88,7 +105,14 @@ export default function BrainDumpPane({
 
   return (
     <View ref={paneRef as never} style={[styles.pane, isTarget && styles.paneTarget]}>
-      <Text style={styles.paneLabel}>BRAIN DUMP</Text>
+      <View style={styles.headRow}>
+        <ListSwitcher lists={lists} counts={counts} selected={selected} />
+        {totalsText ? (
+          <Text style={[styles.totals, isOverEstimate(totals) && styles.totalsOver]} accessibilityLabel={`Actual against estimated for this list: ${totalsText}`}>
+            {totalsText}
+          </Text>
+        ) : null}
+      </View>
 
       <View style={styles.captureRow}>
         <TextInput
@@ -115,7 +139,9 @@ export default function BrainDumpPane({
 
       <ScrollView ref={scrollRef('left') as never} style={styles.list} showsVerticalScrollIndicator={false}>
         {rows.length === 0 ? (
-          <Text style={styles.empty}>Nothing waiting. Type above and press Enter; add the details later.</Text>
+          <Text style={styles.empty}>
+            {selected === undefined ? '🧠 Nothing waiting. Type above and press Enter; add the details later.' : '📋 This list is empty. Type above and press Enter to add to it.'}
+          </Text>
         ) : (
           rows.map((row, index) => {
             const id = rowId(row);
@@ -195,6 +221,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
+  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginLeft: -10 },
+  totals: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
+  totalsOver: { color: Colors.accentText, fontWeight: '700' },
   captureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 8 },
   captureInput: {
     flex: 1,

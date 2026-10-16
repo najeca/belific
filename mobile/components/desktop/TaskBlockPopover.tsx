@@ -3,12 +3,13 @@ import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { formatClock } from '../../lib/duration';
+import { formatTaskTime } from '../../lib/taskTotals';
 import { reminderLabel } from '../../lib/reminder';
 import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
 import type { Project, Task } from '../../lib/types';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover } from './Popover';
-import { DurationBody, LabelBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import { ActualBody, DurationBody, LabelBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import StreakLine from './StreakLine';
 import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
 
@@ -16,32 +17,41 @@ import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
 // the block (checkpoint 8.2, never a modal). A menu of the same controls a
 // board card has; each opens the same dropdown contents inside this popover,
 // with a back arrow. Events keep their own editor.
-export const blockPopoverId = (taskId: string) => `block:${taskId}`;
+// `scope` tells two places that draw the same task apart (the Timebox pane, which
+// has none, and the Calendar view, build plan phase 3): each has its own popover
+// id and finds its own block.
+export const blockPopoverId = (taskId: string, scope = '') => `block:${scope}${taskId}`;
 
-export function blockAnchor(taskId: string): () => HTMLElement | null {
-  return () => document.querySelector<HTMLElement>(`[data-block-id="${taskId.replace(/"/g, '')}"]`);
+export function blockAnchor(taskId: string, scope = ''): () => HTMLElement | null {
+  const id = taskId.replace(/"/g, '');
+  return () =>
+    scope
+      ? document.querySelector<HTMLElement>(`[data-cal-block="${scope}${id}"]`)
+      : document.querySelector<HTMLElement>(`[data-block-id="${id}"]`);
 }
 
-export function toggleBlockPopover(taskId: string) {
-  togglePopover(blockPopoverId(taskId), blockAnchor(taskId));
+export function toggleBlockPopover(taskId: string, scope = '') {
+  togglePopover(blockPopoverId(taskId, scope), blockAnchor(taskId, scope));
 }
 
-type View_ = 'root' | 'label' | 'priority' | 'duration' | 'reminder' | 'repeat' | 'more';
+type View_ = 'root' | 'label' | 'priority' | 'duration' | 'actual' | 'reminder' | 'repeat' | 'more';
 
 export default function TaskBlockPopover({
   task,
   label,
   onChanged,
   projected,
+  scope,
 }: {
   task: Task;
   label?: Project;
   onChanged: () => void;
   // A projected occurrence of a repeating series (not stored yet).
   projected?: boolean;
+  scope?: string;
 }) {
   return (
-    <Popover id={blockPopoverId(task.id)} anchor={blockAnchor(task.id)} width={280}>
+    <Popover id={blockPopoverId(task.id, scope)} anchor={blockAnchor(task.id, scope)} width={280}>
       <Inner task={task} label={label} onChanged={onChanged} projected={projected} />
     </Popover>
   );
@@ -74,7 +84,7 @@ function Inner({ task, label, onChanged, projected }: { task: Task; label?: Proj
   }
 
   if (view !== 'root') {
-    const heading = { label: 'Label', priority: 'Priority', duration: 'Duration', reminder: 'Reminder', repeat: 'Repeat', more: 'More' }[view];
+    const heading = { label: 'Label', priority: 'Priority', duration: 'Duration', actual: 'Actual time', reminder: 'Reminder', repeat: 'Repeat', more: 'More' }[view];
     return (
       <View>
         <Pressable onPress={back} style={styles.back} accessibilityRole="button" accessibilityLabel="Back to task options">
@@ -84,6 +94,7 @@ function Inner({ task, label, onChanged, projected }: { task: Task; label?: Proj
         {view === 'label' && <LabelBody task={task} ops={ops} done={back} />}
         {view === 'priority' && <PriorityBody task={task} ops={ops} done={back} />}
         {view === 'duration' && <DurationBody task={task} ops={ops} done={back} />}
+        {view === 'actual' && <ActualBody task={task} ops={ops} done={back} />}
         {view === 'reminder' && <ReminderBody task={task} ops={ops} done={back} />}
         {view === 'repeat' && <RepeatBody task={task} ops={ops} done={back} />}
         {view === 'more' && <OverflowBody task={task} ops={ops} done={() => closePopover()} />}
@@ -125,9 +136,18 @@ function Inner({ task, label, onChanged, projected }: { task: Task; label?: Proj
         onPress={() => setView('duration')}
         a11y="Duration"
       />
+      {!projected && (
+        <Row
+          label="Actual time"
+          sub={formatTaskTime(task, Date.now())}
+          trailing={<Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />}
+          onPress={() => setView('actual')}
+          a11y="Actual time"
+        />
+      )}
       <Row
         label="Label"
-        sub={label?.name ?? 'None'}
+        sub={label ? `${label.emoji ? `${label.emoji} ` : ''}${label.name}` : 'None'}
         trailing={<Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />}
         onPress={() => setView('label')}
         a11y="Label"

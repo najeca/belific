@@ -16,6 +16,11 @@ import { setShowStreaks, setStreaks } from './streakStore';
 import { closePopover, isPopoverOpen } from './Popover';
 import { setHomeActive } from './viewActive';
 import AccountChoiceModal from './AccountChoiceModal';
+import TimerWidget from './TimerWidget';
+import TaskDetailPanel from './TaskDetailPanel';
+import ShortcutHelp from './ShortcutHelp';
+import { useHomeShortcuts } from './useHomeShortcuts';
+import { openOverlay, restoreSelectedList, setChangeNotifier, useOverlay } from './uiStore';
 import { kv } from '../../lib/kv';
 import { isTextEntryTarget } from '../../lib/editable';
 import { dateKey } from '../../lib/kanban';
@@ -173,6 +178,29 @@ export default function DesktopHome() {
     };
   }, [refreshStreaks]);
   const onChanged = useCallback(() => setRefreshKey((k) => k + 1), []);
+  // Modules that are not components (the timer, the commands) ask the panes to
+  // reload through this.
+  useEffect(() => {
+    setChangeNotifier(onChanged);
+    return () => setChangeNotifier(null);
+  }, [onChanged]);
+  // The list the left pane showed last time (local UI state).
+  useEffect(() => {
+    restoreSelectedList();
+  }, []);
+  const overlay = useOverlay();
+  // The keyboard shortcuts of the home screen (lib/shortcuts.ts). Only while the
+  // three panes are the page showing; the registry keeps them out of every field.
+  useHomeShortcuts(view === 'home', {
+    help: () => openOverlay({ kind: 'help' }),
+    // Q: go to the capture box of the left pane.
+    quickCapture: () => {
+      const box = document.querySelector<HTMLElement>('input[aria-label="Capture a thought"]');
+      if (!box) return false;
+      box.focus();
+      return true;
+    },
+  });
   // The filter is UI state, never synced: remembered while the app runs and, in
   // the main process store (kv), across relaunch.
   useEffect(() => {
@@ -204,7 +232,17 @@ export default function DesktopHome() {
             <Text style={styles.backText}>Back</Text>
           </Pressable>
         )}
+        <View style={styles.stripRight}>
+          <Pressable
+            onPress={() => openOverlay({ kind: 'help' })}
+            style={styles.keysBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Keyboard shortcuts"
+          >
+            <Text style={styles.keysText}>⌨️</Text>
+          </Pressable>
         <ProfileMenu onOpenSettings={() => showView('settings')} onOpenProgress={() => showView('progress')} onOpenSignIn={() => showView('signin')} />
+        </View>
       </View>
       <View ref={panes} style={[styles.body, view !== 'home' && styles.hidden]} accessibilityElementsHidden={view !== 'home'}>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -221,6 +259,9 @@ export default function DesktopHome() {
       {view === 'labels' && <LabelsPage onChanged={onChanged} />}
       {view === 'progress' && <ProgressPage />}
       {view === 'signin' && <SignInPage onDone={goBack} />}
+      {view === 'home' && <TaskDetailPanel refreshKey={refreshKey} />}
+      {view === 'home' && overlay?.kind === 'help' && <ShortcutHelp />}
+      <TimerWidget refreshKey={refreshKey} />
       <AccountChoiceModal />
     </View>
     </DragProvider>
@@ -255,6 +296,9 @@ function focusOpener(o: Opener): void {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   strip: { height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8 },
+  stripRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  keysBtn: { width: 32, height: 32, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  keysText: { fontSize: 14 },
   wordmark: { fontSize: 12, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary, textTransform: 'uppercase' },
   back: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   backText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },

@@ -12,12 +12,17 @@ import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { isEditableTarget } from '../../lib/editable';
 import { cardKeyAction } from '../../lib/cardKeys';
+import { shortcutFor } from '../../lib/shortcuts';
+import { isTimerRunning, shownMinutes } from '../../lib/taskTimer';
+import { duplicateTaskById } from '../../lib/taskCommands';
 import { ensureFocusRingStyle } from './focusRing';
 import HoverPressable from './HoverPressable';
-import Popover, { togglePopover, useIsOpen, usePopoverAnchor, closePopover } from './Popover';
+import Popover, { togglePopover, useIsOpen, usePopoverAnchor, closePopover, isPopoverOpen } from './Popover';
 import StreakLine from './StreakLine';
-import { DurationBody, LabelBody, MoveToDayBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import { ActualBody, DurationBody, LabelBody, MoveToDayBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import type { TaskOps } from './taskOps';
+import { notifyChanged, openDetail } from './uiStore';
+import { toggleTimer, useNow } from './timerUi';
 
 // A task on the board or in the left list (checkpoint 8.2, decision 021). Every
 // edit happens on the card: the title renames in place, each small icon opens a
@@ -58,6 +63,8 @@ export default function TaskCard({
   projected?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // Ctrl+Delete opens the More menu already asking "Delete? Yes / No".
+  const [deleteArmed, setDeleteArmed] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(task.title);
   const cancelled = useRef(false);
@@ -87,6 +94,7 @@ export default function TaskCard({
   };
 
   const id = task.id;
+  const running = isTimerRunning(task);
   const clock = formatClock(task.durationMinutes);
   const placed = !!task.dueDate && !!task.startTime;
   const bell = reminderState(task.reminderMinutes);
@@ -112,6 +120,65 @@ export default function TaskCard({
   expandedRef.current = expanded;
   const cleanupKeys = useRef<(() => void) | null>(null);
   const cardEl = useRef<HTMLElement | null>(null);
+  // The latest task, ops and flags for the key handler, which is attached once.
+  const live = useRef({ task, wrapped: null as TaskOps | null, projected: !!projected });
+  live.current.task = task;
+  live.current.wrapped = wrapped;
+  live.current.projected = !!projected;
+  const runCardShortcut = (sc: ReturnType<typeof shortcutFor>, el: HTMLElement): boolean => {
+    const { task: t, wrapped: w, projected: proj } = live.current;
+    const click = (ctl: string) => {
+      const b = el.querySelector<HTMLElement>(`[data-ctl="${ctl}"]`);
+      if (!b) return false;
+      b.click();
+      return true;
+    };
+    switch (sc) {
+      case 'complete':
+        w?.setCompleted(!t.completed);
+        return true;
+      case 'toggleSubtasks':
+        setExpanded((x) => !x);
+        return true;
+      case 'newSubtask':
+        setExpanded(true);
+        setTimeout(() => el.querySelector<HTMLElement>('input[aria-label^="Add subtask"]')?.focus(), 0);
+        return true;
+      case 'openDetails':
+        if (proj) return false;
+        openDetail(t.id);
+        return true;
+      case 'editEstimate':
+        return click('duration');
+      case 'editActual':
+        return proj ? false : click('actual');
+      case 'selectLabel':
+        return click('label');
+      case 'toggleTimer':
+        if (proj) return false;
+        toggleTimer(t);
+        return true;
+      case 'duplicateTask':
+        if (proj || t.id.startsWith('dump:')) return false;
+        duplicateTaskById(t.id).then(() => notifyChanged());
+        return true;
+      case 'deleteTask':
+        setDeleteArmed(true);
+        return click('more');
+      case 'nextTask':
+      case 'prevTask': {
+        const all = Array.from(document.querySelectorAll<HTMLElement>('[data-card-focus]')).filter((n) => n.offsetParent !== null);
+        const at = all.indexOf(el);
+        const next = all[at + (sc === 'nextTask' ? 1 : -1)];
+        if (!next) return true;
+        next.focus({ preventScroll: true });
+        next.scrollIntoView({ block: 'nearest' });
+        return true;
+      }
+      default:
+        return false;
+    }
+  };
   const setNode = useCallback(
     (node: unknown) => {
       nodeRef?.(node);
@@ -131,10 +198,22 @@ export default function TaskCard({
           expanded: expandedRef.current,
           modified: e.ctrlKey || e.metaKey || e.altKey || e.shiftKey,
         });
-        if (!action) return;
-        e.preventDefault();
-        e.stopPropagation();
-        setExpanded(action === 'toggle' ? !expandedRef.current : false);
+        if (action) {
+          e.preventDefault();
+          e.stopPropagation();
+          setExpanded(action === 'toggle' ? !expandedRef.current : false);
+          return;
+        }
+        // The shortcut registry (lib/shortcuts.ts): never while typing, never
+        // while a popover is open, never a held key (except the arrows).
+        if (e.repeat && !e.key.startsWith('Arrow')) return;
+        const sc = shortcutFor(e, { typing: isEditableTarget(e.target), blocked: isPopoverOpen(), scope: 'card' });
+        if (!sc) return;
+        const handled = runCardShortcut(sc, el);
+        if (handled) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
       };
       el.addEventListener('keydown', onKey);
       cleanupKeys.current = () => el.removeEventListener('keydown', onKey);
@@ -211,29 +290,30 @@ export default function TaskCard({
                   style={[styles.title, task.completed && styles.titleDone, !task.completed && task.priority === 'low' && styles.titleLow]}
                   accessibilityLabel={`Title ${task.title}`}
                 >
+                  {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
               )}
               {/* Both icons are always laid out and only fade in on hover, so nothing
                   in the card moves when the pointer arrives or leaves. */}
-              <HeaderIcon id={`${id}:day`} icon="calendar-outline" a11y={`Move ${task.title} to day`} shown={!renaming && !projected && (hovered || dayOpen)}>
+              <HeaderIcon id={`${id}:day`} glyph="📅" a11y={`Move ${task.title} to day`} shown={!renaming && !projected && (hovered || dayOpen)}>
                   {(anchor) => (
                     <Popover id={`${id}:day`} anchor={anchor} width={248}>
                       <MoveToDayBody task={task} ops={wrapped} done={() => closePopover(true)} />
                     </Popover>
                   )}
                 </HeaderIcon>
-              <HeaderIcon id={`${id}:more`} icon="ellipsis-horizontal" a11y={`More actions for ${task.title}`} shown={!renaming && (hovered || moreOpen)}>
+              <HeaderIcon id={`${id}:more`} ctl="more" icon="ellipsis-horizontal" a11y={`More actions for ${task.title}`} shown={!renaming && (hovered || moreOpen || deleteArmed)}>
                   {(anchor) => (
                     <Popover id={`${id}:more`} anchor={anchor} width={236}>
-                      <OverflowBody task={task} ops={wrapped} done={() => closePopover()} />
+                      <OverflowBody task={task} ops={wrapped} armed={deleteArmed} done={() => closePopover()} />
                     </Popover>
                   )}
                 </HeaderIcon>
               {/* The start time of a placed task sits beside the chip as its own small
                   muted text, so "15:00" and "0:15" are never read as one value. */}
               {placed && <Text style={styles.startTime}>{task.startTime}</Text>}
-              <Control id={`${id}:duration`} a11y={`Duration of ${task.title}: ${clock}${placed ? `, starts ${task.startTime}` : ''}`} style={styles.chip}>
+              <Control id={`${id}:duration`} ctl="duration" a11y={`Duration of ${task.title}: ${clock}${placed ? `, starts ${task.startTime}` : ''}`} style={styles.chip}>
                 {(anchor) => (
                   <>
                     <Text style={[styles.chipText, task.durationMinutes === undefined && styles.chipTextMuted]}>{clock}</Text>
@@ -247,6 +327,7 @@ export default function TaskCard({
             {overdueFrom && <Text style={styles.from}>from {formatShortDate(overdueFrom)}</Text>}
             <StreakLine task={task} />
 
+            {running && !projected && <Text style={styles.timerActive}>⏱️ Timer active</Text>}
             <View style={styles.controls}>
               <Pressable
                 onPress={() => wrapped.setCompleted(!task.completed)}
@@ -264,7 +345,7 @@ export default function TaskCard({
               <Control id={`${id}:repeat`} a11y={task.recurrence ? `Repeat: ${repeatText}` : 'Repeat'} style={styles.icon}>
                 {(anchor) => (
                   <>
-                    <Ionicons name="repeat" size={16} color={task.recurrence ? Colors.accentText : Colors.textSecondary} />
+                    <Glyph char="🔁" on={!!task.recurrence} />
                     <Popover id={`${id}:repeat`} anchor={anchor} width={300}>
                       <RepeatBody task={task} ops={wrapped} done={() => closePopover(true)} />
                     </Popover>
@@ -278,18 +359,14 @@ export default function TaskCard({
                 accessibilityRole="button"
                 accessibilityLabel={`Subtasks ${subCount}`}
               >
-                <Ionicons name="checkbox-outline" size={15} color={task.subtasks && task.subtasks.length > 0 ? Colors.accentText : Colors.textSecondary} />
+                <Glyph char="☑️" on={!!task.subtasks && task.subtasks.length > 0} />
                 <Text style={styles.counter}>{subCount}</Text>
               </Pressable>
 
               <Control id={`${id}:priority`} a11y={`Priority: ${task.priority ?? 'normal'}`} style={styles.icon}>
                 {(anchor) => (
                   <>
-                    <Ionicons
-                      name={task.priority ? 'flag' : 'flag-outline'}
-                      size={15}
-                      color={task.priority === 'high' ? Colors.accentText : Colors.textSecondary}
-                    />
+                    <Glyph char={task.priority === 'low' ? '🔽' : task.priority === 'high' ? '🚩' : '🏳️'} on={!!task.priority} />
                     <Popover id={`${id}:priority`} anchor={anchor} width={220}>
                       <PriorityBody task={task} ops={wrapped} done={() => closePopover(true)} />
                     </Popover>
@@ -300,11 +377,7 @@ export default function TaskCard({
               <Control id={`${id}:reminder`} a11y={`Reminder: ${bell === 'default' ? 'default' : bell === 'off' ? 'off' : 'set'}`} style={styles.icon}>
                 {(anchor) => (
                   <>
-                    <Ionicons
-                      name={bell === 'off' ? 'notifications-off-outline' : bell === 'set' ? 'notifications' : 'notifications-outline'}
-                      size={15}
-                      color={bell === 'set' ? Colors.accentText : Colors.textSecondary}
-                    />
+                    <Glyph char={bell === 'off' ? '🔕' : '🔔'} on={bell === 'set'} />
                     <Popover id={`${id}:reminder`} anchor={anchor} width={240}>
                       <ReminderBody task={task} ops={wrapped} done={() => closePopover(true)} />
                     </Popover>
@@ -312,14 +385,38 @@ export default function TaskCard({
                 )}
               </Control>
 
+              {!projected && (
+                <>
+                  <Pressable
+                    onPress={() => toggleTimer(task)}
+                    style={styles.icon}
+                    accessibilityRole="button"
+                    accessibilityLabel={running ? `Stop timer for ${task.title}` : `Start timer for ${task.title}`}
+                    {...({ dataSet: { ctl: 'timer' } } as object)}
+                  >
+                    <Ionicons name={running ? 'pause' : 'play'} size={14} color={running ? Colors.accentText : Colors.textSecondary} />
+                  </Pressable>
+                  <Control id={`${id}:actual`} ctl="actual" a11y={`Actual time of ${task.title}`} style={styles.actualBtn}>
+                    {(anchor) => (
+                      <>
+                        <ActualText task={task} />
+                        <Popover id={`${id}:actual`} anchor={anchor} width={272}>
+                          <ActualBody task={task} ops={wrapped} done={() => closePopover(true)} />
+                        </Popover>
+                      </>
+                    )}
+                  </Control>
+                </>
+              )}
+
               <View style={{ flex: 1 }} />
 
-              <Control id={`${id}:label`} a11y={label ? `Label: ${label.name}` : 'Select label'} style={styles.labelBtn}>
+              <Control id={`${id}:label`} ctl="label" a11y={label ? `Label: ${label.name}` : 'Select label'} style={styles.labelBtn}>
                 {(anchor) => (
                   <>
                     {label ? (
                       <>
-                        <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.border }]} />
+                        {label.emoji ? <Text style={styles.labelEmoji}>{label.emoji}</Text> : <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.border }]} />}
                         <Text style={styles.labelText} numberOfLines={1}>
                           {label.name}
                         </Text>
@@ -350,12 +447,17 @@ export default function TaskCard({
 function HeaderIcon({
   id,
   icon,
+  glyph,
+  ctl,
   a11y,
   shown,
   children,
 }: {
   id: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
+  // An emoji, when there is a natural one (build plan section 0, item 9).
+  glyph?: string;
+  ctl?: string;
   a11y: string;
   // Visible and pressable (on hover or while its popover is open); otherwise
   // it still takes its space but is transparent, inert and out of the tab order.
@@ -372,8 +474,9 @@ function HeaderIcon({
         focusable={shown}
         accessibilityRole="button"
         accessibilityLabel={a11y}
+        {...(ctl ? ({ dataSet: { ctl } } as object) : {})}
       >
-        <Ionicons name={icon} size={15} color={Colors.textSecondary} />
+        {glyph ? <Text style={styles.glyph}>{glyph}</Text> : <Ionicons name={icon ?? 'ellipsis-horizontal'} size={15} color={Colors.textSecondary} />}
       </Pressable>
       {children(get)}
     </>
@@ -385,11 +488,14 @@ function Control({
   id,
   a11y,
   style,
+  ctl,
   children,
 }: {
   id: string;
   a11y: string;
   style: object;
+  // Lets the card's keyboard shortcuts find this control.
+  ctl?: string;
   children: (anchor: () => HTMLElement | null) => React.ReactNode;
 }) {
   const { ref, get } = usePopoverAnchor();
@@ -402,10 +508,30 @@ function Control({
       accessibilityRole="button"
       accessibilityState={{ expanded: open }}
       accessibilityLabel={a11y}
+      {...(ctl ? ({ dataSet: { ctl } } as object) : {})}
     >
       {children(get)}
     </Pressable>
   );
+}
+
+// A small emoji standing in for an icon: full strength when it carries a value,
+// quiet otherwise. Decoration only (the control has its own accessible name).
+function Glyph({ char, on }: { char: string; on: boolean }) {
+  return (
+    <Text style={[styles.glyph, !on && styles.glyphQuiet]} accessible={false}>
+      {char}
+    </Text>
+  );
+}
+
+// The actual time on the card: stored minutes, plus the live run while the
+// timer is going (this child ticks once a second, the card does not).
+function ActualText({ task }: { task: Task }) {
+  const running = isTimerRunning(task);
+  const now = useNow(running);
+  const minutes = shownMinutes(task, now);
+  return <Text style={[styles.actualText, minutes === 0 && !running && styles.actualMuted, running && styles.actualRunning]}>{formatClock(minutes)}</Text>;
 }
 
 // ---- expanded in place: notes and subtasks ----
@@ -662,8 +788,16 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 11, fontWeight: '500', color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
   startTime: { fontSize: 11, lineHeight: 22, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   chipTextMuted: { color: Colors.textSecondary },
+  glyph: { fontSize: 14, lineHeight: 18 },
+  glyphQuiet: { opacity: 0.45 },
+  labelEmoji: { fontSize: 13 },
+  timerActive: { fontSize: 11, fontWeight: '600', color: Colors.accentText },
+  actualBtn: { paddingHorizontal: 5, height: 24, borderRadius: 8, justifyContent: 'center' },
+  actualText: { fontSize: 11, color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
+  actualMuted: { color: Colors.textSecondary },
+  actualRunning: { color: Colors.accentText, fontWeight: '700' },
   from: { fontSize: 12, color: Colors.textSecondary },
-  controls: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 28 },
+  controls: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 2, minHeight: 28 },
   icon: { width: 24, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8, flexDirection: 'row' },
   iconWithText: { height: 28, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', borderRadius: 8, flexDirection: 'row', gap: 3 },
   counter: { fontSize: 11, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },

@@ -1,6 +1,7 @@
 import { addProject, deleteProject, loadTasks, patchProjects, updateProject, updateTask } from './storage';
 import { assignMissingColors, nextColorKey } from './labelColors';
 import { deletedLabelTarget, findLabelByName, renameProblem } from './labelRules';
+import { firstEmoji } from './emoji';
 import type { Project } from './types';
 
 // Desktop only (imported only from components/desktop, so never by the
@@ -20,10 +21,27 @@ export async function setLabelColor(key: string, colorKey: string): Promise<void
   await patchProjects((raw) => raw.map((p) => (p.key === key ? { ...p, colorKey } : p)), { stamp: true });
 }
 
+// Sets or clears a label's emoji (a real, synced edit, build plan phase 2). Text
+// with no emoji in it clears it.
+export async function setLabelEmoji(key: string, emojiText: string | undefined): Promise<void> {
+  const emoji = firstEmoji(emojiText);
+  await patchProjects(
+    (raw) =>
+      raw.map((p) => {
+        if (p.key !== key) return p;
+        const next = { ...p };
+        if (emoji) next.emoji = emoji;
+        else delete next.emoji;
+        return next;
+      }),
+    { stamp: true },
+  );
+}
+
 // Creates a label, or returns the existing one with the same name (trimmed,
 // case insensitive) so a name never exists twice. A new label takes the next
 // unused palette colour.
-export async function createLabel(name: string): Promise<{ label: Project; created: boolean } | null> {
+export async function createLabel(name: string, emojiText?: string): Promise<{ label: Project; created: boolean } | null> {
   const trimmed = name.trim();
   if (!trimmed) return null;
   const labels = await loadLabels();
@@ -37,6 +55,8 @@ export async function createLabel(name: string): Promise<{ label: Project; creat
     updatedAt: now,
     colorKey: nextColorKey(labels),
   };
+  const emoji = firstEmoji(emojiText);
+  if (emoji) label.emoji = emoji;
   await addProject(label);
   return { label, created: true };
 }

@@ -28,8 +28,16 @@ import {
   type RepeatKind,
 } from '../../lib/repeat';
 import { loadTasks } from '../../lib/storage';
+import { setLabelEmoji } from '../../lib/labels';
+import { duplicateTaskById } from '../../lib/taskCommands';
+import { setActualFor } from '../../lib/timerActions';
+import { formatTaskTime } from '../../lib/taskTotals';
+import { isTimerRunning } from '../../lib/taskTimer';
 import type { EventPriority, Project, Task, WeekDay } from '../../lib/types';
+import EmojiField from './EmojiField';
 import HoverPressable from './HoverPressable';
+import { notifyChanged, openDetail } from './uiStore';
+import { toggleTimer, useNow } from './timerUi';
 import { PopoverHeading, Row, popoverStyles } from './Popover';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import type { TaskOps } from './taskOps';
@@ -115,7 +123,7 @@ export function DurationBody({ task, ops, done }: BodyProps) {
         <input
           type="text"
           value={text}
-          placeholder="45m, 1h 30m, 130..."
+          placeholder="Custom: 45m, 1h 30m, 130..."
           aria-label="Duration"
           aria-invalid={invalid}
           autoComplete="off"
@@ -148,6 +156,77 @@ export function DurationBody({ task, ops, done }: BodyProps) {
             ops.patch({ startTime: undefined });
             done();
           }}
+        />
+      )}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------- Actual time
+// Time actually spent (build plan phase 2): type it (45m, 1h 30m, 130), clear
+// it, or start and stop the task's timer. A missing actual is 0. Whole minutes.
+export function ActualBody({ task, ops, done }: BodyProps) {
+  const [text, setText] = useState('');
+  const [invalid, setInvalid] = useState(false);
+  const running = isTimerRunning(task);
+  const now = useNow(running);
+  const submit = async () => {
+    const minutes = parseDuration(text);
+    if (minutes === null) {
+      setInvalid(true);
+      return;
+    }
+    // patchTask reads the latest task; setActualFor validates the number.
+    if (await setActualFor(task.id, minutes)) {
+      notifyChanged();
+      done();
+    } else setInvalid(true);
+  };
+  return (
+    <View style={styles.list}>
+      <Text style={styles.hint} accessibilityLabel="Time so far">
+        {formatTaskTime(task, now)} (actual / estimated)
+      </Text>
+      <div style={{ padding: '4px 10px' }}>
+        <input
+          type="text"
+          value={text}
+          placeholder="Actual time: 45m, 1h 30m, 130..."
+          aria-label="Actual time"
+          aria-invalid={invalid}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => {
+            setText(e.target.value);
+            setInvalid(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          style={{ ...domInputStyle, width: '100%', boxSizing: 'border-box' }}
+        />
+      </div>
+      {invalid && <Text style={styles.hint}>Not a time. Try 45m, 1h 30m or 130 (minutes).</Text>}
+      <Row
+        label={running ? 'Stop the timer' : 'Start the timer'}
+        sub={running ? 'Adds the time so far' : 'Stops any other timer first'}
+        onPress={async () => {
+          await toggleTimer(task);
+          done();
+        }}
+        a11y={running ? 'Stop the timer' : 'Start the timer'}
+      />
+      {(task.actualMinutes ?? 0) > 0 && (
+        <Row
+          label="Clear actual time"
+          onPress={async () => {
+            await ops.patch({ actualMinutes: undefined });
+            done();
+          }}
+          a11y="Clear actual time"
         />
       )}
     </View>
@@ -427,6 +506,15 @@ export function LabelBody({ task, ops, done }: BodyProps) {
                 accessibilityLabel={`Rename ${l.name}`}
                 autoFocus
               />
+              <EmojiField
+                label={`Emoji for ${l.name}`}
+                value={l.emoji}
+                onChange={async (emoji) => {
+                  setLabels((prev) => prev.map((p) => (p.key === l.key ? { ...p, emoji } : p)));
+                  await setLabelEmoji(l.key, emoji);
+                  notifyChanged();
+                }}
+              />
               <View style={styles.swatches}>
                 {LABEL_COLORS.map((c) => {
                   const on = l.colorKey === c.key;
@@ -492,7 +580,7 @@ export function LabelBody({ task, ops, done }: BodyProps) {
           >
             {(hovered) => (
               <>
-                <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.border }]} />
+                {l.emoji ? <Text style={styles.labelEmoji}>{l.emoji}</Text> : <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.border }]} />}
                 <Text style={[styles.labelName, task.projectKey === l.key && styles.labelNameOn]} numberOfLines={1}>
                   {l.name}
                 </Text>
@@ -554,8 +642,13 @@ export function OverflowBody({
   task,
   ops,
   done,
-}: Pick<BodyProps, 'ops' | 'done'> & { task?: Pick<Task, 'dueDate' | 'completed'> }) {
-  const [confirming, setConfirming] = useState(false);
+  armed,
+}: Pick<BodyProps, 'ops' | 'done'> & {
+  task?: Pick<Task, 'id' | 'dueDate' | 'completed'>;
+  // Opened by Ctrl+Delete: start at the "Delete? Yes / No" question.
+  armed?: boolean;
+}) {
+  const [confirming, setConfirming] = useState(!!armed);
   const series = ops.series;
   // A repeating task (stored or projected): skip one day, or delete the series.
   if (series) {
@@ -618,7 +711,30 @@ export function OverflowBody({
           </Pressable>
         </View>
       ) : (
-        <Row label="Delete task" danger onPress={() => setConfirming(true)} a11y="Delete task" />
+        <>
+          {task?.id && !task.id.startsWith('dump:') && (
+            <>
+              <Row
+                label="Open details"
+                onPress={() => {
+                  openDetail(task.id);
+                  done();
+                }}
+                a11y="Open details"
+              />
+              <Row
+                label="Duplicate task"
+                onPress={async () => {
+                  await duplicateTaskById(task.id);
+                  notifyChanged();
+                  done();
+                }}
+                a11y="Duplicate task"
+              />
+            </>
+          )}
+          <Row label="Delete task" danger onPress={() => setConfirming(true)} a11y="Delete task" />
+        </>
       )}
     </View>
   );
@@ -678,6 +794,7 @@ const styles = StyleSheet.create({
   labelRowHover: { backgroundColor: Colors.background },
   dot: { width: 10, height: 10, borderRadius: 5 },
   labelName: { flex: 1, fontSize: 14, color: Colors.textPrimary },
+  labelEmoji: { fontSize: 14, width: 10, textAlign: 'center' },
   labelNameOn: { fontWeight: '700', color: Colors.accentText },
   editIcon: { padding: 4 },
   editBox: { padding: 10, gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.border },

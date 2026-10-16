@@ -8,8 +8,10 @@
 export const MIN_DURATION = 1;
 export const MAX_DURATION = 24 * 60;
 
-// The dropdown's preset list, in order.
-export const DURATION_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240];
+// The dropdown's preset list, in order (build plan phase 2: 5m, 10m, 15m, 30m,
+// 45m, 1h, 1.5h, 2h; "custom" is the typed field above the list). Anything
+// stored earlier (20 min, 3h, 4h, 7...) still loads and displays as it is.
+export const DURATION_PRESETS = [5, 10, 15, 30, 45, 60, 90, 120];
 
 function wholeMinutes(minutes?: number): number | undefined {
   if (minutes === undefined || minutes === null || !Number.isFinite(minutes) || minutes <= 0) return undefined;

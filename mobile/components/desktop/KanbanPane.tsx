@@ -24,6 +24,8 @@ import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { stepWeekStart, taskDuration } from '../../lib/drag';
 import { loadTasksRaw } from '../../lib/storage';
+import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
+import { useTick } from './timerUi';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
@@ -53,6 +55,23 @@ const domTimeStyle: React.CSSProperties = {
   fontFamily: DESKTOP_FONT_FAMILY,
   outlineColor: Colors.accent,
 };
+// "0:25 / 1:30" under a day's title: actual against estimated (build plan
+// phase 2). Nothing planned and nothing spent shows nothing.
+function DayTotals({ items, now }: { items: Task[]; now: number }) {
+  const totals = totalsOf(items, now);
+  const text = formatTotals(totals);
+  if (!text) return null;
+  return (
+    <Text style={[dayTotalsStyles.text, isOverEstimate(totals) && dayTotalsStyles.over]} accessibilityLabel={`Actual against estimated for the day: ${text}`}>
+      {text}
+    </Text>
+  );
+}
+const dayTotalsStyles = StyleSheet.create({
+  text: { fontSize: 11, color: Colors.textSecondary, fontVariant: ['tabular-nums'], marginRight: 6 },
+  over: { color: Colors.accentText, fontWeight: '700' },
+});
+
 const COLUMN_WIDTH = 256;
 const NAV_SIZE = 44;
 
@@ -111,6 +130,8 @@ export default function KanbanPane({
   );
   const columns = useMemo(() => bucketTasks(shownTasks, days, todayKey, { projected }), [shownTasks, days, todayKey, projected]);
   const weekLabel = formatWeekLabel(days, new Date().getFullYear());
+  // Estimate against actual per day (a running timer counts), refreshed slowly.
+  const now = useTick(30000);
 
   // The drag layer asks for the latest week through these.
   const weekRef = useRef({ shownWeekStart, currentWeekStart, atCurrentWeek });
@@ -179,6 +200,7 @@ export default function KanbanPane({
               <Text style={[styles.columnTitle, col.isToday && styles.columnTitleToday]} numberOfLines={1}>
                 {col.title}
               </Text>
+              <DayTotals items={col.items.map((i) => i.task)} now={now} />
               <Text style={styles.count}>{col.items.length > 0 ? col.items.length : ''}</Text>
             </View>
 
@@ -221,7 +243,7 @@ export default function KanbanPane({
 
   return (
     <View style={styles.pane}>
-      <Text style={styles.paneLabel}>WEEK</Text>
+      <Text style={styles.paneLabel}>🗓️ WEEK</Text>
 
       <View style={styles.weekNav}>
         <Pressable

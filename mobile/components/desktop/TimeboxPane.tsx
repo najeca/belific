@@ -239,7 +239,7 @@ export default function TimeboxPane({
 
   return (
     <View style={styles.pane}>
-      <Text style={styles.paneLabel}>TIMEBOX</Text>
+      <Text style={styles.paneLabel}>🕐 TIMEBOX</Text>
 
       <View style={styles.nav}>
         <Pressable onPress={() => go(-1)} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Previous day">

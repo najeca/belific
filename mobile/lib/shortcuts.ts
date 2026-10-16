@@ -61,7 +61,7 @@ export interface ShortcutDef {
 // Phase 2: the task keys, the arrows between cards, help, and one way to add.
 export const PHASE2_SHORTCUTS: ShortcutDef[] = [
   { id: 'help', keys: 'Shift+/', label: 'Show keyboard shortcuts', group: 'General', scope: 'home' },
-  { id: 'quickCapture', keys: 'Q', label: 'Add a task (go to the capture box)', group: 'General', scope: 'home' },
+  { id: 'quickCapture', keys: 'Q', label: 'Quick capture into the current list', group: 'General', scope: 'home' },
 
   { id: 'nextTask', keys: 'Down', label: 'Next task', group: 'Navigation', scope: 'card' },
   { id: 'prevTask', keys: 'Up', label: 'Previous task', group: 'Navigation', scope: 'card' },
@@ -78,7 +78,21 @@ export const PHASE2_SHORTCUTS: ShortcutDef[] = [
   { id: 'deleteTask', keys: 'Ctrl+Delete', label: 'Delete the task', group: 'Task', scope: 'card' },
 ];
 
-export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS];
+// Phase 3: search, capture for today, the layout and the Calendar views.
+export const PHASE3_SHORTCUTS: ShortcutDef[] = [
+  { id: 'search', keys: 'Ctrl+K', label: 'Search tasks', group: 'General', scope: 'home' },
+  { id: 'newTaskToday', keys: 'T', label: 'Quick capture a task for today', group: 'General', scope: 'home' },
+  { id: 'onlyToday', keys: 'Shift+F', label: 'Show only today', group: 'General', scope: 'home' },
+  { id: 'toggleLeftPane', keys: '[', label: 'Hide or show the left pane', group: 'General', scope: 'home' },
+  { id: 'toggleRightPane', keys: ']', label: 'Hide or show the right pane', group: 'General', scope: 'home' },
+
+  { id: 'toggleCenter', keys: 'V', label: 'Switch between Kanban and Calendar', group: 'Navigation', scope: 'home' },
+  { id: 'dayView', keys: 'D', label: 'Calendar day view', group: 'Navigation', scope: 'home' },
+  { id: 'weekView', keys: 'W', label: 'Calendar week view', group: 'Navigation', scope: 'home' },
+  { id: 'monthView', keys: 'M', label: 'Calendar month view', group: 'Navigation', scope: 'home' },
+];
+
+export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS];
 
 // ---- matching ----
 

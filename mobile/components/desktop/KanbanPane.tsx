@@ -26,6 +26,7 @@ import { stepWeekStart, taskDuration } from '../../lib/drag';
 import { loadTasksRaw } from '../../lib/storage';
 import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
 import { useTick } from './timerUi';
+import { useReveal } from './uiStore';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
@@ -87,11 +88,15 @@ export default function KanbanPane({
   onChanged,
   filter,
   onFilterChange,
+  onlyToday,
 }: {
   refreshKey: number;
   onChanged: () => void;
   filter: TaskFilter;
   onFilterChange: (next: TaskFilter) => void;
+  // "Show only today" (Shift+F, build plan phase 3): this week's board shows
+  // just today's column.
+  onlyToday?: boolean;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -116,9 +121,19 @@ export default function KanbanPane({
   const todayKey = dateKey(new Date());
   const currentWeekStart = weekStartOf(parseDateKey(todayKey));
   // Never earlier than this week, even if the app stays open past Sunday.
-  const shownWeekStart = weekStart.getTime() < currentWeekStart.getTime() ? currentWeekStart : weekStart;
+  const shownWeekStart = onlyToday || weekStart.getTime() < currentWeekStart.getTime() ? currentWeekStart : weekStart;
   const atCurrentWeek = shownWeekStart.getTime() === currentWeekStart.getTime();
-  const days = useMemo(() => weekDays(shownWeekStart, todayKey), [shownWeekStart.getTime(), todayKey]);
+  const weekAll = useMemo(() => weekDays(shownWeekStart, todayKey), [shownWeekStart.getTime(), todayKey]);
+  const days = useMemo(() => (onlyToday ? weekAll.filter((d) => d.key === todayKey) : weekAll), [weekAll, onlyToday, todayKey]);
+  // Search results ask the board to show the week of a task (never before this week).
+  const reveal = useReveal();
+  useEffect(() => {
+    if (!reveal || !isDateKey(reveal.dueDate)) return;
+    const target = weekStartOf(parseDateKey(reveal.dueDate));
+    setJumpOpen(false);
+    setWeekStart(target.getTime() < currentWeekStart.getTime() ? currentWeekStart : target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal?.nonce]);
   // The filter (labels, no label, show complete) applies to tasks only.
   const shownTasks = useMemo(() => filterTasks(tasks, filter), [tasks, filter]);
   // Repeating series show on every matching day from today forward without
@@ -129,7 +144,7 @@ export default function KanbanPane({
     [tasks, days, todayKey, filter],
   );
   const columns = useMemo(() => bucketTasks(shownTasks, days, todayKey, { projected }), [shownTasks, days, todayKey, projected]);
-  const weekLabel = formatWeekLabel(days, new Date().getFullYear());
+  const weekLabel = onlyToday ? 'Today' : formatWeekLabel(days, new Date().getFullYear());
   // Estimate against actual per day (a running timer counts), refreshed slowly.
   const now = useTick(30000);
 
@@ -269,7 +284,8 @@ export default function KanbanPane({
         </Pressable>
         <Pressable
           onPress={() => changeWeek(1)}
-          style={styles.navBtn}
+          disabled={onlyToday}
+          style={[styles.navBtn, onlyToday && styles.navBtnDisabled]}
           accessibilityRole="button"
           accessibilityLabel="Next week"
         >

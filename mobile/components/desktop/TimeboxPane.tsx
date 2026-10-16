@@ -32,6 +32,8 @@ import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
 import usePaneScroll from './usePaneScroll';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { formatDuration } from '../../lib/duration';
+import { minutesOfDay, nowLineTop } from '../../lib/calendarView';
+import { useTick } from './timerUi';
 import { slotLabel, taskDuration, yToMinutes } from '../../lib/drag';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
@@ -83,12 +85,20 @@ export default function TimeboxPane({
   refreshKey,
   onChanged,
   filter,
+  onlyToday,
 }: {
   refreshKey: number;
   onChanged: () => void;
   filter: TaskFilter;
+  // "Show only today" (build plan phase 3): the Timebox goes to today.
+  onlyToday?: boolean;
 }) {
   const [day, setDay] = useState(() => parseDateKey(dateKey(new Date())));
+  // The line at the current time moves with this clock (build plan phase 3).
+  const nowTick = useTick(30000);
+  useEffect(() => {
+    if (onlyToday) setDay(parseDateKey(dateKey(new Date())));
+  }, [onlyToday]);
   const [events, setEvents] = useState<CustomEvent[]>([]);
   const [categories, setCategories] = useState<CustomCategory[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -450,6 +460,16 @@ export default function TimeboxPane({
                 </View>
               );
             })}
+            {key === dateKey(new Date(nowTick)) && (
+              <View
+                pointerEvents="none"
+                style={[styles.nowLine, { top: nowLineTop(minutesOfDay(new Date(nowTick))) }]}
+                accessibilityLabel="Current time"
+                {...({ dataSet: { nowLine: '1' } } as object)}
+              >
+                <View style={styles.nowDot} />
+              </View>
+            )}
             {drag?.mode === 'move' && drag.accepted && drag.target?.kind === 'slot' && drag.target.dayKey === key && (
               <View
                 pointerEvents="none"
@@ -671,6 +691,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   blocks: { position: 'absolute', top: 0, bottom: 0, left: GUTTER, right: 0 },
+  nowLine: { position: 'absolute', left: 0, right: 0, height: 2, backgroundColor: Colors.accentText },
+  nowDot: { position: 'absolute', left: -4, top: -3, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.accentText },
   blockWrap: { position: 'absolute', paddingRight: 2, paddingBottom: 1 },
   blockBase: { flex: 1, borderRadius: 8, backgroundColor: Colors.surface, overflow: 'hidden' },
   block: { flex: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },

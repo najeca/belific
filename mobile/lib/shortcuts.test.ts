@@ -39,6 +39,45 @@ test('nothing fires while a popover or overlay owns the keyboard', () => {
   }
 });
 
+test('phase 3 keys: search, capture for today, layout and the calendar views', () => {
+  const expect: Array<[string, Parameters<typeof press>[1], string]> = [
+    ['k', { ctrl: true }, 'search'],
+    ['t', {}, 'newTaskToday'],
+    ['F', { shift: true }, 'onlyToday'],
+    ['[', {}, 'toggleLeftPane'],
+    [']', {}, 'toggleRightPane'],
+    ['v', {}, 'toggleCenter'],
+    ['d', {}, 'dayView'],
+    ['w', {}, 'weekView'],
+    ['m', {}, 'monthView'],
+  ];
+  for (const [k, mods, id] of expect) {
+    assert.equal(shortcutFor(press(k, mods), home), id, id);
+    assert.equal(shortcutFor(press(k, mods), { typing: true, scope: 'home' }), null, `${id} while typing`);
+    assert.equal(shortcutFor(press(k, mods), { typing: false, blocked: true, scope: 'home' }), null, `${id} while an overlay is open`);
+    assert.equal(shortcutFor(press(k, mods), card), null, `${id} is not a card key`);
+  }
+  // V, not Tab, switches the centre; Tab is never taken
+  assert.equal(shortcutFor(press('Tab'), home), null);
+  assert.equal(shortcutFor(press('Tab', { shift: true }), home), null);
+  // plain F and Shift+K are nothing
+  assert.equal(shortcutFor(press('f'), home), null);
+  assert.equal(shortcutFor(press('K', { shift: true }), home), null);
+  // a letter with Ctrl is not the plain letter's shortcut
+  assert.equal(shortcutFor(press('d', { ctrl: true }), home), null);
+  assert.equal(shortcutFor(press('v', { ctrl: true }), home), null, 'Ctrl+V stays paste');
+  assert.equal(shortcutFor(press('f', { ctrl: true }), home), null, 'Ctrl+F is not Shift+F');
+});
+
+test('the registry never takes a key the app menu or the editor needs', () => {
+  const taken = ['Ctrl+,', 'Ctrl+Q', 'Ctrl+X', 'Ctrl+C', 'Ctrl+V', 'Ctrl+A', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+=', 'Ctrl+-', 'Ctrl+0'];
+  for (const spec of taken) {
+    for (const def of SHORTCUTS) {
+      assert.ok(!(def.keys.toLowerCase() === spec.toLowerCase()), `${def.id} takes ${spec}`);
+    }
+  }
+});
+
 test('a task key is ignored by the home handler and the other way round', () => {
   assert.equal(shortcutFor(press('c'), home), null);
   assert.equal(shortcutFor(press('c'), card), 'complete');

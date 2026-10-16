@@ -173,7 +173,8 @@ async function run() {
   // ======== 5. A task made, estimated, labelled, timed and completed from the keyboard ========
   await blur();
   await key('q');
-  check('Q goes to the capture box', (await activeLabel()) === 'Capture a thought', String(await activeLabel()));
+  // Phase 2: Q went to the pane's capture box. Phase 3 made it the quick capture box. Either is a box ready to type in.
+  check('Q goes to a capture box', ['Capture a thought', 'Quick capture task'].includes(await activeLabel()), String(await activeLabel()));
   await type('Keyboard task');
   await enter();
   await C.waitFor(() => byTitle('Keyboard task').length === 1, 8000);

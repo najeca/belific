@@ -1,14 +1,14 @@
-# Belific: EAS build for TestFlight (2.20.0, shared Supabase project)
+# Belific: EAS build for TestFlight (2.22.0, shared Supabase project)
 
-> **Version note (2026-10-16).** This note was written for 2.18.1. `mobile/app.json` is now **2.20.0** (desktop phases 2 and 3 bumped it), so **the next TestFlight build is 2.20.0**. The build number is still raised **by hand** in `mobile/app.json` (`expo.ios.buildNumber`, now "1"; no `autoIncrement`, no `appVersionSource`). Nothing was built, uploaded or submitted: no EAS command was run.
+> **Version note (2026-10-16).** This note was written for 2.18.1. `mobile/app.json` is now **2.22.0** (build plan phases 2 to 5 bumped it), so **the next TestFlight build is 2.22.0**. The build number is still raised **by hand** in `mobile/app.json` (`expo.ios.buildNumber`, now "1"; no `autoIncrement`, no `appVersionSource`). Nothing was built, uploaded or submitted: no EAS command was run.
 
 Belific specific. The Landis `eas-build` skill under `.claude/skills/workflow/eas-build/` and `docs/publishing-reference.md` are **stale for this app** (they say so at the top now); use this file.
 
-**Scope.** One build of 2.20.0 (written as 2.18.1) for **TestFlight internal testing only**. It is never submitted for App Store review. Nothing here has been run: no EAS command, no Apple or Expo contact, no live Supabase contact was made while writing it. Every command below is Jethro's to run, and each `eas build` / `eas submit` still needs Jethro's "ready for EAS build" (`TESTING_PROTOCOL.md` section 2). EAS iOS builds are limited to 15 a month.
+**Scope.** One build of 2.22.0 (written as 2.18.1) for **TestFlight internal testing only**. It is never submitted for App Store review. Nothing here has been run: no EAS command, no Apple or Expo contact, no live Supabase contact was made while writing it. Every command below is Jethro's to run, and each `eas build` / `eas submit` still needs Jethro's "ready for EAS build" (`TESTING_PROTOCOL.md` section 2). EAS iOS builds are limited to 15 a month.
 
 ## 1. The waiver (one time, recorded 2026-10-15)
 
-The rule "local Release build on the iPhone, Jethro tests, Jethro is happy, only then EAS" (`TESTING_PROTOCOL.md` sections 1, 3 and 5; decision 018's device test) is **waived once, for a TestFlight only build of 2.20.0 (written as 2.18.1)**. Why: this Windows PC cannot build for iOS (`expo run:ios` needs a Mac) and no Mac is confirmed. The conditions:
+The rule "local Release build on the iPhone, Jethro tests, Jethro is happy, only then EAS" (`TESTING_PROTOCOL.md` sections 1, 3 and 5; decision 018's device test) is **waived once, for a TestFlight only build of 2.22.0 (written as 2.18.1)**. Why: this Windows PC cannot build for iOS (`expo run:ios` needs a Mac) and no Mac is confirmed. The conditions:
 
 - TestFlight **internal** testers only (Jethro). Never submitted for App Store review, never made public.
 - Jethro still has to say "ready for EAS build" for the build and again for the submit.
@@ -20,7 +20,7 @@ The rule "local Release build on the iPhone, Jethro tests, Jethro is happy, only
 | File | Setting | Checked how |
 |---|---|---|
 | `mobile/eas.json` | `build.production.environment = "production"`: the build reads the **production** EAS environment variables. Nothing else was added (no remote versioning, no auto increment). | `mobile/lib/easConfig.test.ts`; the file validates against the installed eas-cli 18.8.1 schema (offline, `@expo/eas-json`: spelling only) |
-| `mobile/app.json` | `version` 2.20.0, `ios.buildNumber` "1" (raised by hand), bundle `com.najeca.belific`, scheme `belific` | `easConfig.test.ts` |
+| `mobile/app.json` | `version` 2.22.0, `ios.buildNumber` "1" (raised by hand), bundle `com.najeca.belific`, scheme `belific` | `easConfig.test.ts` |
 | not in the repo | the project URL and the publishable key | they live in EAS only |
 
 The URL and the key are **never** written to `eas.json`, `app.json`, a doc or a chat. `mobile/.env` is gitignored and EAS does not upload it, so without the two variables below the app **crashes at launch** (`mobile/lib/supabase.ts` throws when either is missing), and with old values left in EAS it would silently talk to the old project.
@@ -29,8 +29,8 @@ The URL and the key are **never** written to `eas.json`, `app.json`, a doc or a 
 
 `eas.json` has **no** `appVersionSource` and **no** `autoIncrement`. The build number is the one in `mobile/app.json` (`expo.ios.buildNumber`, now "1") and **it is raised by hand there** if a rebuild is needed (a TestFlight build number must be unique within a version, so "1", then "2", and so on).
 
-- **Before the first upload, check in App Store Connect that version 2.20.0 build 1 is unused** (nobody has uploaded it before). **Unverified**: I cannot see App Store Connect. If it is used, raise `buildNumber` first.
-- A new version string (2.20.1, 2.21.0) starts again at "1".
+- **Before the first upload, check in App Store Connect that version 2.22.0 build 1 is unused** (nobody has uploaded it before). **Unverified**: I cannot see App Store Connect. If it is used, raise `buildNumber` first.
+- A new version string (2.22.1, 2.23.0) starts again at "1".
 - Raise it in a normal commit (and a changelog line if the version changes), then build again. Each build counts against the 15 a month.
 
 ## 4. Variables (Jethro, on this PC, in `mobile/`)

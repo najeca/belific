@@ -245,6 +245,8 @@ async function run() {
   await focusCard('Gamma');
   await I.key('o');
   await C.waitFor(async () => I.exists(I.byLabel('Task details')), 8000);
+  // 2.26.0: Save as template is in the details modal's ⋮ menu.
+  await I.click(I.byLabel('More task actions'));
   await I.click(I.byLabel('Save as template'));
   await I.click(I.byLabel('Template name'));
   await I.js('document.activeElement.select()');

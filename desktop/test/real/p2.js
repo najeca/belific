@@ -247,12 +247,17 @@ async function run() {
   await click(`document.querySelector('[aria-label="Task details"] [aria-label="High"]')`);
   await C.waitFor(() => tasks().some((t) => t.title === 'Seed task' && t.priority === 'high'), 8000);
   check('the panel set a high priority', tasks().some((t) => t.title === 'Seed task' && t.priority === 'high'));
+  // 2.26.0: the emoji is in the details modal's ⋮ menu.
+  await click(byLabel('More task actions'));
   await click(byLabel('Task emoji'));
   await type('📚');
   await C.waitFor(() => tasks().some((t) => t.title === 'Seed task' && t.emoji === '📚'), 8000);
   check('the panel set an emoji, and the card shows it before the title', tasks().some((t) => t.title === 'Seed task' && t.emoji === '📚') && (await body()).includes('📚 Seed task'));
   await blur();
+  await key('Escape'); // closes the ⋮ menu
+  await C.sleep(200);
   await key('Escape');
+  await C.sleep(200);
   check('Escape closed the panel', !(await exists(byLabel('Task details'))));
 
   // delete: Ctrl+Delete asks, Yes soft deletes

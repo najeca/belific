@@ -16,7 +16,7 @@ import { isTextEntryTarget } from '../../lib/editable';
 import type { EventPriority, Project, Task, TaskList } from '../../lib/types';
 import EmojiField from './EmojiField';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
-import Popover, { closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
+import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { RepeatBody } from './TaskPopovers';
 import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
@@ -27,15 +27,18 @@ import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
 
-// The task details panel (build plan phase 2): every field of a task in one
-// place, as fields and not as steps. It opens beside the board (Open details in
-// a card's menu, or O on a focused card), covers the right pane while it is
-// open, and closes with its button or Escape. It is not a screen: nothing
-// navigates, the panes behind it stay as they were. Edits save as they are made
-// (a blur or Enter for text, a click for choices), through the same task
-// commands as the card, so a change here and on the card are the same change.
+// The task details (build plan phase 2; a centred modal since 2.26.0): every
+// field of a task in one place, as fields and not as steps. Opens from Open
+// details in a card's menu, or O on a focused card, and closes with its button,
+// a press outside or Escape. It is not a screen: nothing navigates, the panes
+// behind it stay as they were. Edits save as they are made (a blur or Enter for
+// text, a click for choices), through the same task commands as the card, so a
+// change here and on the card are the same change.
 //
-// Repeats (phase 4) is the card's own Repeat control, opened from here.
+// The rows, in order: Task date, Estimated time, Actual time, Label, Repeats,
+// List, then Notes and Subtasks. Emoji, duplicate, save as template, pomodoro
+// and delete are in the ⋮ menu. Repeats (phase 4) is the card's own Repeat
+// control, opened from here.
 export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) {
   const id = useDetailId();
   const [task, setTask] = useState<Task | null>(null);
@@ -60,21 +63,40 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     reload();
   }, [id, refreshKey, reload]);
 
-  // Escape closes the panel, unless a field or a popover has it.
+  // Escape closes the modal, unless a popover has it. From a field too (the
+  // title has focus when it opens): the field is blurred first, which saves it.
   useEffect(() => {
     if (!id) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-      if (isPopoverOpen() || isTextEntryTarget(e.target)) return;
+      if (isPopoverOpen()) return;
       e.preventDefault();
+      if (isTextEntryTarget(e.target)) (e.target as HTMLElement).blur();
       closeDetail();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture: a focused text field stops Escape before it reaches the window.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [id]);
+
+  // Focus goes back to where it was (the card) when the modal closes.
+  useEffect(() => {
+    if (!id) return;
+    const before = document.activeElement as HTMLElement | null;
+    return () => {
+      if (before && before.isConnected) before.focus({ preventScroll: true });
+    };
   }, [id]);
 
   if (!id || !task) return null;
-  return <Panel key={task.id} task={task} labels={labels} lists={lists} onSaved={() => { notifyChanged(); reload(); }} />;
+  return (
+    <View style={styles.layer} {...({ dataSet: { detailLayer: '1' } } as object)}>
+      <Pressable style={styles.scrim} onPress={closeDetail} accessibilityLabel="Close the task details" {...({ tabIndex: -1 } as object)} />
+      <View style={styles.centre} pointerEvents="box-none">
+        <Panel key={task.id} task={task} labels={labels} lists={lists} onSaved={() => { notifyChanged(); reload(); }} />
+      </View>
+    </View>
+  );
 }
 
 function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]; lists: TaskList[]; onSaved: () => void }) {
@@ -97,6 +119,9 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
   const running = isTimerRunning(task);
   const now = useNow(running);
   const titleRef = useRef<TextInput>(null);
+  const more = usePopoverAnchor();
+  const moreId = `detail:${task.id}:more`;
+  const moreOpen = useIsOpen(moreId);
   useEffect(() => setTitle(task.title), [task.title]);
   useEffect(() => setNotes(task.notes ?? ''), [task.notes]);
   useEffect(() => {
@@ -131,61 +156,54 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
     setActualText('');
     onSaved();
   };
+  const saveTemplate = async () => {
+    const t = await saveTemplateFromTask(task, tplName);
+    setTplNote(t ? `Saved the template ${t.name}.` : 'There are already 50 templates. Delete one in Settings first.');
+    if (t) setTplOpen(false);
+  };
   const listKey = effectiveListKey(task, lists);
   const priority = task.priority;
   const subtasks = task.subtasks ?? [];
 
   return (
-    <View style={styles.panel} accessibilityLabel="Task details" {...({ role: "complementary", dataSet: { detailPanel: "1" } } as object)}>
+    <View style={styles.panel} accessibilityLabel="Task details" {...({ role: 'dialog', 'aria-modal': true, dataSet: { detailPanel: '1' } } as object)}>
       <View style={styles.header}>
-        <Text style={styles.heading}>Task details</Text>
-        <Pressable onPress={closeDetail} style={styles.close} accessibilityRole="button" accessibilityLabel="Close task details">
-          <Ionicons name="close" size={18} color={Colors.textSecondary} />
+        <Pressable
+          // Completing goes through setTaskCompleted (subtasks, repeats), not a bare patch.
+          onPress={() => ops.setCompleted(!task.completed).then(onSaved)}
+          style={[styles.tick, task.completed && styles.tickOn]}
+          accessibilityRole="button"
+          accessibilityLabel={task.completed ? 'Reopen the task' : 'Mark the task complete'}
+        >
+          {task.completed && <Ionicons name="checkmark" size={16} color={Colors.onAccent} />}
         </Pressable>
-      </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {task.emoji ? <Text style={styles.titleEmoji}>{task.emoji}</Text> : null}
         <TextInput
           ref={titleRef}
-          style={styles.titleInput}
+          style={[styles.titleInput, task.completed && styles.titleDone]}
           value={title}
           onChangeText={setTitle}
           onBlur={saveTitle}
           onSubmitEditing={saveTitle}
           accessibilityLabel="Title"
         />
-        <Field glyph="🙂" label="Emoji">
-          <EmojiField label="Task emoji" value={task.emoji} onChange={(emoji) => patch({ emoji })} />
-        </Field>
+        <Pressable
+          ref={more.ref as never}
+          onPress={() => togglePopover(moreId, more.get)}
+          style={[styles.iconBtn, moreOpen && styles.iconBtnOn]}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: moreOpen }}
+          accessibilityLabel="More task actions"
+        >
+          <Ionicons name="ellipsis-vertical" size={16} color={Colors.textSecondary} />
+        </Pressable>
+        <Pressable onPress={closeDetail} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Close task details">
+          <Ionicons name="close" size={18} color={Colors.textSecondary} />
+        </Pressable>
+      </View>
 
-        <View style={styles.row}>
-          <Pressable
-            // Completing goes through setTaskCompleted (subtasks, repeats), not a bare patch.
-            onPress={() => ops.setCompleted(!task.completed).then(onSaved)}
-            style={[styles.bigBtn, task.completed && styles.bigBtnOn]}
-            accessibilityRole="button"
-            accessibilityLabel={task.completed ? 'Reopen the task' : 'Mark the task complete'}
-          >
-            <Text style={[styles.bigBtnText, task.completed && styles.bigBtnTextOn]}>{task.completed ? '✅ Done. Reopen' : '⬜ Mark complete'}</Text>
-          </Pressable>
-        </View>
-
-        <Field glyph="📋" label="List">
-          <select
-            value={listKey ?? ''}
-            aria-label="List"
-            onChange={(e) => patch({ listKey: e.target.value || undefined })}
-            style={domSelect}
-          >
-            <option value="">{listTitle(undefined)}</option>
-            {lists.map((l) => (
-              <option key={l.key} value={l.key}>
-                {listTitle(l)}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field glyph="📅" label="Day">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <DetailRow glyph="📅" label="Task date">
           <View style={styles.row}>
             <input
               type="date"
@@ -196,13 +214,13 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
             />
             {task.dueDate ? (
               <Pressable onPress={() => patch({ dueDate: undefined })} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Remove the day">
-                <Text style={styles.quietText}>Remove day</Text>
+                <Text style={styles.quietText}>Remove date</Text>
               </Pressable>
             ) : null}
           </View>
-        </Field>
+        </DetailRow>
 
-        <Field glyph="⏳" label={`Estimate  ${formatClock(task.durationMinutes)}`}>
+        <DetailRow glyph="⏳" label="Estimated time" value={formatClock(task.durationMinutes)}>
           <View style={styles.chips}>
             <Chip label="None" on={task.durationMinutes === undefined} onPress={() => patch({ durationMinutes: undefined })} />
             {DURATION_PRESETS.map((m) => (
@@ -224,9 +242,9 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
             />
           </View>
           {customBad && <Text style={styles.bad}>Not a time. Try 45m, 1h 30m or 130.</Text>}
-        </Field>
+        </DetailRow>
 
-        <Field glyph="⏱️" label={`Actual  ${formatTaskTime(task, now)}`}>
+        <DetailRow glyph="⏱️" label="Actual time" value={formatTaskTime(task, now)}>
           <View style={styles.row}>
             <Pressable
               onPress={() => toggleTimer(task)}
@@ -237,16 +255,6 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
               <Ionicons name={running ? 'pause' : 'play'} size={14} color={running ? Colors.onAccent : Colors.accentText} />
               <Text style={[styles.bigBtnText, running && styles.bigBtnTextOn]}>{running ? 'Stop' : 'Start'}</Text>
             </Pressable>
-            {feats.pomodoro && !task.completed && (
-              <Pressable
-                onPress={() => startFocus(task)}
-                style={styles.bigBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Start a pomodoro"
-              >
-                <Text style={styles.bigBtnText}>🍅 Pomodoro</Text>
-              </Pressable>
-            )}
             <TextInput
               style={[styles.input, actualBad && styles.inputBad]}
               value={actualText}
@@ -266,19 +274,10 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
             ) : null}
           </View>
           {actualBad && <Text style={styles.bad}>Not a time. Try 45m, 1h 30m or 130.</Text>}
-        </Field>
+        </DetailRow>
 
-        <Field glyph="🔁" label="Repeats">
-          <RepeatField task={task} ops={ops} onSaved={onSaved} />
-        </Field>
-
-        <Field glyph="🏷️" label="Label">
-          <select
-            value={task.projectKey ?? ''}
-            aria-label="Label"
-            onChange={(e) => patch({ projectKey: e.target.value || undefined })}
-            style={domSelect}
-          >
+        <DetailRow glyph="🏷️" label="Label">
+          <select value={task.projectKey ?? ''} aria-label="Label" onChange={(e) => patch({ projectKey: e.target.value || undefined })} style={domSelect}>
             <option value="">No label</option>
             {labels.map((l) => (
               <option key={l.key} value={l.key}>
@@ -287,32 +286,53 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
               </option>
             ))}
           </select>
-        </Field>
+        </DetailRow>
+
+        <DetailRow glyph="🔁" label="Repeats">
+          <RepeatField task={task} ops={ops} onSaved={onSaved} />
+        </DetailRow>
+
+        <DetailRow glyph="📋" label="List">
+          <select value={listKey ?? ''} aria-label="List" onChange={(e) => patch({ listKey: e.target.value || undefined })} style={domSelect}>
+            <option value="">{listTitle(undefined)}</option>
+            {lists.map((l) => (
+              <option key={l.key} value={l.key}>
+                {listTitle(l)}
+              </option>
+            ))}
+          </select>
+        </DetailRow>
 
         {feats.priority && (
-          <Field glyph="🚩" label="Priority">
+          <DetailRow glyph="🚩" label="Priority">
             <View style={styles.chips}>
               {([[undefined, 'Normal'], ['high', 'High'], ['low', 'Low']] as Array<[EventPriority | undefined, string]>).map(([p, name]) => (
                 <Chip key={name} label={name} on={priority === p} onPress={() => patch({ priority: p })} />
               ))}
             </View>
-          </Field>
+          </DetailRow>
         )}
 
-        <Field glyph="📝" label="Notes">
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel} accessibilityRole="header">
+            📝  Notes
+          </Text>
           <TextInput
             style={styles.notes}
             value={notes}
             onChangeText={setNotes}
             onBlur={saveNotes}
-            placeholder="Notes"
+            placeholder="Add notes"
             placeholderTextColor={Colors.textSecondary}
             multiline
             accessibilityLabel="Notes"
           />
-        </Field>
+        </View>
 
-        <Field glyph="☑️" label={`Subtasks  ${counterLabel(task.subtasks)}`}>
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel} accessibilityRole="header">
+            ☑️  Subtasks  {counterLabel(task.subtasks)}
+          </Text>
           {subtasks.length === 0 ? (
             <Text style={styles.muted}>None. Add them on the card (S, then Ctrl+S).</Text>
           ) : (
@@ -324,102 +344,109 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
                 accessibilityRole="button"
                 accessibilityLabel={s.done ? `Untick ${s.title}` : `Tick ${s.title}`}
               >
-                <Ionicons name={s.done ? 'checkmark-circle' : 'ellipse-outline'} size={16} color={s.done ? Colors.accent : Colors.textSecondary} />
+                <Ionicons name={s.done ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={s.done ? Colors.accent : Colors.textSecondary} />
                 <Text style={[styles.subText, s.done && styles.subDone]}>{s.title}</Text>
               </Pressable>
             ))
           )}
-        </Field>
-
-        <View style={styles.actions}>
-          <Pressable
-            onPress={async () => {
-              await duplicateTaskById(task.id);
-              notifyChanged();
-            }}
-            style={styles.quiet}
-            accessibilityRole="button"
-            accessibilityLabel="Duplicate task"
-          >
-            <Text style={styles.quietText}>Duplicate</Text>
-          </Pressable>
-          {feats.templates && (
-            <Pressable
-              onPress={() => {
-                setTplName(task.title.slice(0, 40));
-                setTplNote(null);
-                setTplOpen((o) => !o);
-              }}
-              style={styles.quiet}
-              accessibilityRole="button"
-              accessibilityLabel="Save as template"
-            >
-              <Text style={styles.quietText}>📑 Save as template</Text>
-            </Pressable>
-          )}
-          {confirming ? (
-            <View style={styles.row}>
-              <Text style={styles.muted}>Delete?</Text>
-              <Pressable
-                onPress={async () => {
-                  await ops.remove();
-                  closeDetail();
-                  notifyChanged();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Confirm delete task"
-              >
-                <Text style={styles.yes}>Yes</Text>
-              </Pressable>
-              <Pressable onPress={() => setConfirming(false)} accessibilityRole="button" accessibilityLabel="Cancel delete task">
-                <Text style={styles.no}>No</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable onPress={() => setConfirming(true)} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Delete task">
-              <Text style={[styles.quietText, { color: Colors.danger }]}>Delete</Text>
-            </Pressable>
-          )}
         </View>
+
         {feats.templates && tplOpen && (
           <View style={styles.row} accessibilityLabel="Save as template form">
             <TextInput
               style={styles.input}
               value={tplName}
               onChangeText={setTplName}
-              onSubmitEditing={async () => {
-                const t = await saveTemplateFromTask(task, tplName);
-                setTplNote(t ? `Saved the template ${t.name}.` : 'There are already 50 templates. Delete one in Settings first.');
-                if (t) setTplOpen(false);
-              }}
+              onSubmitEditing={saveTemplate}
               placeholder="Template name"
               placeholderTextColor={Colors.textSecondary}
               maxLength={40}
               autoFocus
               accessibilityLabel="Template name"
             />
-            <Pressable
-              onPress={async () => {
-                const t = await saveTemplateFromTask(task, tplName);
-                setTplNote(t ? `Saved the template ${t.name}.` : 'There are already 50 templates. Delete one in Settings first.');
-                if (t) setTplOpen(false);
-              }}
-              style={styles.bigBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Save the template"
-            >
+            <Pressable onPress={saveTemplate} style={styles.bigBtn} accessibilityRole="button" accessibilityLabel="Save the template">
               <Text style={styles.bigBtnText}>Save</Text>
             </Pressable>
           </View>
         )}
         {tplNote && <Text style={styles.muted} accessibilityLabel="Template note">{tplNote}</Text>}
+        {confirming && (
+          <View style={styles.confirm}>
+            <Text style={styles.muted}>Delete this task?</Text>
+            <Pressable
+              onPress={async () => {
+                await ops.remove();
+                closeDetail();
+                notifyChanged();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Confirm delete task"
+            >
+              <Text style={styles.yes}>Yes</Text>
+            </Pressable>
+            <Pressable onPress={() => setConfirming(false)} accessibilityRole="button" accessibilityLabel="Cancel delete task">
+              <Text style={styles.no}>No</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
+
+      <Popover id={moreId} anchor={more.get} width={260} label="More task actions" maxHeight={480}>
+        <View style={styles.menuEmoji}>
+          <Text style={styles.menuLabel}>🙂  Emoji</Text>
+          <EmojiField label="Task emoji" value={task.emoji} onChange={(emoji) => patch({ emoji })} />
+        </View>
+        <Row
+          label="Duplicate"
+          leading={<Text>📄</Text>}
+          a11y="Duplicate task"
+          onPress={async () => {
+            closePopover(true);
+            await duplicateTaskById(task.id);
+            notifyChanged();
+          }}
+        />
+        {feats.templates && (
+          <Row
+            label="Save as template"
+            leading={<Text>📑</Text>}
+            a11y="Save as template"
+            onPress={() => {
+              closePopover(false);
+              setTplName(task.title.slice(0, 40));
+              setTplNote(null);
+              setTplOpen(true);
+            }}
+          />
+        )}
+        {feats.pomodoro && !task.completed && (
+          <Row
+            label="Start a pomodoro"
+            leading={<Text>🍅</Text>}
+            a11y="Start a pomodoro"
+            onPress={() => {
+              closePopover(true);
+              startFocus(task);
+            }}
+          />
+        )}
+        <Row
+          label="Delete"
+          leading={<Text>🗑️</Text>}
+          danger
+          a11y="Delete task"
+          onPress={() => {
+            closePopover(false);
+            setConfirming(true);
+          }}
+        />
+      </Popover>
     </View>
   );
 }
 
 // The Repeat control of the card (TaskPopovers.RepeatBody), opened from the
-// panel: the same component, the same rules and the same writes; nothing forked.
+// modal: the same component, the same rules and the same writes; nothing forked.
 function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved: () => void }) {
   const { ref, get } = usePopoverAnchor();
   const id = `detail:${task.id}:repeat`;
@@ -444,13 +471,22 @@ function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved
   );
 }
 
-function Field({ glyph, label, children }: { glyph: string; label: string; children: React.ReactNode }) {
+// One row of the modal: the name on the left (with its value), the control on
+// the right.
+function DetailRow({ glyph, label, value, children }: { glyph: string; label: string; value?: string; children: React.ReactNode }) {
   return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel} accessibilityRole="header">
-        {glyph}  {label}
-      </Text>
-      {children}
+    <View style={styles.detailRow} {...({ dataSet: { detailRow: label } } as object)}>
+      <View style={styles.rowHead}>
+        <Text style={styles.rowLabel} accessibilityRole="header">
+          {glyph}  {label}
+        </Text>
+        {value ? (
+          <Text style={styles.rowValue} {...({ dataSet: { mono: '1' } } as object)}>
+            {value}
+          </Text>
+        ) : null}
+      </View>
+      <View style={styles.rowBody}>{children}</View>
     </View>
   );
 }
@@ -485,27 +521,34 @@ const domSelect: React.CSSProperties = {
 };
 
 const styles = StyleSheet.create({
+  layer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
+  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(38,37,31,0.28)', cursor: 'default' } as never,
+  centre: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24 },
   panel: {
-    position: 'absolute',
-    top: 56,
-    right: 12,
-    bottom: 12,
-    width: 392,
-    zIndex: 30,
+    width: 600,
+    maxWidth: '100%',
+    maxHeight: '100%',
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    boxShadow: '0 8px 32px rgba(38,37,31,0.16)',
+    boxShadow: '0 16px 48px rgba(38,37,31,0.22)',
   } as never,
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
-  heading: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary, textTransform: 'uppercase' },
-  close: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
-  scroll: { flex: 1 },
-  body: { padding: 16, paddingTop: 8, gap: 14 },
-  titleInput: { fontSize: 18, fontWeight: '600', color: Colors.textPrimary, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, outlineColor: Colors.accent },
-  field: { gap: 6 },
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10 },
+  tick: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: Colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
+  tickOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  titleEmoji: { fontSize: 22 },
+  titleInput: { flex: 1, minWidth: 0, fontSize: 23, fontWeight: '700', color: Colors.textPrimary, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: 'transparent', outlineColor: Colors.accent },
+  titleDone: { color: Colors.textSecondary, textDecorationLine: 'line-through' },
+  iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  iconBtnOn: { backgroundColor: Colors.background },
+  scroll: { flexGrow: 0, flexShrink: 1 },
+  body: { paddingHorizontal: 20, paddingBottom: 20, gap: 4 },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
+  rowHead: { width: 150, gap: 2, paddingTop: 7 },
+  rowLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  rowValue: { fontSize: 13, color: Colors.textPrimary, paddingLeft: 26 },
+  rowBody: { flex: 1, minWidth: 0, gap: 8 },
+  section: { gap: 8, paddingTop: 12 },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { paddingHorizontal: 10, height: 30, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
@@ -515,7 +558,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, minWidth: 120, height: 34, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   inputBad: { borderColor: Colors.danger },
   bad: { fontSize: 12, color: Colors.danger },
-  notes: { minHeight: 72, padding: 8, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
+  notes: { minHeight: 88, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   muted: { fontSize: 12, color: Colors.textSecondary },
   bigBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, height: 34, borderRadius: 12, borderWidth: 1, borderColor: Colors.accent, backgroundColor: Colors.background },
   bigBtnOn: { backgroundColor: Colors.accent },
@@ -523,10 +566,12 @@ const styles = StyleSheet.create({
   bigBtnTextOn: { color: Colors.onAccent },
   quiet: { paddingHorizontal: 12, height: 32, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
   quietText: { fontSize: 13, color: Colors.textPrimary },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 28 },
-  subText: { flex: 1, fontSize: 13, color: Colors.textPrimary },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30 },
+  subText: { flex: 1, fontSize: 14, color: Colors.textPrimary },
   subDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 },
+  confirm: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 8 },
   yes: { fontSize: 13, fontWeight: '700', color: Colors.danger },
   no: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  menuEmoji: { paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
+  menuLabel: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
 });

@@ -54,6 +54,11 @@ to know the current version and recent history.
 ### Tasks, not Kanban (step 6)
 - The board is called **Tasks** everywhere on the desktop (the centre switch "✅ Tasks | 📆 Calendar", the shortcut list "Switch between Tasks and Calendar", the Today button "Show today in Tasks", done in step 1) and now in the living docs: the glossary (`UBIQUITOUS_LANGUAGE.md`), the build plan, build progress, CURRENT_TRUTH and the home spec. Session notes, decisions and older CHANGELOG entries keep the old name as history.
 
+### The task details modal (step 7)
+- **Task details is a centred modal** (600 px wide, a 23 px title with the done box and the task's emoji beside it) instead of the panel over the right side. Rows in order: Task date, Estimated time, Actual time, Label, Repeats, then List, then Notes and Subtasks. **Emoji, Duplicate, Save as template, Start a pomodoro and Delete are in the ⋮ menu** at the top right. It opens the same way (O on a card, More, Open details), closes with ×, a press outside or Escape, and puts the keyboard back on the card. Every edit still saves as it is made, through the same task commands as the card.
+- Escape now closes it from a text field too (the title has the keyboard when it opens), saving the field first; an open popover inside it still takes Escape first.
+- p9 checks the size and position, the 23 px title, the row order, the ⋮ menu, an emoji and a rename from the modal, and a press outside. p2 and p7 open the ⋮ menu for the emoji and Save as template.
+
 ## 2.25.0 — 2026-10-17 (build plan phase 8, calendar connections)
 
 **Desktop and iPhone. No table or column change. One grant written for review (003, not applied). One Edge Function written and tested locally, NOT deployed. The iPhone part needs a new TestFlight build (a new native module).** Section 7 steps 1 to 3 of the build plan; two way Google and Microsoft sync (step 4) is out.

@@ -316,6 +316,39 @@ async function run() {
   await I.key('Escape');
   await C.sleep(300);
 
+  // ======== Step 7: the task details modal ========
+  await I.js(`document.querySelector('[data-day-col="${today}"] [aria-label="Task Mover"]').focus()`);
+  await C.sleep(150);
+  await I.key('o');
+  await C.waitFor(() => I.exists(I.byLabel('Task details')), 6000).catch(() => {});
+  const modal = await I.js(`(() => { const m = document.querySelector('[data-detail-panel]'); if (!m) return null; const r = m.getBoundingClientRect(); const t = m.querySelector('[aria-label="Title"]'); return { w: Math.round(r.width), cx: Math.round(r.left + r.width / 2), cy: Math.round(r.top + r.height / 2), vw: innerWidth, vh: innerHeight, font: t ? getComputedStyle(t).fontSize : '', rows: [...m.querySelectorAll('[data-detail-row]')].map((e) => e.dataset.detailRow), role: m.getAttribute('role') }; })()`);
+  check('O opens the details as a centred modal about 600 px wide', !!modal && modal.w === 600 && Math.abs(modal.cx - modal.vw / 2) <= 2 && Math.abs(modal.cy - modal.vh / 2) <= 40 && modal.role === 'dialog', JSON.stringify(modal));
+  check('its title is 23 px', !!modal && modal.font === '23px', modal && modal.font);
+  check('rows in order: Task date, Estimated time, Actual time, Label, Repeats (then List), then Notes and Subtasks', !!modal && modal.rows.slice(0, 5).join('|') === 'Task date|Estimated time|Actual time|Label|Repeats' && (await I.js(`(() => { const m = document.querySelector('[data-detail-panel]'); const t = m.innerText; return t.indexOf('Repeats') < t.indexOf('Notes') && t.indexOf('Notes') < t.indexOf('Subtasks'); })()`)), JSON.stringify(modal && modal.rows));
+  check('no duplicate or delete buttons on the modal itself', !(await I.exists(`document.querySelector('[data-detail-panel] [aria-label="Duplicate task"]')`)) && !(await I.exists(`document.querySelector('[data-detail-panel] [aria-label="Delete task"]')`)));
+  await I.click(I.byLabel('More task actions'), 300);
+  const menu = await I.js(`[...document.querySelectorAll('[aria-label="More task actions"][role="dialog"], [aria-label="More task actions"][role="menu"]')].length > 0 || !!document.querySelector('[aria-label="Task emoji"]')`);
+  check('the ⋮ menu holds Emoji, Duplicate and Delete', menu && (await I.exists(I.byLabel('Duplicate task'))) && (await I.exists(I.byLabel('Delete task'))) && (await I.exists(I.byLabel('Task emoji'))));
+  await I.shot('p9-07-menu');
+  await I.click(I.byLabel('Task emoji'), 100);
+  await I.type('🚚');
+  await C.waitFor(() => byId('t2').emoji === '🚚', 4000).catch(() => {});
+  check('the emoji set from the menu is saved and shown before the title', byId('t2').emoji === '🚚' && (await I.js(`document.querySelector('[data-detail-panel]').innerText.includes('🚚')`)));
+  await I.key('Escape');
+  await C.sleep(200);
+  await I.click(I.byLabel('Title'), 100);
+  await I.js('document.activeElement.select()');
+  await I.type('Mover renamed');
+  await I.key('Enter');
+  await C.waitFor(() => byId('t2').title === 'Mover renamed', 4000).catch(() => {});
+  check('the title saves on Enter', byId('t2').title === 'Mover renamed');
+  await I.shot('p9-07-details');
+  // The scrim's middle is under the modal: press its top left corner.
+  win.webContents.sendInputEvent({ type: 'mouseDown', x: 24, y: 400, button: 'left', clickCount: 1 });
+  win.webContents.sendInputEvent({ type: 'mouseUp', x: 24, y: 400, button: 'left', clickCount: 1 });
+  await C.sleep(400);
+  check('a press outside closes it', !(await I.exists(I.byLabel('Task details'))));
+
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);
 }

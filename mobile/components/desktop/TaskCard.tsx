@@ -41,9 +41,7 @@ export default function TaskCard({
   onChanged,
   nodeRef,
   dragging,
-  overdueFrom,
   divider,
-  dropHighlight,
   projected,
 }: {
   task: Task;
@@ -56,10 +54,7 @@ export default function TaskCard({
   onChanged: () => void;
   nodeRef?: (node: unknown) => void;
   dragging?: boolean;
-  overdueFrom?: string;
   divider?: boolean;
-  // "Add as subtask" while a dragged task is armed over this card.
-  dropHighlight?: boolean;
   // A projected occurrence of a repeating series (decision 023): not stored,
   // lighter, edits apply to every day, ticking stores this day.
   projected?: boolean;
@@ -268,7 +263,6 @@ export default function TaskCard({
           variant === 'card' && color && [styles.labelled, { backgroundColor: color.tint, borderLeftColor: color.edge }],
           divider && (variant === 'card' ? styles.cardGap : styles.rowGap),
           dragging && styles.dragging,
-          dropHighlight && styles.dropTarget,
           projected && styles.projected,
         ]}
         hoverStyle={variant === 'card' && color ? styles.labelledHover : styles.hover}
@@ -348,7 +342,6 @@ export default function TaskCard({
                 )}
               </Control>
             </View>
-            {overdueFrom && <Text style={styles.from}>from {formatShortDate(overdueFrom)}</Text>}
             <StreakLine task={task} />
 
             {running && !projected && <Text style={styles.timerActive}>⏱️ Timer active</Text>}
@@ -484,7 +477,6 @@ export default function TaskCard({
               </Control>
             </View>
 
-            {dropHighlight && <Text style={styles.dropText}>Add as subtask</Text>}
             {expanded && <ExpandedBody task={task} ops={wrapped} cardNode={() => cardEl.current} projected={projected} />}
           </>
         )}
@@ -813,8 +805,6 @@ const styles = StyleSheet.create({
   dragging: { opacity: 0.4 },
   // A projected occurrence reads a little lighter than a stored one.
   projected: { opacity: 0.82 },
-  dropTarget: { outlineWidth: 2, outlineStyle: 'solid', outlineColor: Colors.accent, borderRadius: 8 },
-  dropText: { fontSize: 11, fontWeight: '700', color: Colors.accentText },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
   title: { flex: 1, fontSize: 14, color: Colors.textPrimary, minWidth: 0 },
   titleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },

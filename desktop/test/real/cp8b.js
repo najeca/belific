@@ -337,19 +337,11 @@ async function run() {
   const rawTask = (title) => read('belific_tasks').find((x) => x.title === title);
   await dragOnto(inCard('Bravo', '[aria-label="Title Bravo"]'), q(cardSel('Delta two')), 40);
   check('a quick release over a card is a normal Day drop: no subtask, nothing deleted', !(taskNamed('Delta two').subtasks || []).length && !!taskNamed('Bravo') && !rawTask('Bravo').deletedAt);
-  const dropPoint = await dragOnto(inCard('Bravo', '[aria-label="Title Bravo"]'), q(cardSel('Delta two')), 500, false);
-  await C.waitFor(async () => (await body()).includes('Add as subtask'), 3000).catch(() => {});
-  check('hovering the card body shows the "Add as subtask" highlight', (await body()).includes('Add as subtask'));
-  check('the highlight is not a modal', await noNewOverlay());
-  mouse('mouseUp', dropPoint.x, dropPoint.y);
-  await C.sleep(100);
-  await C.waitFor(() => (taskNamed('Delta two').subtasks || []).some((x) => x.title === 'Bravo'), 8000).catch(() => {});
-  check('after the dwell, releasing adds the dragged task as a subtask and tombstones it', (taskNamed('Delta two').subtasks || []).some((x) => x.title === 'Bravo') && !taskNamed('Bravo') && !!rawTask('Bravo').deletedAt);
+  // 2.26.0: holding a dragged task over another card no longer merges it as a
+  // subtask (the behaviour was removed); a long hold is the same plain move.
+  await dragOnto(inCard('Bravo', '[aria-label="Title Bravo"]'), q(cardSel('Delta two')), 900);
+  check('a long hold over a card is still only a move: no "Add as subtask", no subtask, nothing deleted', !(await body()).includes('Add as subtask') && !(taskNamed('Delta two').subtasks || []).some((x) => x.title === 'Bravo') && !!taskNamed('Bravo') && !rawTask('Bravo').deletedAt);
   check('the host Day did not change', taskNamed('Delta two').dueDate === today);
-  check('"Added to Delta two. Undo" shows', (await body()).includes('Added to Delta two'));
-  await click(q('[aria-label="Undo add as subtask"]'));
-  await C.waitFor(() => !!taskNamed('Bravo'), 8000).catch(() => {});
-  check('Undo restores both: the subtask is gone and Bravo is back', !!taskNamed('Bravo') && !(taskNamed('Delta two').subtasks || []).some((x) => x.title === 'Bravo') && taskNamed('Bravo').projectKey === 'home');
 
   // ---- 9. filter ----
   await click(q('[aria-label="Filter (1)"]'));

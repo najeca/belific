@@ -3,7 +3,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MERGED_NOTE, agoText, isDeleteEvent, isMergedInto, planRestore, restoredIdCandidates, trashEntries } from './trash.ts';
 import { deleteSeriesRows, planSkip } from './series.ts';
-import { planDropAsSubtask } from './subtasks.ts';
 import type { Task } from './types.ts';
 
 const NOW_ISO = '2026-10-16T12:00:00.000Z';
@@ -54,10 +53,16 @@ test('a deleted repeating task is ONE entry, restored from its latest row', () =
   assert.ok(!entries.some((e) => e.row.id === 's:2026-10-10'));
 });
 
-test('merged into another task: told apart by its effect, shown with a note and NO Restore', () => {
+test('merged into another task (before 2.26.0): told apart by its effect, shown with a note and NO Restore', () => {
+  // The drop that merged a task into another as a subtask was removed in 2.26.0;
+  // tombstones it wrote before then are still in people's data. This is the
+  // shape it wrote: the host gained the subtask, the dragged task was tombstoned.
   const host = T('host', { title: 'Plan trip', subtasks: [], updatedAt: ago(10) });
   const dragged = T('drag', { title: 'Book flights', projectKey: 'w' });
-  const plan = planDropAsSubtask(host, dragged, 'sub1', ago(1))!;
+  const plan = {
+    host: { ...host, subtasks: [{ id: 'sub1', title: 'Book flights', done: false }], updatedAt: ago(1) },
+    tombstoned: { ...dragged, deletedAt: ago(1), updatedAt: ago(1) },
+  };
   const tasks = [plan.host, plan.tombstoned];
   assert.equal(isDeleteEvent(plan.tombstoned), true, 'a merge writes the same shape as a delete');
   assert.equal(isMergedInto(plan.tombstoned, tasks), true);

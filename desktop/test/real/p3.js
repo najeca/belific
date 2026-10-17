@@ -122,7 +122,7 @@ async function run() {
   const blur = () => js('document.activeElement && document.activeElement.blur()');
   const width = (sel) => js(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); return e ? Math.round(e.getBoundingClientRect().width) : -1; })()`);
   const calView = () => js(`(() => { const e = Array.from(document.querySelectorAll('[data-calendar]')).find((x) => x.getBoundingClientRect().width > 0); return e ? e.getAttribute('data-calendar') : null; })()`);
-  const kanbanShown = () => exists(visible('[aria-label="Jump to week"]'));
+  const kanbanShown = () => exists(visible('[aria-label="Jump to date"]'));
   const dialog = (name) => `document.querySelector('[role="dialog"][aria-label=${JSON.stringify(name)}]')`;
   const shot = async (name) => {
     if (!SHOTS) return;
@@ -226,13 +226,13 @@ async function run() {
   // ======== 5. Show only today ========
   await key('v');
   check('back on the board', await kanbanShown());
-  check('the board shows the days of the week (Tomorrow is a column)', (await body()).includes('Tomorrow'));
+  check('the board shows the days (tomorrow is a column)', await exists(`document.querySelector('[data-day-col="${dayKey(1)}"]')`));
   await key('F', ['shift']);
   check('Shift+F: the board shows only today', !(await body()).includes('Tomorrow') && (await body()).includes('Alpha today'));
   check('the Calendar shows today only too', (await (async () => { await key('d'); return (await body()).includes('Showing only today'); })()));
   await key('F', ['shift']);
   await key('v');
-  check('Shift+F again shows everything', (await body()).includes('Tomorrow'));
+  check('Shift+F again shows everything', await exists(`document.querySelector('[data-day-col="${dayKey(1)}"]')`));
 
   // ======== 6. Quick capture ========
   await blur();
@@ -311,26 +311,36 @@ async function run() {
   // ======== 2.26.0: the breakpoint. The desktop layout at every window size ========
   const pageWidth = () => js('window.innerWidth');
   const phoneLayout = async () => (await body()).includes('Top 3 tasks') || (await exists(byLabel('Today tab')));
+  // A hidden window gets no resize events; make sure it is showing (and each
+  // resize below also sends the event itself, for a window the system hides).
+  win.show();
+  win.focus();
+  await C.sleep(300);
   win.setSize(1440, 900);
+  await js('window.dispatchEvent(new Event("resize")); 1');
   await C.sleep(700);
   check('1440 wide: the list, the centre and the Timebox side by side', (await width('[data-pane="left"]')) > 200 && (await width('[data-pane="right"]')) > 200);
   win.setSize(1100, 860);
+  await js('window.dispatchEvent(new Event("resize")); 1');
   await C.sleep(700);
   check('1100 wide: the Timebox folds away by itself, the list stays', (await width('[data-pane="left"]')) > 200 && (await width('[data-pane="right"]')) <= 0 && (await exists(byLabel('Show Timebox'))));
   check('the remembered layout is not changed by the width', panesState().setting && panesState().setting.rightCollapsed === false);
   win.setSize(860, 860);
+  await js('window.dispatchEvent(new Event("resize")); 1');
   await C.sleep(700);
-  check('860 wide: the list folds away too, the board still has the centre', (await width('[data-pane="left"]')) <= 0 && (await width('[data-pane="center"]')) > 500 && (await exists(byLabel('Show sidebar'))));
+  check('860 wide: the list folds away too, the board still has the centre', (await width('[data-pane="left"]')) <= 0 && (await width('[data-pane="center"]')) > 500 && (await exists(byLabel('Show sidebar'))), JSON.stringify({ left: await width('[data-pane="left"]'), centre: await width('[data-pane="center"]'), page: await js('innerWidth'), labels: await js(`Array.from(document.querySelectorAll('[aria-label]')).filter((e) => e.getBoundingClientRect().width > 0).slice(0, 12).map((e) => e.getAttribute('aria-label'))`) }));
   await click(byLabel('Show sidebar'));
   check('Show sidebar opens the list over the board', (await width('[data-pane="left"]')) > 200 && (await exists(`document.querySelector('[data-sidebar="overlay"]')`)));
   await key('Escape');
   await C.sleep(300);
   check('Escape closes it again', (await width('[data-pane="left"]')) <= 0);
   win.setSize(700, 800);
+  await js('window.dispatchEvent(new Event("resize")); 1');
   await C.sleep(800);
   const narrow = await pageWidth();
   check(`at the smallest window (page ${narrow} px wide) it is still the desktop layout, never the phone's Today page`, narrow >= 640 && !(await phoneLayout()) && (await width('[data-pane="center"]')) > 300, String(narrow));
   win.setSize(1440, 900);
+  await js('window.dispatchEvent(new Event("resize")); 1');
   await C.sleep(500);
 
   const failed = summary();

@@ -143,30 +143,27 @@ test('bucketTasks: day columns, and the last visible day; Day-less tasks are not
   assert.equal(Object.keys(cols.days).length, 14);
 });
 
-test('bucketTasks: unfinished past tasks surface in Today first, with their original date', () => {
-  const cols = bucketTasks(
-    [
-      task('1', { dueDate: TODAY, priority: 'high' }),
-      task('2', { dueDate: '2026-10-02' }),
-      task('3', { dueDate: '2026-09-30' }),
-      task('4', { dueDate: TODAY }),
-    ],
-    days,
-    TODAY,
-  );
-  const today = cols.days[TODAY];
-  assert.deepEqual(today.map((i) => i.task.id), ['3', '2', '1', '4']);
-  assert.equal(today[0].overdueFrom, '2026-09-30');
-  assert.equal(today[1].overdueFrom, '2026-10-02');
-  assert.equal(today[2].overdueFrom, undefined);
-  // The stored date is not touched.
-  assert.equal(today[0].task.dueDate, '2026-09-30');
+test('2.26.0 bucketTasks: no carry over. Unfinished past tasks stay on their own day, never in Today', () => {
+  const past = buildColumnDays(parseDateKey('2026-09-30'), 14);
+  const tasks = [
+    task('1', { dueDate: TODAY }),
+    task('2', { dueDate: '2026-10-02' }),
+    task('3', { dueDate: '2026-09-30' }),
+    task('4', { dueDate: '2026-10-02', completed: true, completedAt: '2026-10-02T10:00:00.000Z' }),
+  ];
+  const cols = bucketTasks(tasks, past, TODAY);
+  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['1']);
+  assert.deepEqual(cols.days['2026-10-02'].map((i) => i.task.id), ['2', '4'], 'unfinished first, then the finished one');
+  assert.deepEqual(cols.days['2026-09-30'].map((i) => i.task.id), ['3']);
+  // Nothing is copied or changed.
+  assert.equal(tasks[1].dueDate, '2026-10-02');
+  // A board that shows only today and later never sees them.
+  assert.deepEqual(bucketTasks(tasks, days, TODAY).days[TODAY].map((i) => i.task.id), ['1']);
 });
 
-test('bucketTasks: finished past tasks do not appear; finished current ones sort last', () => {
+test('bucketTasks: finished tasks sort last, most recently finished first', () => {
   const cols = bucketTasks(
     [
-      task('1', { dueDate: '2026-10-02', completed: true, completedAt: '2026-10-02T10:00:00.000Z' }),
       task('2', { dueDate: TODAY, completed: true, completedAt: '2026-10-05T08:00:00.000Z' }),
       task('3', { dueDate: TODAY }),
       task('4', { dueDate: TODAY, completed: true, completedAt: '2026-10-05T09:00:00.000Z' }),
@@ -186,12 +183,12 @@ test('bucketTasks: tasks on days that are not displayed appear in no column', ()
   assert.equal(Object.values(cols.days).flat().length, 0);
 });
 
-test('bucketTasks: a future week shows its own tasks, not overdue ones', () => {
+test('bucketTasks: a future week shows its own tasks only', () => {
   const future = weekDays(weekStartOf(parseDateKey('2026-10-14')), TODAY);
   const cols = bucketTasks(
     [
       task('1', { dueDate: '2026-10-14' }),
-      task('2', { dueDate: '2026-10-02' }), // overdue: only in the current week's Today column
+      task('2', { dueDate: '2026-10-02' }), // an earlier day: only in its own column
       task('3'),
       task('4', { dueDate: '2026-10-07' }), // a different week
     ],
@@ -359,18 +356,6 @@ test('column order: equal start times fall back to the oldest created', () => {
   assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['a', 'b']);
 });
 
-test('column order: a task carried over from a past day stays in the untimed group', () => {
-  const cols = bucketTasks(
-    [
-      task('timed', { dueDate: TODAY, startTime: '08:00' }),
-      task('old', { dueDate: '2026-10-02', startTime: '23:00' }),
-      task('plain', { dueDate: TODAY }),
-    ],
-    days,
-    TODAY,
-  );
-  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['old', 'plain', 'timed']);
-});
 
 test('column order: a bad start time counts as no time', () => {
   const cols = bucketTasks(

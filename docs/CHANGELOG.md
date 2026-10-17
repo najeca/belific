@@ -21,6 +21,16 @@ to know the current version and recent history.
 - **Logo:** the mark from the app icon (`mobile/assets/belific-mark.png`, cut by `desktop/scripts/make-icons.js`); the window, taskbar, tray and installer icons were already the Belific mark and are unchanged.
 - Real check p3 now covers the widths and the folding; p5 and p7 open Planning and Shutdown from the profile menu.
 
+### Continuous days, Today, Add a task per day, no carry over, no drop to subtask (step 2)
+- **The Tasks board is one continuous strip of days** (`lib/dayStrip.ts`): it opens with today at the left edge and scrolls sideways (mouse wheel, scroll bar, or ‹ › one screen at a time) to any day five years back or ahead, with no week boundaries: on a Sunday, Monday is simply the next column. Only the columns on screen and three either side are drawn. **Today** ("Show today in Tasks") jumps back; **Jump to date** now takes any date, past included. Holding a drag at either edge scrolls the strip (the old week change is gone).
+- **Columns** read "Sat Oct 17" (weekday 20 px bold, date muted) with a sage "Today" tag; past days are dimmed and refuse drops (unchanged rule).
+- **Add a task on each day** from today on: a box at the top of the column (Enter adds a task on that Day) with the day's actual against estimated time.
+- **No carry over:** unfinished tasks of earlier days no longer appear in Today; they stay on their own day (scroll back to find them). No stored date changes. Daily Planning and Shutdown still move tasks only when the person chooses.
+- **Dropping a task on another card no longer makes it a subtask**: the code is removed (`planDropAsSubtask`, the hover dwell, the "Added to... Undo" bar, the card highlight). A drop is only ever a move to a day, a time or the list. Subtasks are added on the card or in the details window. The Trash still recognises merges made by older versions.
+- **Drag feedback:** the day a dragged task would land in shows a dashed placeholder with its name.
+- The left list's header no longer repeats the actual / estimate figure (its box shows "… planned").
+- New real check `desktop/test/real/p9.js` (strip, Today, arrows, wheel, add per day, no carry over, placeholder, past day refusal, never a merge). cp8b, cp8g, cp8h and p3 updated for the strip (cp8h keeps its weeks by naming seven days and jumping to them).
+
 ## 2.25.0 — 2026-10-17 (build plan phase 8, calendar connections)
 
 **Desktop and iPhone. No table or column change. One grant written for review (003, not applied). One Edge Function written and tested locally, NOT deployed. The iPhone part needs a new TestFlight build (a new native module).** Section 7 steps 1 to 3 of the build plan; two way Google and Microsoft sync (step 4) is out.

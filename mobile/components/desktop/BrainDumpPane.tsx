@@ -88,10 +88,6 @@ export default function BrainDumpPane({
       ),
     [tasks, dumpItems, todayKey, filter, selected, lists],
   );
-  // Estimate against actual for what waits in this list (a running timer counts).
-  const now = useTick(30000);
-  const totals = useMemo(() => totalsOf(rows.map((r) => (r.kind === 'task' ? r.task : dumpAsTask(r.item))), now), [rows, now]);
-  const totalsText = formatTotals(totals);
   // The add task box's total (2.26.0): "5h planned" for what is still to do.
   const planned = useMemo(() => plannedText(rows.map((r) => (r.kind === 'task' ? r.task : dumpAsTask(r.item)))), [rows]);
 
@@ -112,11 +108,6 @@ export default function BrainDumpPane({
     <View ref={paneRef as never} style={[styles.pane, isTarget && styles.paneTarget]}>
       <View style={styles.headRow}>
         <ListSwitcher lists={lists} counts={counts} selected={selected} />
-        {totalsText ? (
-          <Text style={[styles.totals, isOverEstimate(totals) && styles.totalsOver]} accessibilityLabel={`Actual against estimated for this list: ${totalsText}`}>
-            {totalsText}
-          </Text>
-        ) : null}
       </View>
 
       <View style={styles.captureRow}>
@@ -170,7 +161,6 @@ export default function BrainDumpPane({
                 onChanged={onChanged}
                 divider={index > 0}
                 dragging={drag?.item.id === id}
-                dropHighlight={drag?.mode === 'move' && drag.subtaskHost === id}
                 nodeRef={sourceRef(`row:${id}`, () => ({
                   kind: 'row',
                   task: row.kind === 'task' ? row.task : undefined,

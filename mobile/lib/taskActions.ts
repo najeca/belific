@@ -1,6 +1,6 @@
 import { addTask, deleteBrainDumpItem, loadTasksRaw, updateTask } from './storage';
 import { createDumpConverter } from './dumpConvert';
-import { planDropAsSubtask, toggleSubtask, undoDropAsSubtask, withAllDone, type SubtaskDropPlan } from './subtasks';
+import { toggleSubtask, withAllDone } from './subtasks';
 import { generateId } from './data';
 import { buildNextOccurrence, nextOccurrenceId, nextOccurrence } from './recurrence';
 import { dateKey, isDateKey } from './kanban';
@@ -104,22 +104,6 @@ const dumpConverter = createDumpConverter({
   deleteDumpItem: deleteBrainDumpItem,
 });
 export const editDumpItem = dumpConverter.edit;
-
-// Drop a task onto another card: it becomes a subtask and the dragged task is
-// tombstoned. Returns the plan (for Undo) or null when not allowed.
-export async function dropAsSubtask(host: Task, dragged: Task): Promise<SubtaskDropPlan | null> {
-  const plan = planDropAsSubtask(host, dragged, generateId(), new Date().toISOString());
-  if (!plan) return null;
-  await updateTask(plan.host);
-  await updateTask(plan.tombstoned);
-  return plan;
-}
-
-export async function undoDropAsSubtaskPlan(plan: SubtaskDropPlan): Promise<void> {
-  const { host, dragged } = undoDropAsSubtask(plan, new Date().toISOString(), generateId());
-  await updateTask(host);
-  await addTask(dragged);
-}
 
 // ---- Edits from the card controls (checkpoint 8.2) ----
 // Each reads the LATEST stored task first, so two quick edits (a label, then a

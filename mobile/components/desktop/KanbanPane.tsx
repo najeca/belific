@@ -1,19 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import {
-  addWeeks,
-  bucketTasks,
-  dateKey,
-  formatDayTitle,
-  formatWeekLabel,
-  isDateKey,
-  parseDateKey,
-  weekDays,
-  weekStartOf,
-  type ColumnItem,
-} from '../../lib/kanban';
+import { bucketTasks, dateKey, isDateKey, parseDateKey, type ColumnDay } from '../../lib/kanban';
+import { columnHeading, dayAt, indexOfDay, leftDay, offsetOfDay, pageOffset, rangeTitle, stripAround, visibleRange } from '../../lib/dayStrip';
 import TaskCard from './TaskCard';
 import FilterButton from './FilterButton';
 import { filterTasks, type TaskFilter } from '../../lib/taskFilter';
@@ -22,29 +12,30 @@ import { projectOccurrences } from '../../lib/series';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
-import { stepWeekStart, taskDuration } from '../../lib/drag';
+import { taskDuration } from '../../lib/drag';
 import { loadTasksRaw } from '../../lib/storage';
+import { createTaskIn } from '../../lib/taskCommands';
 import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
 import { useTick } from './timerUi';
 import { useGoToday, useReveal } from './uiStore';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
+import { pressStyle } from './pressStyle';
 import type { Project, Task } from '../../lib/types';
 
-// Desktop week board (decision 009, "Plan"), forward only: the days of the
-// displayed week (tasks with no Day are the Brain Dump list in the left pane,
-// so there is no Unscheduled column here). The current week
-// shows today to Sunday (past days are hidden); future weeks show Monday to
-// Sunday; the past cannot be browsed. Day columns scroll horizontally and each
-// column scrolls vertically on its own. A task sits in the column of its
-// planned Day (Task.dueDate, decision 015). In the current week, unfinished
-// tasks from past days are surfaced first in Today with a muted "from <date>"
-// tag; the stored date is left alone until the user moves the task. This
-// pane never creates tasks (they are created in the Brain Dump pane).
-// Drag (checkpoint 4): each day column is a drop target (sets the Day), every
-// card is a drag source, and holding a drag at the board's left or right edge
-// scrolls the board sideways, then changes the week after a short dwell
-// (never before the current week).
+// The Tasks board (desktop): day columns in one continuous sideways strip
+// (2.26.0, lib/dayStrip.ts). It opens with today at the left edge and scrolls
+// back to earlier days and forward without any week boundary; only the
+// columns on screen (and a few either side) are drawn. Today, the arrows (one
+// screen at a time) and Jump to date move the strip. Tasks with no Day are the
+// list in the left pane, so there is no Unscheduled column. A task sits in the
+// column of its planned Day (Task.dueDate, decision 015) and nowhere else:
+// nothing is carried over from earlier days. Each day from today on has an
+// "Add a task" box with the day's actual against estimated time.
+// Drag (checkpoint 4): each day column is a drop target (today or later),
+// every card is a drag source, and holding a drag near the board's left or
+// right edge scrolls the strip. The column a drag would land in shows a
+// dashed placeholder.
 const domTimeStyle: React.CSSProperties = {
   height: 36,
   padding: '0 10px',
@@ -56,31 +47,53 @@ const domTimeStyle: React.CSSProperties = {
   fontFamily: DESKTOP_FONT_FAMILY,
   outlineColor: Colors.accent,
 };
-// "0:25 / 1:30" under a day's title: actual against estimated (build plan
-// phase 2). Nothing planned and nothing spent shows nothing.
+
+export const COLUMN_WIDTH = 272;
+const COLUMN_GAP = 16;
+const STEP = COLUMN_WIDTH + COLUMN_GAP;
+
+// "0:25 / 1:30": actual against estimated for the day (build plan phase 2).
+// Nothing planned and nothing spent shows nothing.
 function DayTotals({ items, now }: { items: Task[]; now: number }) {
   const totals = totalsOf(items, now);
   const text = formatTotals(totals);
   if (!text) return null;
   return (
-    <Text style={[dayTotalsStyles.text, isOverEstimate(totals) && dayTotalsStyles.over]} accessibilityLabel={`Actual against estimated for the day: ${text}`}>
+    <Text style={[styles.totals, isOverEstimate(totals) && styles.totalsOver]} accessibilityLabel={`Actual against estimated for the day: ${text}`}>
       {text}
     </Text>
   );
 }
-const dayTotalsStyles = StyleSheet.create({
-  text: { fontSize: 11, color: Colors.textSecondary, fontVariant: ['tabular-nums'], marginRight: 6 },
-  over: { color: Colors.accentText, fontWeight: '700' },
-});
 
-const COLUMN_WIDTH = 256;
-const NAV_SIZE = 44;
-
-interface BoardColumn {
-  id: string;
-  title: string;
-  items: ColumnItem[];
-  isToday?: boolean;
+// The day's "Add a task" box: Enter adds a task on that Day (like T for today).
+function AddTaskBox({ dayKey, items, now, onChanged }: { dayKey: string; items: Task[]; now: number; onChanged: () => void }) {
+  const [text, setText] = useState('');
+  const ref = useRef<TextInput>(null);
+  async function add() {
+    if (!text.trim()) return;
+    await createTaskIn(text, { dueDate: dayKey });
+    setText('');
+    onChanged();
+    ref.current?.focus();
+  }
+  return (
+    <View style={styles.addBox}>
+      <Text style={styles.addPlus} accessible={false}>
+        ＋
+      </Text>
+      <TextInput
+        ref={ref}
+        value={text}
+        onChangeText={setText}
+        onSubmitEditing={add}
+        placeholder="Add a task"
+        placeholderTextColor={Colors.textSecondary}
+        style={styles.addInput}
+        accessibilityLabel={`Add a task on ${dayKey}`}
+      />
+      <DayTotals items={items} now={now} />
+    </View>
+  );
 }
 
 export default function KanbanPane({
@@ -94,18 +107,20 @@ export default function KanbanPane({
   onChanged: () => void;
   filter: TaskFilter;
   onFilterChange: (next: TaskFilter) => void;
-  // "Show only today" (Shift+F, build plan phase 3): this week's board shows
-  // just today's column.
+  // "Show only today" (Shift+F, build plan phase 3): just today's column.
   onlyToday?: boolean;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [weekStart, setWeekStart] = useState(() => weekStartOf(new Date()));
   const [jumpOpen, setJumpOpen] = useState(false);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [viewW, setViewW] = useState(0);
   const { drag, registerZone, registerBoard, sourceRef } = useDrag();
   const scrollRef = usePaneScroll();
+  const scroller = useRef<ScrollView | null>(null);
   const boardNode = useRef<HTMLElement | null>(null);
   const columnRefs = useRef(new Map<string, (node: unknown) => void>());
+  const opened = useRef(false);
 
   const reload = useCallback(() => {
     // Raw rows, tombstones included: a skipped day is a tombstone and must
@@ -119,68 +134,75 @@ export default function KanbanPane({
   }, [reload, refreshKey]);
 
   const todayKey = dateKey(new Date());
-  const currentWeekStart = weekStartOf(parseDateKey(todayKey));
-  // Never earlier than this week, even if the app stays open past Sunday.
-  const shownWeekStart = onlyToday || weekStart.getTime() < currentWeekStart.getTime() ? currentWeekStart : weekStart;
-  const atCurrentWeek = shownWeekStart.getTime() === currentWeekStart.getTime();
-  const weekAll = useMemo(() => weekDays(shownWeekStart, todayKey), [shownWeekStart.getTime(), todayKey]);
-  const days = useMemo(() => (onlyToday ? weekAll.filter((d) => d.key === todayKey) : weekAll), [weekAll, onlyToday, todayKey]);
-  // Shift+T: this week.
+  const strip = useMemo(() => stripAround(todayKey), [todayKey]);
+
+  // Puts a day at the left edge.
+  const goTo = useCallback(
+    (key: string) => {
+      if (indexOfDay(strip, key) < 0) return;
+      const x = offsetOfDay(strip, key, STEP);
+      setJumpOpen(false);
+      setScrollLeft(x);
+      scroller.current?.scrollTo({ x, animated: false });
+      if (boardNode.current) boardNode.current.scrollLeft = x;
+    },
+    [strip],
+  );
+  // Opens on today once the board has a width (and again if the day changes).
+  useEffect(() => {
+    if (viewW === 0) return;
+    opened.current = true;
+    goTo(todayKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewW > 0, todayKey]);
+  // Back from "only today": land on today.
+  useEffect(() => {
+    if (!onlyToday && opened.current) setTimeout(() => goTo(todayKey), 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlyToday]);
+  // Shift+T: today.
   const goToday = useGoToday();
   useEffect(() => {
-    if (!goToday) return;
-    setJumpOpen(false);
-    setWeekStart(currentWeekStart);
+    if (goToday) goTo(todayKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goToday]);
-  // Search results ask the board to show the week of a task (never before this week).
+  // Search results ask the board to show the day of a task.
   const reveal = useReveal();
   useEffect(() => {
-    if (!reveal || !isDateKey(reveal.dueDate)) return;
-    const target = weekStartOf(parseDateKey(reveal.dueDate));
-    setJumpOpen(false);
-    setWeekStart(target.getTime() < currentWeekStart.getTime() ? currentWeekStart : target);
+    if (reveal && isDateKey(reveal.dueDate)) goTo(reveal.dueDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reveal?.nonce]);
+
+  const range = useMemo(() => visibleRange(scrollLeft, viewW || 1200, STEP, strip.total), [scrollLeft, viewW, strip.total]);
+  const days: ColumnDay[] = useMemo(() => {
+    if (onlyToday) return [{ key: todayKey, date: parseDateKey(todayKey) }];
+    const out: ColumnDay[] = [];
+    for (let i = range.first; i <= range.last; i++) {
+      const key = dayAt(strip, i);
+      out.push({ key, date: parseDateKey(key) });
+    }
+    return out;
+  }, [onlyToday, range.first, range.last, strip, todayKey]);
   // The filter (labels, no label, show complete) applies to tasks only.
   const shownTasks = useMemo(() => filterTasks(tasks, filter), [tasks, filter]);
   // Repeating series show on every matching day from today forward without
-  // storing anything (decision 023). The label filter and Show complete apply to
-  // them like to any task.
-  const projected = useMemo(
-    () => filterTasks(projectOccurrences(tasks, days.map((d) => d.key), todayKey), filter),
-    [tasks, days, todayKey, filter],
-  );
+  // storing anything (decision 023).
+  const projected = useMemo(() => filterTasks(projectOccurrences(tasks, days.map((d) => d.key), todayKey), filter), [tasks, days, todayKey, filter]);
   const columns = useMemo(() => bucketTasks(shownTasks, days, todayKey, { projected }), [shownTasks, days, todayKey, projected]);
-  const weekLabel = onlyToday ? 'Today' : formatWeekLabel(days, new Date().getFullYear());
-  // Estimate against actual per day (a running timer counts), refreshed slowly.
   const now = useTick(30000);
 
-  // The drag layer asks for the latest week through these.
-  const weekRef = useRef({ shownWeekStart, currentWeekStart, atCurrentWeek });
-  weekRef.current = { shownWeekStart, currentWeekStart, atCurrentWeek };
+  const firstShown = onlyToday ? todayKey : leftDay(strip, scrollLeft, STEP);
+  const lastShown = onlyToday ? todayKey : dayAt(strip, Math.min(strip.total - 1, indexOfDay(strip, firstShown) + Math.max(0, Math.floor((viewW || STEP) / STEP) - 1)));
+  const title = onlyToday ? 'Today' : rangeTitle(firstShown, lastShown);
+  const atToday = onlyToday || firstShown === todayKey;
+
+  // The drag layer scrolls the strip at its edges; there are no weeks to step.
   const boardRef = useCallback(
     (instance: unknown) => {
+      scroller.current = instance as ScrollView | null;
       const node = domNode(instance);
       boardNode.current = node;
-      registerBoard(
-        node
-          ? {
-              node,
-              atCurrentWeek: () => weekRef.current.atCurrentWeek,
-              step: (delta) => {
-                const w = weekRef.current;
-                const next = stepWeekStart(w.shownWeekStart, delta, w.currentWeekStart);
-                if (!next) return;
-                setJumpOpen(false);
-                setWeekStart(next);
-                // Land at the near end of the new week: Monday going forward,
-                // Sunday going back.
-                node.scrollLeft = delta === 1 ? 0 : node.scrollWidth;
-              },
-            }
-          : null,
-      );
+      registerBoard(node ? { node, atCurrentWeek: () => false, step: () => {} } : null);
     },
     [registerBoard],
   );
@@ -190,296 +212,193 @@ export default function KanbanPane({
     let ref = columnRefs.current.get(key);
     if (!ref) {
       ref = (node: unknown) =>
-        registerZone(
-          `day:${key}`,
-          node ? { kind: 'day', dayKey: key, node: node as HTMLElement, clip: () => boardNode.current } : null,
-        );
+        registerZone(`day:${key}`, node ? { kind: 'day', dayKey: key, node: node as HTMLElement, clip: () => boardNode.current } : null);
       columnRefs.current.set(key, ref);
     }
     return ref;
   };
   const dropDay = drag && drag.mode === 'move' && drag.accepted && drag.target?.kind === 'day' ? drag.target.dayKey : null;
-  const edge = drag && drag.mode === 'move' ? drag.edge : 0;
 
-
-  function changeWeek(delta: number) {
-    setJumpOpen(false);
-    if (delta < 0 && atCurrentWeek) return;
-    setWeekStart(addWeeks(shownWeekStart, delta));
-  }
-
-
-
-  const dayColumns: BoardColumn[] = days.map((d) => ({
-    id: d.key,
-    title: formatDayTitle(d.key, todayKey),
-    items: columns.days[d.key] ?? [],
-    isToday: d.key === todayKey,
-  }));
-
-  const renderColumn = (col: BoardColumn) => (
-          <View key={col.id} ref={columnRef(col.id) as never} style={[styles.column, dropDay === col.id && styles.columnTarget]} {...({ dataSet: { dayCol: col.id } } as object)}>
-            <View style={styles.columnHeader}>
-              <Text style={[styles.columnTitle, col.isToday && styles.columnTitleToday]} numberOfLines={1}>
-                {col.title}
-              </Text>
-              <DayTotals items={col.items.map((i) => i.task)} now={now} />
-              <Text style={styles.count}>{col.items.length > 0 ? col.items.length : ''}</Text>
-            </View>
-
-            <ScrollView ref={scrollRef(`day:${col.id}`) as never} style={styles.columnList} showsVerticalScrollIndicator={false}>
-              {col.items.map((item, index) => {
-                const { task, overdueFrom, projected: isProjected } = item;
-                const proj = projects.find((p) => p.key === task.projectKey);
-                // A label's colour: soft tint plus a 4px left edge. No label stays neutral.
-                const color = labelColor(proj?.colorKey);
-                return (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    ops={isProjected ? opsForProjected(task) : opsForTask(task)}
-                    projected={isProjected}
-                    label={proj}
-                    color={color}
-                    variant="card"
-                    todayKey={todayKey}
-                    onChanged={onChanged}
-                    overdueFrom={overdueFrom}
-                    divider={index > 0}
-                    dragging={drag?.item.id === task.id}
-                    dropHighlight={drag?.mode === 'move' && drag.subtaskHost === task.id}
-                    nodeRef={sourceRef(`card:${task.id}`, () => ({
-                      kind: 'card',
-                      task,
-                      id: task.id,
-                      title: task.title,
-                      duration: taskDuration(task),
-                      projected: isProjected,
-                    }))}
-                  />
-                );
-              })}
-              {col.items.length === 0 && <Text style={styles.emptyColumn}>Nothing here</Text>}
-            </ScrollView>
+  const renderColumn = (day: ColumnDay, left: number | null) => {
+    const items = columns.days[day.key] ?? [];
+    const head = columnHeading(day.key, todayKey);
+    const isTarget = dropDay === day.key;
+    return (
+      <View
+        key={day.key}
+        ref={columnRef(day.key) as never}
+        style={[styles.column, left !== null && { position: 'absolute', left, top: 0, bottom: 0 }, isTarget && styles.columnTarget]}
+        {...({ dataSet: { dayCol: day.key, when: head.when } } as object)}
+      >
+        <View style={styles.columnHeader}>
+          <Text style={[styles.weekday, head.when === 'past' && styles.past]} accessibilityRole="header">
+            {head.weekday}
+          </Text>
+          <Text style={[styles.date, head.when === 'past' && styles.past]}>{head.date}</Text>
+          {head.when === 'today' && <Text style={styles.todayTag}>Today</Text>}
+        </View>
+        {head.when === 'past' ? (
+          <View style={styles.pastTotals}>
+            <DayTotals items={items.map((i) => i.task)} now={now} />
           </View>
-  );
+        ) : (
+          <AddTaskBox dayKey={day.key} items={items.map((i) => i.task)} now={now} onChanged={onChanged} />
+        )}
+        <ScrollView ref={scrollRef(`day:${day.key}`) as never} style={styles.columnList} contentContainerStyle={styles.columnListContent} showsVerticalScrollIndicator={false}>
+          {items.map((item) => {
+            const { task, projected: isProjected } = item;
+            const proj = projects.find((p) => p.key === task.projectKey);
+            return (
+              <TaskCard
+                key={task.id}
+                task={task}
+                ops={isProjected ? opsForProjected(task) : opsForTask(task)}
+                projected={isProjected}
+                label={proj}
+                color={labelColor(proj?.colorKey)}
+                variant="card"
+                todayKey={todayKey}
+                onChanged={onChanged}
+                divider={false}
+                dragging={drag?.item.id === task.id}
+                nodeRef={sourceRef(`card:${task.id}`, () => ({
+                  kind: 'card',
+                  task,
+                  id: task.id,
+                  title: task.title,
+                  duration: taskDuration(task),
+                  projected: isProjected,
+                }))}
+              />
+            );
+          })}
+          {isTarget && drag && (
+            <View style={styles.placeholder} pointerEvents="none" accessibilityLabel="Drop here" {...({ dataSet: { dropPlaceholder: day.key } } as object)}>
+              <Text style={styles.placeholderText} numberOfLines={1}>
+                {drag.item.title}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.pane}>
-
-      <View style={styles.weekNav}>
+      <View style={styles.nav}>
         <Pressable
-          onPress={() => changeWeek(-1)}
-          disabled={atCurrentWeek}
-          style={[styles.navBtn, atCurrentWeek && styles.navBtnDisabled]}
+          onPress={() => {
+            const x = pageOffset(scrollLeft, viewW, STEP, -1, strip.total);
+            setScrollLeft(x);
+            scroller.current?.scrollTo({ x, animated: false });
+          }}
+          disabled={onlyToday}
+          style={pressStyle(({ hovered }) => [styles.navBtn, hovered && styles.navHover, onlyToday && styles.off])}
           accessibilityRole="button"
-          accessibilityLabel="Previous week"
-          accessibilityState={{ disabled: atCurrentWeek }}
+          accessibilityLabel="Earlier days"
         >
           <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
         </Pressable>
         <Pressable
-          onPress={() => setJumpOpen((o) => !o)}
-          style={styles.weekLabelBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Jump to week"
-        >
-          <Text style={styles.weekLabel} numberOfLines={1}>
-            {weekLabel}
-          </Text>
-          <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
-        </Pressable>
-        <Pressable
-          onPress={() => changeWeek(1)}
+          onPress={() => {
+            const x = pageOffset(scrollLeft, viewW, STEP, 1, strip.total);
+            setScrollLeft(x);
+            scroller.current?.scrollTo({ x, animated: false });
+          }}
           disabled={onlyToday}
-          style={[styles.navBtn, onlyToday && styles.navBtnDisabled]}
+          style={pressStyle(({ hovered }) => [styles.navBtn, hovered && styles.navHover, onlyToday && styles.off])}
           accessibilityRole="button"
-          accessibilityLabel="Next week"
+          accessibilityLabel="Later days"
         >
           <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
+        </Pressable>
+        <Pressable onPress={() => setJumpOpen((o) => !o)} style={styles.titleBtn} accessibilityRole="button" accessibilityLabel="Jump to date">
+          <Text style={styles.title} numberOfLines={1} {...({ dataSet: { stripTitle: '1' } } as object)}>
+            {title}
+          </Text>
+          <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }} />
         <FilterButton filter={filter} labels={projects} onChange={onFilterChange} />
         <Pressable
-          onPress={() => {
-            setJumpOpen(false);
-            setWeekStart(currentWeekStart);
-          }}
-          disabled={atCurrentWeek}
-          style={[styles.thisWeekBtn, atCurrentWeek && styles.navBtnDisabled]}
+          onPress={() => goTo(todayKey)}
+          disabled={atToday}
+          style={pressStyle(({ hovered }) => [styles.todayBtn, hovered && !atToday && styles.navHover, atToday && styles.off])}
           accessibilityRole="button"
-          accessibilityLabel="Go to this week"
-          accessibilityState={{ disabled: atCurrentWeek }}
+          accessibilityLabel="Show today in Tasks"
+          accessibilityState={{ disabled: atToday }}
         >
-          <Text style={styles.thisWeekText}>This week</Text>
+          <Text style={styles.todayText}>Today</Text>
         </Pressable>
       </View>
 
       {jumpOpen && (
         <View style={styles.jump}>
-          <Text style={styles.menuHeading}>Jump to week containing</Text>
+          <Text style={styles.menuHeading}>Jump to date</Text>
           <input
             type="date"
-            min={todayKey}
             value=""
             onChange={(e) => {
               const v = e.target.value;
-              if (isDateKey(v) && v >= todayKey) {
-                setWeekStart(weekStartOf(parseDateKey(v)));
-                setJumpOpen(false);
-              }
+              if (isDateKey(v)) goTo(v);
             }}
             style={domTimeStyle}
-            aria-label="Jump to week containing"
+            aria-label="Jump to date"
           />
         </View>
       )}
 
-      <View style={styles.boardRow}>
-        <ScrollView ref={boardRef as never} horizontal style={styles.board} contentContainerStyle={styles.boardContent}>
-          {dayColumns.map((col) => renderColumn(col))}
+      {onlyToday ? (
+        <View style={styles.board}>{renderColumn(days[0], null)}</View>
+      ) : (
+        <ScrollView
+          ref={boardRef as never}
+          horizontal
+          style={styles.board}
+          contentContainerStyle={{ width: strip.total * STEP, height: '100%' }}
+          onLayout={(e) => setViewW(Math.round(e.nativeEvent.layout.width))}
+          onScroll={(e) => setScrollLeft(e.nativeEvent.contentOffset.x)}
+          scrollEventThrottle={16}
+          showsHorizontalScrollIndicator
+          {...({ dataSet: { strip: '1' } } as object)}
+        >
+          {days.map((d) => renderColumn(d, indexOfDay(strip, d.key) * STEP))}
         </ScrollView>
-        {/* Armed week change: a quiet strip on that edge while the dwell runs. */}
-        {edge !== 0 && (
-          <View pointerEvents="none" style={[styles.edge, edge === -1 ? { left: 0 } : { right: 0 }]}>
-            <View style={styles.edgeTint} />
-            <Ionicons name={edge === -1 ? 'chevron-back' : 'chevron-forward'} size={18} color={Colors.accentText} />
-          </View>
-        )}
-      </View>
-
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   // Inside the centre pane (2.26.0), which draws the frame.
-  pane: {
-    flex: 1,
-    minWidth: 0,
-  },
-  paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
-  weekNav: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  navBtn: { width: NAV_SIZE, height: NAV_SIZE, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
-  navBtnDisabled: { opacity: 0.35 },
-  weekLabelBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: NAV_SIZE, flexShrink: 1 },
-  weekLabel: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  thisWeekBtn: {
-    paddingHorizontal: 14,
-    height: NAV_SIZE,
-    justifyContent: 'center',
-    borderRadius: 14,
-  },
-  thisWeekText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
-  jump: {
-    position: 'absolute',
-    top: 92,
-    left: 16,
-    zIndex: 30,
-    padding: 12,
-    gap: 6,
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  boardRow: { flex: 1, flexDirection: 'row', marginTop: 4, position: 'relative' },
-  edge: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  edgeTint: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: Colors.accent, opacity: 0.1 },
+  pane: { flex: 1, minWidth: 0 },
+  nav: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
+  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  navHover: { backgroundColor: Colors.background },
+  off: { opacity: 0.35 },
+  titleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: 32, flexShrink: 1 },
+  title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  todayBtn: { paddingHorizontal: 14, height: 32, justifyContent: 'center', borderRadius: 10, backgroundColor: Colors.background },
+  todayText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
+  jump: { position: 'absolute', top: 40, left: 72, zIndex: 30, padding: 12, gap: 6, backgroundColor: Colors.surface, borderRadius: 14, boxShadow: '0 6px 24px rgba(38,37,31,0.14)' } as object,
+  menuHeading: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
   board: { flex: 1 },
-  boardContent: { flexGrow: 1 },
-  column: {
-    width: COLUMN_WIDTH,
-    paddingRight: 12,
-    marginRight: 12,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: Colors.border,
-  },
-  columnHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
-  },
-  columnTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
-  columnTitleToday: { color: Colors.accentText },
-  // Same size and weight as the day title beside it (it read thin at 12/400).
-  count: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
+  column: { width: COLUMN_WIDTH, borderRadius: 12 },
+  columnTarget: { backgroundColor: 'rgba(92,122,107,0.06)' },
+  columnHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingHorizontal: 2, paddingTop: 4, paddingBottom: 10 },
+  weekday: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  date: { fontSize: 20, fontWeight: '500', color: Colors.textSecondary },
+  past: { opacity: 0.6 },
+  todayTag: { marginLeft: 4, fontSize: 12, fontWeight: '700', color: Colors.accentText },
+  addBox: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 10, paddingRight: 8, borderRadius: 10, backgroundColor: Colors.background, marginBottom: 10 },
+  addPlus: { fontSize: 14, color: Colors.textSecondary, width: 16, textAlign: 'center' },
+  addInput: { flex: 1, minWidth: 0, height: 40, fontSize: 14, color: Colors.textPrimary, outlineStyle: 'none' } as object,
+  pastTotals: { minHeight: 20, marginBottom: 10, paddingHorizontal: 2, flexDirection: 'row' },
+  totals: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
+  totalsOver: { color: Colors.accentText, fontWeight: '700' },
   columnList: { flex: 1 },
-  columnTarget: { backgroundColor: Colors.background, borderRadius: 10, outlineWidth: 1, outlineStyle: 'solid', outlineColor: Colors.accent },
-  dragging: { opacity: 0.4 },
-  emptyColumn: { paddingVertical: 12, fontSize: 12, color: Colors.textSecondary },
-  card: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 8, paddingHorizontal: 4 },
-  cardDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
-  cardHover: { backgroundColor: Colors.background },
-  cardLabelled: { borderLeftWidth: 4, borderRadius: 8, marginVertical: 2, paddingLeft: 6 },
-  // Hover on a tinted card: a hairline outline instead of replacing the tint.
-  cardLabelledHover: { outlineWidth: 1, outlineStyle: 'solid', outlineColor: Colors.border },
-  check: { paddingTop: 1 },
-  cardBody: { flex: 1, minWidth: 0 },
-  cardTitle: { fontSize: 14, color: Colors.textPrimary },
-  cardTitleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  cardTitleLow: { color: Colors.textSecondary },
-  meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 4 },
-  metaText: { fontSize: 12, color: Colors.textSecondary },
-  chip: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
-  },
-  actions: { flexDirection: 'row', alignItems: 'center' },
-  moveBtn: { padding: 4 },
-  menuOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 50,
-  },
-  menuBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(38, 37, 31, 0.2)',
-    borderRadius: 16,
-  },
-  menu: {
-    width: 240,
-    maxHeight: '80%',
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 8,
-  },
-  menuHeading: {
-    paddingHorizontal: 14,
-    paddingBottom: 6,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-  },
+  columnListContent: { gap: 10, paddingBottom: 16 },
+  placeholder: { height: 52, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: 'rgba(92,122,107,0.08)', justifyContent: 'center', paddingHorizontal: 12 },
+  placeholderText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
 });

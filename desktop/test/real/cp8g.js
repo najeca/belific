@@ -297,7 +297,8 @@ async function run() {
   mouse('mouseUp', Math.round((pr2.left + pr2.right) / 2), Math.round(pr2.bottom - 8));
   await C.sleep(400);
   check('Escape cancelled that drag: the card did not move', taskNamed('Col untimed A').dueDate === today && !taskNamed('Col untimed A').startTime);
-  const weekLabel = () => js(`(() => { const b = ${q('[aria-label="Jump to week"]')}; return b ? b.innerText.trim() : ''; })()`);
+  // 2.26.0: no weeks any more; holding a drag at the edge scrolls the strip of days.
+  const weekLabel = () => js(`(() => { const b = document.querySelector('[data-strip]'); return b ? String(Math.round(b.scrollLeft)) : ''; })()`);
   const w0 = await weekLabel();
   const board = await js(`(() => { const e = ${q('[aria-label="Task Col untimed B"]:not([data-block-id])')}; let b = e; while (b && !(b.scrollWidth > b.clientWidth + 1 && getComputedStyle(b).overflowX !== 'visible')) b = b.parentElement; if (!b) b = e.parentElement; const r = b.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; })()`);
   const from = await rectOf(q('[aria-label="Task Col untimed B"]:not([data-block-id]) [aria-label="Title Col untimed B"]'));
@@ -319,7 +320,7 @@ async function run() {
   await press('Escape');
   mouse('mouseUp', ex, ey);
   await C.sleep(400);
-  check('holding a drag at the right edge of the board still changes the week', changed, `${w0} -> ${await weekLabel()}`);
+  check('holding a drag at the right edge of the board scrolls the days sideways', changed, `${w0} -> ${await weekLabel()}`);
   check('no full viewport overlay at any point', await noNewOverlay());
   app.exit(summary() ? 1 : 0);
 }

@@ -65,6 +65,9 @@ async function run() {
   await app.whenReady();
   const win = await C.waitFor(() => C.firstWindow());
   const js = (code) => win.webContents.executeJavaScript(code, true);
+  // 2.26.0: the board is a continuous strip of days; a window this wide has
+  // every day of a week drawn when its Monday (or today) is at the left edge.
+  win.setSize(1920, 1000);
   win.show();
   win.focus();
   win.webContents.focus();
@@ -138,8 +141,32 @@ async function run() {
   const baseline = new Set(await overlays());
   const noNewOverlay = async () => (await overlays()).filter((o) => !baseline.has(o)).length === 0;
 
+  // ---- the "week" this check looks at (2.26.0) ----
+  // The board no longer has weeks: it is one strip of days. This check keeps its
+  // week by name: the days from today (or a Monday) to that Sunday, and counts
+  // cards only in those day columns.
+  const addDay = (key, n) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() + n); return keyOf(d); };
+  const sundayOf = (key) => { const d = new Date(`${key}T12:00:00`); return addDay(key, (7 - d.getDay()) % 7); };
+  const daysFrom = (a, b) => { const out = []; for (let k = a; k <= b; k = addDay(k, 1)) out.push(k); return out; };
+  let shownDays = daysFrom(today, sundayOf(today));
+  const jumpTo = async (key) => {
+    await click(q('[aria-label="Jump to date"]'));
+    await js(`(() => { const i = document.querySelector('input[aria-label="Jump to date"]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, ${JSON.stringify(key)}); i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await C.sleep(500);
+  };
+  const nextWeek = async () => {
+    const monday = addDay(sundayOf(shownDays[0]), 1);
+    shownDays = daysFrom(monday, addDay(monday, 6));
+    await jumpTo(monday);
+  };
+  const thisWeek = async () => {
+    shownDays = daysFrom(today, sundayOf(today));
+    if (await exists(q('[aria-label="Show today in Tasks"]:not([aria-disabled="true"])'))) await click(q('[aria-label="Show today in Tasks"]'));
+    await C.sleep(400);
+  };
+
   // ---- cards, left to right ----
-  const cardsExpr = (title) => `Array.from(document.querySelectorAll(${JSON.stringify(`[aria-label="Task ${title}"]:not([data-block-id])`)})).filter((c) => c.closest('[data-task-card], [data-projected]') || true).sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)`;
+  const cardsExpr = (title) => `Array.from(document.querySelectorAll(${JSON.stringify(`[aria-label="Task ${title}"]:not([data-block-id])`)})).filter((c) => { const col = c.closest('[data-day-col]'); return col && ${JSON.stringify(shownDays)}.includes(col.dataset.dayCol); }).sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)`;
   const nth = (title, i) => `(${cardsExpr(title)})[${i}]`;
   const inNth = (title, i, inner) => `(() => { const c = ${nth(title, i)}; return c ? c.querySelector(${JSON.stringify(inner)}) : null; })()`;
   const countCards = (title) => js(`${cardsExpr(title)}.length`);
@@ -198,13 +225,13 @@ async function run() {
   check('Yes: the open row is tombstoned, the completed history stays but stops repeating', !!rowById(`dm:${today}`).deletedAt && !rowById('dm').deletedAt && rowById('dm').completed === true && dm.every((r) => !r.recurrence), JSON.stringify(dm));
   await waitCards('Doomed', 0);
   check('no occurrence of it is left on the board', (await countCards('Doomed')) === 0);
-  await click(q('[aria-label="Next week"]'));
+  await nextWeek();
   await C.sleep(300);
   check('nor in the next week', (await countCards('Doomed')) === 0);
-  await click(q('[aria-label="Go to this week"]'));
+  await thisWeek();
 
   // ================================================== 3. the next week: all projected
-  await click(q('[aria-label="Next week"]'));
+  await nextWeek();
   await waitCards('Daily walk', 7);
   const nextFlags = await projectedFlags('Daily walk');
   check('the next week shows the routine on all seven days, all projected', nextFlags.length === 7 && nextFlags.every(Boolean), JSON.stringify(nextFlags));
@@ -236,7 +263,7 @@ async function run() {
   await C.waitFor(async () => (await cardTexts('Daily walk')).every((t) => t.includes('05:00')), 6000).catch(() => {});
   const timesNext = await cardTexts('Daily walk');
   check('every day of the next week now reads 05:00', timesNext.length === 7 && timesNext.every((tx) => tx.includes('05:00')), JSON.stringify(timesNext.slice(0, 2)));
-  await click(q('[aria-label="Go to this week"]'));
+  await thisWeek();
   await C.sleep(300);
   const afterUntimed = await js(`${cardsExpr('Daily walk')}.every((c) => { const left = Math.round(c.getBoundingClientRect().left); return Array.from(document.querySelectorAll('[data-task-card], [data-projected]')).filter((o) => Math.round(o.getBoundingClientRect().left) === left && !/\\d\\d:\\d\\d/.test(o.innerText)).every((o) => o.getBoundingClientRect().top < c.getBoundingClientRect().top); })`);
   check('in every column the timed routine sits after the tasks without a time', afterUntimed);
@@ -264,7 +291,7 @@ async function run() {
   await click(q('[aria-label="Go to today"]'));
 
   // ================================================== 4. a projected card cannot go to another Day or the left list
-  await click(q('[aria-label="Next week"]'));
+  await nextWeek();
   await waitCards('Daily walk', 7);
   const src = await rectOf(inNth('Daily walk', 1, '[aria-label="Title Daily walk"]'));
   const col2 = await rectOf(inNth('Daily walk', 2, '[aria-label="Title Daily walk"]'));
@@ -369,7 +396,7 @@ async function run() {
   await C.sleep(400);
   const remaining = await countCards('Daily stroll');
   check('the projections are gone: only the stored days remain', remaining >= 1 && remaining <= 2 && (await projectedFlags('Daily stroll')).every((f) => !f), String(remaining));
-  await click(q('[aria-label="Next week"]'));
+  await nextWeek();
   await C.sleep(300);
   check('and the following week shows none', (await countCards('Daily stroll')) === 0);
   check('no full viewport overlay at any point', await noNewOverlay());

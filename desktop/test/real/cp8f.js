@@ -253,7 +253,8 @@ async function run() {
       return out;
     })()`);
     const sameColumn = Object.values(colGaps).flat();
-    check('spacing: cards in a column are about 12px apart', sameColumn.length > 0 && sameColumn.every((g) => g >= 11 && g <= 13), JSON.stringify(colGaps));
+    // 2.26.0: 10 px, the reference's measured gap between cards.
+    check('spacing: cards in a column are about 10px apart', sameColumn.length > 0 && sameColumn.every((g) => g >= 9 && g <= 11), JSON.stringify(colGaps));
     const rowGaps = await js(`(() => {
       const rows = Array.from(document.querySelectorAll('[aria-label^="Task Thought"]')).map((e) => e.getBoundingClientRect()).sort((a, b) => a.top - b.top);
       return rows.slice(1).map((r, i) => Math.round((r.top - rows[i].bottom) * 10) / 10);

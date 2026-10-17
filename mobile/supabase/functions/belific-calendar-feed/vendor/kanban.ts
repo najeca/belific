@@ -80,7 +80,6 @@ export interface ColumnItem {
   projected?: boolean;
   // Set when an unfinished task from a past day is surfaced in Today. The
   // stored dueDate is left alone until the user moves it.
-  overdueFrom?: string;
 }
 
 export interface KanbanColumns {
@@ -93,13 +92,12 @@ const START_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 // today. A task carried over from a past day keeps its old time, which means
 // nothing here, so it stays in the untimed group.
 function startTimeOf(item: ColumnItem): string | null {
-  if (item.overdueFrom) return null;
   const t = item.task.startTime;
   return typeof t === 'string' && START_TIME.test(t) ? t : null;
 }
 
 // Order inside a column (checkpoint 8.4): tasks without a start time first
-// (carried-over tasks, then High priority, then oldest created), then tasks with
+// (High priority, then oldest created), then tasks with
 // a start time, earliest first, then finished ones (most recently completed
 // first). Nothing can be reordered by hand.
 function compareItems(a: ColumnItem, b: ColumnItem): number {
@@ -111,28 +109,22 @@ function compareItems(a: ColumnItem, b: ColumnItem): number {
   const bTime = startTimeOf(b);
   if ((aTime !== null) !== (bTime !== null)) return aTime !== null ? 1 : -1;
   if (aTime !== null && bTime !== null && aTime !== bTime) return aTime.localeCompare(bTime);
-  if (!!a.overdueFrom !== !!b.overdueFrom) return a.overdueFrom ? -1 : 1;
-  if (a.overdueFrom && b.overdueFrom && a.overdueFrom !== b.overdueFrom) {
-    return a.overdueFrom.localeCompare(b.overdueFrom);
-  }
   const aHigh = a.task.priority === 'high';
   const bHigh = b.task.priority === 'high';
   if (aHigh !== bHigh) return aHigh ? -1 : 1;
   return a.task.createdAt.localeCompare(b.task.createdAt);
 }
 
-// Puts tasks into the columns of the displayed week (`days`, see weekDays).
+// Puts tasks into the columns of the displayed days (`days`).
 //  - no (or malformed) dueDate: not on the board at all (those tasks are the
 //    Brain Dump list in the left pane, see thoughts.ts)
-//  - dueDate on a displayed day: that day's column
-//  - past dueDate, unfinished: the Today column, tagged overdueFrom, sorted
-//    first, but only while Today is displayed (the current week)
-//  - past dueDate, finished: not shown
-//  - dueDate on a day that is not displayed: not in any column (it shows when
-//    that week is displayed)
+//  - dueDate on a displayed day: that day's column, finished or not, past days
+//    included. 2.26.0: nothing is carried over any more; an unfinished task of
+//    an earlier day stays on its own day (scroll back to find it) and no stored
+//    date ever changes here. Daily Planning and Shutdown move tasks only when
+//    the person chooses to.
+//  - dueDate on a day that is not displayed: not in any column
 // Deleted (tombstoned) tasks are never shown.
-//  - an unfinished PAST occurrence of a repeating task is not carried forward
-//    (checkpoint 8.4): the routine simply shows on its next matching day
 //  - projected occurrences (opts.projected, from lib/series.ts) go into their
 //    own day's column, marked projected; they are never in the past
 export function bucketTasks(
@@ -147,14 +139,7 @@ export function bucketTasks(
   for (const task of tasks) {
     if (task.deletedAt) continue;
     const due = task.dueDate;
-    if (!isDateKey(due)) {
-      continue;
-    } else if (due < todayKey) {
-      if (task.completed || task.recurrence) continue;
-      if (todayKey in result.days) result.days[todayKey].push({ task, overdueFrom: due });
-    } else if (due in result.days) {
-      result.days[due].push({ task });
-    }
+    if (isDateKey(due) && due in result.days) result.days[due].push({ task });
   }
   for (const task of opts.projected ?? []) {
     const due = task.dueDate;

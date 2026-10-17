@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { pressStyle } from './pressStyle';
@@ -35,7 +35,7 @@ import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
 import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
 import { dateKey as todayDateKey } from '../../lib/kanban';
-import { SIDEBAR_WIDTH, TIMEBOX_WIDTH, responsiveLayout, showCalendar, sidebarToggle, timeboxToggle, toggleCenter, toggleOnlyToday, type CalendarView } from '../../lib/paneState';
+import { SIDEBAR_DOCK_MIN, SIDEBAR_WIDTH, TIMEBOX_WIDTH, responsiveLayout, showCalendar, sidebarToggle, timeboxToggle, toggleCenter, toggleOnlyToday, type CalendarView } from '../../lib/paneState';
 import { kv } from '../../lib/kv';
 import { isTextEntryTarget } from '../../lib/editable';
 import { dateKey } from '../../lib/kanban';
@@ -223,7 +223,7 @@ export default function DesktopHome() {
   // The layout (panes open or hidden, Kanban or Calendar, the Calendar view, show
   // only today), remembered in user_settings with a local fallback.
   const [paneState, updatePanes] = usePaneState();
-  const { width: windowWidth } = useWindowDimensions();
+  const windowWidth = useWindowWidth();
   // Opened over the centre for the moment on a narrow window; never remembered.
   const [overlayOpen, setOverlayOpen] = useState({ sidebar: false, timebox: false });
   const layout = responsiveLayout(paneState, windowWidth, overlayOpen);
@@ -237,6 +237,13 @@ export default function DesktopHome() {
     if (r.state !== paneState) updatePanes(() => r.state);
     setOverlayOpen((o) => ({ ...o, timebox: r.overlayOpen }));
   }, [paneState, windowWidth, overlayOpen.timebox, updatePanes]);
+  // An overlay flag never outlives its panel being docked (it would reappear
+  // when the window narrows again).
+  useEffect(() => {
+    if ((layout.sidebar === 'docked' && overlayOpen.sidebar) || (layout.timebox === 'docked' && overlayOpen.timebox)) {
+      setOverlayOpen((o) => ({ sidebar: layout.sidebar === 'docked' ? false : o.sidebar, timebox: layout.timebox === 'docked' ? false : o.timebox }));
+    }
+  }, [layout.sidebar, layout.timebox, overlayOpen.sidebar, overlayOpen.timebox]);
   // An overlay closes when the window becomes wide enough to dock it, and with Escape.
   useEffect(() => {
     if (!overlayOpen.sidebar && !overlayOpen.timebox) return;
@@ -278,7 +285,7 @@ export default function DesktopHome() {
     // Shift+B: the left pane on Brain Dump, the keyboard on its first task.
     firstBrainDump: () => {
       updatePanes((s) => ({ ...s, leftCollapsed: false }));
-      if (layout.sidebar === 'hidden') setOverlayOpen((o) => ({ ...o, sidebar: true }));
+      if (windowWidth < SIDEBAR_DOCK_MIN) setOverlayOpen((o) => ({ ...o, sidebar: true }));
       selectList(null);
       focusFirst('[data-pane="left"] [data-card-focus]');
     },
@@ -305,6 +312,8 @@ export default function DesktopHome() {
   useEffect(() => {
     if (!reveal) return;
     updatePanes((s) => (reveal.dueDate ? { ...s, center: 'kanban', onlyToday: false } : { ...s, leftCollapsed: false }));
+    // A narrow window shows the list over the centre for the moment.
+    if (!reveal.dueDate && windowWidth < SIDEBAR_DOCK_MIN) setOverlayOpen((o) => ({ ...o, sidebar: true }));
     if (!reveal.dueDate) selectList(reveal.listKey ?? null);
     const timers: ReturnType<typeof setTimeout>[] = [];
     let found = false;
@@ -483,6 +492,20 @@ export default function DesktopHome() {
     </View>
     </DragProvider>
   );
+}
+
+// The page width, read on every resize. react-native-web's useWindowDimensions
+// was seen to keep a stale width after the window was made narrower (real
+// check p3), so the panes would not fold away.
+function useWindowWidth(): number {
+  const [w, setW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1440));
+  useEffect(() => {
+    const on = () => setW(window.innerWidth);
+    window.addEventListener('resize', on);
+    on();
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  return w;
 }
 
 type View_ = 'home' | 'settings' | 'progress' | 'signin' | 'quests' | 'analytics' | 'trash';

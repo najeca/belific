@@ -141,10 +141,12 @@ test('a past stored occurrence that was not completed is not carried forward or 
   assert.equal(cols.days[TODAY][0].projected, true);
 });
 
-test('a non repeating unfinished past task still surfaces as overdue (unchanged)', () => {
+test('2.26.0: a non repeating unfinished past task stays on its own day, never in Today', () => {
   const rows = [row('x', { dueDate: '2026-10-05' })];
   const days = buildColumnDays(parseDateKey(TODAY), 7);
-  assert.equal(bucketTasks(rows, days, TODAY, { projected: [] }).days[TODAY].length, 1);
+  assert.equal(bucketTasks(rows, days, TODAY, { projected: [] }).days[TODAY].length, 0);
+  const back = buildColumnDays(parseDateKey('2026-10-05'), 7);
+  assert.equal(bucketTasks(rows, back, TODAY, { projected: [] }).days['2026-10-05'].length, 1);
 });
 
 test('a skipped day is blocked by its tombstone; other days still project', () => {

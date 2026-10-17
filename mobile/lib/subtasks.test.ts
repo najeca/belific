@@ -6,14 +6,9 @@ import {
   copyForNextOccurrence,
   counterLabel,
   deleteSubtask,
-  dwellArmed,
   moveSubtask,
-  nextDwell,
-  planDropAsSubtask,
   renameSubtask,
-  resolveCardRelease,
   toggleSubtask,
-  undoDropAsSubtask,
   withAllDone,
 } from './subtasks.ts';
 import { buildNextOccurrence } from './recurrence.ts';
@@ -79,49 +74,7 @@ test('a repeating task next occurrence copies the subtasks with new ids, all unt
   assert.equal('subtasks' in plain && plain.subtasks !== undefined, false);
 });
 
-test('drop as subtask: host gains the subtask, dragged is tombstoned, Days untouched', () => {
-  const host = task('host', { dueDate: '2026-10-09' });
-  const dragged = task('dragged', { dueDate: '2026-10-08', title: 'Buy milk' });
-  const plan = planDropAsSubtask(host, dragged, 'sub1', '2026-10-07T10:00:00.000Z')!;
-  assert.deepEqual(plan.host.subtasks, [{ id: 'sub1', title: 'Buy milk', done: false }]);
-  assert.equal(plan.host.dueDate, '2026-10-09');
-  assert.equal(plan.tombstoned.deletedAt, '2026-10-07T10:00:00.000Z');
-  assert.equal(plan.tombstoned.dueDate, '2026-10-08');
-  assert.equal(planDropAsSubtask(host, host, 's', T), null, 'never onto itself');
-  const full = task('full', { subtasks: Array.from({ length: 50 }, (_, i) => sub(`s${i}`)) });
-  assert.equal(planDropAsSubtask(full, dragged, 's', T), null);
-  assert.equal(planDropAsSubtask(host, { ...dragged, completed: true }, 'x', T)!.host.subtasks![0].done, true);
-});
-
-test('undo restores the host exactly and the dragged task as a copy with a new id', () => {
-  const host = task('host', { subtasks: [sub('a')] });
-  const dragged = task('dragged');
-  const plan = planDropAsSubtask(host, dragged, 'n', '2026-10-07T10:00:00.000Z')!;
-  const undone = undoDropAsSubtask(plan, '2026-10-07T10:00:05.000Z', 'fresh');
-  assert.deepEqual(undone.host.subtasks, [sub('a')]);
-  assert.equal(undone.dragged.deletedAt, undefined);
-  assert.equal(undone.dragged.id, 'fresh');
-  assert.equal(undone.dragged.title, dragged.title);
-  assert.equal(undone.dragged.updatedAt, '2026-10-07T10:00:05.000Z');
-});
-
-test('hover dwell: a release before 300 ms falls back to the Day drop', () => {
-  let d = nextDwell({ hostId: null, since: 0 }, null, 0);
-  d = nextDwell(d, 'cardA', 1000);
-  assert.equal(dwellArmed(d, 'cardA', 1200), false);
-  assert.deepEqual(resolveCardRelease(d, 'cardA', 'dragged', 1200), { kind: 'day' });
-  assert.equal(dwellArmed(d, 'cardA', 1300), true);
-  assert.deepEqual(resolveCardRelease(d, 'cardA', 'dragged', 1301), { kind: 'subtask', hostId: 'cardA' });
-});
-
-test('hover dwell: moving to another card or a column resets; a column release is always a Day drop', () => {
-  let d = nextDwell({ hostId: null, since: 0 }, 'cardA', 0);
-  d = nextDwell(d, 'cardB', 400);
-  assert.equal(dwellArmed(d, 'cardB', 500), false, 'timer restarted on the new card');
-  assert.deepEqual(resolveCardRelease(d, null, 'dragged', 5000), { kind: 'day' }, 'released over a column');
-  d = nextDwell(d, null, 600);
-  d = nextDwell(d, 'cardB', 700);
-  assert.deepEqual(resolveCardRelease(d, 'cardB', 'dragged', 800), { kind: 'day' });
-  assert.deepEqual(resolveCardRelease(d, 'cardB', 'cardB', 5000), { kind: 'day' }, 'never onto itself');
-  assert.deepEqual(resolveCardRelease(d, 'cardB', 'dragged', 1100), { kind: 'subtask', hostId: 'cardB' });
+test('2.26.0: dropping a task on another card is gone; nothing in this module merges tasks', async () => {
+  const mod = (await import('./subtasks.ts')) as Record<string, unknown>;
+  for (const gone of ['planDropAsSubtask', 'undoDropAsSubtask', 'nextDwell', 'dwellArmed', 'resolveCardRelease', 'SUBTASK_DWELL_MS', 'UNDO_MS']) assert.equal(mod[gone], undefined, gone);
 });

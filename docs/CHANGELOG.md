@@ -51,6 +51,9 @@ to know the current version and recent history.
 - No sync or schema change: the colour is the existing `color_key` text.
 - p9 checks the New label form, the lock and its tick, creating a label with an emoji and a new colour, the card's tint, Remove label and Edit labels. cp9 updated for the 20 colour picker.
 
+### Tasks, not Kanban (step 6)
+- The board is called **Tasks** everywhere on the desktop (the centre switch "✅ Tasks | 📆 Calendar", the shortcut list "Switch between Tasks and Calendar", the Today button "Show today in Tasks", done in step 1) and now in the living docs: the glossary (`UBIQUITOUS_LANGUAGE.md`), the build plan, build progress, CURRENT_TRUTH and the home spec. Session notes, decisions and older CHANGELOG entries keep the old name as history.
+
 ## 2.25.0 — 2026-10-17 (build plan phase 8, calendar connections)
 
 **Desktop and iPhone. No table or column change. One grant written for review (003, not applied). One Edge Function written and tested locally, NOT deployed. The iPhone part needs a new TestFlight build (a new native module).** Section 7 steps 1 to 3 of the build plan; two way Google and Microsoft sync (step 4) is out.

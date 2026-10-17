@@ -51,7 +51,7 @@ function fakeIo(opts: { setting?: string | null; local?: string | null; failSett
 
 const custom: PaneState = { leftCollapsed: true, rightCollapsed: false, center: 'calendar', calendar: 'month', onlyToday: true };
 
-test('the default layout has every pane open, Kanban in the centre', () => {
+test('the default layout has every pane open, Tasks in the centre', () => {
   assert.deepEqual(DEFAULT_PANE_STATE, { leftCollapsed: false, rightCollapsed: false, center: 'kanban', calendar: 'week', onlyToday: false });
 });
 

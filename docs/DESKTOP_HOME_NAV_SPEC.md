@@ -101,7 +101,7 @@ label colour. It never drives priority or scheduling.
 **Built so far (2.8.1, desktop, local only):** the eight palette colours
 (`mobile/lib/labelColors.ts`; this replaces the six `LABEL_SWATCHES` idea), a
 new label taking the next unused colour, and recolouring from the task
-editor's swatches. Kanban cards and Timebox blocks with a label have a soft
+editor's swatches. Task cards (the Tasks board) and Timebox blocks with a label have a soft
 tint and a 4px left edge in its colour; Brain Dump rows show a dot. The
 Labels page itself is not built yet.
 

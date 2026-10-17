@@ -28,7 +28,7 @@ Never invent synonyms.
 | **Task** | A to-do with an optional due date (no fixed time) and priority, distinct from both `CustomEvent` (always has a concrete date/start/end) and `BrainDumpItem` (no due date at all) — see `lib/types.ts`. Screen: `app/tasks.tsx`, reached from Today's "Top 3 tasks" section, not a tab. |
 | **Duration estimate** | Optional `durationMinutes` on `Task` (15, 30, 60, 120 from the chips; see `docs/DESIGN_VISION.md` §2). The block size when a Task is placed on Timebox. |
 | **Plan** (view) | Day-assignment view over a Task's `dueDate`. On desktop it is the weekly kanban (decision 009). The mobile List/Plan segmented view is deferred; not built. |
-| **Kanban** | The desktop Plan: a forward-only week board with one column per day (no Unscheduled column: tasks with no Day are the Brain Dump list). Tasks sit under the day they are planned for. |
+| **Tasks** (the board; "Kanban" before 2.26.0) | The desktop Plan: a continuous sideways strip of days, one column per day, opening on today (no Unscheduled column: tasks with no Day are the Brain Dump list). Tasks sit under the day they are planned for. |
 | **Day** | A Task's `dueDate`, redefined in decision 015 as the day the task is **planned** for, not a hard deadline. Absent means no Day: on desktop the task is on the Brain Dump list. |
 | **Placed task** | A Task with a Day and a `startTime`, shown as a block on Timebox. Sized by `durationMinutes` (default 30). One row, never copied into a `CustomEvent`. |
 | **Series** / **Template** | A repeating task on the desktop (decision 023): every stored row whose id is `root` or `root:date`. The template is its latest live row; it decides what every projected day looks like and its repeat rule. |

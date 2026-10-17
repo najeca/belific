@@ -17,7 +17,7 @@ Progress, phase by phase, is in `docs/build-progress.md`. A new session starts f
 7. Recurrence values: the sync mapping keeps a repeat rule it does not recognise and sends it back unchanged, so an older client never destroys a newer value (done in phase 1, `sanitizeRecurrence`). **Annual repeat is phase 4.** Before the first annual task is created, update every device (desktop and iPhone) to a build that knows `annual`: an older build shows an annual task as repeating with no days and makes no next copy.
 8. actual_minutes is nullable and NULL means 0. Every total, day sum, list sum and analytics figure treats NULL as 0.
 9. Emoji and icons (phase 2 onward; phase 1 replaced nothing): use the system's native emoji wherever a natural one exists: tabs, lists, labels, quests, section headings, empty states and settings rows. Keep Ionicons only for controls with no good emoji: chevrons, close, check, drag handle, play and pause.
-10. Keyboard: Tab stays for keyboard focus and is never a shortcut. **V toggles Calendar and Kanban** (check it does not clash with an existing shortcut when the registry is built). Single letter shortcuts never fire while a text field has focus (the app already has `isTextEntryTarget` in `mobile/lib/editable.ts`).
+10. Keyboard: Tab stays for keyboard focus and is never a shortcut. **V toggles Calendar and Tasks** (the board was called Kanban until 2.26.0) (check it does not clash with an existing shortcut when the registry is built). Single letter shortcuts never fire while a text field has focus (the app already has `isTextEntryTarget` in `mobile/lib/editable.ts`).
 11. Lists are desktop only until the iOS adaptation moves the iPhone's Brain Dump onto tasks.
 
 Out of scope: archive (the reference product has Trash only), XP, levels, quests as a reward system, Realtime, uuid ids.
@@ -39,7 +39,7 @@ Status is from the Step 0 report. "Check" means the report could not confirm it.
 | Task menu: Duplicate task, Delete | Check | Build | 2 |
 | Task detail fields: List, Estimated, Actual, Label, Repeats, Notes, Subtasks | Partly | Match field set | 2 |
 | Calendar view: day, week, month, all day row, current time line, 24 hour scroll | Timebox day view exists, rest unconfirmed, no month | Build | 3 |
-| Calendar and Kanban toggle in the main area (V) | Missing | Build | 3 |
+| Calendar and Tasks toggle in the main area (V) | Missing | Build | 3 |
 | Collapsible left and right sidebars | Missing | Build | 3 |
 | Search (Ctrl+K), filter, show only today | Label filter and Show complete only | Extend | 3 |
 | Quick capture (Q) and create task today (T) | Missing | Build in app first | 3 |
@@ -74,7 +74,7 @@ New table lists: key, name, emoji, sort_order, plus the standard columns (delete
 
 emoji column on: projects (labels), the recurring task source (series or routines, whichever backs Quests), lists.
 
-New table user_settings with key (user_id, key) and a value. It holds the power feature toggles and any other setting that should follow the user across devices. UI state stays local, EXCEPT the pane layout (panes open or collapsed, Kanban or Calendar, the Calendar view, show only today), which Jethro asked to keep in user_settings under the key `ui.panes` with a local fallback (phase 3, 2026-10-16). The shown list and the filter stay local.
+New table user_settings with key (user_id, key) and a value. It holds the power feature toggles and any other setting that should follow the user across devices. UI state stays local, EXCEPT the pane layout (panes open or collapsed, Tasks or Calendar, the Calendar view, show only today), which Jethro asked to keep in user_settings under the key `ui.panes` with a local fallback (phase 3, 2026-10-16). The shown list and the filter stay local.
 
 Recurrence: confirm daily, weekly, biweekly, monthly and annual exist. Add annual only if missing. Streaks are derived from completions, with no stored counters.
 
@@ -92,7 +92,7 @@ Phase 2, task model and timer. Task detail panel and inline expanded card, estim
 
 **Done 2026-10-16**, desktop only, no schema change (`docs/build-progress.md`, decision 028). As built: the existing Repeats control on cards stays (the new details panel has none); one timer at a time; the actual time is whole minutes rounded down; a timer over 24 hours asks before anything is added; the estimate presets are 5, 10, 15, 30, 45 min, 1h, 1h 30m, 2h plus custom; Ctrl+Delete opens the delete question rather than deleting; emoji are not yet in the Settings, Labels and Progress pages.
 
-Phase 3, desktop layout. Collapsible panes with remembered state, centre toggle between Kanban and Calendar (V; Tab stays for focus), calendar day, week and month views (D, W, M) with all day row, current time line and 24 hour scroll, search, filter, show only today, quick capture. Done when the layout works with either sidebar hidden.
+Phase 3, desktop layout. Collapsible panes with remembered state, centre toggle between Tasks and Calendar (V; Tab stays for focus), calendar day, week and month views (D, W, M) with all day row, current time line and 24 hour scroll, search, filter, show only today, quick capture. Done when the layout works with either sidebar hidden.
 
 **Done 2026-10-16**, desktop only, no schema change (`docs/build-progress.md`). As built: the Calendar shows and opens tasks but takes no drops (dragging stays on the Timebox); the Timebox got the current time line but no all day row; panes are remembered in `ui.panes`; Q and T open a quick capture overlay; search (Ctrl+K) shows a result where it lives or opens its details.
 
@@ -142,7 +142,7 @@ Treat this as a starting set. Belific can change any key. Put them in one regist
 
 General: Shift+/ help, Ctrl+K task search, Shift+F show only today, Q quick capture, T create task today.
 Task actions: Enter edit or save description, Ctrl+Enter create task from modal, Ctrl+Delete delete task, Ctrl+L select label, Ctrl+I toggle time section, Ctrl+E set estimate, Ctrl+B set actual time, Ctrl+Shift+Enter start or stop timer, Esc deselect, C complete, S show or hide subtasks, Ctrl+S new subtask.
-Navigation: D day view, W week view, M month view, Shift+T go to today and select the first task, Shift+B select first Brain Dump task, V switch Calendar and Kanban (not Tab: Tab moves keyboard focus), Up and Down previous and next task, Left and Right first task on the previous or next day, Ctrl+Shift+P Daily Planning.
+Navigation: D day view, W week view, M month view, Shift+T go to today and select the first task, Shift+B select first Brain Dump task, V switch Calendar and Tasks (not Tab: Tab moves keyboard focus), Up and Down previous and next task, Left and Right first task on the previous or next day, Ctrl+Shift+P Daily Planning.
 
 **Wired as of phase 3 (the registry `mobile/lib/shortcuts.ts` is the truth, and the Shift+/ overlay is generated from it):** Shift+/, Ctrl+K, Q, T, Shift+F, `[`, `]` (hide the panes), V, D, W, M, Up, Down, C, S, Ctrl+S, O (details), Ctrl+E, Ctrl+B, Ctrl+L, Ctrl+Shift+Enter, Ctrl+Shift+D (duplicate), Ctrl+Delete. **Not wired:** Enter to edit, Ctrl+Enter, Ctrl+I, Esc to deselect, Shift+T, Shift+B, Left and Right between days, Ctrl+Shift+P (phase 5).
 

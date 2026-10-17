@@ -10,7 +10,7 @@ Branch: `v2-redesign`. App version: **2.25.0** (phase 2 is 2.19.0, phase 3 is 2.
 |---|---|
 | 1 Data foundations | **Done 2026-10-16.** Migration 002 applied live; sync mapping, storage and timer maths in code with tests. No UI. |
 | 2 Task model and timer | **Done 2026-10-16** (commit `c15e9d4`). Details panel, timer and floating widget, lists, label emoji, duplicate, soft delete, estimate against actual, shortcut registry and help. Desktop only. |
-| 3 Desktop layout | **Done 2026-10-16** (second commit). Collapsible panes remembered, V between Kanban and Calendar, Calendar day, week and month, all day row, current time line, search, show only today, quick capture. Desktop only. |
+| 3 Desktop layout | **Done 2026-10-16** (second commit). Collapsible panes remembered, V between Tasks (then called Kanban) and Calendar, Calendar day, week and month, all day row, current time line, search, show only today, quick capture. Desktop only. |
 | 4 Quests | **Done 2026-10-16** (commit `3935fd8`, 2.21.0). Desktop and iPhone. Period streaks, Every year, the iPhone's Brain Dump on tasks and Convert routines. |
 | 5 Daily Planning, Shutdown, rollover | **Done 2026-10-16** (2.22.0). Desktop only. |
 | 6 Analytics, Trash, data export | **Done 2026-10-16** (commit `85bb6dc`, 2.23.0). Desktop only. |
@@ -32,7 +32,7 @@ These are also written into the plan (section 0, items 1 to 11) and, where they 
 7. **Recurrence:** unknown repeat rules are kept, never wiped, on upload (done). **Annual is phase 4**; Jethro updates both devices before creating any annual task.
 8. **`actual_minutes`** is nullable, NULL means 0, everywhere (totals, analytics).
 9. **Emoji (phase 2 onward):** native system emoji wherever a natural one exists (tabs, lists, labels, quests, section headings, empty states, settings rows). Ionicons only for chevrons, close, check, drag handle, play and pause.
-10. **Keyboard:** Tab is for focus. **V** toggles Calendar and Kanban. Checked at phase 1: no existing V shortcut (the desktop panes only handle Escape; the menu has Ctrl+, and Ctrl+Q); check again when the registry is built. Single letter shortcuts never fire while a text field has focus (use `isTextEntryTarget`, `mobile/lib/editable.ts`).
+10. **Keyboard:** Tab is for focus. **V** toggles Calendar and Tasks. Checked at phase 1: no existing V shortcut (the desktop panes only handle Escape; the menu has Ctrl+, and Ctrl+Q); check again when the registry is built. Single letter shortcuts never fire while a text field has focus (use `isTextEntryTarget`, `mobile/lib/editable.ts`).
 11. **Lists are desktop only** until the iOS adaptation moves the iPhone's Brain Dump from `brain_dump_items` to tasks.
 
 Working rules (from Jethro): one phase at a time; no new libraries without justifying them first; show every migration and wait for approval before it is applied; typecheck and tests after each phase; one commit per phase; ask rather than guess.
@@ -97,7 +97,7 @@ No schema change, no sync change: everything uses the phase 1 fields (`actualMin
 No schema change. Desktop only.
 
 - **Panes** (`lib/paneState.ts`, `usePaneState.ts`): left and right panes collapse to a narrow rail (buttons in the top strip, `[` and `]`, or the rail itself). A collapsed pane stays mounted (hidden), so its list, week and scroll are there when it returns. The centre never hides and works with either sidebar hidden, or both. State is `leftCollapsed`, `rightCollapsed`, `center` (kanban or calendar), `calendar` (day, week, month) and `onlyToday`, stored as JSON in the **user_settings row `ui.panes`** (synced when signed in) with a **local fallback** `belific_desktop_panes`; the setting is read first, then the local copy, then the default; a damaged value in either place falls back and never breaks the screen; both are written on every change and neither write can throw. Loaded once at start, so a change made on the other device shows at the next start, not live.
-- **Centre toggle:** Kanban or Calendar, with **V** (not Tab; Tab keeps normal focus order) or the buttons in the top strip. Both stay mounted so each keeps its state.
+- **Centre toggle:** Tasks or Calendar, with **V** (not Tab; Tab keeps normal focus order) or the buttons in the top strip. Both stay mounted so each keeps its state.
 - **Calendar** (`CalendarPane.tsx`, `lib/calendarView.ts`): **D**, **W**, **M** open it in day, week or month view from either centre view. Day and week are the 24 hour grid (00:00 to 24:00, opens at "My day starts at" or about an hour before now when today is shown, scrolls the whole day) with an **all day row** (tasks with a Day and no time), a **current time line** (accent line and dot, today's column) and overnight tasks continuing on the next day. Month lists each day's tasks (first three and "+N more"); a day opens that day. It shows stored tasks, the days of repeating series, events, and the filter (it has its own Filter button); a block or chip opens the same task menu as the Timebox. Header: previous, title, next, Day/Week/Month, Today, actual / estimate of what the view shows.
 - **Timebox** (right pane) also gets the current time line.
 - **Show only today** (**Shift+F**, or the button): the board shows just today's column, the Calendar shows today's day view, the Timebox goes to today.
@@ -119,7 +119,7 @@ No schema change. Desktop only.
 8. **Delete is soft** through the existing `deleteTask` tombstone (`deletedAt`); a Trash view to restore is phase 6.
 9. **Estimate presets:** 20m, 3h and 4h left the list (the brief's list); existing values are unaffected.
 10. **Emoji:** applied to the card controls, pane headings, the top strip, lists, labels, tasks, help, search, capture and empty states. **Not done:** the Settings, Labels and Progress pages' own rows (not touched in this batch). Ionicons kept only for chevrons, close, check circles, the drag handle, play and pause, and the More (ellipsis) button, which has no natural emoji.
-11. **Calendar and Kanban both exist while one is hidden** (mounted, `display: none`), so neither forgets its week or scroll.
+11. **Calendar and Tasks both exist while one is hidden** (mounted, `display: none`), so neither forgets its week or scroll.
 12. **A search result for a hidden or finished task opens its details** instead of doing nothing.
 13. **The floating timer's stop button uses the pause icon** (allowed by the brief) but stops the timer and adds the time; starting again resumes counting from the stored total.
 
@@ -226,7 +226,7 @@ Phase 6:
 
 Phase 7:
 8. **Toggle defaults:** reminders, priority, planning and analytics on (so nothing disappears on update); pomodoro and templates off.
-9. **"Due dates and reminders" hides the reminder bell and option only.** The Day field stays because it is the Kanban board and the Calendar.
+9. **"Due dates and reminders" hides the reminder bell and option only.** The Day field stays because it is the Tasks board and the Calendar.
 10. **Pomodoro lengths are fixed at 25 and 5 minutes** (other values are supported in the code and the saved state, with no settings screen for them yet). No long break after four rounds.
 11. **The countdown is local to the computer** (kv), not a synced setting, so two computers can never fight over it. After a restart it is found again if its task timer still runs.
 12. **A pomodoro never counts minutes itself.** Take a break uses the ordinary stop; a timer over 24 hours asks first and the pomodoro simply ends.

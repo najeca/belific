@@ -349,6 +349,16 @@ async function run() {
   await C.sleep(400);
   check('a press outside closes it', !(await I.exists(I.byLabel('Task details'))));
 
+  // ======== Step 9: priority is gone from the interface ========
+  await I.js(`document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]').focus()`);
+  await C.sleep(200);
+  check('no priority control on a focused card (its controls are showing)', !(await I.exists(`document.querySelector('[aria-label^="Priority"]')`)));
+  await I.key('o');
+  await C.waitFor(() => I.exists(I.byLabel('Task details')), 6000).catch(() => {});
+  check('no Priority row in the details', !(await I.js(`document.querySelector('[data-detail-panel]').innerText.includes('Priority')`)));
+  await I.key('Escape');
+  await C.sleep(300);
+
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);
 }

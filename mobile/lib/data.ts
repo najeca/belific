@@ -407,8 +407,8 @@ export function generateRecurringEvents(
 // Shared ordering for both the Tasks screen (full list) and Today's
 // Top 3 section (slices the incomplete portion) — keeping this in one
 // place means both always agree on what counts as "most pressing".
-// Incomplete tasks: due-today-or-overdue first, then High priority,
-// then oldest created. Completed tasks: most recently completed first,
+// Incomplete tasks: due-today-or-overdue first, then oldest created (2.26.0:
+// priority no longer sorts; stored values are kept). Completed tasks: most recently completed first,
 // always after every incomplete one.
 export function sortTasksForDisplay(tasks: Task[]): Task[] {
   const todayKey = formatDateKey(new Date());
@@ -419,9 +419,6 @@ export function sortTasksForDisplay(tasks: Task[]): Task[] {
     const aOverdue = !!a.dueDate && a.dueDate <= todayKey;
     const bOverdue = !!b.dueDate && b.dueDate <= todayKey;
     if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
-    const aHigh = a.priority === 'high';
-    const bHigh = b.priority === 'high';
-    if (aHigh !== bHigh) return aHigh ? -1 : 1;
     return a.createdAt.localeCompare(b.createdAt);
   });
   completed.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));

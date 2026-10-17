@@ -201,9 +201,6 @@ export default function TasksScreen() {
                 />
               </TouchableOpacity>
 
-              {!item.completed && item.priority === 'high' && (
-                <Ionicons name="flag" size={12} color={Colors.accentText} style={styles.taskFlag} />
-              )}
               {item.origin === 'dump' && <Text style={styles.taskOrigin}>🧠</Text>}
 
               <View style={styles.taskTextCol}>
@@ -211,7 +208,6 @@ export default function TasksScreen() {
                   style={[
                     styles.taskTitle,
                     item.completed && styles.taskTitleDone,
-                    !item.completed && item.priority === 'low' && styles.taskTitleLow,
                   ]}
                   numberOfLines={2}
                 >

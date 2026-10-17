@@ -18,7 +18,7 @@ import { ensureFocusRingStyle } from './focusRing';
 import HoverPressable from './HoverPressable';
 import Popover, { togglePopover, useIsOpen, usePopoverAnchor, closePopover, isPopoverOpen } from './Popover';
 import StreakLine from './StreakLine';
-import { ActualBody, DurationBody, LabelBody, MoveToDayBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import { ActualBody, DurationBody, LabelBody, MoveToDayBody, OverflowBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import type { TaskOps } from './taskOps';
 import { notifyChanged, openDetail } from './uiStore';
 import { useFeatures } from './featureStore';
@@ -333,7 +333,7 @@ export default function TaskCard({
               ) : (
                 <Text
                   onPress={startRename}
-                  style={[styles.title, task.completed && styles.titleDone, !task.completed && task.priority === 'low' && styles.titleLow]}
+                  style={[styles.title, task.completed && styles.titleDone]}
                   accessibilityLabel={`Title ${task.title}`}
                 >
                   {task.emoji ? `${task.emoji} ` : ''}
@@ -433,18 +433,6 @@ export default function TaskCard({
                   </>
                 )}
               </Control>
-              {feats.priority && (
-                <Control id={`${id}:priority`} a11y={`Priority: ${task.priority ?? 'normal'}`} style={styles.icon}>
-                  {(anchor) => (
-                    <>
-                      <Glyph char={task.priority === 'low' ? '🔽' : task.priority === 'high' ? '🚩' : '🏳️'} on={!!task.priority} />
-                      <Popover id={`${id}:priority`} anchor={anchor} width={220}>
-                        <PriorityBody task={task} ops={wrapped} done={() => closePopover(true)} />
-                      </Popover>
-                    </>
-                  )}
-                </Control>
-              )}
               {feats.dueDates && (
                 <Control id={`${id}:reminder`} a11y={`Reminder: ${bell === 'default' ? 'default' : bell === 'off' ? 'off' : 'set'}`} style={styles.icon}>
                   {(anchor) => (
@@ -882,7 +870,6 @@ const styles = StyleSheet.create({
   boxDone: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   title: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', color: Colors.textPrimary, minWidth: 0 },
   titleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  titleLow: { color: Colors.textSecondary },
   renameWrap: { flex: 1, minWidth: 0 },
   titleInput: {
     minWidth: 0,

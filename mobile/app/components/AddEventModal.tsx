@@ -19,9 +19,6 @@ import {
   CATEGORIES,
   CUSTOM_CATEGORY_COLOR_POOL,
   DEFAULT_CATEGORY_KEYS,
-  PRIORITY_CHOICES,
-  PRIORITY_DESCRIPTIONS,
-  PRIORITY_LABELS,
   RECURRENCE_LABELS,
   createCustomEvent,
   durationMinutes,
@@ -485,29 +482,8 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle, ori
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>Priority</Text>
-          <View style={styles.priorityRow}>
-            {PRIORITY_CHOICES.map((choice) => {
-              const selected = priority === choice;
-              return (
-                <TouchableOpacity
-                  key={choice}
-                  style={[styles.priorityCard, selected && styles.categoryChipSelected]}
-                  onPress={() => setPriority(choice)}
-                  accessibilityLabel={`${PRIORITY_LABELS[choice]}: ${PRIORITY_DESCRIPTIONS[choice]}`}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.priorityCardLabel, selected && styles.categoryChipTextSelected]}>
-                    {PRIORITY_LABELS[choice]}
-                  </Text>
-                  <Text style={styles.priorityCardDescription}>
-                    {PRIORITY_DESCRIPTIONS[choice]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
+          {/* 2.26.0: no Priority picker. Editing keeps the stored priority as it is
+              (the state above is loaded from the event and written back unchanged). */}
           <Text style={styles.label}>Date</Text>
           <TouchableOpacity
             style={styles.timeRow}

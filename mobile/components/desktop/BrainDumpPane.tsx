@@ -28,7 +28,7 @@ import TemplatePicker from './TemplatePicker';
 // the task. Typing a thought and pressing Enter creates a Task straight away
 // (title only, no Day). The list is every incomplete task with no Day, plus any
 // legacy BrainDumpItems from the phone shown identically. Clicking anywhere on
-// a row opens the editor (name, duration, priority, label, notes, Day, Repeat);
+// a row opens the editor (name, duration, label, notes, Day, Repeat);
 // giving a task a Day moves it onto the week board, clearing the Day brings it
 // back here. A collapsed "Done today" line lets a mistaken tick be undone.
 // Drag (checkpoint 4): a row can be dragged onto a day column or a Timebox

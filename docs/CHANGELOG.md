@@ -59,6 +59,15 @@ to know the current version and recent history.
 - Escape now closes it from a text field too (the title has the keyboard when it opens), saving the field first; an open popover inside it still takes Escape first.
 - p9 checks the size and position, the 23 px title, the row order, the ⋮ menu, an emoji and a rename from the modal, and a press outside. p2 and p7 open the ⋮ menu for the emoji and Save as template.
 
+### Today and Add a task on each day (step 8)
+- Done in step 2 and checked by p9 there: the Today button jumps the scrolling days back to today in Tasks ("Show today in Tasks") and in the Calendar ("Calendar go to today"); each day from today on has its own "Add a task" box with that day's planned time; the left list's box shows "N planned".
+
+### Priority removed from the interface (step 9)
+- **Priority is gone everywhere you can see it, on the desktop and the iPhone:** the flag and the muted Low title on cards (desktop cards, the iPhone's Today, Tasks and Calendar screens, events included), the Priority option on a card and on a Timebox block, the Priority row in the task details, the Priority picker in the iPhone's task and event forms, the Priority power feature toggle and its Settings text. Priority no longer sorts anything: a day column and the iPhone's task list order by time, then oldest first.
+- **Stored priorities are untouched and still sync**: the `priority` column, the task and event fields, the sync, templates, Duplicate, Restore and the data export all keep it. Editing a task or an event on the iPhone writes its stored priority back unchanged. A stored `feature.priority` setting row is left as it is and no longer read.
+- **The iPhone part needs the next TestFlight build**: until then the iPhone keeps showing priority.
+- p9 checks no priority control on a card or in the details; p7 checks there is no Priority toggle and that editing keeps a stored High; p2 and cp8b updated (no priority control).
+
 ## 2.25.0 — 2026-10-17 (build plan phase 8, calendar connections)
 
 **Desktop and iPhone. No table or column change. One grant written for review (003, not applied). One Edge Function written and tested locally, NOT deployed. The iPhone part needs a new TestFlight build (a new native module).** Section 7 steps 1 to 3 of the build plan; two way Google and Microsoft sync (step 4) is out.

@@ -212,7 +212,7 @@ test('bucketTasks: tombstones and malformed dates are not on the board', () => {
   assert.equal(Object.values(cols.days).flat().length, 0);
 });
 
-test('bucketTasks: priority then created order, High first', () => {
+test('bucketTasks: oldest created first; a stored High priority no longer sorts (2.26.0)', () => {
   const cols = bucketTasks(
     [
       task('1', { dueDate: '2026-10-06', createdAt: '2026-10-03T00:00:00.000Z' }),
@@ -222,7 +222,7 @@ test('bucketTasks: priority then created order, High first', () => {
     days,
     TODAY,
   );
-  assert.deepEqual(cols.days['2026-10-06'].map((i) => i.task.id), ['3', '2', '1']);
+  assert.deepEqual(cols.days['2026-10-06'].map((i) => i.task.id), ['2', '1', '3']);
 });
 
 test('bucketTasks works across a month boundary', () => {
@@ -340,8 +340,8 @@ test('column order: tasks without a time first, then timed ones by start time, t
     days,
     TODAY,
   );
-  // untimed (High priority first), timed ascending from 00:30 to 23:30, then the finished one
-  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['u2', 'u1', 't3', 't2', 't1', 't4', 'd1']);
+  // untimed (oldest first; priority no longer sorts), timed ascending from 00:30 to 23:30, then the finished one
+  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['u1', 'u2', 't3', 't2', 't1', 't4', 'd1']);
 });
 
 test('column order: equal start times fall back to the oldest created', () => {

@@ -108,7 +108,8 @@ async function run() {
   const upper = (await I.body()).toUpperCase();
   check('Settings sections now carry an emoji (Account, Sync, Planning, Data, Labels, About, Power features)', ['👤 ACCOUNT', '🔄 SYNC', '🗓️ PLANNING', '💾 DATA', '🏷️ LABELS', 'ℹ️ ABOUT', '⚡ POWER FEATURES'].every((s) => upper.includes(s)), upper.slice(0, 400));
   check('the old section names still work for readers (accessible name "Account settings")', await I.exists(I.byLabel('Account settings')));
-  check('defaults: reminders, priority, planning and analytics are on', (await checked('🔔 Due dates and reminders')) === true && (await checked('🚩 Priority')) === true && (await checked('🌅 Daily planning')) === true && (await checked('📊 Analytics')) === true);
+  check('defaults: reminders, planning and analytics are on', (await checked('🔔 Due dates and reminders')) === true && (await checked('🌅 Daily planning')) === true && (await checked('📊 Analytics')) === true);
+  check('2.26.0: there is no Priority toggle (priority was removed from the interface)', (await checked('🚩 Priority')) === null && !(await I.body()).includes('Priority'));
   check('defaults: pomodoro and templates are off', (await checked('🍅 Pomodoro')) === false && (await checked('📑 Task templates')) === false);
   check('attachments say "Coming later" and have no switch', (await I.exists(I.byLabel('Attachments, coming later'))) && (await checked('📎 Attachments')) === null && (await I.body()).includes('Coming later'));
   await I.shot('p7-01-power-features');
@@ -122,16 +123,16 @@ async function run() {
   await C.waitFor(() => setting('feature.analytics')?.value === 'on', 6000).catch(() => {});
   check('Analytics on again: the row is back', (await menuHas('Analytics')) === true);
 
-  // Priority off.
-  await I.click(I.byLabel('🚩 Priority'));
-  await C.waitFor(() => setting('feature.priority')?.value === 'off', 6000).catch(() => {});
+  // 2.26.0: priority is gone from the interface, its stored value is kept.
   await back();
-  check('Priority off: no priority flag on any card', !(await anyExists('[aria-label^="Priority:"]')));
+  check('no priority flag on any card (Alpha is stored as high)', !(await anyExists('[aria-label^="Priority:"]')));
   await focusCard('Alpha');
   await I.key('o');
   await C.waitFor(async () => I.exists(I.byLabel('Task details')), 8000);
-  check('Priority off: no Priority field in the details panel', !(await I.exists(`document.querySelector('[aria-label="Task details"] [aria-label="High"]')`)));
-  check('Priority off: the data is kept (Alpha is still high)', byId('a1').priority === 'high');
+  check('no Priority field in the details', !(await I.exists(`document.querySelector('[aria-label="Task details"] [aria-label="High"]')`)));
+  await I.click(`document.querySelector('[aria-label="Task details"] [aria-label="1h"]')`);
+  await C.waitFor(() => byId('a1').durationMinutes === 60, 6000).catch(() => {});
+  check('editing the task keeps its stored priority (Alpha is still high)', byId('a1').durationMinutes === 60 && byId('a1').priority === 'high', JSON.stringify(byId('a1')));
   await I.key('Escape');
 
   // Reminders off.
@@ -144,11 +145,10 @@ async function run() {
 
   // Both back on.
   await openSettings();
-  await I.click(I.byLabel('🚩 Priority'));
   await I.click(I.byLabel('🔔 Due dates and reminders'));
-  await C.waitFor(() => setting('feature.priority')?.value === 'on' && setting('feature.dueDates')?.value === 'on', 6000).catch(() => {});
+  await C.waitFor(() => setting('feature.dueDates')?.value === 'on', 6000).catch(() => {});
   await back();
-  check('both on again: the flag and the bell are back', (await anyExists('[aria-label^="Priority:"]')) && (await anyExists('[aria-label^="Reminder:"]')));
+  check('reminders on again: the bell is back', await anyExists('[aria-label^="Reminder:"]'));
 
   // Daily planning off.
   check('planning is on: the profile menu has Plan my day and Shut down my day', (await menuHas('Plan my day')) && (await menuHas('Shut down my day')));

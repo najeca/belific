@@ -13,7 +13,9 @@
 // switched on.
 import type { UserSetting } from './types.ts';
 
-export type FeatureKey = 'dueDates' | 'priority' | 'planning' | 'pomodoro' | 'templates' | 'analytics' | 'attachments';
+// 2.26.0: Priority is no longer a feature (it was removed from the interface;
+// a stored `feature.priority` row is left as it is and simply not read).
+export type FeatureKey = 'dueDates' | 'planning' | 'pomodoro' | 'templates' | 'analytics' | 'attachments';
 
 export interface FeatureDef {
   key: FeatureKey;
@@ -26,7 +28,6 @@ export interface FeatureDef {
 
 export const FEATURES: FeatureDef[] = [
   { key: 'dueDates', label: 'Due dates and reminders', emoji: '🔔', hint: 'The reminder bell on a task and its Reminder option. Reminders you already set keep working.', defaultOn: true },
-  { key: 'priority', label: 'Priority', emoji: '🚩', hint: 'The flag on a task and its Priority option.', defaultOn: true },
   { key: 'planning', label: 'Daily planning', emoji: '🌅', hint: 'Daily Planning and Daily Shutdown, their buttons and Ctrl+Shift+P.', defaultOn: true },
   { key: 'pomodoro', label: 'Pomodoro', emoji: '🍅', hint: 'Focus and break periods on the task timer.', defaultOn: false },
   { key: 'templates', label: 'Task templates', emoji: '📑', hint: 'Save a task as a template and start new tasks from one.', defaultOn: false },

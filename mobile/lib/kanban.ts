@@ -97,7 +97,7 @@ function startTimeOf(item: ColumnItem): string | null {
 }
 
 // Order inside a column (checkpoint 8.4): tasks without a start time first
-// (High priority, then oldest created), then tasks with
+// (oldest created first; 2.26.0: priority no longer sorts), then tasks with
 // a start time, earliest first, then finished ones (most recently completed
 // first). Nothing can be reordered by hand.
 function compareItems(a: ColumnItem, b: ColumnItem): number {
@@ -109,9 +109,6 @@ function compareItems(a: ColumnItem, b: ColumnItem): number {
   const bTime = startTimeOf(b);
   if ((aTime !== null) !== (bTime !== null)) return aTime !== null ? 1 : -1;
   if (aTime !== null && bTime !== null && aTime !== bTime) return aTime.localeCompare(bTime);
-  const aHigh = a.task.priority === 'high';
-  const bHigh = b.task.priority === 'high';
-  if (aHigh !== bHigh) return aHigh ? -1 : 1;
   return a.task.createdAt.localeCompare(b.task.createdAt);
 }
 

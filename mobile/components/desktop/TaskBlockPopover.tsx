@@ -9,7 +9,7 @@ import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
 import type { Project, Task } from '../../lib/types';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover } from './Popover';
-import { ActualBody, DurationBody, LabelBody, OverflowBody, PriorityBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import { ActualBody, DurationBody, LabelBody, OverflowBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import StreakLine from './StreakLine';
 import { useFeatures } from './featureStore';
 import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
@@ -35,7 +35,7 @@ export function toggleBlockPopover(taskId: string, scope = '') {
   togglePopover(blockPopoverId(taskId, scope), blockAnchor(taskId, scope));
 }
 
-type View_ = 'root' | 'label' | 'priority' | 'duration' | 'actual' | 'reminder' | 'repeat' | 'more';
+type View_ = 'root' | 'label' | 'duration' | 'actual' | 'reminder' | 'repeat' | 'more';
 
 export default function TaskBlockPopover({
   task,
@@ -86,7 +86,7 @@ function Inner({ task, label, onChanged, projected }: { task: Task; label?: Proj
   }
 
   if (view !== 'root') {
-    const heading = { label: 'Label', priority: 'Priority', duration: 'Duration', actual: 'Actual time', reminder: 'Reminder', repeat: 'Repeat', more: 'More' }[view];
+    const heading = { label: 'Label', duration: 'Duration', actual: 'Actual time', reminder: 'Reminder', repeat: 'Repeat', more: 'More' }[view];
     return (
       <View>
         <Pressable onPress={back} style={styles.back} accessibilityRole="button" accessibilityLabel="Back to task options">
@@ -94,7 +94,6 @@ function Inner({ task, label, onChanged, projected }: { task: Task; label?: Proj
           <Text style={styles.backText}>{heading}</Text>
         </Pressable>
         {view === 'label' && <LabelBody task={task} ops={ops} done={back} />}
-        {view === 'priority' && <PriorityBody task={task} ops={ops} done={back} />}
         {view === 'duration' && <DurationBody task={task} ops={ops} done={back} />}
         {view === 'actual' && <ActualBody task={task} ops={ops} done={back} />}
         {view === 'reminder' && <ReminderBody task={task} ops={ops} done={back} />}
@@ -154,13 +153,6 @@ function Inner({ task, label, onChanged, projected }: { task: Task; label?: Proj
         onPress={() => setView('label')}
         a11y="Label"
       />
-      {feats.priority && <Row
-        label="Priority"
-        sub={task.priority ?? 'normal'}
-        trailing={<Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />}
-        onPress={() => setView('priority')}
-        a11y="Priority"
-      />}
       {feats.dueDates && <Row
         label="Reminder"
         sub={reminderLabel(task.reminderMinutes)}

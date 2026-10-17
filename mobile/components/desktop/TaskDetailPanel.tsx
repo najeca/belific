@@ -13,7 +13,7 @@ import { duplicateTaskById } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
 import { isTextEntryTarget } from '../../lib/editable';
-import type { EventPriority, Project, Task, TaskList } from '../../lib/types';
+import type { Project, Task, TaskList } from '../../lib/types';
 import EmojiField from './EmojiField';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
@@ -162,7 +162,6 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
     if (t) setTplOpen(false);
   };
   const listKey = effectiveListKey(task, lists);
-  const priority = task.priority;
   const subtasks = task.subtasks ?? [];
 
   return (
@@ -302,16 +301,6 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
             ))}
           </select>
         </DetailRow>
-
-        {feats.priority && (
-          <DetailRow glyph="🚩" label="Priority">
-            <View style={styles.chips}>
-              {([[undefined, 'Normal'], ['high', 'High'], ['low', 'Low']] as Array<[EventPriority | undefined, string]>).map(([p, name]) => (
-                <Chip key={name} label={name} on={priority === p} onPress={() => patch({ priority: p })} />
-              ))}
-            </View>
-          </DetailRow>
-        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel} accessibilityRole="header">

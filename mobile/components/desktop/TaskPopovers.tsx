@@ -36,7 +36,7 @@ import { duplicateTaskById } from '../../lib/taskCommands';
 import { setActualFor } from '../../lib/timerActions';
 import { formatTaskTime } from '../../lib/taskTotals';
 import { isTimerRunning } from '../../lib/taskTimer';
-import type { EventPriority, Project, Task, WeekDay } from '../../lib/types';
+import type { Project, Task, WeekDay } from '../../lib/types';
 import EmojiField from './EmojiField';
 import HoverPressable from './HoverPressable';
 import { notifyChanged, openDetail, openOverlay } from './uiStore';
@@ -69,41 +69,8 @@ const domSelectStyle: React.CSSProperties = {
 
 const domInputStyle: React.CSSProperties = { ...domSelectStyle, height: 34, fontSize: 14 };
 
-// ---------------------------------------------------------------- Priority
-const PRIORITIES: Array<{ key: EventPriority | undefined; label: string; sub: string }> = [
-  { key: 'high', label: 'High', sub: 'Shows a flag' },
-  { key: undefined, label: 'Normal', sub: 'The default' },
-  { key: 'low', label: 'Low', sub: 'Shown muted' },
-];
-
-export function PriorityBody({ task, ops, done }: BodyProps) {
-  return (
-    <View style={styles.list}>
-      <PopoverHeading>Priority</PopoverHeading>
-      {PRIORITIES.map((p) => (
-        <Row
-          key={p.label}
-          label={p.label}
-          sub={p.sub}
-          selected={task.priority === p.key}
-          onPress={() => {
-            ops.patch({ priority: p.key });
-            done();
-          }}
-        />
-      ))}
-      {task.priority !== undefined && (
-        <Row
-          label="Clear priority"
-          onPress={() => {
-            ops.patch({ priority: undefined });
-            done();
-          }}
-        />
-      )}
-    </View>
-  );
-}
+// 2.26.0: Priority was removed from the interface (desktop and iPhone). A
+// stored priority is kept as it is and still syncs; nothing shows or sets it.
 
 // ---------------------------------------------------------------- Duration
 // A field to type into (45m, 1h 30m, 1.5h, 130, 1:30) and a short list of

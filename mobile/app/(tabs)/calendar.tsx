@@ -68,17 +68,8 @@ function EventRowCompact({
         <Text style={styles.eventEnd}>{event.end}</Text>
       </View>
       <Text style={styles.eventIcon}>{event.icon}</Text>
-      {event.priority === 'high' && (
-        <Ionicons name="flag" size={12} color={Colors.accentText} style={styles.priorityFlag} />
-      )}
-      <Text
-        style={[
-          styles.eventTitle,
-          event.priority === 'high' && styles.eventTitleHigh,
-          event.priority === 'low' && styles.eventTitleLow,
-        ]}
-        numberOfLines={2}
-      >
+      {/* 2.26.0: no priority flag or muted title; a stored priority is kept. */}
+      <Text style={styles.eventTitle} numberOfLines={2}>
         {event.title}
       </Text>
       {event.isCustom && (

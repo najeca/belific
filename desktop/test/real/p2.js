@@ -244,9 +244,8 @@ async function run() {
   await click(`document.querySelector('[aria-label="Task details"] [aria-label="1h"]')`);
   await C.waitFor(() => tasks().some((t) => t.title === 'Seed task' && t.durationMinutes === 60), 8000);
   check('the panel set a 1h estimate', tasks().some((t) => t.title === 'Seed task' && t.durationMinutes === 60));
-  await click(`document.querySelector('[aria-label="Task details"] [aria-label="High"]')`);
-  await C.waitFor(() => tasks().some((t) => t.title === 'Seed task' && t.priority === 'high'), 8000);
-  check('the panel set a high priority', tasks().some((t) => t.title === 'Seed task' && t.priority === 'high'));
+  // 2.26.0: Priority was removed from the interface.
+  check('the details have no Priority row', !(await exists(`document.querySelector('[aria-label="Task details"] [aria-label="High"]')`)) && !(await js(`document.querySelector('[data-detail-panel]').innerText.includes('Priority')`)));
   // 2.26.0: the emoji is in the details modal's ⋮ menu.
   await click(byLabel('More task actions'));
   await click(byLabel('Task emoji'));

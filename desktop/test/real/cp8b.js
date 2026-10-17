@@ -186,17 +186,16 @@ async function run() {
   check('the card never moved or opened a page', posBefore && posAfter && Math.abs(posAfter.w - posBefore.w) < 2);
 
   // ---- 2. only one open at a time ----
-  await click(inCard('Bravo', '[aria-label^="Priority"]'));
+  await click(inCard('Bravo', '[aria-label^="Duration of"]'));
   await click(inCard('Alpha', '[aria-label^="Reminder"]'));
   const count = await js(`document.querySelectorAll('[data-popover]').length`);
   check('only one dropdown is open at a time', count === 1);
   await key('Escape');
 
-  // ---- 3. edit label, priority, duration, repeat, reminder on three cards in a row ----
+  // ---- 3. edit label, duration, repeat, reminder on three cards in a row ----
+  // (2.26.0: no priority control any more)
+  check('no card has a priority control', !(await js(`!!document.querySelector('[aria-label^="Priority"]')`)));
   // Alpha
-  await click(inCard('Alpha', '[aria-label^="Priority"]'));
-  await click(inPopover('[aria-label="High"]'));
-  await waitTask('Alpha', (t) => t.priority === 'high');
   await click(inCard('Alpha', '[aria-label^="Duration of"]'));
   await click(inPopover('[aria-label="1h"]'));
   await waitTask('Alpha', (t) => t.durationMinutes === 60);
@@ -210,9 +209,9 @@ async function run() {
   await shot('repeat-dropdown');
   await click(inPopover('[aria-label="Apply repeat"]'));
   await waitTask('Alpha', (t) => t.recurrence === 'weekly');
-  check('Alpha: label, priority, duration, reminder and repeat all saved', (() => {
+  check('Alpha: label, duration, reminder and repeat all saved', (() => {
     const t = taskNamed('Alpha');
-    return t.projectKey === 'work' && t.priority === 'high' && t.durationMinutes === 60 && t.reminderMinutes === -1 && t.recurrence === 'weekly' && t.recurrenceDays.length === 5;
+    return t.projectKey === 'work' && t.durationMinutes === 60 && t.reminderMinutes === -1 && t.recurrence === 'weekly' && t.recurrenceDays.length === 5;
   })());
   check('no overlay appeared while editing Alpha', await noNewOverlay());
 
@@ -220,9 +219,6 @@ async function run() {
   await click(inCard('Bravo', '[aria-label="Select label"]'));
   await click(inPopover('[aria-label="Home"]'));
   await waitTask('Bravo', (t) => t.projectKey === 'home');
-  await click(inCard('Bravo', '[aria-label^="Priority"]'));
-  await click(inPopover('[aria-label="Low"]'));
-  await waitTask('Bravo', (t) => t.priority === 'low');
   await click(inCard('Bravo', '[aria-label^="Duration of"]'));
   await typeText('1h 30m');
   await key('Return');
@@ -243,9 +239,6 @@ async function run() {
   await click(inCard('Charlie', '[aria-label^="Duration of"]'));
   await click(inPopover('[aria-label="30 min"]'));
   await waitTask('Charlie', (t) => t.durationMinutes === 30);
-  await click(inCard('Charlie', '[aria-label^="Priority"]'));
-  await click(inPopover('[aria-label="High"]'));
-  await waitTask('Charlie', (t) => t.priority === 'high');
   check('no overlay appeared while editing three cards in a row', await noNewOverlay());
 
   // ---- 4. title rename on the card ----

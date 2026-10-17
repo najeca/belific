@@ -15,9 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import {
-  PRIORITY_CHOICES,
-  PRIORITY_LABELS,
-  PRIORITY_DESCRIPTIONS,
   formatDateKey,
   generateId,
   type PriorityChoice,
@@ -242,27 +239,8 @@ export function TaskFormContent({ onClose, onSaved, editTask, initialTitle, orig
           />
         )}
 
-        <Text style={styles.label}>Priority</Text>
-        <View style={styles.priorityRow}>
-          {PRIORITY_CHOICES.map((choice) => {
-            const selected = priority === choice;
-            return (
-              <TouchableOpacity
-                key={choice}
-                style={[styles.priorityCard, selected && styles.priorityCardSelected]}
-                onPress={() => setPriority(choice)}
-                accessibilityLabel={`${PRIORITY_LABELS[choice]}: ${PRIORITY_DESCRIPTIONS[choice]}`}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.priorityCardLabel, selected && styles.priorityCardLabelSelected]}>
-                  {PRIORITY_LABELS[choice]}
-                </Text>
-                <Text style={styles.priorityCardDescription}>{PRIORITY_DESCRIPTIONS[choice]}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
+        {/* 2.26.0: no Priority picker. Editing keeps the stored priority as it is
+            (the state above is loaded from the task and written back unchanged). */}
         <Text style={styles.label}>Project</Text>
         <View style={styles.categoryGrid}>
           <TouchableOpacity

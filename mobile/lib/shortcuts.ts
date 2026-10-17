@@ -90,10 +90,10 @@ export const PHASE3_SHORTCUTS: ShortcutDef[] = [
   { id: 'search', keys: 'Ctrl+K', label: 'Search tasks', group: 'General', scope: 'home' },
   { id: 'newTaskToday', keys: 'T', label: 'Quick capture a task for today', group: 'General', scope: 'home' },
   { id: 'onlyToday', keys: 'Shift+F', label: 'Show only today', group: 'General', scope: 'home' },
-  { id: 'toggleLeftPane', keys: '[', label: 'Hide or show the left pane', group: 'General', scope: 'home' },
-  { id: 'toggleRightPane', keys: ']', label: 'Hide or show the right pane', group: 'General', scope: 'home' },
+  { id: 'toggleLeftPane', keys: '[', label: 'Hide or show the sidebar', group: 'General', scope: 'home' },
+  { id: 'toggleRightPane', keys: ']', label: 'Hide or show the Timebox', group: 'General', scope: 'home' },
 
-  { id: 'toggleCenter', keys: 'V', label: 'Switch between Kanban and Calendar', group: 'Navigation', scope: 'home' },
+  { id: 'toggleCenter', keys: 'V', label: 'Switch between Tasks and Calendar', group: 'Navigation', scope: 'home' },
   { id: 'dayView', keys: 'D', label: 'Calendar day view', group: 'Navigation', scope: 'home' },
   { id: 'weekView', keys: 'W', label: 'Calendar week view', group: 'Navigation', scope: 'home' },
   { id: 'monthView', keys: 'M', label: 'Calendar month view', group: 'Navigation', scope: 'home' },

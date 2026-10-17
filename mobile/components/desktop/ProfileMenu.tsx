@@ -20,18 +20,31 @@ const POPOVER_ID = 'profile';
 // decision 026: Apple and Google are chosen there). Signed in it shows the
 // user's initial and the menu shows the account, sync status with Sync now,
 // Settings and Sign out. The sign out, account choice and revoke code is unchanged.
+// 2.26.0: it also holds the day actions that used to be buttons in the top
+// strip (Plan my day, Shut down my day, Quick capture, Search, Keyboard
+// shortcuts); their keyboard shortcuts are unchanged.
+export interface ProfileActions {
+  planning?: () => void;
+  shutdown?: () => void;
+  capture: () => void;
+  search: () => void;
+  shortcuts: () => void;
+}
+
 export default function ProfileMenu({
   onOpenSettings,
   onOpenProgress,
   onOpenSignIn,
   onOpenAnalytics,
   onOpenTrash,
+  actions,
 }: {
   onOpenSettings: () => void;
   onOpenProgress: () => void;
   onOpenSignIn: () => void;
   onOpenAnalytics: () => void;
   onOpenTrash: () => void;
+  actions: ProfileActions;
 }) {
   const { account, status, ui } = useAccount();
   const { ref, get } = usePopoverAnchor();
@@ -58,18 +71,37 @@ export default function ProfileMenu({
           <Ionicons name="person-outline" size={18} color={signedIn ? Colors.onAccent : Colors.textSecondary} />
         )}
       </Pressable>
-      <Popover id={POPOVER_ID} anchor={get} width={288} label="Profile menu">
+      <Popover id={POPOVER_ID} anchor={get} width={288} label="Profile menu" maxHeight={720}>
         {signedIn ? (
-          <SignedInBody account={account} status={status} ui={ui} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} onOpenAnalytics={() => { closePopover(); onOpenAnalytics(); }} onOpenTrash={() => { closePopover(); onOpenTrash(); }} />
+          <SignedInBody actions={actions} account={account} status={status} ui={ui} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} onOpenAnalytics={() => { closePopover(); onOpenAnalytics(); }} onOpenTrash={() => { closePopover(); onOpenTrash(); }} />
         ) : (
-          <SignedOutBody busy={ui.busy} message={ui.message} onOpenSignIn={() => { closePopover(); onOpenSignIn(); }} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} onOpenAnalytics={() => { closePopover(); onOpenAnalytics(); }} onOpenTrash={() => { closePopover(); onOpenTrash(); }} />
+          <SignedOutBody actions={actions} busy={ui.busy} message={ui.message} onOpenSignIn={() => { closePopover(); onOpenSignIn(); }} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} onOpenAnalytics={() => { closePopover(); onOpenAnalytics(); }} onOpenTrash={() => { closePopover(); onOpenTrash(); }} />
         )}
       </Popover>
     </>
   );
 }
 
-function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings, onOpenProgress, onOpenAnalytics, onOpenTrash }: { busy: boolean; message: string | null; onOpenSignIn: () => void; onOpenSettings: () => void; onOpenProgress: () => void; onOpenAnalytics: () => void; onOpenTrash: () => void }) {
+// The day actions and the shortcuts list, in the menu's list of rows. Each
+// closes the menu, then acts.
+function DayActions({ actions, onOpenSettings }: { actions: ProfileActions; onOpenSettings: () => void }) {
+  const run = (fn: () => void) => () => {
+    closePopover();
+    fn();
+  };
+  return (
+    <>
+      {actions.planning && <Row label="🌅 Plan my day" onPress={run(actions.planning)} a11y="Plan my day" />}
+      {actions.shutdown && <Row label="🌙 Shut down my day" onPress={run(actions.shutdown)} a11y="Shut down my day" />}
+      <Row label="⚡ Quick capture" onPress={run(actions.capture)} a11y="Quick capture" />
+      <Row label="🔎 Search" onPress={run(actions.search)} a11y="Search tasks" />
+      <Row label="⚙️ Settings" onPress={onOpenSettings} a11y="Settings" />
+      <Row label="⌨️ Keyboard shortcuts" onPress={run(actions.shortcuts)} a11y="Keyboard shortcuts" />
+    </>
+  );
+}
+
+function SignedOutBody({ actions, busy, message, onOpenSignIn, onOpenSettings, onOpenProgress, onOpenAnalytics, onOpenTrash }: { actions: ProfileActions; busy: boolean; message: string | null; onOpenSignIn: () => void; onOpenSettings: () => void; onOpenProgress: () => void; onOpenAnalytics: () => void; onOpenTrash: () => void }) {
   const showAnalytics = useFeature('analytics');
   return (
     <View>
@@ -82,16 +114,16 @@ function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings, onOpenProg
       {(busy || message) && <Text style={styles.hint}>{message ?? SIGN_IN_TEXT.waiting}</Text>}
     </View>
     <View style={styles.rows}>
+      <DayActions actions={actions} onOpenSettings={onOpenSettings} />
       <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
       {showAnalytics && <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />}
       <Row label="🗑️ Trash" onPress={onOpenTrash} a11y="Trash" />
-      <Row label="Settings" onPress={onOpenSettings} a11y="Settings" />
     </View>
     </View>
   );
 }
 
-function SignedInBody({ account, status, ui, onOpenSettings, onOpenProgress, onOpenAnalytics, onOpenTrash }: { account: string; status: PublicSyncStatus; ui: AuthUiState; onOpenSettings: () => void; onOpenProgress: () => void; onOpenAnalytics: () => void; onOpenTrash: () => void }) {
+function SignedInBody({ actions, account, status, ui, onOpenSettings, onOpenProgress, onOpenAnalytics, onOpenTrash }: { actions: ProfileActions; account: string; status: PublicSyncStatus; ui: AuthUiState; onOpenSettings: () => void; onOpenProgress: () => void; onOpenAnalytics: () => void; onOpenTrash: () => void }) {
   const showAnalytics = useFeature('analytics');
   const [now, setNow] = useState(() => Date.now());
   const [syncing, setSyncing] = useState(false);
@@ -135,10 +167,10 @@ function SignedInBody({ account, status, ui, onOpenSettings, onOpenProgress, onO
       </View>
       <View style={styles.rows}>
         <Row label={syncing || status.state === 'syncing' ? 'Syncing…' : 'Sync now'} onPress={syncNow} disabled={syncing || status.state === 'syncing'} a11y="Sync now" />
+        <DayActions actions={actions} onOpenSettings={onOpenSettings} />
         <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
         {showAnalytics && <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />}
         <Row label="🗑️ Trash" onPress={onOpenTrash} a11y="Trash" />
-        <Row label="Settings" onPress={onOpenSettings} a11y="Settings" />
         <Row label="Sign out" onPress={signOut} a11y="Sign out" />
       </View>
     </View>

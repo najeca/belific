@@ -95,7 +95,9 @@ async function run() {
 
   // ======== 1. Cancel changes nothing ========
   const before = raw();
-  await I.click(I.byLabel('Daily Planning'));
+  // 2.26.0: Plan my day is in the profile menu.
+  await I.click(I.byLabel('Profile, not signed in'));
+  await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Plan my day"]')`, 600);
   check('the Daily Planning overlay opens, step 1 of 4', (await flowOpen()) && (await I.body()).includes('Step 1 of 4') && (await I.body()).includes('Review your work'));
   check('step 1 lists the missed tasks, not the repeating one', (await I.exists(inFlow('Flow task Missed one'))) && (await I.exists(inFlow('Flow task Missed placed'))) && !(await I.exists(inFlow('Flow task Repeating daily'))));
   check('and what was finished yesterday', await I.exists(inFlow('Flow task Done yesterday')));
@@ -149,7 +151,8 @@ async function run() {
   check('a second Planning with no changes writes nothing at all', raw() === afterFirst);
 
   // ======== 4. Shutdown: only the chosen tasks go to tomorrow ========
-  await I.click(I.byLabel('Daily Shutdown'));
+  await I.click(I.byLabel('Profile, not signed in'));
+  await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Shut down my day"]')`, 600);
   check('Daily Shutdown opens, step 1 of 2', (await flowOpen()) && (await I.body()).includes('Step 1 of 2'));
   check('what was done today is listed (the task ticked in Planning)', await I.exists(inFlow('Flow task Missed one')));
   // keep one today

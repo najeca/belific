@@ -185,8 +185,11 @@ async function run() {
   const iconOut = 'Profile, not signed in';
   check('a profile icon is at the top of the app', await exists(byLabel(iconOut)));
   const iconRect = await rectOf(byLabel(iconOut));
-  const inWindow = iconRect.top >= 0 && iconRect.right <= (await js('innerWidth')) && iconRect.left > (await js('innerWidth')) * 0.8;
-  check('it sits at the top right of the window', inWindow, JSON.stringify(iconRect));
+  // 2.26.0: it is the last control of the centre pane's top row (the Timebox
+  // column is to its right), at the top of the window.
+  const centreRect = await js(`(() => { const r = document.querySelector('[data-pane="center"]').getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top }; })()`);
+  const inWindow = iconRect.top >= 0 && iconRect.top < centreRect.top + 64 && iconRect.right <= centreRect.right && iconRect.left > centreRect.left + (centreRect.right - centreRect.left) * 0.7;
+  check('it sits at the top right of the centre pane', inWindow, JSON.stringify({ iconRect, centreRect }));
   const covers = await js(`(() => {
     const ic = ${byLabel(iconOut)}.getBoundingClientRect();
     return Array.from(document.querySelectorAll('input, [data-task-card], [aria-label^="Task "]')).some((e) => {

@@ -49,3 +49,14 @@ test('over the estimate only when there is an estimate', () => {
   assert.equal(isOverEstimate({ estimate: 60, actual: 60 }), false);
   assert.equal(isOverEstimate({ estimate: 0, actual: 30 }), false);
 });
+
+test('2.26.0 the add task box total: estimated time still to do, "5h planned"', async () => {
+  const { plannedText } = await import('./taskTotals.ts');
+  const t = (durationMinutes?: number, completed = false, deletedAt?: string) => ({ durationMinutes, completed, deletedAt });
+  assert.equal(plannedText([]), '');
+  assert.equal(plannedText([t(undefined), t(0)]), '');
+  assert.equal(plannedText([t(120), t(180)]), '5h planned');
+  assert.equal(plannedText([t(60), t(30)]), '1h 30m planned');
+  assert.equal(plannedText([t(45)]), '45m planned');
+  assert.equal(plannedText([t(45), t(600, true), t(60, false, '2026-10-01T00:00:00Z')]), '45m planned');
+});

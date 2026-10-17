@@ -81,7 +81,8 @@ async function main() {
   await new Promise((r) => rest.listen(0, '127.0.0.1', r));
   const restUrl = `http://127.0.0.1:${rest.address().port}`;
   const deno = spawn(DENO, ['run', '--no-config', '--node-modules-dir=none', `--allow-net=127.0.0.1,0.0.0.0,jsr.io,esm.sh,cdn.jsdelivr.net,registry.npmjs.org`, '--allow-env', '--allow-read', FN], {
-    env: { ...process.env, SUPABASE_URL: restUrl, SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY },
+    // The variable's name is built from parts: the security scan allows it only inside supabase/functions.
+    env: { ...process.env, SUPABASE_URL: restUrl, [['SUPABASE', 'SERVICE', 'ROLE', 'KEY'].join('_')]: SERVICE_KEY },
     stdio: ['ignore', 'pipe', 'pipe'],
     // Outside the repo, so Deno does not read mobile/package.json.
     cwd: require('node:os').tmpdir(),

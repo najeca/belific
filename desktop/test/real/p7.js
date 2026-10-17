@@ -151,12 +151,12 @@ async function run() {
   check('both on again: the flag and the bell are back', (await anyExists('[aria-label^="Priority:"]')) && (await anyExists('[aria-label^="Reminder:"]')));
 
   // Daily planning off.
-  check('planning is on: the strip has Daily Planning and Daily Shutdown', (await I.exists(I.byLabel('Daily Planning'))) && (await I.exists(I.byLabel('Daily Shutdown'))));
+  check('planning is on: the profile menu has Plan my day and Shut down my day', (await menuHas('Plan my day')) && (await menuHas('Shut down my day')));
   await openSettings();
   await I.click(I.byLabel('🌅 Daily planning'));
   await C.waitFor(() => setting('feature.planning')?.value === 'off', 6000).catch(() => {});
   await back();
-  check('Planning off: the strip buttons are gone', !(await I.exists(I.byLabel('Daily Planning'))) && !(await I.exists(I.byLabel('Daily Shutdown'))));
+  check('Planning off: the profile menu rows are gone', !(await menuHas('Plan my day')) && !(await menuHas('Shut down my day')));
   await I.js('document.activeElement && document.activeElement.blur()');
   await I.key('P', ['control', 'shift']);
   check('Planning off: Ctrl+Shift+P opens nothing', !(await I.exists(I.byLabel('Close daily planning'))) && !(await I.body()).includes('Good morning'));
@@ -164,7 +164,7 @@ async function run() {
   await I.click(I.byLabel('🌅 Daily planning'));
   await C.waitFor(() => setting('feature.planning')?.value === 'on', 6000).catch(() => {});
   await back();
-  check('Planning on: the buttons are back', await I.exists(I.byLabel('Daily Planning')));
+  check('Planning on: the rows are back', await menuHas('Plan my day'));
 
   // ======== 2. Labels is an overlay, with emoji ========
   await openSettings();

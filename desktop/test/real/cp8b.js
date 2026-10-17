@@ -362,7 +362,7 @@ async function run() {
   check('the button shows a count: Filter (1)', await js(`!!${q('[aria-label="Filter (1)"]')}`));
   await C.sleep(400);
   const text1 = await body();
-  check('only tasks with the ticked label show in the board and left list', !text1.includes('Charlie') && !text1.includes('Bravo') && text1.includes('Alpha') && text1.includes('Legacy phone thought'));
+  check('only tasks with the ticked label show in the board and left list', !text1.includes('Charlie') && !text1.includes('Bravo') && text1.includes('Alpha') && text1.includes('Legacy phone thought'), JSON.stringify({ charlie: text1.includes('Charlie'), bravo: text1.includes('Bravo'), alpha: text1.includes('Alpha'), legacy: text1.includes('Legacy phone thought') }));
   check('Timebox tasks are filtered too (an unlabelled placed task is hidden)', !(await js(`!!${q('[data-block-id="p2"]')}`)));
   check('events are not filtered', text1.includes('Team sync'));
   await click(inPopover('[aria-label="Filter no label"]'));

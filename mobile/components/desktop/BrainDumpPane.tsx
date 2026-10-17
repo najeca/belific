@@ -6,7 +6,7 @@ import { dateKey } from '../../lib/kanban';
 import { splitThoughts, rowId } from '../../lib/thoughts';
 import { loadBrainDumpItems, loadLists, loadTasks } from '../../lib/storage';
 import { listCounts, resolveSelectedList, tasksInList } from '../../lib/lists';
-import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
+import { formatTotals, isOverEstimate, plannedText, totalsOf } from '../../lib/taskTotals';
 import { createTaskIn } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
@@ -92,6 +92,8 @@ export default function BrainDumpPane({
   const now = useTick(30000);
   const totals = useMemo(() => totalsOf(rows.map((r) => (r.kind === 'task' ? r.task : dumpAsTask(r.item))), now), [rows, now]);
   const totalsText = formatTotals(totals);
+  // The add task box's total (2.26.0): "5h planned" for what is still to do.
+  const planned = useMemo(() => plannedText(rows.map((r) => (r.kind === 'task' ? r.task : dumpAsTask(r.item)))), [rows]);
 
   async function handleCapture() {
     if (!captureText.trim()) return;
@@ -118,26 +120,31 @@ export default function BrainDumpPane({
       </View>
 
       <View style={styles.captureRow}>
-        <TextInput
-          ref={captureRef}
-          style={styles.captureInput}
-          placeholder="What needs doing?"
-          placeholderTextColor={Colors.textSecondary}
-          value={captureText}
-          onChangeText={setCaptureText}
-          onSubmitEditing={handleCapture}
-          accessibilityLabel="Capture a thought"
-          autoFocus
-        />
-        <Pressable
-          style={[styles.addBtn, !captureText.trim() && styles.addBtnDisabled]}
-          onPress={handleCapture}
-          disabled={!captureText.trim()}
-          accessibilityRole="button"
-          accessibilityLabel="Add"
-        >
-          <Ionicons name="add" size={20} color={Colors.onAccent} />
-        </Pressable>
+        <View style={styles.captureBox}>
+          <Text style={styles.capturePlus} accessible={false}>
+            ＋
+          </Text>
+          <TextInput
+            ref={captureRef}
+            style={styles.captureInput}
+            placeholder="Add a task"
+            placeholderTextColor={Colors.textSecondary}
+            value={captureText}
+            onChangeText={setCaptureText}
+            onSubmitEditing={handleCapture}
+            accessibilityLabel="Capture a thought"
+            autoFocus
+          />
+          {captureText.trim() ? (
+            <Pressable style={styles.addBtn} onPress={handleCapture} accessibilityRole="button" accessibilityLabel="Add">
+              <Text style={styles.addText}>Add</Text>
+            </Pressable>
+          ) : planned ? (
+            <Text style={styles.planned} accessibilityLabel={`Estimated time still to do in this list: ${planned}`} {...({ dataSet: { planned: '1' } } as object)}>
+              {planned}
+            </Text>
+          ) : null}
+        </View>
         {templatesOn && <TemplatePicker listKey={selected} refreshKey={refreshKey} onChanged={onChanged} />}
       </View>
 
@@ -215,41 +222,32 @@ export default function BrainDumpPane({
 }
 
 const styles = StyleSheet.create({
+  // Inside the sidebar (2.26.0): no frame of its own.
   pane: {
     flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingTop: 2,
     minWidth: 0,
+    borderRadius: 12,
   },
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginLeft: -10 },
   totals: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   totalsOver: { color: Colors.accentText, fontWeight: '700' },
-  captureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 8 },
+  captureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 8 },
+  captureBox: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 40, paddingLeft: 10, paddingRight: 6, borderRadius: 10, backgroundColor: Colors.background, gap: 6 },
+  capturePlus: { fontSize: 14, color: Colors.textSecondary, width: 16, textAlign: 'center' },
   captureInput: {
     flex: 1,
     height: 40,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.background,
+    minWidth: 0,
     color: Colors.textPrimary,
     fontSize: 14,
-    outlineColor: Colors.accent,
-  },
-  addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: Colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnDisabled: { opacity: 0.4 },
+    outlineStyle: 'none',
+  } as object,
+  addBtn: { height: 28, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
+  addText: { fontSize: 12, fontWeight: '700', color: Colors.onAccent },
+  planned: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
   list: { flex: 1 },
   empty: { marginTop: 12, fontSize: 14, color: Colors.textSecondary },
   row: {
@@ -262,7 +260,7 @@ const styles = StyleSheet.create({
   },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
   rowHover: { backgroundColor: Colors.background },
-  paneTarget: { borderColor: Colors.accent, backgroundColor: Colors.background },
+  paneTarget: { backgroundColor: Colors.background },
   dragging: { opacity: 0.4 },
   check: { paddingTop: 1 },
   body: { flex: 1, minWidth: 0 },

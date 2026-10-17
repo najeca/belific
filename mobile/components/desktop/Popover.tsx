@@ -80,12 +80,15 @@ export default function Popover({
   anchor,
   width = 264,
   label = 'Task options',
+  maxHeight,
   children,
 }: {
   id: string;
   anchor: () => HTMLElement | null;
   width?: number;
   label?: string;
+  // A taller limit for a menu (the profile menu); task controls keep the default.
+  maxHeight?: number;
   children: React.ReactNode;
 }) {
   const open = useIsOpen(id);
@@ -106,9 +109,10 @@ export default function Popover({
         { x: r.left, y: r.top, width: r.width, height: r.height },
         { width, height: natural },
         { width: window.innerWidth, height: window.innerHeight },
+        maxHeight,
       ),
     );
-  }, [anchor, width]);
+  }, [anchor, width, maxHeight]);
 
   useLayoutEffect(() => {
     if (!open) {

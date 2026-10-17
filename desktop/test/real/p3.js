@@ -136,20 +136,20 @@ async function run() {
   };
 
   // ======== 1. The default layout ========
-  check('all three panes are showing, the Kanban board in the centre', (await width('[data-pane="left"]')) > 100 && (await width('[data-pane="center"]')) > 100 && (await width('[data-pane="right"]')) > 100 && (await kanbanShown()));
+  check('all three panes are showing, Tasks (the board) in the centre', (await width('[data-pane="left"]')) > 100 && (await width('[data-pane="center"]')) > 100 && (await width('[data-pane="right"]')) > 100 && (await kanbanShown()));
   check('no calendar yet', (await calView()) === null);
   await shot('p3-01-default');
   const centerWide0 = await width('[data-pane="center"]');
 
   // ======== 2. Collapsing the panes ========
-  await click(byLabel('Hide the left pane'));
-  check('the left pane is hidden and a rail takes its place', (await width('[data-pane="left"]')) <= 0 && (await width('[data-rail="left"]')) > 20);
+  await click(byLabel('Hide sidebar'));
+  check('the left pane is hidden and a show button sits at the left of the centre top row', (await width('[data-pane="left"]')) <= 0 && (await exists(byLabel('Show sidebar'))));
   check('the centre is wider for it', (await width('[data-pane="center"]')) > centerWide0);
   check('the board still works with the left pane hidden', (await body()).includes('Alpha today'));
   await key('[');
-  check('[ brings the left pane back', (await width('[data-pane="left"]')) > 100 && (await width('[data-rail="left"]')) === -1);
+  check('[ brings the left pane back', (await width('[data-pane="left"]')) > 100 && !(await exists(byLabel('Show sidebar'))));
   await key(']');
-  check('] hides the right pane', (await width('[data-pane="right"]')) <= 0 && (await width('[data-rail="right"]')) > 20);
+  check('] hides the right pane; its show button appears at the right of the centre top row', (await width('[data-pane="right"]')) <= 0 && (await exists(byLabel('Show Timebox'))));
   await key('[');
   check('both hidden: the centre has the screen and still shows the board', (await width('[data-pane="left"]')) <= 0 && (await width('[data-pane="right"]')) <= 0 && (await width('[data-pane="center"]')) > centerWide0 && (await body()).includes('Alpha today'));
   await shot('p3-02-both-hidden');
@@ -160,9 +160,9 @@ async function run() {
   await waitBody('Alpha today', 20000);
   await C.sleep(600);
   check('after a reload (a restart of the screen) both panes are still hidden', (await width('[data-pane="left"]')) <= 0 && (await width('[data-pane="right"]')) <= 0);
-  await click(byLabel('Show the left pane'));
-  await click(byLabel('Show the right pane'));
-  check('the rails bring the panes back', (await width('[data-pane="left"]')) > 100 && (await width('[data-pane="right"]')) > 100);
+  await click(byLabel('Show sidebar'));
+  await click(byLabel('Show Timebox'));
+  check('the show buttons bring the panes back', (await width('[data-pane="left"]')) > 100 && (await width('[data-pane="right"]')) > 100);
 
   // ======== 3. V switches Kanban and Calendar, Tab does not ========
   await blur();
@@ -307,6 +307,31 @@ async function run() {
   check('no match says so', (await body()).includes('Nothing found'));
   await key('Escape');
   check('Escape closes search', !(await exists(dialog('Search tasks'))));
+
+  // ======== 2.26.0: the breakpoint. The desktop layout at every window size ========
+  const pageWidth = () => js('window.innerWidth');
+  const phoneLayout = async () => (await body()).includes('Top 3 tasks') || (await exists(byLabel('Today tab')));
+  win.setSize(1440, 900);
+  await C.sleep(700);
+  check('1440 wide: the list, the centre and the Timebox side by side', (await width('[data-pane="left"]')) > 200 && (await width('[data-pane="right"]')) > 200);
+  win.setSize(1100, 860);
+  await C.sleep(700);
+  check('1100 wide: the Timebox folds away by itself, the list stays', (await width('[data-pane="left"]')) > 200 && (await width('[data-pane="right"]')) <= 0 && (await exists(byLabel('Show Timebox'))));
+  check('the remembered layout is not changed by the width', panesState().setting && panesState().setting.rightCollapsed === false);
+  win.setSize(860, 860);
+  await C.sleep(700);
+  check('860 wide: the list folds away too, the board still has the centre', (await width('[data-pane="left"]')) <= 0 && (await width('[data-pane="center"]')) > 500 && (await exists(byLabel('Show sidebar'))));
+  await click(byLabel('Show sidebar'));
+  check('Show sidebar opens the list over the board', (await width('[data-pane="left"]')) > 200 && (await exists(`document.querySelector('[data-sidebar="overlay"]')`)));
+  await key('Escape');
+  await C.sleep(300);
+  check('Escape closes it again', (await width('[data-pane="left"]')) <= 0);
+  win.setSize(700, 800);
+  await C.sleep(800);
+  const narrow = await pageWidth();
+  check(`at the smallest window (page ${narrow} px wide) it is still the desktop layout, never the phone's Today page`, narrow >= 640 && !(await phoneLayout()) && (await width('[data-pane="center"]')) > 300, String(narrow));
+  win.setSize(1440, 900);
+  await C.sleep(500);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

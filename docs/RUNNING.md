@@ -27,9 +27,14 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<publishable key>
    cd ../desktop
    npm install
    ```
-4. Start it: `npm run desktop` (in `desktop/`). It runs `expo export --platform web` into `mobile/dist`, then opens Electron on it. The first run needs internet.
+4. Start it from the **desktop** folder (not `mobile/`; `mobile/package.json` has no `desktop` script):
+   ```
+   cd desktop
+   npm run desktop
+   ```
+   It runs `expo export --platform web` into `mobile/dist`, then opens Electron on it. The first run needs internet.
 5. Your data is in `%APPDATA%\belific-desktop` (`data\`, `backups\`, `logs\main.log`). It works fully signed out.
-6. Developing (hot reload): in `mobile/` run `npm start`, then in `desktop/` run `npm run desktop:dev`. It uses a separate `belific-desktop-dev` data folder.
+6. Developing (hot reload): in one terminal `cd mobile` then `npm start`; in a second terminal `cd desktop` then `npm run desktop:dev`. It uses a separate `belific-desktop-dev` data folder.
 
 If it fails:
 - "Missing EXPO_PUBLIC_SUPABASE_URL...": `mobile/.env` is missing or misspelt (step 2).

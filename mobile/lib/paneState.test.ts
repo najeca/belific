@@ -128,3 +128,31 @@ test('layout: an open pane shares the width, a collapsed one is a rail, the cent
   assert.ok(paneLayout({ ...DEFAULT_PANE_STATE, leftCollapsed: true }).center.flex > 0);
   assert.ok(paneLayout({ ...DEFAULT_PANE_STATE, rightCollapsed: true }).center.flex > 0);
 });
+
+test('2.26.0 widths: sidebar docked from 900, Timebox docked from 1180 in Tasks, never in Calendar', async () => {
+  const { responsiveLayout, SIDEBAR_DOCK_MIN, TIMEBOX_DOCK_MIN } = await import('./paneState.ts');
+  const s = DEFAULT_PANE_STATE;
+  assert.deepEqual(responsiveLayout(s, 1440), { sidebar: 'docked', timebox: 'docked', timeboxAvailable: true });
+  assert.deepEqual(responsiveLayout(s, TIMEBOX_DOCK_MIN - 1), { sidebar: 'docked', timebox: 'hidden', timeboxAvailable: true });
+  assert.deepEqual(responsiveLayout(s, SIDEBAR_DOCK_MIN - 1), { sidebar: 'hidden', timebox: 'hidden', timeboxAvailable: true });
+  assert.deepEqual(responsiveLayout(s, 760, { sidebar: true, timebox: false }).sidebar, 'overlay');
+  assert.deepEqual(responsiveLayout(s, 1000, { sidebar: false, timebox: true }).timebox, 'overlay');
+  const cal = { ...s, center: 'calendar' as const };
+  assert.deepEqual(responsiveLayout(cal, 1920, { sidebar: false, timebox: true }), { sidebar: 'docked', timebox: 'hidden', timeboxAvailable: false });
+  // Hidden by the person: hidden at every width, and an overlay still opens on request.
+  const hidden = { ...s, leftCollapsed: true, rightCollapsed: true };
+  assert.equal(responsiveLayout(hidden, 1920).sidebar, 'hidden');
+  assert.equal(responsiveLayout(hidden, 1920).timebox, 'hidden');
+  assert.equal(responsiveLayout(hidden, 1920, { sidebar: true, timebox: true }).sidebar, 'overlay');
+});
+
+test('2.26.0 toggles: where a panel fits the choice is remembered; where it does not, only the overlay opens', async () => {
+  const { sidebarToggle, timeboxToggle } = await import('./paneState.ts');
+  const s = DEFAULT_PANE_STATE;
+  assert.deepEqual(sidebarToggle(s, 1440, false), { state: { ...s, leftCollapsed: true }, overlayOpen: false });
+  assert.deepEqual(sidebarToggle(s, 800, false), { state: s, overlayOpen: true });
+  assert.deepEqual(sidebarToggle(s, 800, true), { state: s, overlayOpen: false });
+  assert.deepEqual(timeboxToggle(s, 1440, false), { state: { ...s, rightCollapsed: true }, overlayOpen: false });
+  assert.deepEqual(timeboxToggle(s, 1000, false), { state: s, overlayOpen: true });
+  assert.deepEqual(timeboxToggle({ ...s, center: 'calendar' }, 1440, false), { state: { ...s, center: 'calendar' }, overlayOpen: false });
+});

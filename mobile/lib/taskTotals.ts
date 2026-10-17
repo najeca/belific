@@ -56,3 +56,15 @@ export function formatTaskTime(task: Pick<Task, 'durationMinutes' | 'actualMinut
 export function isOverEstimate(t: Pick<Totals, 'estimate' | 'actual'>): boolean {
   return t.estimate > 0 && t.actual > t.estimate;
 }
+
+// The add task box's total (2.26.0): the estimated time of what is still to do
+// in a list, "5h planned", "1h 30m planned", "45m planned"; nothing when there
+// is none. Finished tasks do not count; a missing estimate is 0.
+export function plannedText(tasks: TotalsInput[]): string {
+  let minutes = 0;
+  for (const t of tasks) if (!t.deletedAt && !t.completed) minutes += estimateOf(t);
+  if (minutes <= 0) return '';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h ? `${h}h` : ''}${h && m ? ' ' : ''}${m ? `${m}m` : ''} planned`;
+}

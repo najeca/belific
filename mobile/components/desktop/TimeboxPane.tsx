@@ -86,12 +86,15 @@ export default function TimeboxPane({
   onChanged,
   filter,
   onlyToday,
+  onHide,
 }: {
   refreshKey: number;
   onChanged: () => void;
   filter: TaskFilter;
   // "Show only today" (build plan phase 3): the Timebox goes to today.
   onlyToday?: boolean;
+  // 2.26.0: the hide button beside the Timebox header.
+  onHide?: () => void;
 }) {
   const [day, setDay] = useState(() => parseDateKey(dateKey(new Date())));
   // The line at the current time moves with this clock (build plan phase 3).
@@ -249,7 +252,16 @@ export default function TimeboxPane({
 
   return (
     <View style={styles.pane}>
-      <Text style={styles.paneLabel}>🕐 TIMEBOX</Text>
+      <View style={styles.headRow}>
+        <Text style={styles.paneTitle} accessibilityRole="header">
+          🕐 Timebox
+        </Text>
+        {onHide && (
+          <Pressable onPress={onHide} style={styles.hideBtn} accessibilityRole="button" accessibilityLabel="Hide Timebox">
+            <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+          </Pressable>
+        )}
+      </View>
 
       <View style={styles.nav}>
         <Pressable onPress={() => go(-1)} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Previous day">
@@ -624,12 +636,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
     padding: 16,
     minWidth: 0,
-  },
-  paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
+    boxShadow: '0 1px 2px rgba(38,37,31,0.05), 0 2px 8px rgba(38,37,31,0.04)',
+  } as object,
+  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32 },
+  paneTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  hideBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12 },
   navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
   dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: 32 },

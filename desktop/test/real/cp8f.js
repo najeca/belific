@@ -155,17 +155,18 @@ async function run() {
     // ---- the dropdown ----
     await click(inCard('Fresh', '[aria-label^="Duration of"]'));
     check('the chip opens a small dropdown', await popover());
-    check('the field is focused, placeholder "45m, 1h 30m, 130..."', (await activeLabel()) === 'Duration' && (await js(`document.activeElement.placeholder`)) === '45m, 1h 30m, 130...');
+    // Build plan phase 2 (2.19.0) changed the field's wording and the presets; 2.26.0 updated this check.
+    check('the field is focused, placeholder "Custom: 45m, 1h 30m, 130..."', (await activeLabel()) === 'Duration' && (await js(`document.activeElement.placeholder`)) === 'Custom: 45m, 1h 30m, 130...', String(await js(`document.activeElement.placeholder`)));
     const pr = await js(`(() => { const r = ${q('[data-popover]')}.getBoundingClientRect(); return { w: r.width, h: r.height, vw: innerWidth, vh: innerHeight }; })()`);
     check('the dropdown is small and inside the window', pr.w < 400 && pr.h <= 330 && pr.w < pr.vw / 2 && pr.h < pr.vh / 2 && pr.h > 100);
     check('no full viewport overlay while it is open', await noNewOverlay());
     const labels = await js(`Array.from(document.querySelectorAll('[data-popover] [role="button"]')).map((e) => e.getAttribute('aria-label'))`);
     check(
       'the presets are listed in order, with "No duration" first',
-      JSON.stringify(labels) === JSON.stringify(['No duration', '5 min', '10 min', '15 min', '20 min', '30 min', '45 min', '1h', '1h 30m', '2h', '3h', '4h']),
+      JSON.stringify(labels) === JSON.stringify(['No duration', '5 min', '10 min', '15 min', '30 min', '45 min', '1h', '1h 30m', '2h']),
       JSON.stringify(labels),
     );
-    check('the preset list scrolls inside the dropdown', await js(`(() => { let e = ${inPopover('[aria-label="4h"]')}; while (e && e.getAttribute('data-popover') === null) { if (getComputedStyle(e).overflowY === 'auto' && e.scrollHeight > e.clientHeight) return true; e = e.parentElement; } return false; })()`));
+    check('the preset list scrolls inside the dropdown', await js(`(() => { let e = ${inPopover('[aria-label="2h"]')}; while (e && e.getAttribute('data-popover') === null) { if (getComputedStyle(e).overflowY === 'auto' && e.scrollHeight > e.clientHeight) return true; e = e.parentElement; } return false; })()`));
     await C.sleep(400);
     await shot('cp8f-dropdown');
     await press('Escape');
@@ -260,10 +261,10 @@ async function run() {
     check('spacing: left list rows are about 10px apart', rowGaps.length === 2 && rowGaps.every((g) => g >= 9 && g <= 11), JSON.stringify(rowGaps));
     await shot('cp8f-spacing');
 
-    // ---- the removed Actual row (2.14.0, decision 022 superseded) ----
+    // ---- Actual time came back in build plan phase 2 (decision 028): the card has a timer button ----
     await expand('Fresh');
     const txt = await cardText('Fresh');
-    check('an expanded card has no Actual, Estimated or timer row any more', !/Actual|Estimated/.test(txt) && !(await exists(inCard('Fresh', '[aria-label^="Start timer"]'))), txt);
+    check('an expanded card has the timer button again (build plan phase 2)', await exists(inCard('Fresh', '[aria-label^="Start timer"]')), txt);
     check('the stored task has no actualSeconds field', !('actualSeconds' in taskNamed('Fresh')));
     // A task stored by 2.13.0 with Actual time: any save of it rewrites it without the field.
     await click(inCard('Legacy', '[aria-label^="Duration of"]'));

@@ -266,7 +266,6 @@ export default function KanbanPane({
 
   return (
     <View style={styles.pane}>
-      <Text style={styles.paneLabel}>🗓️ WEEK</Text>
 
       <View style={styles.weekNav}>
         <Pressable
@@ -354,13 +353,9 @@ export default function KanbanPane({
 }
 
 const styles = StyleSheet.create({
+  // Inside the centre pane (2.26.0), which draws the frame.
   pane: {
     flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 16,
     minWidth: 0,
   },
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },

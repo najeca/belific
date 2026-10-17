@@ -433,7 +433,9 @@ function createWindow(visible = true) {
     icon: ICON_PATH,
     width: 1440,
     height: 900,
-    minWidth: 1024,
+    // 2.26.0: the desktop layout folds its side panels down to this width
+    // (mobile/lib/paneState.ts); it was 1024.
+    minWidth: 760,
     minHeight: 600,
     title: 'Belific',
     backgroundColor: '#F0EEE8',

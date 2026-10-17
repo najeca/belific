@@ -128,3 +128,55 @@ export async function savePaneState(io: PaneStateIo, state: PaneState): Promise<
   const text = serializePaneState(state);
   await Promise.allSettled([io.writeSetting(PANE_SETTING_KEY, text), io.writeLocal(PANE_LOCAL_KEY, text)]);
 }
+
+// ---- 2.26.0: the desktop layout at every window width ----
+//
+// The left pane is now a labelled sidebar of a fixed width and the right pane
+// the Timebox panel. What the window width does (page width, not the outer
+// window):
+//  - SIDEBAR_DOCK_MIN and wider: the sidebar sits beside the centre, unless the
+//    person hid it (leftCollapsed);
+//  - narrower: it is not docked; opening it shows it over the centre, for that
+//    moment only (the remembered state is never changed by the width);
+//  - TIMEBOX_DOCK_MIN and wider: the Timebox panel sits on the right in the
+//    Tasks view, unless hidden (rightCollapsed); narrower, opening it shows it
+//    over the centre the same way;
+//  - the Calendar view never shows the Timebox panel: the Calendar is the time
+//    grid itself and takes the whole centre.
+// Below lib/useIsDesktop's DESKTOP_BREAKPOINT the phone layout is used instead.
+export const SIDEBAR_WIDTH = 248;
+export const TIMEBOX_WIDTH = 340;
+export const SIDEBAR_DOCK_MIN = 900;
+export const TIMEBOX_DOCK_MIN = 1180;
+
+export type PanelPlace = 'docked' | 'overlay' | 'hidden';
+
+export interface ResponsiveLayout {
+  sidebar: PanelPlace;
+  timebox: PanelPlace;
+  // The Timebox panel cannot open at all (the Calendar view).
+  timeboxAvailable: boolean;
+}
+
+// `open` is what is opened over the centre for the moment (never remembered).
+export function responsiveLayout(s: PaneState, width: number, open: { sidebar: boolean; timebox: boolean } = { sidebar: false, timebox: false }): ResponsiveLayout {
+  const sidebarFits = width >= SIDEBAR_DOCK_MIN;
+  const sidebar: PanelPlace = sidebarFits ? (s.leftCollapsed ? (open.sidebar ? 'overlay' : 'hidden') : 'docked') : open.sidebar ? 'overlay' : 'hidden';
+  const timeboxAvailable = s.center === 'kanban';
+  const timeboxFits = width >= TIMEBOX_DOCK_MIN;
+  const timebox: PanelPlace = !timeboxAvailable ? 'hidden' : timeboxFits ? (s.rightCollapsed ? (open.timebox ? 'overlay' : 'hidden') : 'docked') : open.timebox ? 'overlay' : 'hidden';
+  return { sidebar, timebox, timeboxAvailable };
+}
+
+// What the sidebar button does: where it fits, it hides or shows the sidebar
+// and that is remembered; where it does not, it opens or closes the overlay.
+export function sidebarToggle(s: PaneState, width: number, overlayOpen: boolean): { state: PaneState; overlayOpen: boolean } {
+  if (width >= SIDEBAR_DOCK_MIN) return { state: toggleLeft(s), overlayOpen: false };
+  return { state: s, overlayOpen: !overlayOpen };
+}
+
+export function timeboxToggle(s: PaneState, width: number, overlayOpen: boolean): { state: PaneState; overlayOpen: boolean } {
+  if (s.center !== 'kanban') return { state: s, overlayOpen: false };
+  if (width >= TIMEBOX_DOCK_MIN) return { state: toggleRight(s), overlayOpen: false };
+  return { state: s, overlayOpen: !overlayOpen };
+}

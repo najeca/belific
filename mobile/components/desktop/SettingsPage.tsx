@@ -21,6 +21,7 @@ import TemplatesManager from './TemplatesManager';
 import { setFeature, useFeatures } from './featureStore';
 import { FEATURES } from '../../lib/features';
 import CalendarsSection from './CalendarsSection';
+import { displayKeys, shortcutGroups } from '../../lib/shortcuts';
 
 // The Settings page (checkpoint 9, decision 025): a view inside the app, not
 // an overlay. It replaces the old Settings modal; every setting and its
@@ -315,6 +316,21 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           </View>
         </Section>
 
+        <Section title="Keyboard shortcuts" emoji="⌨️">
+          <Text style={styles.hint}>Shift+/ shows this list over the home screen at any time. Letters work when you are not typing in a box; task keys act on the card that has the keyboard focus.</Text>
+          {shortcutGroups().map(({ group, items }) => (
+            <View key={group} style={{ marginTop: 10 }} accessibilityLabel={`${group} shortcuts`}>
+              <Text style={styles.keyGroup}>{group}</Text>
+              {items.map((d) => (
+                <View key={d.id} style={styles.keyRow}>
+                  <Text style={[styles.body, { flex: 1 }]}>{d.label}</Text>
+                  <Text style={styles.keys}>{displayKeys(d.keys)}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </Section>
+
         <Section title="About" emoji="ℹ️">
           <Text style={styles.body}>Belific {desktop?.version ?? ''}</Text>
           <View style={styles.row}>
@@ -385,4 +401,7 @@ const styles = StyleSheet.create({
   btnPrimaryText: { fontSize: 13, fontWeight: '600', color: Colors.onAccent },
   dangerText: { fontSize: 13, fontWeight: '600', color: Colors.danger },
   disabled: { opacity: 0.5 },
+  keyGroup: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, marginBottom: 2 },
+  keyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 28 },
+  keys: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary, backgroundColor: Colors.background, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, fontVariant: ['tabular-nums'] },
 });

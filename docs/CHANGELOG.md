@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.26.0 — 2026-10-17 (desktop redesign)
+
+**Desktop redesign after Jethro's review, with the Ellie planner as the reference for layout, behaviour and feel only (no copied icons, text or visuals). No schema change, no sync change: every stored value (priority included) is untouched and still syncs. Built and committed step by step; this entry grows with each step.**
+
+### Layout (step 1)
+- **Three full height columns, nothing across the top of the window.** Left pane: the Belific mark and name with its hide button, then the list switcher, the "Add a task" box with the time still planned in the list ("5h planned", estimates of unfinished tasks), then the tasks. Centre pane: its own top row with only ✅ Tasks | 📆 Calendar, 📅 Only today, 🎯 Quests and the profile button, then the board or the Calendar. Right pane: only the Timebox, with its hide button beside its header.
+- **Hiding:** the left pane's hide button (or `[`) hides it and a small show button appears at the left of the centre's top row; the Timebox's hide button (or `]`) hides it and its show button appears at the right of the centre's top row. Remembered as before (`ui.panes`).
+- **Window widths** (page width): the list docks from 900 px, the Timebox from 1180 px; narrower, they fold away by themselves and their show buttons open them over the centre (Escape or a press outside closes them) without changing the remembered choice. The Calendar takes the whole centre and never shows the Timebox panel. **The phone layout is only for a page under 640 px** (`DESKTOP_BREAKPOINT` in `mobile/lib/useIsDesktop.ts`; it was 1024, the same as the window's minimum outer width, so the smallest window always fell to the phone's Today page). The window's minimum width is now 760.
+- **Profile menu:** Plan my day, Shut down my day, Quick capture, Search and Keyboard shortcuts join the account items. The top strip, the pane rails and the ⌨️ button are gone; every shortcut still works (Shift+/ still shows the overlay). Settings has a Keyboard shortcuts section generated from the same registry.
+- **Kanban is now called Tasks** in the desktop interface.
+- **Logo:** the mark from the app icon (`mobile/assets/belific-mark.png`, cut by `desktop/scripts/make-icons.js`); the window, taskbar, tray and installer icons were already the Belific mark and are unchanged.
+- Real check p3 now covers the widths and the folding; p5 and p7 open Planning and Shutdown from the profile menu.
+
 ## 2.25.0 — 2026-10-17 (build plan phase 8, calendar connections)
 
 **Desktop and iPhone. No table or column change. One grant written for review (003, not applied). One Edge Function written and tested locally, NOT deployed. The iPhone part needs a new TestFlight build (a new native module).** Section 7 steps 1 to 3 of the build plan; two way Google and Microsoft sync (step 4) is out.

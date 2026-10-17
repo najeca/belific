@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
+import { pressStyle } from './pressStyle';
 import BrainDumpPane from './BrainDumpPane';
 import KanbanPane from './KanbanPane';
 import TimeboxPane from './TimeboxPane';
@@ -25,6 +26,7 @@ import TaskDetailPanel from './TaskDetailPanel';
 import ShortcutHelp from './ShortcutHelp';
 import { useHomeShortcuts } from './useHomeShortcuts';
 import CalendarPane from './CalendarPane';
+import Sidebar from './Sidebar';
 import QuickCapture from './QuickCapture';
 import SearchPalette from './SearchPalette';
 import { usePaneState } from './usePaneState';
@@ -33,7 +35,7 @@ import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
 import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
 import { dateKey as todayDateKey } from '../../lib/kanban';
-import { RAIL_WIDTH, paneLayout, showCalendar, toggleCenter, toggleLeft, toggleOnlyToday, toggleRight, type CalendarView } from '../../lib/paneState';
+import { SIDEBAR_WIDTH, TIMEBOX_WIDTH, responsiveLayout, showCalendar, sidebarToggle, timeboxToggle, toggleCenter, toggleOnlyToday, type CalendarView } from '../../lib/paneState';
 import { kv } from '../../lib/kv';
 import { isTextEntryTarget } from '../../lib/editable';
 import { dateKey } from '../../lib/kanban';
@@ -46,7 +48,12 @@ import { sendNotifyPayload } from '../../lib/desktopNotify';
 import { runFullSync, subscribeSyncStatus } from '../../lib/sync';
 
 // Decision 009: the three-pane workspace: Brain Dump, weekly kanban and
-// Timebox. Panes share one refresh counter so a change in one (a promoted Brain Dump item, a moved
+// Timebox. Since 2.26.0 they are three full height columns with nothing across
+// the top of the window: the left pane (logo and hide button over the list),
+// the centre pane (its own top row: Tasks or Calendar, Only today, Quests and
+// the profile, then the board or the Calendar) and the right pane (only the
+// Timebox, with its hide button). lib/paneState.ts responsiveLayout decides what
+// each window width shows. The day actions are in the profile menu. Panes share one refresh counter so a change in one (a promoted Brain Dump item, a moved
 // task) shows up in the others without extra plumbing. The task modal is a
 // centred overlay on this screen, never a new screen. DragProvider runs drag
 // and drop between the three panes (checkpoint 4).
@@ -216,7 +223,30 @@ export default function DesktopHome() {
   // The layout (panes open or hidden, Kanban or Calendar, the Calendar view, show
   // only today), remembered in user_settings with a local fallback.
   const [paneState, updatePanes] = usePaneState();
-  const layout = paneLayout(paneState);
+  const { width: windowWidth } = useWindowDimensions();
+  // Opened over the centre for the moment on a narrow window; never remembered.
+  const [overlayOpen, setOverlayOpen] = useState({ sidebar: false, timebox: false });
+  const layout = responsiveLayout(paneState, windowWidth, overlayOpen);
+  const toggleSidebar = useCallback(() => {
+    const r = sidebarToggle(paneState, windowWidth, overlayOpen.sidebar);
+    if (r.state !== paneState) updatePanes(() => r.state);
+    setOverlayOpen((o) => ({ ...o, sidebar: r.overlayOpen }));
+  }, [paneState, windowWidth, overlayOpen.sidebar, updatePanes]);
+  const toggleTimebox = useCallback(() => {
+    const r = timeboxToggle(paneState, windowWidth, overlayOpen.timebox);
+    if (r.state !== paneState) updatePanes(() => r.state);
+    setOverlayOpen((o) => ({ ...o, timebox: r.overlayOpen }));
+  }, [paneState, windowWidth, overlayOpen.timebox, updatePanes]);
+  // An overlay closes when the window becomes wide enough to dock it, and with Escape.
+  useEffect(() => {
+    if (!overlayOpen.sidebar && !overlayOpen.timebox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || isPopoverOpen() || isOverlayOpen()) return;
+      setOverlayOpen({ sidebar: false, timebox: false });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [overlayOpen]);
   const [calendarShown, setCalendarShown] = useState(false);
   useEffect(() => {
     if (paneState.center === 'calendar') setCalendarShown(true);
@@ -229,8 +259,8 @@ export default function DesktopHome() {
     quickCapture: () => openOverlay({ kind: 'capture', mode: 'list' }),
     newTaskToday: () => openOverlay({ kind: 'capture', mode: 'today' }),
     onlyToday: () => updatePanes(toggleOnlyToday),
-    toggleLeftPane: () => updatePanes(toggleLeft),
-    toggleRightPane: () => updatePanes(toggleRight),
+    toggleLeftPane: toggleSidebar,
+    toggleRightPane: toggleTimebox,
     toggleCenter: () => updatePanes(toggleCenter),
     dayView: () => updatePanes((s) => showCalendar(s, 'day')),
     weekView: () => updatePanes((s) => showCalendar(s, 'week')),
@@ -248,6 +278,7 @@ export default function DesktopHome() {
     // Shift+B: the left pane on Brain Dump, the keyboard on its first task.
     firstBrainDump: () => {
       updatePanes((s) => ({ ...s, leftCollapsed: false }));
+      if (layout.sidebar === 'hidden') setOverlayOpen((o) => ({ ...o, sidebar: true }));
       selectList(null);
       focusFirst('[data-pane="left"] [data-card-focus]');
     },
@@ -315,36 +346,66 @@ export default function DesktopHome() {
   // A label that was deleted since no longer counts.
   const effectiveFilter = useMemo(() => (labelKeys ? pruneFilter(filter, labelKeys) : filter), [filter, labelKeys]);
 
+  // From a page (Settings, Quests...), the day actions go back to the home
+  // screen first: their overlays live there.
+  const onHome = (fn: () => void) => () => {
+    if (viewRef.current !== 'home') setView('home');
+    fn();
+  };
+  const profileActions = {
+    planning: features.planning ? onHome(() => openOverlay({ kind: 'flow', mode: 'planning' })) : undefined,
+    shutdown: features.planning ? onHome(() => openOverlay({ kind: 'flow', mode: 'shutdown' })) : undefined,
+    capture: onHome(() => openOverlay({ kind: 'capture', mode: 'list' })),
+    search: onHome(() => openOverlay({ kind: 'search' })),
+    shortcuts: onHome(() => openOverlay({ kind: 'help' })),
+  };
+  const profile = (
+    <ProfileMenu
+      onOpenSettings={() => showView('settings')}
+      onOpenProgress={() => showView('progress')}
+      onOpenSignIn={() => showView('signin')}
+      onOpenAnalytics={() => showView('analytics')}
+      onOpenTrash={() => showView('trash')}
+      actions={profileActions}
+    />
+  );
+
   return (
     <DragProvider onChanged={onChanged}>
     <View style={styles.root}>
-      <View style={styles.strip}>
-        {view === 'home' ? (
-          <Text style={styles.wordmark}>Belific</Text>
-        ) : (
+      {view !== 'home' && (
+        <View style={styles.strip}>
           <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
             <Ionicons name="arrow-back" size={16} color={Colors.accentText} />
             <Text style={styles.backText}>Back</Text>
           </Pressable>
-        )}
-        {view === 'home' && (
-          <View style={styles.stripMid}>
-            <Pressable
-              onPress={() => updatePanes(toggleLeft)}
-              style={styles.stripBtn}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: !paneState.leftCollapsed }}
-              accessibilityLabel={paneState.leftCollapsed ? 'Show the left pane' : 'Hide the left pane'}
-            >
-              <Text style={styles.stripEmoji}>🧠</Text>
-              <Ionicons name={paneState.leftCollapsed ? 'chevron-forward' : 'chevron-back'} size={14} color={Colors.textSecondary} />
-            </Pressable>
+          <View style={styles.stripRight}>{profile}</View>
+        </View>
+      )}
+      <View ref={panes} style={[styles.body, view !== 'home' && styles.hidden]} accessibilityElementsHidden={view !== 'home'}>
+        {/* The sidebar and the Timebox stay mounted while hidden (display none),
+            so the list, the day and the scroll are there when they come back. */}
+        <View
+          style={[layout.sidebar === 'docked' ? { width: SIDEBAR_WIDTH } : layout.sidebar === 'overlay' ? styles.sidebarOverlay : styles.hidden]}
+          {...({ dataSet: { pane: 'left' } } as object)}
+        >
+          <Sidebar onHide={toggleSidebar} overlay={layout.sidebar === 'overlay'}>
+            <BrainDumpPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} />
+          </Sidebar>
+        </View>
+        <View style={styles.centre} {...({ dataSet: { pane: 'center' } } as object)}>
+          <View style={styles.topRow} accessibilityLabel="Centre controls">
+            {layout.sidebar === 'hidden' && (
+              <Pressable onPress={toggleSidebar} style={pressStyle(({ hovered }) => [styles.edgeBtn, hovered && styles.edgeHover])} accessibilityRole="button" accessibilityLabel="Show sidebar">
+                <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+              </Pressable>
+            )}
             <View style={styles.seg} accessibilityRole="radiogroup" accessibilityLabel="Centre view">
-              {([['kanban', '🗓️ Kanban', 'Show the Kanban board'], ['calendar', '📆 Calendar', 'Show the Calendar']] as const).map(([v, text, label]) => (
+              {([['kanban', '✅ Tasks', 'Show Tasks'], ['calendar', '📆 Calendar', 'Show the Calendar']] as const).map(([v, text, label]) => (
                 <Pressable
                   key={v}
                   onPress={() => updatePanes((s) => (s.center === v ? s : toggleCenter(s)))}
-                  style={[styles.segBtn, paneState.center === v && styles.segOn]}
+                  style={pressStyle(({ hovered }) => [styles.segBtn, paneState.center === v ? styles.segOn : hovered && styles.segHover])}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: paneState.center === v }}
                   accessibilityLabel={label}
@@ -355,67 +416,29 @@ export default function DesktopHome() {
             </View>
             <Pressable
               onPress={() => updatePanes(toggleOnlyToday)}
-              style={[styles.stripBtn, paneState.onlyToday && styles.stripBtnOn]}
+              style={pressStyle(({ hovered }) => [styles.rowBtn, paneState.onlyToday ? styles.rowBtnOn : hovered && styles.segHover])}
               accessibilityRole="button"
               accessibilityState={{ selected: paneState.onlyToday }}
               accessibilityLabel="Show only today"
               {...({ 'aria-pressed': paneState.onlyToday } as object)}
             >
-              <Text style={styles.stripEmoji}>📅</Text>
-              <Text style={[styles.segText, paneState.onlyToday && styles.segTextOn]}>Only today</Text>
+              <Text style={styles.rowEmoji}>📅</Text>
+              <Text style={[styles.rowText, paneState.onlyToday && styles.segTextOn]}>Only today</Text>
             </Pressable>
-            {features.planning && (
-              <>
-                <Pressable onPress={() => openOverlay({ kind: 'flow', mode: 'planning' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Daily Planning">
-                  <Text style={styles.stripEmoji}>🌅</Text>
-                </Pressable>
-                <Pressable onPress={() => openOverlay({ kind: 'flow', mode: 'shutdown' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Daily Shutdown">
-                  <Text style={styles.stripEmoji}>🌙</Text>
-                </Pressable>
-              </>
+            <Pressable onPress={() => showView('quests')} style={pressStyle(({ hovered }) => [styles.rowBtn, hovered && styles.segHover])} accessibilityRole="button" accessibilityLabel="Quests">
+              <Text style={styles.rowEmoji}>🎯</Text>
+              <Text style={styles.rowText}>Quests</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            {/* One profile menu at a time: here on the home screen, in the page
+                strip otherwise (two share a popover id and would close each other). */}
+            {view === 'home' && profile}
+            {layout.timeboxAvailable && layout.timebox === 'hidden' && (
+              <Pressable onPress={toggleTimebox} style={pressStyle(({ hovered }) => [styles.edgeBtn, hovered && styles.edgeHover])} accessibilityRole="button" accessibilityLabel="Show Timebox">
+                <Ionicons name="chevron-back" size={18} color={Colors.textSecondary} />
+              </Pressable>
             )}
-            <Pressable onPress={() => showView('quests')} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Quests">
-              <Text style={styles.stripEmoji}>🎯</Text>
-              <Text style={styles.segText}>Quests</Text>
-            </Pressable>
-            <Pressable onPress={() => openOverlay({ kind: 'search' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Search tasks">
-              <Text style={styles.stripEmoji}>🔎</Text>
-            </Pressable>
-            <Pressable onPress={() => openOverlay({ kind: 'capture', mode: 'list' })} style={styles.stripBtn} accessibilityRole="button" accessibilityLabel="Quick capture">
-              <Text style={styles.stripEmoji}>⚡</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => updatePanes(toggleRight)}
-              style={styles.stripBtn}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: !paneState.rightCollapsed }}
-              accessibilityLabel={paneState.rightCollapsed ? 'Show the right pane' : 'Hide the right pane'}
-            >
-              <Ionicons name={paneState.rightCollapsed ? 'chevron-back' : 'chevron-forward'} size={14} color={Colors.textSecondary} />
-              <Text style={styles.stripEmoji}>🕐</Text>
-            </Pressable>
           </View>
-        )}
-        <View style={styles.stripRight}>
-          <Pressable
-            onPress={() => openOverlay({ kind: 'help' })}
-            style={styles.keysBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Keyboard shortcuts"
-          >
-            <Text style={styles.keysText}>⌨️</Text>
-          </Pressable>
-        <ProfileMenu onOpenSettings={() => showView('settings')} onOpenProgress={() => showView('progress')} onOpenSignIn={() => showView('signin')} onOpenAnalytics={() => showView('analytics')} onOpenTrash={() => showView('trash')} />
-        </View>
-      </View>
-      <View ref={panes} style={[styles.body, view !== 'home' && styles.hidden]} accessibilityElementsHidden={view !== 'home'}>
-        {/* A collapsed pane stays mounted (hidden), so its list, week and scroll are
-            still there when it comes back; a narrow rail takes its place. */}
-        {layout.left.collapsed && <Rail side="left" emoji="🧠" label="Show the left pane" onPress={() => updatePanes(toggleLeft)} />}
-        <View style={[{ flex: layout.left.flex, minWidth: 0 }, layout.left.collapsed && styles.hidden]} {...({ dataSet: { pane: 'left' } } as object)}>
-          <BrainDumpPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} />
-        </View>
-        <View style={{ flex: layout.center.flex, minWidth: 0 }} {...({ dataSet: { pane: 'center' } } as object)}>
           <View style={[{ flex: 1 }, paneState.center !== 'kanban' && styles.hidden]}>
             <KanbanPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} onFilterChange={setFilter} onlyToday={paneState.onlyToday} />
           </View>
@@ -433,10 +456,15 @@ export default function DesktopHome() {
             </View>
           )}
         </View>
-        <View style={[{ flex: layout.right.flex, minWidth: 0 }, layout.right.collapsed && styles.hidden]} {...({ dataSet: { pane: 'right' } } as object)}>
-          <TimeboxPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} onlyToday={paneState.onlyToday} />
+        <View
+          style={[layout.timebox === 'docked' ? { width: TIMEBOX_WIDTH } : layout.timebox === 'overlay' ? styles.timeboxOverlay : styles.hidden]}
+          {...({ dataSet: { pane: 'right' } } as object)}
+        >
+          <TimeboxPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} onlyToday={paneState.onlyToday} onHide={toggleTimebox} />
         </View>
-        {layout.right.collapsed && <Rail side="right" emoji="🕐" label="Show the right pane" onPress={() => updatePanes(toggleRight)} />}
+        {(layout.sidebar === 'overlay' || layout.timebox === 'overlay') && (
+          <Pressable style={styles.scrim} onPress={() => setOverlayOpen({ sidebar: false, timebox: false })} accessibilityLabel="Close the panel" />
+        )}
       </View>
       {view === 'settings' && <SettingsPage onOpenLabels={() => openOverlay({ kind: 'labels' })} onOpenSignIn={() => showView('signin')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} refreshKey={refreshKey} />}
       {view === 'progress' && <ProgressPage />}
@@ -472,19 +500,6 @@ function focusFirst(selector: string): void {
   setTimeout(attempt, 60);
 }
 
-// A hidden pane's place on the screen: a narrow rail with the pane's emoji and a
-// button that brings the pane back.
-function Rail({ side, emoji, label, onPress }: { side: 'left' | 'right'; emoji: string; label: string; onPress: () => void }) {
-  return (
-    <View style={styles.rail} {...({ dataSet: { rail: side } } as object)}>
-      <Pressable onPress={onPress} style={styles.railBtn} accessibilityRole="button" accessibilityLabel={label}>
-        <Ionicons name={side === 'left' ? 'chevron-forward' : 'chevron-back'} size={16} color={Colors.textSecondary} />
-        <Text style={styles.railEmoji}>{emoji}</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 interface Opener {
   el: HTMLElement | null;
   label: string | null;
@@ -508,27 +523,31 @@ function focusOpener(o: Opener): void {
   target?.focus();
 }
 
+const SOFT_SHADOW = '0 1px 2px rgba(38,37,31,0.05), 0 2px 8px rgba(38,37,31,0.04)';
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
-  strip: { height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8 },
-  stripMid: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
-  stripBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, height: 32, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
-  stripBtnOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  stripEmoji: { fontSize: 14 },
-  seg: { flexDirection: 'row', borderRadius: 12, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  segBtn: { paddingHorizontal: 12, height: 32, justifyContent: 'center', backgroundColor: Colors.surface },
-  segOn: { backgroundColor: Colors.accent },
-  segText: { fontSize: 12, color: Colors.textPrimary },
-  segTextOn: { color: Colors.onAccent, fontWeight: '700' },
-  rail: { width: RAIL_WIDTH, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, alignItems: 'center', paddingTop: 12 },
-  railBtn: { alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 10 },
-  railEmoji: { fontSize: 18 },
+  strip: { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
   stripRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  keysBtn: { width: 32, height: 32, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
-  keysText: { fontSize: 14 },
-  wordmark: { fontSize: 12, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary, textTransform: 'uppercase' },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: 10, backgroundColor: Colors.surface, boxShadow: SOFT_SHADOW } as object,
   backText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
-  body: { flex: 1, flexDirection: 'row', padding: 16, paddingTop: 4, gap: 16 },
+  body: { flex: 1, flexDirection: 'row', padding: 16, gap: 16 },
+  centre: { flex: 1, minWidth: 0, backgroundColor: Colors.surface, borderRadius: 16, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, boxShadow: SOFT_SHADOW } as object,
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, marginBottom: 8 },
+  edgeBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  edgeHover: { backgroundColor: Colors.background },
+  seg: { flexDirection: 'row', borderRadius: 10, padding: 3, gap: 2, backgroundColor: Colors.background } as object,
+  segBtn: { paddingHorizontal: 12, height: 30, borderRadius: 8, justifyContent: 'center', transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
+  segHover: { backgroundColor: '#E8E5DC' },
+  segOn: { backgroundColor: Colors.accent },
+  segText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
+  segTextOn: { color: Colors.onAccent, fontWeight: '700' },
+  rowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: 10, backgroundColor: Colors.background, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
+  rowBtnOn: { backgroundColor: Colors.accent },
+  rowEmoji: { fontSize: 15 },
+  rowText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
+  sidebarOverlay: { position: 'absolute', left: 16, top: 16, bottom: 16, width: SIDEBAR_WIDTH, zIndex: 20 },
+  timeboxOverlay: { position: 'absolute', right: 16, top: 16, bottom: 16, width: TIMEBOX_WIDTH, zIndex: 20 },
+  scrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 19, backgroundColor: 'rgba(38,37,31,0.12)' },
   hidden: { display: 'none' },
 });

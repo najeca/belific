@@ -21,8 +21,10 @@ const MARGIN = 8;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-export function placePopover(anchor: Box, size: { width: number; height: number }, win: { width: number; height: number }): Placement {
-  const maxH = Math.min(MAX_POPOVER_HEIGHT, win.height - 2 * MARGIN);
+// `cap` raises the height limit for a menu that should not scroll (the profile
+// menu, 2.26.0); every task control keeps MAX_POPOVER_HEIGHT.
+export function placePopover(anchor: Box, size: { width: number; height: number }, win: { width: number; height: number }, cap = MAX_POPOVER_HEIGHT): Placement {
+  const maxH = Math.min(cap, win.height - 2 * MARGIN);
   const h = Math.min(size.height, maxH);
   const w = Math.min(size.width, win.width - 2 * MARGIN);
   const left = clamp(anchor.x, MARGIN, win.width - w - MARGIN);

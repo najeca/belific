@@ -234,7 +234,6 @@ export default function CalendarPane({
 
   return (
     <View style={styles.pane} accessibilityLabel="Calendar" {...({ dataSet: { calendar: effView } } as object)}>
-      <Text style={styles.paneLabel}>📆 CALENDAR</Text>
       <View style={styles.nav}>
         <Pressable onPress={() => setAnchor(stepAnchor(effView, key, -1))} disabled={onlyToday} style={[styles.navBtn, onlyToday && styles.off]} accessibilityRole="button" accessibilityLabel={`Calendar previous ${effView}`}>
           <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
@@ -525,7 +524,8 @@ export default function CalendarPane({
 }
 
 const styles = StyleSheet.create({
-  pane: { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 16, minWidth: 0 },
+  // Inside the centre pane (2.26.0), which draws the frame.
+  pane: { flex: 1, minWidth: 0 },
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 6, flexWrap: 'wrap' },
   navBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

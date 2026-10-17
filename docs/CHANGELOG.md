@@ -37,6 +37,13 @@ to know the current version and recent history.
 - **Steps ring:** the grey ☑️ is now a ring that fills in sage as steps are ticked and turns solid sage with a tick when every step is done.
 - p9 checks the fonts, the card's measured style and the ring.
 
+### The Calendar does what the Timebox does (step 4)
+- **Drag, resize and drop on the Calendar**, with the Timebox's own code: a task block is now one shared component (`TimeBlock.tsx`) used by the Timebox and the Calendar's day and week views, on the same `DragProvider` and `lib/drag.ts` rules. Drag a block to another time or day (30 minute steps, the Timebox's snap; never onto a past day; a projected day of a repeating series changes the series' time, never its day), drag its bottom edge to change the estimate, drop a task from the list or the board onto a time, drag an all day task onto the grid, and drop a block on the all day row to take its time away. Imported events stay fixed. Phase 3 had left the Calendar read only because the drag layer and its drop zones belonged to the Timebox; zones now accept any number of day columns (clipped below the sticky headers).
+- **Keyboard moves** on a focused block (Timebox and Calendar): Up and Down 30 minutes earlier or later, Left and Right the day before or after, Shift+Up and Shift+Down 30 minutes shorter or longer (`lib/drag.ts` `nudgeBlock`, listed in the shortcuts). Plain arrows rather than Alt: Alt is never a shortcut in Belific.
+- **The week view is a rolling strip of days**: seven columns fill the width, it opens on today and scrolls sideways to any day (‹ › move a week, Today jumps back); its title names the seven days ("17 to 23 Oct 2026"). Day headers, the all day row and the hours stay put while the grid scrolls.
+- **Drag feedback, the same everywhere:** the lifted card is drawn like a task card (emoji, title, snapped time); a day column shows a dashed placeholder, a time grid a dashed slot with its time.
+- p9 checks the Calendar drag to another day and time, the slot preview, the resize, the drop from the list, the arrow keys (and that Left stops at today), the drop on the all day row, and Next and Today on the rolling week. p3 updated for the rolling week.
+
 ## 2.25.0 — 2026-10-17 (build plan phase 8, calendar connections)
 
 **Desktop and iPhone. No table or column change. One grant written for review (003, not applied). One Edge Function written and tested locally, NOT deployed. The iPhone part needs a new TestFlight build (a new native module).** Section 7 steps 1 to 3 of the build plan; two way Google and Microsoft sync (step 4) is out.

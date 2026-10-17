@@ -193,9 +193,10 @@ async function run() {
   check('00:00 to 24:00 are all on it', hasHours);
   await shot('p3-03-day');
   await key('w');
-  check('W is the week view with seven day headings', (await calView()) === 'week' && (await js(`Array.from(document.querySelectorAll('[data-calendar] [aria-label]')).filter((e) => /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \\d+$/.test(e.getAttribute('aria-label')) && e.getBoundingClientRect().width > 0).length`)) === 7);
-  // Tomorrow is in this week unless today is a Sunday (weeks run Monday to Sunday).
-  check('the week view shows the all day tasks of its days', (await exists(byLabel('All day task Beta all day'))) && (now.getDay() === 0 || (await exists(byLabel('All day task Gamma tomorrow')))));
+  // 2.26.0: the week is a rolling strip of days; count the headings on screen.
+  check('W is the week view with seven day headings', (await calView()) === 'week' && (await js(`(() => { const sc = document.querySelector('[data-cal-scroller]').getBoundingClientRect(); return Array.from(document.querySelectorAll('[data-calendar] [aria-label]')).filter((e) => { const r = e.getBoundingClientRect(); return /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \\d+$/.test(e.getAttribute('aria-label')) && r.width > 0 && r.left >= sc.left + 40 && r.right <= sc.right + 2; }).length; })()`)) === 7);
+  // 2.26.0: the week starts today, so tomorrow is always in it.
+  check('the week view shows the all day tasks of its days', (await exists(byLabel('All day task Beta all day'))) && (await exists(byLabel('All day task Gamma tomorrow'))));
   await shot('p3-04-week');
   await key('m');
   check('M is the month view', (await calView()) === 'month');

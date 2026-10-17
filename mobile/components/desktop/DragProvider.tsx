@@ -49,7 +49,10 @@ export interface DragItem {
   item?: BrainDumpItem;
   id: string;
   title: string;
+  emoji?: string;
   duration: number;
+  // Which time grid drew it (2.26.0: '' for the Timebox, `cal<day>:` for the Calendar).
+  scope?: string;
   // Blocks only: minutes between the block's start and where it was grabbed.
   grabOffsetMin?: number;
   // A projected occurrence of a repeating series (decision 023): it can only be
@@ -74,7 +77,7 @@ type ZoneReg =
   | { kind: 'left'; node: HTMLElement }
   // `clip` is read lazily: child refs attach before their parent's.
   | { kind: 'day'; dayKey: string; node: HTMLElement; clip: () => HTMLElement | null }
-  | { kind: 'timebox'; dayKey: string; node: HTMLElement; gridNode: HTMLElement | null };
+  | { kind: 'timebox'; dayKey: string; node: HTMLElement; gridNode: HTMLElement | null; clip?: () => Rect | null };
 
 interface BoardReg {
   // The visible board (the horizontal ScrollView).
@@ -87,10 +90,12 @@ interface DragApi {
   drag: DragState | null;
   registerZone: (id: string, reg: ZoneReg | null) => void;
   registerScroller: (id: string, node: HTMLElement | null) => void;
-  registerBoard: (reg: BoardReg | null) => void;
+  // One per view that scrolls sideways (the Tasks strip, the Calendar's week);
+  // the one on screen is used.
+  registerBoard: (id: string, reg: BoardReg | null) => void;
   // Ref callback factory for a drag source, cached per key.
   sourceRef: (key: string, getItem: (e: PointerEvent) => DragItem | null) => (node: unknown) => void;
-  startResize: (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected?: boolean) => void;
+  startResize: (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected?: boolean, scope?: string) => void;
 }
 
 const DragContext = createContext<DragApi | null>(null);
@@ -131,7 +136,14 @@ export default function DragProvider({ children, onChanged }: { children: React.
   const [drag, setDrag] = useState<DragState | null>(null);
   const zones = useRef(new Map<string, ZoneReg>());
   const scrollers = useRef(new Map<string, HTMLElement>());
-  const board = useRef<BoardReg | null>(null);
+  const boards = useRef(new Map<string, BoardReg>());
+  // The board on screen (a hidden view's node has no size).
+  const activeBoard = (): BoardReg | null => {
+    for (const b of boards.current.values()) {
+      if (b.node.isConnected && b.node.getBoundingClientRect().width > 0) return b;
+    }
+    return null;
+  };
   const pending = useRef<Pending | null>(null);
   const last = useRef<DragState | null>(null);
   const pointer = useRef({ x: 0, y: 0 });
@@ -159,7 +171,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
           clip: clipNode ? rectOf(clipNode) : undefined,
         });
       } else if (reg.gridNode) {
-        list.push({ kind: 'timebox', dayKey: reg.dayKey, rect: rectOf(reg.node), gridTop: rectOf(reg.gridNode).top });
+        list.push({ kind: 'timebox', dayKey: reg.dayKey, rect: rectOf(reg.node), gridTop: rectOf(reg.gridNode).top, clip: reg.clip?.() ?? undefined });
       }
     }
     return list;
@@ -182,8 +194,8 @@ export default function DragProvider({ children, onChanged }: { children: React.
     const target = resolveDrop(x, y, measureZones(), p.item);
     const todayKey = dateKey(new Date());
     let edge: -1 | 0 | 1 = 0;
-    const b = board.current;
-    if (b && b.node.isConnected) {
+    const b = activeBoard();
+    if (b) {
       const dir = edgeDirection(x, y, rectOf(b.node), b.atCurrentWeek());
       const action = edgeAction(dir, b.node.scrollLeft, b.node.scrollWidth - b.node.clientWidth);
       sideScroll.current = action === 'scroll' ? dir : 0;
@@ -228,13 +240,14 @@ export default function DragProvider({ children, onChanged }: { children: React.
       }
     }
     const side = sideScroll.current;
-    if (p.mode === 'move' && side !== 0 && board.current) {
-      board.current.node.scrollLeft += Math.round(side * AUTO_SCROLL_MAX_PX * scale);
+    const b = activeBoard();
+    if (p.mode === 'move' && side !== 0 && b) {
+      b.node.scrollLeft += Math.round(side * AUTO_SCROLL_MAX_PX * scale);
       moved = true;
     }
     const a = armed.current;
-    if (p.mode === 'move' && a && board.current && dwellDone(a.at, performance.now())) {
-      board.current.step(a.dir);
+    if (p.mode === 'move' && a && b && dwellDone(a.at, performance.now())) {
+      b.step(a.dir);
       // Keep holding to keep stepping, one dwell per week.
       armed.current = { dir: a.dir, at: performance.now() };
       moved = true;
@@ -414,13 +427,13 @@ export default function DragProvider({ children, onChanged }: { children: React.
   );
 
   const startResize = useCallback(
-    (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected = false) => {
+    (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected = false, scope = '') => {
       if (e.button !== 0) return;
       e.stopPropagation();
       e.preventDefault();
       begin(e, {
         mode: 'resize',
-        item: { kind: 'block', task, id: task.id, title: task.title, duration: taskDuration(task), projected },
+        item: { kind: 'block', task, id: task.id, title: task.title, emoji: task.emoji, duration: taskDuration(task), projected, scope },
         startMin,
         gridNode,
       });
@@ -436,8 +449,9 @@ export default function DragProvider({ children, onChanged }: { children: React.
     if (node) scrollers.current.set(id, node);
     else scrollers.current.delete(id);
   }, []);
-  const registerBoard = useCallback((reg: BoardReg | null) => {
-    board.current = reg;
+  const registerBoard = useCallback((id: string, reg: BoardReg | null) => {
+    if (reg) boards.current.set(id, reg);
+    else boards.current.delete(id);
   }, []);
 
   const api = useMemo(
@@ -453,9 +467,11 @@ export default function DragProvider({ children, onChanged }: { children: React.
   );
 }
 
-// The card under the pointer: a soft shadow, the title, and over the Timebox
-// the snapped time ("10:30 to 11:00"). It never takes pointer events, so the
-// wheel still reaches the pane under it.
+// The card under the pointer (2.26.0: drawn like a task card, tilted a little):
+// the emoji and title, and over a time grid the snapped time ("10:30 to
+// 11:00"). It never takes pointer events, so the wheel still reaches the pane
+// under it. Where it would land shows its own placeholder (a dashed outline in
+// a day column, a dashed slot on a time grid).
 function LiftedCard({ drag }: { drag: DragState }) {
   const t = drag.target;
   let hint: string | null = null;
@@ -465,6 +481,7 @@ function LiftedCard({ drag }: { drag: DragState }) {
   return (
     <View pointerEvents="none" style={[styles.lifted, { left: drag.x + 12, top: drag.y + 10 }]} {...({ dataSet: { liftedCard: drag.item.id } } as object)}>
       <Text style={styles.liftedTitle} numberOfLines={1}>
+        {drag.item.emoji ? `${drag.item.emoji} ` : ''}
         {drag.item.title}
       </Text>
       {hint && <Text style={[styles.liftedHint, !drag.accepted && styles.liftedHintMuted]}>{hint}</Text>}
@@ -476,16 +493,15 @@ const styles = StyleSheet.create({
   lifted: {
     position: 'fixed' as 'absolute',
     zIndex: 1000,
-    maxWidth: 240,
-    paddingVertical: 8,
+    width: 240,
+    paddingVertical: 11,
     paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    boxShadow: '0 6px 18px rgba(38, 37, 31, 0.14)',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    boxShadow: '0 10px 28px rgba(38, 37, 31, 0.20)',
+    transform: [{ rotate: '2deg' }],
   },
-  liftedTitle: { fontSize: 14, color: Colors.textPrimary },
+  liftedTitle: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   liftedHint: { marginTop: 2, fontSize: 12, fontWeight: '700', color: Colors.accentText },
   liftedHintMuted: { fontWeight: '400', color: Colors.textSecondary },
 });

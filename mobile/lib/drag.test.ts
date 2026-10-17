@@ -248,3 +248,30 @@ test('a board edge scrolls sideways first, then arms the week change', () => {
   // Nothing to scroll: dwell straight away
   assert.equal(edgeAction(1, 0, 0), 'dwell');
 });
+
+test('2.26.0 keyboard moves on a time block: 30 minute steps, inside the day, never onto a past day', async () => {
+  const { nudgeBlock } = await import('./drag.ts');
+  const t = { dueDate: '2026-10-17', startTime: '09:00', durationMinutes: 60 };
+  assert.deepEqual(nudgeBlock(t, 'earlier', '2026-10-17'), { startTime: '08:30' });
+  assert.deepEqual(nudgeBlock(t, 'later', '2026-10-17'), { startTime: '09:30' });
+  assert.deepEqual(nudgeBlock(t, 'longer', '2026-10-17'), { durationMinutes: 90 });
+  assert.deepEqual(nudgeBlock(t, 'shorter', '2026-10-17'), { durationMinutes: 30 });
+  assert.equal(nudgeBlock({ ...t, durationMinutes: 30 }, 'shorter', '2026-10-17'), null, 'never shorter than one step');
+  assert.deepEqual(nudgeBlock(t, 'dayAfter', '2026-10-17'), { dueDate: '2026-10-18' });
+  assert.equal(nudgeBlock(t, 'dayBefore', '2026-10-17'), null, 'never onto a past day');
+  assert.deepEqual(nudgeBlock(t, 'dayBefore', '2026-10-16'), { dueDate: '2026-10-16' });
+  assert.equal(nudgeBlock({ ...t, startTime: '00:00' }, 'earlier', '2026-10-17'), null, 'stays inside the day');
+  assert.equal(nudgeBlock({ ...t, startTime: '23:30' }, 'later', '2026-10-17'), null);
+  assert.deepEqual(nudgeBlock({ dueDate: '2026-10-31', startTime: '10:00' }, 'dayAfter', '2026-10-17'), { dueDate: '2026-11-01' }, 'across a month (and the clock change)');
+  assert.equal(nudgeBlock(t, 'dayAfter', '2026-10-17', true), null, 'a projected occurrence never changes its day');
+  assert.deepEqual(nudgeBlock(t, 'later', '2026-10-17', true), { startTime: '09:30' });
+  assert.equal(nudgeBlock({ dueDate: '2026-10-17' }, 'later', '2026-10-17'), null, 'an untimed task has no block');
+});
+
+test('2.26.0 a Calendar column zone ignores the pointer outside its clip (the sticky headers)', async () => {
+  const { resolveDrop } = await import('./drag.ts');
+  const zone = { kind: 'timebox' as const, dayKey: '2026-10-18', rect: { left: 0, top: 0, right: 100, bottom: 2000 }, gridTop: 0, clip: { left: 0, top: 100, right: 100, bottom: 800 } };
+  assert.equal(resolveDrop(50, 50, [zone], { kind: 'card', duration: 30 }), null);
+  const hit = resolveDrop(50, 300, [zone], { kind: 'card', duration: 30 });
+  assert.equal(hit && hit.kind, 'slot');
+});

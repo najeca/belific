@@ -52,10 +52,17 @@ export type ShortcutId =
   | 'firstBrainDump'
   | 'prevDay'
   | 'nextDay'
-  | 'toggleTimeSection';
+  | 'toggleTimeSection'
+  | 'blockEarlier'
+  | 'blockLater'
+  | 'blockDayBefore'
+  | 'blockDayAfter'
+  | 'blockShorter'
+  | 'blockLonger';
 
 export type ShortcutGroup = 'General' | 'Navigation' | 'Task';
-export type ShortcutScope = 'home' | 'card';
+// 'block': a placed task's block on the Timebox or the Calendar has the keyboard.
+export type ShortcutScope = 'home' | 'card' | 'block';
 
 export interface ShortcutDef {
   id: ShortcutId;
@@ -109,7 +116,18 @@ export const PHASE5_SHORTCUTS: ShortcutDef[] = [
   { id: 'toggleTimeSection', keys: 'Ctrl+I', label: 'Show or hide the time on the card', group: 'Task', scope: 'card' },
 ];
 
-export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS, ...PHASE5_SHORTCUTS];
+// 2.26.0: moving a time block with the keyboard (Timebox and Calendar), by the
+// same 30 minute steps as a drag. Plain arrows on purpose: Alt is never a shortcut.
+export const BLOCK_SHORTCUTS: ShortcutDef[] = [
+  { id: 'blockEarlier', keys: 'Up', label: 'On a time block: 30 minutes earlier', group: 'Task', scope: 'block' },
+  { id: 'blockLater', keys: 'Down', label: 'On a time block: 30 minutes later', group: 'Task', scope: 'block' },
+  { id: 'blockDayBefore', keys: 'Left', label: 'On a time block: the day before', group: 'Task', scope: 'block' },
+  { id: 'blockDayAfter', keys: 'Right', label: 'On a time block: the day after', group: 'Task', scope: 'block' },
+  { id: 'blockShorter', keys: 'Shift+Up', label: 'On a time block: 30 minutes shorter', group: 'Task', scope: 'block' },
+  { id: 'blockLonger', keys: 'Shift+Down', label: 'On a time block: 30 minutes longer', group: 'Task', scope: 'block' },
+];
+
+export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS, ...PHASE5_SHORTCUTS, ...BLOCK_SHORTCUTS];
 
 // ---- matching ----
 

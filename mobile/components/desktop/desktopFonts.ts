@@ -42,6 +42,9 @@ export function installDesktopFonts(): void {
     ...MONO.map(([w, m]) => face('Roboto Mono', w, m)),
     `[data-mono]{font-family:'Roboto Mono',ui-monospace,monospace !important;font-variant-numeric:tabular-nums;letter-spacing:-0.2px}`,
     `body{background:${Colors.background};-webkit-font-smoothing:antialiased}`,
+    // A Calendar block or chip scrolled into view (a click, keyboard focus) stays
+    // clear of the sticky day headers, all day row and hours.
+    `[data-cal-block]{scroll-margin-top:100px;scroll-margin-left:56px}`,
   ].join('\n');
   const style = document.createElement('style');
   style.setAttribute('data-belific-fonts', '1');

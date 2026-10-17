@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { domNode, useDrag } from './DragProvider';
+import TimeBlock, { SlotPreview } from './TimeBlock';
+import { taskDuration } from '../../lib/drag';
+import { dayAt, indexOfDay, leftDay, stripAround, visibleRange, weekRangeTitle } from '../../lib/dayStrip';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { customToScheduleEvent, formatTime, getWeeklyEventsForDate } from '../../lib/data';
@@ -47,14 +51,23 @@ import { minuteLabel, rangeOf, segmentsForDay, type DaySegment } from '../../lib
 //
 // It shows the same data as the board and the Timebox (stored tasks, the days of
 // repeating series, overnight tasks continuing on the next day, events) and a
-// block or chip opens the same task menu. Dragging stays on the Timebox on the
-// right: that is where a task is given a time, so the Calendar draws nothing a
-// drop could land on. "Show only today" shows today's day view.
+// block or chip opens the same task menu. "Show only today" shows today's day
+// view.
+// 2.26.0: the Calendar does everything the Timebox does, with the same code
+// (TimeBlock, DragProvider, lib/drag.ts): drag a task to another time or day
+// (30 minute steps), resize its bottom edge (the estimate), drop a task from
+// the list or the board onto a time, drag an all day task onto the grid, drop
+// a block on the all day row to take its time away, and move a block with the
+// arrow keys. Phase 3 had left the Calendar read only (the drag layer and its
+// drop zones belonged to the Timebox); the drop zones now accept any number of
+// day columns. The week view is a rolling strip of days.
 //
 // Events from imported calendar subscriptions (build plan phase 8, Settings,
 // Calendars) are drawn read only beside the tasks: a dashed outline, the 📅
 // emoji and the calendar's name; nothing opens or moves them.
 const GUTTER = 48;
+const HEAD_H = 36;
+const ALLDAY_H = 56;
 const scopeOf = (dayKey: string) => `cal${dayKey}:`;
 
 type ImportedSeg = DaySegment & { occ: ImportedOccurrence };
@@ -96,7 +109,12 @@ export default function CalendarPane({
   const [categories, setCategories] = useState<CustomCategory[]>([]);
   const [labels, setLabels] = useState<Project[]>([]);
   const [viewH, setViewH] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
+  const [viewW, setViewW] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const scrollerEl = useRef<HTMLDivElement | null>(null);
+  const gridEl = useRef<HTMLDivElement | null>(null);
+  const { drag, registerZone, registerScroller, registerBoard, sourceRef } = useDrag();
+  const zoneRefs = useRef(new Map<string, (node: unknown) => void>());
   const dayStartMin = useDayStart();
   const now = useTick(30000);
 
@@ -114,7 +132,21 @@ export default function CalendarPane({
   const todayKey = dateKey(new Date(now));
   const effView: CalendarView = onlyToday ? 'day' : view;
   const key = onlyToday ? todayKey : anchor;
-  const keys = useMemo(() => visibleDayKeys(effView, key), [effView, key]);
+  // The week view is a rolling strip of days (2.26.0): seven columns fill the
+  // width and it scrolls sideways to any day; the day view is one column.
+  const strip = useMemo(() => stripAround(todayKey), [todayKey]);
+  const colW = effView === 'week' ? Math.max(120, Math.floor((viewW - GUTTER) / 7)) : Math.max(200, viewW - GUTTER);
+  const range = useMemo(() => visibleRange(scrollLeft, Math.max(1, viewW - GUTTER), colW, strip.total), [scrollLeft, viewW, colW, strip.total]);
+  const keys = useMemo(() => {
+    if (effView === 'month') return visibleDayKeys('month', key);
+    if (effView === 'day') return [key];
+    const out: string[] = [];
+    for (let i = range.first; i <= range.last; i++) out.push(dayAt(strip, i));
+    return out;
+  }, [effView, key, range.first, range.last, strip]);
+  const colLeft = (dayKey: string) => (effView === 'week' ? indexOfDay(strip, dayKey) * colW : 0);
+  const contentW = effView === 'week' ? GUTTER + strip.total * colW : Math.max(GUTTER + colW, viewW);
+  const weekLeft = effView === 'week' ? leftDay(strip, scrollLeft, colW) : key;
 
   // Imported calendars (read only, this computer only).
   const ics = useIcs();
@@ -179,14 +211,106 @@ export default function CalendarPane({
     });
   }, [effView, keys, tasks, events, categories, filter, todayKey, imported]);
 
+  // The scroller and the grid (plain elements: they scroll both ways and hold
+  // sticky rows). The scroller is a drag scroller (top and bottom) and, in the
+  // week view, a board (its edges scroll the days sideways).
+  const setScroller = useCallback(
+    (node: HTMLDivElement | null) => {
+      scrollerEl.current = node;
+      registerScroller('calendar', node);
+      if (node) {
+        const measure = () => {
+          setViewW(node.clientWidth);
+          setViewH(node.clientHeight);
+        };
+        measure();
+        new ResizeObserver(measure).observe(node);
+      }
+    },
+    [registerScroller],
+  );
+  const setGrid = useCallback((node: HTMLDivElement | null) => {
+    gridEl.current = node;
+  }, []);
+  useEffect(() => {
+    const node = scrollerEl.current;
+    registerBoard('calendar', effView === 'week' && node ? { node, atCurrentWeek: () => false, step: () => {} } : null);
+    return () => registerBoard('calendar', null);
+  }, [effView, registerBoard, viewW > 0]);
+  // Where a drop can land: the scroller minus its sticky headers and hours.
+  const gridClip = () => {
+    const n = scrollerEl.current;
+    if (!n) return null;
+    const r = n.getBoundingClientRect();
+    return { left: r.left + GUTTER, top: r.top + HEAD_H + ALLDAY_H, right: r.right, bottom: r.bottom };
+  };
+  const columnRef = (dayKey: string) => {
+    const id = `calcol:${dayKey}`;
+    let ref = zoneRefs.current.get(id);
+    if (!ref) {
+      ref = (node: unknown) => {
+        const el = domNode(node);
+        registerZone(id, el ? { kind: 'timebox', dayKey, node: el, gridNode: gridEl.current, clip: gridClip } : null);
+      };
+      zoneRefs.current.set(id, ref);
+    }
+    return ref;
+  };
+  const allDayRef = (dayKey: string) => {
+    const id = `calday:${dayKey}`;
+    let ref = zoneRefs.current.get(id);
+    if (!ref) {
+      ref = (node: unknown) => {
+        const el = domNode(node);
+        registerZone(id, el ? { kind: 'day', dayKey, node: el, clip: () => scrollerEl.current } : null);
+      };
+      zoneRefs.current.set(id, ref);
+    }
+    return ref;
+  };
+  const dropDay = drag && drag.mode === 'move' && drag.accepted && drag.target?.kind === 'day' ? drag.target.dayKey : null;
+
+  // Puts a day at the left of the week strip.
+  const showWeekAt = useCallback(
+    (dayKey: string) => {
+      const n = scrollerEl.current;
+      if (!n || indexOfDay(strip, dayKey) < 0) return;
+      const x = indexOfDay(strip, dayKey) * colW;
+      n.scrollLeft = x;
+      setScrollLeft(x);
+    },
+    [strip, colW],
+  );
+  // The week opens with the anchor (today at first) at the left edge.
+  useEffect(() => {
+    if (effView !== 'week' || viewW === 0) return;
+    showWeekAt(anchor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effView, viewW > 0, colW]);
   // Opens at the day start (or about an hour before now when today is shown).
   useEffect(() => {
     if (effView === 'month' || viewH === 0) return;
     const d = new Date();
     const at = openingMinutes({ isToday: keys.includes(dateKey(d)), nowMin: minutesOfDay(d), dayStartMin });
-    const t = setTimeout(() => scrollRef.current?.scrollTo({ y: scrollOffsetFor(at), animated: false }), 50);
+    const t = setTimeout(() => {
+      if (scrollerEl.current) scrollerEl.current.scrollTop = scrollOffsetFor(at);
+    }, 50);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effView, key, dayStartMin, viewH > 0]);
+  const step = (delta: -1 | 1) => {
+    if (effView === 'week') {
+      const i = Math.min(strip.total - 1, Math.max(0, indexOfDay(strip, weekLeft) + 7 * delta));
+      showWeekAt(dayAt(strip, i));
+      setAnchor(dayAt(strip, i));
+    } else setAnchor(stepAnchor(effView, key, delta));
+  };
+  const goToday = () => {
+    setAnchor(todayKey);
+    if (effView === 'week') showWeekAt(todayKey);
+  };
+  const atToday = effView === 'week' ? weekLeft === todayKey : key === todayKey;
+  const title = effView === 'week' ? weekRangeTitle(weekLeft) : calendarTitle(effView, key);
 
   const monthTasks = useMemo(() => {
     if (effView !== 'month') return new Map<string, Task[]>();
@@ -229,19 +353,24 @@ export default function CalendarPane({
     setAnchor(dayKey);
     onViewChange(view_);
   };
+  // Back to the week from a day: that day at the left.
+  useEffect(() => {
+    if (effView === 'week' && viewW > 0) showWeekAt(anchor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effView]);
 
   const nowTop = nowLineTop(minutesOfDay(new Date(now)));
 
   return (
     <View style={styles.pane} accessibilityLabel="Calendar" {...({ dataSet: { calendar: effView } } as object)}>
       <View style={styles.nav}>
-        <Pressable onPress={() => setAnchor(stepAnchor(effView, key, -1))} disabled={onlyToday} style={[styles.navBtn, onlyToday && styles.off]} accessibilityRole="button" accessibilityLabel={`Calendar previous ${effView}`}>
+        <Pressable onPress={() => step(-1)} disabled={onlyToday} style={[styles.navBtn, onlyToday && styles.off]} accessibilityRole="button" accessibilityLabel={`Calendar previous ${effView}`}>
           <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
         </Pressable>
-        <Text style={styles.title} numberOfLines={1} accessibilityRole="header" accessibilityLabel={`Calendar ${calendarTitle(effView, key)}`}>
-          {calendarTitle(effView, key)}
+        <Text style={styles.title} numberOfLines={1} accessibilityRole="header" accessibilityLabel={`Calendar ${title}`}>
+          {title}
         </Text>
-        <Pressable onPress={() => setAnchor(stepAnchor(effView, key, 1))} disabled={onlyToday} style={[styles.navBtn, onlyToday && styles.off]} accessibilityRole="button" accessibilityLabel={`Calendar next ${effView}`}>
+        <Pressable onPress={() => step(1)} disabled={onlyToday} style={[styles.navBtn, onlyToday && styles.off]} accessibilityRole="button" accessibilityLabel={`Calendar next ${effView}`}>
           <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
         </Pressable>
         <View style={{ flex: 1 }} />
@@ -267,9 +396,9 @@ export default function CalendarPane({
           ))}
         </View>
         <Pressable
-          onPress={() => setAnchor(todayKey)}
-          disabled={onlyToday || key === todayKey}
-          style={[styles.todayBtn, (onlyToday || key === todayKey) && styles.off]}
+          onPress={goToday}
+          disabled={onlyToday || atToday}
+          style={[styles.todayBtn, (onlyToday || atToday) && styles.off]}
           accessibilityRole="button"
           accessibilityLabel="Calendar go to today"
         >
@@ -345,93 +474,103 @@ export default function CalendarPane({
           </ScrollView>
         </View>
       ) : (
-        <>
-          <View style={styles.headRow}>
-            <View style={{ width: GUTTER }} />
-            {days.map((d) => {
-              const date = parseDateKey(d.key);
-              const isToday = d.key === todayKey;
-              return (
-                <Pressable
-                  key={d.key}
-                  onPress={() => effView === 'week' && goTo('day', d.key)}
-                  disabled={effView === 'day'}
-                  style={styles.dayHead}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${WEEKDAYS[date.getDay()]} ${date.getDate()}`}
-                >
-                  <Text style={[styles.dayHeadText, isToday && styles.dayHeadToday]}>
-                    {WEEKDAYS[date.getDay()]} {date.getDate()}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <View style={styles.allDayRow} accessibilityLabel="All day row" {...({ dataSet: { allDayRow: '1' } } as object)}>
-            <View style={{ width: GUTTER }}>
-              <Text style={styles.allDayLabel}>all day</Text>
-            </View>
-            {days.map((d) => (
-              <View key={d.key} style={styles.allDayCell}>
-                {d.allDay.length === 0 && d.importedAllDay.length === 0 ? null : (
-                  <ScrollView style={{ maxHeight: 92 }} showsVerticalScrollIndicator={false}>
-                    {d.importedAllDay.map((seg) => (
-                      <View
-                        key={seg.occ.id}
-                        style={[styles.chip, styles.imported]}
-                        accessibilityLabel={`Imported all day event ${seg.occ.title}, ${seg.occ.calendarName}`}
-                        {...({ dataSet: { extChip: seg.occ.id } } as object)}
-                      >
-                        <Text style={styles.chipText} numberOfLines={1}>
-                          📅 {seg.occ.title || 'Busy'}
-                        </Text>
-                      </View>
-                    ))}
-                    {d.allDay.map(({ task: t, projected }) => {
-                      const color = labelColor(labelOf(t)?.colorKey);
-                      const scope = scopeOf(d.key);
-                      return (
-                        <View key={t.id + d.key}>
-                          <Pressable
-                            onPress={() => toggleBlockPopover(t.id, scope)}
-                            style={[styles.chip, color && { backgroundColor: color.tint, borderLeftColor: color.edge, borderLeftWidth: 3 }, projected && styles.projected]}
-                            accessibilityRole="button"
-                            accessibilityLabel={`All day task ${t.title}`}
-                            {...({ dataSet: { calBlock: `${scope}${t.id}` } } as object)}
-                          >
-                            <Text style={[styles.chipText, t.completed && styles.chipDone]} numberOfLines={1}>
-                              {t.emoji ? `${t.emoji} ` : ''}
-                              {t.title}
+        // Day and week (2.26.0): one scroller in both directions. The day
+        // headers and the all day row stick to the top, the hours stick to the
+        // left; the week is a rolling strip of days (lib/dayStrip.ts), seven to
+        // the width, drawing only the columns near the screen.
+        <div
+          ref={setScroller}
+          onScroll={(e) => setScrollLeft((e.currentTarget as HTMLDivElement).scrollLeft)}
+          style={{ flex: 1, overflow: 'auto', position: 'relative', minHeight: 0 }}
+          data-cal-scroller={effView}
+        >
+          <div style={{ position: 'relative', width: contentW, minHeight: '100%' }}>
+            <div style={{ position: 'sticky', top: 0, zIndex: 6, height: HEAD_H + ALLDAY_H, background: Colors.surface }}>
+              <div style={{ position: 'sticky', left: 0, width: GUTTER, height: HEAD_H + ALLDAY_H, background: Colors.surface, zIndex: 7, display: 'flex', alignItems: 'flex-end' }}>
+                <Text style={styles.allDayLabel}>all day</Text>
+              </div>
+              {days.map((d) => {
+                const date = parseDateKey(d.key);
+                const isToday = d.key === todayKey;
+                const left = GUTTER + colLeft(d.key);
+                const scope = scopeOf(d.key);
+                return (
+                  <React.Fragment key={d.key}>
+                    <Pressable
+                      onPress={() => effView === 'week' && goTo('day', d.key)}
+                      disabled={effView === 'day'}
+                      style={[styles.dayHead, { position: 'absolute', left, top: 0, width: colW, height: HEAD_H }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${WEEKDAYS[date.getDay()]} ${date.getDate()}`}
+                      {...({ dataSet: { calHead: d.key } } as object)}
+                    >
+                      <Text style={[styles.dayHeadText, isToday && styles.dayHeadToday, d.key < todayKey && styles.past]}>
+                        {WEEKDAYS[date.getDay()]} <Text style={styles.dayHeadDate}>{date.getDate()}</Text>
+                      </Text>
+                    </Pressable>
+                    <View
+                      ref={allDayRef(d.key) as never}
+                      style={[styles.allDayCell, { position: 'absolute', left, top: HEAD_H, width: colW, height: ALLDAY_H }, dropDay === d.key && styles.cellTarget]}
+                      accessibilityLabel={`All day row ${d.key}`}
+                      {...({ dataSet: { allDayRow: '1', allDayCell: d.key } } as object)}
+                    >
+                      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                        {d.importedAllDay.map((seg) => (
+                          <View key={seg.occ.id} style={[styles.chip, styles.imported]} accessibilityLabel={`Imported all day event ${seg.occ.title}, ${seg.occ.calendarName}`} {...({ dataSet: { extChip: seg.occ.id } } as object)}>
+                            <Text style={styles.chipText} numberOfLines={1}>
+                              📅 {seg.occ.title || 'Busy'}
                             </Text>
-                          </Pressable>
-                          <TaskBlockPopover task={t} label={labelOf(t)} onChanged={onChanged} projected={projected} scope={scope} />
-                        </View>
-                      );
-                    })}
-                  </ScrollView>
-                )}
-              </View>
-            ))}
-          </View>
+                          </View>
+                        ))}
+                        {d.allDay.map(({ task: t, projected }) => {
+                          const color = labelColor(labelOf(t)?.colorKey);
+                          return (
+                            <View key={t.id + d.key}>
+                              <Pressable
+                                ref={sourceRef(`calchip:${d.key}:${t.id}`, () => ({ kind: 'card', task: t, id: t.id, title: t.title, emoji: t.emoji, duration: taskDuration(t), projected })) as never}
+                                onPress={() => toggleBlockPopover(t.id, scope)}
+                                style={[styles.chip, { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent, borderLeftWidth: 3 }, projected && styles.projected]}
+                                accessibilityRole="button"
+                                accessibilityLabel={`All day task ${t.title}`}
+                                {...({ dataSet: { calBlock: `${scope}${t.id}` } } as object)}
+                              >
+                                <Text style={[styles.chipText, t.completed && styles.chipDone]} numberOfLines={1}>
+                                  {t.emoji ? `${t.emoji} ` : ''}
+                                  {t.title}
+                                </Text>
+                              </Pressable>
+                              <TaskBlockPopover task={t} label={labelOf(t)} onChanged={onChanged} projected={projected} scope={scope} />
+                            </View>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  </React.Fragment>
+                );
+              })}
+            </div>
 
-          <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false} onLayout={(e) => setViewH(Math.round(e.nativeEvent.layout.height))}>
-            <View style={{ height: 8 }} />
-            <View style={[styles.gridRow, { height: GRID_HEIGHT_PX + 16 }]} {...({ dataSet: { calendarGrid: '1' } } as object)}>
-              <View style={{ width: GUTTER }}>
+            <div ref={setGrid} style={{ position: 'relative', height: GRID_HEIGHT_PX + 16, marginTop: 8 }} data-calendar-grid="1">
+              <div style={{ position: 'sticky', left: 0, width: GUTTER, height: '100%', background: Colors.surface, zIndex: 4 }}>
                 {hours.map((h) => (
-                  <Text key={h} style={[styles.hourLabel, { top: (h - GRID_START_HOUR) * PX_PER_HOUR - 7 }]}>
+                  <Text key={h} style={[styles.hourLabel, { top: (h - GRID_START_HOUR) * PX_PER_HOUR - 7 }]} {...({ dataSet: { mono: '1' } } as object)}>
                     {hourLabel(h)}
                   </Text>
                 ))}
-              </View>
+              </div>
+              {hours.map((h) => (
+                <View key={h} pointerEvents="none" style={[styles.hourLine, { left: GUTTER, width: contentW - GUTTER, top: (h - GRID_START_HOUR) * PX_PER_HOUR }]} />
+              ))}
+              {hours.slice(0, -1).map((h) => (
+                <View key={`half-${h}`} pointerEvents="none" style={[styles.halfLine, { left: GUTTER, width: contentW - GUTTER, top: (h - GRID_START_HOUR + 0.5) * PX_PER_HOUR }]} />
+              ))}
               {days.map((d) => (
-                <View key={d.key} style={styles.dayCol}>
-                  {hours.map((h) => (
-                    <View key={h} style={[styles.hourLine, { top: (h - GRID_START_HOUR) * PX_PER_HOUR }]} />
-                  ))}
-                  {hours.slice(0, -1).map((h) => (
-                    <View key={`half-${h}`} style={[styles.halfLine, { top: (h - GRID_START_HOUR + 0.5) * PX_PER_HOUR }]} />
-                  ))}
+                <View
+                  key={d.key}
+                  ref={columnRef(d.key) as never}
+                  style={[styles.dayCol, { left: GUTTER + colLeft(d.key), width: colW }]}
+                  {...({ dataSet: { calCol: d.key } } as object)}
+                >
                   {d.blocks.map((b) => {
                     const source = d.sources.get(b.id);
                     if (!source) return null;
@@ -476,35 +615,43 @@ export default function CalendarPane({
                       );
                     }
                     const t = source.task;
-                    const color = labelColor(labelOf(t)?.colorKey);
                     const scope = scopeOf(d.key);
-                    const cont = source.kind === 'continuation';
-                    return (
-                      <View key={b.id} style={[styles.blockWrap, pos]}>
-                        <Pressable
-                          onPress={() => toggleBlockPopover(t.id, scope)}
-                          style={[
-                            styles.block,
-                            styles.taskBlock,
-                            color && { backgroundColor: color.tint, borderLeftColor: color.edge, borderLeftWidth: 4 },
-                            (source.projected || cont) && styles.projected,
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel={cont ? `Calendar block, continues from yesterday: ${t.title}` : `Calendar block ${t.title}`}
-                          {...({ dataSet: { calBlock: `${scope}${t.id}` } } as object)}
-                        >
-                          <Text style={[styles.blockTitle, t.completed && styles.chipDone]} numberOfLines={1}>
-                            {t.emoji ? `${t.emoji} ` : ''}
-                            {t.title}
-                          </Text>
-                          {!isCompactBlock(b.height) && (
-                            <Text style={styles.blockTime}>
-                              {cont ? 'Continues from yesterday' : `${formatTime(t.startTime ?? '')} ${formatDuration(t.durationMinutes) ?? ''}`}
+                    if (source.kind === 'continuation') {
+                      const color = labelColor(labelOf(t)?.colorKey);
+                      return (
+                        <View key={b.id} style={[styles.blockWrap, pos]}>
+                          <Pressable
+                            onPress={() => toggleBlockPopover(t.id, scope)}
+                            style={[styles.block, styles.taskBlock, { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent }, styles.projected]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Calendar block, continues from yesterday: ${t.title}`}
+                            {...({ dataSet: { calBlock: `${scope}${t.id}` } } as object)}
+                          >
+                            <Text style={[styles.blockTitle, t.completed && styles.chipDone]} numberOfLines={1}>
+                              {t.emoji ? `${t.emoji} ` : ''}
+                              {t.title}
                             </Text>
-                          )}
-                        </Pressable>
-                        <TaskBlockPopover task={t} label={labelOf(t)} onChanged={onChanged} projected={source.projected} scope={scope} />
-                      </View>
+                            {!isCompactBlock(b.height) && <Text style={styles.blockTime}>Continues from yesterday</Text>}
+                          </Pressable>
+                          <TaskBlockPopover task={t} label={labelOf(t)} onChanged={onChanged} projected={source.projected} scope={scope} />
+                        </View>
+                      );
+                    }
+                    return (
+                      <TimeBlock
+                        key={b.id}
+                        task={t}
+                        label={labelOf(t)}
+                        color={labelColor(labelOf(t)?.colorKey)}
+                        projected={source.projected}
+                        positioned={pos}
+                        height={b.height}
+                        continues={b.continues}
+                        scope={scope}
+                        a11y={`Calendar block ${t.title}`}
+                        gridNode={() => gridEl.current}
+                        onChanged={onChanged}
+                      />
                     );
                   })}
                   {d.key === todayKey && (
@@ -512,12 +659,15 @@ export default function CalendarPane({
                       <View style={styles.nowDot} />
                     </View>
                   )}
+                  {drag?.mode === 'move' && drag.accepted && drag.target?.kind === 'slot' && drag.target.dayKey === d.key && (
+                    <SlotPreview startMin={drag.target.startMin} duration={drag.item.duration} top={((drag.target.startMin - GRID_START_HOUR * 60) / 60) * PX_PER_HOUR} />
+                  )}
                 </View>
               ))}
-            </View>
-            <View style={{ height: Math.max(0, viewH - 28) }} />
-          </ScrollView>
-        </>
+            </div>
+            <div style={{ height: Math.max(0, viewH - 120) }} />
+          </div>
+        </div>
       )}
     </View>
   );
@@ -542,18 +692,21 @@ const styles = StyleSheet.create({
   todayText: { fontSize: 12, fontWeight: '600', color: Colors.accentText },
   note: { fontSize: 12, color: Colors.textSecondary, marginBottom: 6 },
   headRow: { flexDirection: 'row' },
-  dayHead: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 6 },
+  dayHead: { alignItems: 'center', justifyContent: 'center' },
+  dayHeadDate: { fontWeight: '700' },
+  past: { opacity: 0.55 },
+  cellTarget: { backgroundColor: 'rgba(92,122,107,0.10)' },
   dayHeadText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
   dayHeadToday: { color: Colors.accentText, fontWeight: '700' },
   allDayRow: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.border, minHeight: 28 },
   allDayLabel: { fontSize: 10, color: Colors.textSecondary, paddingTop: 7 },
-  allDayCell: { flex: 1, minWidth: 0, padding: 2, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: Colors.border },
+  allDayCell: { padding: 2, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: Colors.border, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
   scroll: { flex: 1 },
   gridRow: { flexDirection: 'row' },
   hourLabel: { position: 'absolute', right: 6, fontSize: 10, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
-  dayCol: { flex: 1, minWidth: 0, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: Colors.border },
-  hourLine: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: Colors.border },
-  halfLine: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: Colors.border, opacity: 0.45 },
+  dayCol: { position: 'absolute', top: 0, bottom: 0, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: Colors.border },
+  hourLine: { position: 'absolute', height: StyleSheet.hairlineWidth, backgroundColor: Colors.border },
+  halfLine: { position: 'absolute', height: StyleSheet.hairlineWidth, backgroundColor: Colors.border, opacity: 0.45 },
   blockWrap: { position: 'absolute', padding: 1 },
   block: { flex: 1, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden', justifyContent: 'flex-start' },
   taskBlock: { backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },

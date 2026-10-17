@@ -42,6 +42,7 @@ async function run() {
       T('far', 'Far ahead', { dueDate: day(9) }),
       T('bd', 'Brain one', { durationMinutes: 120 }),
       T('bd2', 'Brain two', { durationMinutes: 45 }),
+      T('cb', 'Cal block', { dueDate: today, startTime: '10:00', durationMinutes: 30 }),
       T('sd', 'All steps done', { dueDate: today, subtasks: [{ id: 'd1', title: 'One', done: true }, { id: 'd2', title: 'Two', done: true }] }),
       T('st', 'Steps task', { dueDate: today, subtasks: [{ id: 's1', title: 'First', done: true }, { id: 's2', title: 'Second', done: false }] }),
     ]),
@@ -120,7 +121,7 @@ async function run() {
   await C.waitFor(() => tasks().some((t) => t.title === 'Typed for tomorrow'), 6000).catch(() => {});
   const typed = tasks().find((t) => t.title === 'Typed for tomorrow');
   check('a day\'s Add a task box makes a task on that day', typed && typed.dueDate === day(1), JSON.stringify(typed));
-  check('the day total shows in the box (0:00 / 0:30 for today)', (await colText(today)).includes('0:00 / 0:30'));
+  check('the day total shows in the box (0:00 / 1:00 for today)', (await colText(today)).includes('0:00 / 1:00'));
   check('the list\'s box shows the time still planned there (2h 45m planned)', (await I.body()).includes('2h 45m planned'));
 
   // Drag a card to tomorrow: a placeholder shows where it will land.
@@ -168,6 +169,110 @@ async function run() {
   const ringBg = await I.js(`(() => { const r = document.querySelector('[data-day-col="${today}"] [aria-label="Task All steps done"] [data-card-meta] [data-steps-ring]'); return r ? getComputedStyle(r).backgroundColor : ''; })()`);
   check('the full ring is the sage accent (#5C7A6B)', ringBg === 'rgb(92, 122, 107)', ringBg);
   await I.shot('p9-03-cards');
+
+  // ======== Step 4: the Calendar does what the Timebox does ========
+  await I.click(I.byLabel('Show the Calendar'));
+  await C.sleep(400);
+  await I.blur();
+  await I.key('w');
+  await C.sleep(800);
+  const calBlock = (key, id) => `document.querySelector('[data-cal-block="cal${key}:${id}"]')`;
+  const yAt = (hhmm) => I.js(`(() => { const g = document.querySelector('[data-calendar-grid]').getBoundingClientRect(); const [h, m] = '${hhmm}'.split(':').map(Number); return Math.round(g.top + (h + m / 60) * 56); })()`);
+  const colX = (key) => I.js(`(() => { const c = document.querySelector('[data-cal-col="${key}"]'); if (!c) return null; const r = c.getBoundingClientRect(); return Math.round(r.left + r.width / 2); })()`);
+  const scrollGridTo = (hhmm) => I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); const [h] = '${hhmm}'.split(':').map(Number); s.scrollTop = Math.max(0, h * 56 - 120); return s.scrollTop; })()`);
+  const headLeft = (key) => I.js(`(() => { const sc = document.querySelector('[data-cal-scroller]').getBoundingClientRect(); const h = document.querySelector('[data-cal-head="${key}"]'); return h ? Math.round(h.getBoundingClientRect().left - sc.left) : null; })()`);
+  const pointerDrag = async (from, to, { hold = 250, release = true } = {}) => {
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: from.x, y: from.y });
+    await C.sleep(80);
+    win.webContents.sendInputEvent({ type: 'mouseDown', x: from.x, y: from.y, button: 'left', clickCount: 1 });
+    for (let i = 1; i <= 14; i++) {
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(from.x + ((to.x - from.x) * i) / 14), y: Math.round(from.y + ((to.y - from.y) * i) / 14), modifiers: ['leftButtonDown'] });
+      await C.sleep(25);
+    }
+    await C.sleep(hold);
+    if (release) {
+      win.webContents.sendInputEvent({ type: 'mouseUp', x: to.x, y: to.y, button: 'left', clickCount: 1 });
+      await C.sleep(600);
+    }
+  };
+  const h0 = await headLeft(today);
+  check('the week view opens with today as its first column (a rolling week)', h0 !== null && h0 <= 52, String(h0));
+
+  // Move a block to tomorrow at 14:00.
+  await scrollGridTo('10:00');
+  await C.sleep(300);
+  const blk = await I.js(`(() => { const r = ${calBlock(today, 'cb')}.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 8) }; })()`);
+  const to = { x: await colX(day(1)), y: (await yAt('14:00')) + 8 };
+  await pointerDrag(blk, to, { release: false, hold: 400 });
+  check('while dragging over the Calendar, its column shows the dashed slot with the time', (await I.js(`(document.querySelector('[data-cal-col="${day(1)}"] [data-slot-preview]') || {}).innerText || ''`)).includes('14:00'));
+  await I.shot('p9-04-cal-drag');
+  win.webContents.sendInputEvent({ type: 'mouseUp', x: to.x, y: to.y, button: 'left', clickCount: 1 });
+  await C.waitFor(() => byId('cb').dueDate === day(1) && byId('cb').startTime === '14:00', 6000).catch(() => {});
+  check('dropping moves the task to tomorrow at 14:00 (30 minute steps, like the Timebox)', byId('cb').dueDate === day(1) && byId('cb').startTime === '14:00', JSON.stringify(byId('cb')));
+
+  // Resize its bottom edge by an hour.
+  await C.sleep(400);
+  const edge = await I.js(`(() => { const b = ${calBlock(day(1), 'cb')}; const h = b && b.parentElement.querySelector('[aria-label="Resize Cal block"]'); if (!h) return null; const r = h.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+  if (edge) await pointerDrag(edge, { x: edge.x, y: edge.y + 56 }, { hold: 200 });
+  await C.waitFor(() => byId('cb').durationMinutes === 90, 6000).catch(() => {});
+  check('dragging the bottom edge changes the estimate (30 -> 90 minutes)', byId('cb').durationMinutes === 90, JSON.stringify({ edge, task: byId('cb') }));
+
+  // Drop a task from the list onto today at 16:00.
+  await scrollGridTo('14:00');
+  await C.sleep(300);
+  const row = await I.js(`(() => { const r = document.querySelector('[data-pane="left"] [aria-label="Task Brain one"]').getBoundingClientRect(); return { x: Math.round(r.left + 80), y: Math.round(r.top + 18) }; })()`);
+  await pointerDrag(row, { x: await colX(today), y: (await yAt('16:00')) + 4 }, { hold: 300 });
+  await C.waitFor(() => byId('bd').startTime === '16:00', 6000).catch(() => {});
+  check('a task from the list dropped on the Calendar gets that day and time', byId('bd').dueDate === today && byId('bd').startTime === '16:00' && byId('bd').durationMinutes === 120, JSON.stringify(byId('bd')));
+
+  // Keyboard: the arrows move a focused block.
+  const focusBlock = async () => {
+    await I.js(`(() => { const k = ${JSON.stringify('')}; const e = document.querySelector('[data-calendar] [data-block-task="cb"]'); if (e) e.focus(); return !!e; })()`);
+    await C.sleep(150);
+  };
+  await focusBlock();
+  await I.key('Down');
+  await C.waitFor(() => byId('cb').startTime === '14:30', 4000).catch(() => {});
+  check('Down on a focused block: 30 minutes later', byId('cb').startTime === '14:30', JSON.stringify(byId('cb')));
+  await C.sleep(400);
+  await focusBlock();
+  await I.key('Right');
+  await C.waitFor(() => byId('cb').dueDate === day(2), 4000).catch(() => {});
+  check('Right: the day after', byId('cb').dueDate === day(2), JSON.stringify(byId('cb')));
+  await C.sleep(400);
+  await focusBlock();
+  await I.key('Down', ['shift']);
+  await C.waitFor(() => byId('cb').durationMinutes === 120, 4000).catch(() => {});
+  check('Shift+Down: 30 minutes longer', byId('cb').durationMinutes === 120, JSON.stringify(byId('cb')));
+  for (let i = 0; i < 4; i++) {
+    await focusBlock();
+    await I.key('Left');
+    await C.sleep(400);
+  }
+  check('Left goes back day by day but never onto a past day', byId('cb').dueDate === today, byId('cb').dueDate);
+
+  // A block dropped on the all day row loses its time.
+  await scrollGridTo('14:00');
+  await C.sleep(300);
+  const k = byId('cb').dueDate;
+  const b2 = await I.js(`(() => { const e = ${calBlock(k, 'cb')}; if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 8) }; })()`);
+  const cell = await I.js(`(() => { const r = document.querySelector('[data-all-day-cell="${k}"]').getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+  if (b2) await pointerDrag(b2, cell, { hold: 300 });
+  await C.waitFor(() => !byId('cb').startTime, 4000).catch(() => {});
+  check('a block dropped on the all day row keeps its day and loses its time', !byId('cb').startTime && byId('cb').dueDate === k, JSON.stringify({ b2, task: byId('cb') }));
+
+  // Today on the Calendar's rolling week.
+  await I.click(I.byLabel('Calendar next week'));
+  await C.sleep(500);
+  const h7 = await headLeft(day(7));
+  check('Next moves the rolling week on by seven days', h7 !== null && h7 <= 52, String(h7));
+  await I.click(I.byLabel('Calendar go to today'));
+  await C.sleep(500);
+  const hT = await headLeft(today);
+  check('Today jumps the Calendar back to today', hT !== null && hT <= 52, String(hT));
+  await I.shot('p9-04-calendar');
+  await I.click(I.byLabel('Show Tasks'));
+  await C.sleep(300);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

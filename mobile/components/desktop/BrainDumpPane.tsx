@@ -167,6 +167,7 @@ export default function BrainDumpPane({
                   item: row.kind === 'dump' ? row.item : undefined,
                   id,
                   title: task.title,
+                  emoji: task.emoji,
                   duration: row.kind === 'task' ? taskDuration(row.task) : 30,
                 }))}
               />

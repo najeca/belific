@@ -27,6 +27,7 @@ import { openingMinutes } from '../../lib/dayStart';
 import { tasksForTimebox } from '../../lib/timeboxTasks';
 import { useDayStart } from './useDayStart';
 import { domNode, useDrag } from './DragProvider';
+import TimeBlock, { SlotPreview } from './TimeBlock';
 import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
 import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
 import usePaneScroll from './usePaneScroll';
@@ -379,71 +380,21 @@ export default function TimeboxPane({
               }
               if (source.kind === 'task') {
                 const t = source.task;
-                const color = labelColor(labels.find((p) => p.key === t.projectKey)?.colorKey);
-                const resizing = drag?.mode === 'resize' && drag.item.id === t.id ? drag.resizeDuration : undefined;
-                const startMin = toMinutes(t.startTime) ?? b.startMin;
-                const sized = resizing
-                  ? { ...positioned, height: blockHeightPx(resizing) }
-                  : positioned;
+                const proj = labels.find((p) => p.key === t.projectKey);
                 return (
-                  <View
+                  <TimeBlock
                     key={b.id}
-                    style={[styles.blockWrap, sized, drag?.mode === 'move' && drag.item.id === t.id && styles.dragging]}
-                  >
-                    <View style={styles.blockBase}>
-                    <Pressable
-                      ref={sourceRef(`block:${t.id}`, (e) => {
-                        const grid = gridNode.current;
-                        const start = toMinutes(t.startTime);
-                        if (!grid || start === null) return null;
-                        return {
-                          kind: 'block',
-                          task: t,
-                          id: t.id,
-                          title: t.title,
-                          duration: taskDuration(t),
-                          projected: source.projected,
-                          grabOffsetMin: yToMinutes(e.clientY, grid.getBoundingClientRect().top) - start,
-                        };
-                      }) as never}
-                      onPress={() => openSource(source)}
-                      style={[
-                        styles.block,
-                        styles.taskBlock,
-                        color && [styles.taskBlockLabelled, { backgroundColor: color.tint, borderLeftColor: color.edge }],
-                        b.continues && styles.blockContinues,
-                        source.projected && styles.blockProjected,
-                        resizing !== undefined && styles.taskBlockActive,
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Task ${t.title}`}
-                      {...({ dataSet: { blockId: t.id } } as object)}
-                    >
-                      <View style={styles.blockTitleRow}>
-                        <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone]} numberOfLines={1}>
-                          {t.title}
-                        </Text>
-                        {/* A short block shows one line: title and its true duration ("10m"). */}
-                        {isCompactBlock(b.height) && resizing === undefined && formatDuration(t.durationMinutes) && (
-                          <Text style={styles.blockTimeInline}>{formatDuration(t.durationMinutes)}</Text>
-                        )}
-                        {t.recurrence && <Ionicons name="repeat" size={12} color={Colors.textSecondary} accessibilityLabel="Repeats" />}
-                      </View>
-                      {resizing !== undefined ? (
-                        <Text style={styles.blockSnap}>{slotLabel(startMin, resizing)}</Text>
-                      ) : (
-                        !isCompactBlock(b.height) && (
-                          <Text style={styles.blockTime}>
-                            {formatTime(t.startTime ?? '')} {formatDuration(t.durationMinutes) ?? ''} {t.completed ? 'done' : ''}
-                          </Text>
-                        )
-                      )}
-                    </Pressable>
-                    {b.continues && <Continues />}
-                    <TaskBlockPopover task={t} label={labels.find((p) => p.key === t.projectKey)} onChanged={onChanged} projected={source.projected} />
-                    <View ref={handleRef(t.id) as never} style={styles.resizeHandle} accessibilityLabel={`Resize ${t.title}`} />
-                    </View>
-                  </View>
+                    task={t}
+                    label={proj}
+                    color={labelColor(proj?.colorKey)}
+                    projected={!!source.projected}
+                    positioned={positioned}
+                    height={b.height}
+                    continues={b.continues}
+                    a11y={`Task ${t.title}`}
+                    gridNode={() => gridNode.current}
+                    onChanged={onChanged}
+                  />
                 );
               }
               const e = source.event;
@@ -483,18 +434,7 @@ export default function TimeboxPane({
               </View>
             )}
             {drag?.mode === 'move' && drag.accepted && drag.target?.kind === 'slot' && drag.target.dayKey === key && (
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.slotPreview,
-                  {
-                    top: ((drag.target.startMin - GRID_START_HOUR * 60) / 60) * PX_PER_HOUR,
-                    height: blockHeightPx(drag.item.duration),
-                  },
-                ]}
-              >
-                <Text style={styles.blockSnap}>{slotLabel(drag.target.startMin, drag.item.duration)}</Text>
-              </View>
+              <SlotPreview startMin={drag.target.startMin} duration={drag.item.duration} top={((drag.target.startMin - GRID_START_HOUR * 60) / 60) * PX_PER_HOUR} />
             )}
           </View>
         </View>

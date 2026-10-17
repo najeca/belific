@@ -202,7 +202,7 @@ export default function KanbanPane({
       scroller.current = instance as ScrollView | null;
       const node = domNode(instance);
       boardNode.current = node;
-      registerBoard(node ? { node, atCurrentWeek: () => false, step: () => {} } : null);
+      registerBoard('tasks', node ? { node, atCurrentWeek: () => false, step: () => {} } : null);
     },
     [registerBoard],
   );
@@ -266,6 +266,7 @@ export default function KanbanPane({
                   task,
                   id: task.id,
                   title: task.title,
+                  emoji: task.emoji,
                   duration: taskDuration(task),
                   projected: isProjected,
                 }))}

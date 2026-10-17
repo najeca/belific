@@ -1,7 +1,7 @@
 // The continuous strip of days (2.26.0).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { columnHeading, dayAt, daysBetween, indexOfDay, leftDay, offsetOfDay, pageOffset, rangeTitle, stripAround, visibleRange, STRIP_DAYS_BACK } from './dayStrip.ts';
+import { weekRangeTitle, columnHeading, dayAt, daysBetween, indexOfDay, leftDay, offsetOfDay, pageOffset, rangeTitle, stripAround, visibleRange, STRIP_DAYS_BACK } from './dayStrip.ts';
 
 const STEP = 288;
 
@@ -46,4 +46,10 @@ test('the heading of the days on screen and of each column', () => {
   assert.deepEqual(columnHeading('2026-10-17', '2026-10-17'), { weekday: 'Sat', date: 'Oct 17', when: 'today' });
   assert.equal(columnHeading('2026-10-16', '2026-10-17').when, 'past');
   assert.equal(columnHeading('2026-10-19', '2026-10-17').weekday, 'Mon');
+});
+
+test('the Calendar week title names its seven days', () => {
+  assert.equal(weekRangeTitle('2026-10-17'), '17 to 23 Oct 2026');
+  assert.equal(weekRangeTitle('2026-10-28'), '28 Oct to 3 Nov 2026');
+  assert.equal(weekRangeTitle('2026-12-29'), '29 Dec 2026 to 4 Jan 2027');
 });

@@ -54,7 +54,9 @@ export interface Rect {
 export type Zone =
   | { kind: 'left'; rect: Rect }
   | { kind: 'day'; dayKey: string; rect: Rect; clip?: Rect }
-  | { kind: 'timebox'; dayKey: string; rect: Rect; gridTop: number };
+  // 2.26.0: the Calendar's day columns are time grids too; `clip` is the part
+  // of the scroller not covered by its sticky headers.
+  | { kind: 'timebox'; dayKey: string; rect: Rect; gridTop: number; clip?: Rect };
 
 export function inside(x: number, y: number, r: Rect): boolean {
   return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
@@ -123,6 +125,7 @@ export function resolveDrop(
       if (zone.clip && !inside(x, y, zone.clip)) continue;
       return { kind: 'day', dayKey: zone.dayKey };
     }
+    if (zone.clip && !inside(x, y, zone.clip)) continue;
     const raw = yToMinutes(y, zone.gridTop);
     const startMin =
       source.kind === 'block' && source.grabOffsetMin !== undefined
@@ -245,4 +248,37 @@ export function edgeAction(dir: -1 | 0 | 1, scrollLeft: number, maxScrollLeft: n
   if (dir === -1 && scrollLeft > 1) return 'scroll';
   if (dir === 1 && scrollLeft < maxScrollLeft - 1) return 'scroll';
   return 'dwell';
+}
+
+// --- Keyboard moves on a time block (2.26.0) ---
+// A placed task with the keyboard on its block (the Timebox or the Calendar):
+// 30 minutes earlier or later, the day before or after, or 30 minutes shorter
+// or longer, by the same rules as a drag: the start stays inside the day, the
+// length between 30 minutes and the longest duration, never onto a past day.
+// A projected occurrence of a repeating series can change its time and length
+// (the whole series) but not its day. Returns the fields to change, or null.
+export type BlockNudge = 'earlier' | 'later' | 'dayBefore' | 'dayAfter' | 'shorter' | 'longer';
+
+export function nudgeBlock(
+  task: Pick<Task, 'dueDate' | 'startTime' | 'durationMinutes'>,
+  nudge: BlockNudge,
+  todayKey: string,
+  projected = false,
+): Partial<Pick<Task, 'dueDate' | 'startTime' | 'durationMinutes'>> | null {
+  const start = toMinutes(task.startTime);
+  if (start === null || !isDateKey(task.dueDate)) return null;
+  const duration = taskDuration(task);
+  if (nudge === 'earlier' || nudge === 'later') {
+    const next = clampStart(start + (nudge === 'later' ? SNAP_MINUTES : -SNAP_MINUTES), duration);
+    return next === start ? null : { startTime: toTime(next) };
+  }
+  if (nudge === 'shorter' || nudge === 'longer') {
+    const next = resizedDuration(start, start + duration + (nudge === 'longer' ? SNAP_MINUTES : -SNAP_MINUTES));
+    return next === duration ? null : { durationMinutes: next };
+  }
+  if (projected) return null;
+  const d = new Date(`${task.dueDate}T12:00:00`);
+  d.setDate(d.getDate() + (nudge === 'dayAfter' ? 1 : -1));
+  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return canDayAcceptDrop(key, todayKey) ? { dueDate: key } : null;
 }

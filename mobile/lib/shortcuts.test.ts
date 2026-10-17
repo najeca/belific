@@ -166,12 +166,25 @@ test('arrow keys move between tasks only on a card', () => {
 });
 
 test('no two shortcuts share a key, and the table is complete', () => {
-  const seen = new Map<string, string>();
-  for (const def of SHORTCUTS) {
-    const p = parseSpec(def.keys);
-    const sig = `${p.ctrl ? 'C' : ''}${p.shift ? 'S' : ''}:${p.key}`;
-    assert.ok(!seen.has(sig), `${def.id} clashes with ${seen.get(sig)}`);
-    seen.set(sig, def.id);
+  // A home key works anywhere on the home screen, so it is unique across every
+  // scope. A card key and a time block key (2.26.0) act on different elements
+  // (the one with the keyboard), so each is unique within its own scope.
+  const sigOf = (keys: string) => {
+    const p = parseSpec(keys);
+    return `${p.ctrl ? 'C' : ''}${p.shift ? 'S' : ''}:${p.key}`;
+  };
+  const home = new Map<string, string>();
+  for (const def of SHORTCUTS.filter((d) => d.scope === 'home')) {
+    assert.ok(!home.has(sigOf(def.keys)), `${def.id} clashes with ${home.get(sigOf(def.keys))}`);
+    home.set(sigOf(def.keys), def.id);
+  }
+  for (const scope of ['card', 'block'] as const) {
+    const seen = new Map<string, string>();
+    for (const def of SHORTCUTS.filter((d) => d.scope === scope)) {
+      const sig = sigOf(def.keys);
+      assert.ok(!seen.has(sig) && !home.has(sig), `${def.id} clashes with ${seen.get(sig) ?? home.get(sig)}`);
+      seen.set(sig, def.id);
+    }
   }
   assert.equal(new Set(SHORTCUTS.map((d) => d.id)).size, SHORTCUTS.length);
   for (const def of SHORTCUTS) {

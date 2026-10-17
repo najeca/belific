@@ -85,3 +85,13 @@ export function columnHeading(key: string, todayKey: string): { weekday: string;
   const date = `${MONTHS[d.getMonth()]} ${d.getDate()}`;
   return { weekday, date, when: key === todayKey ? 'today' : key < todayKey ? 'past' : 'future' };
 }
+
+// The Calendar's week title: the seven days from `firstKey`, "17 to 23 Oct 2026",
+// "28 Oct to 3 Nov 2026", "29 Dec 2026 to 4 Jan 2027".
+export function weekRangeTitle(firstKey: string): string {
+  const a = parseDateKey(firstKey);
+  const b = addDays(a, 6);
+  if (a.getFullYear() !== b.getFullYear()) return `${a.getDate()} ${MONTHS[a.getMonth()]} ${a.getFullYear()} to ${b.getDate()} ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
+  if (a.getMonth() !== b.getMonth()) return `${a.getDate()} ${MONTHS[a.getMonth()]} to ${b.getDate()} ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
+  return `${a.getDate()} to ${b.getDate()} ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
+}

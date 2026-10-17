@@ -110,6 +110,8 @@ Phase 7, settings and power features. Power feature toggles (off means the field
 
 Phase 8, calendar connections. See section 7.
 
+**Phase 8 done in code 2026-10-17 (2.25.0)**, desktop and iPhone, section 7 steps 1 to 3 (step 4 is out). See `docs/build-progress.md` and decision 031. The Edge Function `belific-calendar-feed` and grant 003 are written and tested locally, not deployed or applied (`docs/CALENDAR_FEED_DEPLOY.md`); the iPhone part needs a new TestFlight build. Writing tasks to the phone calendar is not built (Jethro's decision).
+
 Phase 9, later: attachments, imports and integrations, assistant, API or MCP.
 
 iOS adaptation. Each phase gets its own iOS step after its desktop UI. Steps that must happen first, in this order, before the iPhone gets the matching feature:
@@ -166,6 +168,7 @@ Calendars, cheapest first:
 1. iOS: read and write the phone's own calendar database through the Expo calendar module. It already contains any Google, iCloud or Outlook account on the phone, so no server and no OAuth is needed. Check first whether the iOS Calendar tab already does this.
 2. Outbound feed: a read only ICS link served by a Supabase Edge Function from a secret URL, so Google, Apple and Outlook can subscribe to Belific tasks. The token is regeneratable.
 3. Inbound on Windows: import ICS subscription URLs, read only.
+Steps 1 to 3 are built (phase 8, 2.25.0): step 1 reads only (no writing to the phone calendar), step 2 is `belific-calendar-feed`, step 3 keeps imported events on the computer.
 4. Last: two way sync with Google Calendar and Microsoft Graph. This needs your own OAuth apps, token storage in a table the client can never read (service role only) and rate limit handling. Treat it as optional.
 
 Imports and integrations:

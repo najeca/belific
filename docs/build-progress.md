@@ -2,7 +2,7 @@
 
 The running record of `docs/belific-build-plan.md`. A new session can start cold from the plan and this file: read both, then `docs/CURRENT_TRUTH.md` for anything outside the plan. Add a checkpoint at the end of every phase.
 
-Branch: `v2-redesign`. App version: **2.24.0** (phase 2 is 2.19.0, phase 3 is 2.20.0, phase 4 is 2.21.0, phase 5 is 2.22.0, phase 6 is 2.23.0, phase 7 is 2.24.0; phases 4 to 7 bumped in their own commits). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
+Branch: `v2-redesign`. App version: **2.25.0** (phase 2 is 2.19.0, phase 3 is 2.20.0, phase 4 is 2.21.0, phase 5 is 2.22.0, phase 6 is 2.23.0, phase 7 is 2.24.0, phase 8 is 2.25.0; phases 4 to 8 bumped in their own commits). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
 
 ## Where things stand
 
@@ -15,7 +15,8 @@ Branch: `v2-redesign`. App version: **2.24.0** (phase 2 is 2.19.0, phase 3 is 2.
 | 5 Daily Planning, Shutdown, rollover | **Done 2026-10-16** (2.22.0). Desktop only. |
 | 6 Analytics, Trash, data export | **Done 2026-10-16** (commit `85bb6dc`, 2.23.0). Desktop only. |
 | 7 Power features | **Done 2026-10-16** (2.24.0). Desktop only. |
-| 8 and 9 | Not started. Phase 8 is next, after Jethro's go. |
+| 8 Calendar connections | **Done in code 2026-10-17** (2.25.0). Section 7 steps 1 to 3. Desktop and iPhone. Edge Function `belific-calendar-feed` and grant 003 written and tested locally, **not deployed or applied** (Jethro deploys). The iPhone part needs a new TestFlight build. |
+| 9 | Not started. |
 | iOS adaptation | Steps 1 (Brain Dump on tasks) and 2 (Convert routines) **done in code** with phase 4, plus the Quests tab. Not run on a device. Phases 2, 3 and 5 have no iPhone UI yet. |
 
 ## Decisions in force (from Jethro, 2026-10-16)
@@ -249,6 +250,73 @@ Phase 7:
 
 iPhone: nothing in phases 6 and 7 touches the phone UI. The shared code (`deleteUserSetting` in `storage.ts`, the emoji on `seriesStreak`) is compiled into it and passed the iOS export and marker gate; run the usual TestFlight smoke test when you next build.
 
+## Checkpoint: phase 8, calendar connections (2026-10-17, 2.25.0)
+
+No table or column change. One grant (003) written for review, NOT applied. One Edge Function written and tested locally, NOT deployed. Decision 031 (Proposed). Section 7 steps 1 to 3; step 4 (two way Google and Microsoft sync) is out.
+
+**What existed:** the iPhone Calendar tab showed only Belific's own weekly template events and custom events. It did not read the phone's calendar and showed no tasks. `expo-calendar` was not installed.
+
+**Shared logic (`mobile/lib/`, all tested):** `icsFeed.ts` (the feed document: timed tasks, window, title, floating times, folding, series through `projectOccurrences`), `icsParse.ts` (parser and repeat expansion: an RRULE subset, EXDATE, RDATE, RECURRENCE-ID, cancelled, IANA, Windows and VTIMEZONE zones, caps and a work budget), `externalEvents.ts` (where an outside event shows on a day; the iPhone event mapping), `icsSubscriptions.ts` (link rules, wording, refresh timing, what a fetch does), `calendarFeed.ts` (token and link), `calendarFeedActions.ts` (create, regenerate, turn off, synced or not), `deviceCalendar.ts` (iPhone wiring). `kanban.ts` now imports `./types.ts` with its extension (Deno needs it).
+
+**Edge Function** `mobile/supabase/functions/belific-calendar-feed/`: `core.ts` (rules, rate limiter), `index.ts` (wiring), `vendor/` (eight lib files copied by `scripts/vendor-feed.js`); `config.toml` has `verify_jwt = false` for it only. Grant `003_calendar_feed_grants.sql` and rollback. Deploy steps and checklist: `docs/CALENDAR_FEED_DEPLOY.md`.
+
+**Desktop:** `desktop/src/icsFetch.js` and the `ics:fetch` IPC (main fetches, the page never does), `icsStore.ts`, `CalendarsSection.tsx` (Settings, 📅 Calendars: feed link, imports, iPhone note), `CalendarPane.tsx` (imported events read only in day, week and month), the refresh timer in `DesktopHome`.
+
+**iPhone:** `expo-calendar` 15.0.8 pinned; `NSCalendarsUsageDescription` and `NSCalendarsFullAccessUsageDescription` in `app.json` (no plugin, no Reminders strings); the Calendar tab (question card, denied card, the day sheet lists that day's tasks and phone events, dots); Settings, Calendars (`app/components/CalendarsSection.tsx`: access state and the feed link with Share).
+
+**Verification:**
+- Typecheck, 718 mobile tests, 93 desktop tests (new `icsFetch.test.js`), the security scan.
+- iOS export and marker gate: 20 markers, 0 hits. `ExpoCalendar` and the feed code are in the phone bundle; `parseIcs` is not.
+- The real function under Deno 2.5.6 against a fake PostgREST (`scripts/feed-local-test.js`): 18 checks over HTTP, covering right, wrong, malformed, regenerated and turned off tokens, a user with no tasks, isolation, a database error, HEAD and POST, the rate limit and the log. `deno check` is clean.
+- `icsFetch` once against the real internet: a Google public holiday calendar parsed to 244 events; `localtest.me` refused as private; real redirects to http and to 127.0.0.1 refused; a 404 and a web page refused.
+- Real check `desktop/test/real/p8.js` (44). Older real checks re-run with phase 8: p2, p3, p4, p5, p6, p7, cp6, cp8c, cp8d, cp8e, cp8h, cp9, cp10, cp11, cp12, run-cp7 all pass. **Three fail exactly as they do on the commit before phase 8 (`eb2e6ab`, checked by stashing phase 8, rebuilding and running them):** run-cp8f 27/31 (it still expects the old duration presets and no Actual row, which phase 2 changed on purpose), run-cp8b 59/60 ("only tasks with the ticked label show"), cp8g 32/33 (the week change while holding a drag at the board's right edge happens just after the check stops waiting; on `eb2e6ab` cp8g failed 25/33 twice). Not regressions; not fixed here.
+
+**Not verified:**
+- The deployed function (not deployed) and grant 003 on the live project (not applied).
+- Anything on an iPhone (needs the TestFlight build).
+- A real Google, Apple or Outlook subscription to the feed.
+- Imported calendars from real Google or Outlook secret links inside the app. The fetcher ran against a real Google calendar; the app's p8 check used a swapped transport.
+
+## Decisions I made on my own (phase 8)
+
+1. **Feed link shape:** `?t=<token>` in the query, because calendar apps need a plain URL. Only the https form is shown (every target accepts it), not `webcal://`.
+2. **Token:** 32 bytes, base64url, made on the device with `crypto.getRandomValues`, stored in plain text in `user_settings`. Both devices must show it, and owner only row level security protects it; a hash would hide it from the other device.
+3. **"Regenerate invalidates at once" means once the new value reaches the server.** The app syncs straight after and shows "Active." or "becomes active once it has synced". Offline, the old link keeps working until then.
+4. **Turn off feed** (a tombstone) was added beside Regenerate.
+5. **The function's today is UTC** (Supabase runs in UTC). Projected days of a series start from the UTC day, so around midnight in the UK a projected day can appear or vanish an hour early or late. Stored tasks are unaffected.
+6. **A task with no estimate lasts 30 minutes** in the feed (the Timebox default). Estimates are capped at 24 hours.
+7. **Rate limits:** 30 per token per 10 minutes; 20 bad tokens per caller address per 10 minutes, then 429 with no database read. Kept in memory per instance (a table would be a schema change).
+8. **Unknown and wrong tokens and malformed links all answer the same 404 "Not found"**, never 401 or 403, so nothing tells a guesser what was wrong.
+9. **Vendoring:** the eight lib files are copied into the function (the bundler only reaches `supabase/`), guarded by a byte for byte test.
+10. **An imported subscription is added only if its first fetch works**, so a wrong link is never stored.
+11. **No ICS library:** the parser is written here (about 600 lines, tested). A library would be a new dependency in the renderer.
+12. **What the parser does not support** shows its first day only: BYHOUR, BYWEEKNO, HOURLY, and an ordinal BYDAY in a yearly rule without BYMONTH. An unknown zone reads as local time, and RDATE periods are ignored. Expansion stops after 1000 occurrences per event in a view and 500,000 repeat days in all, so a huge calendar would lose its last events in a view rather than freeze.
+13. **A timed event of 24 hours or more goes in the all day row.** Shorter ones that cross midnight are cut and continue on the next day's grid.
+14. **Fetch rules:** port 443 only, 15 seconds, 5 MB, 3 redirects, at most 4 fetches at once. gzip and deflate are accepted, br is refused. Private IPv4 and IPv6, CGNAT, documentation, benchmark, 6to4 and NAT64 ranges are all refused.
+15. **Refresh:** every 30 minutes, or 10 after a failure, checked every minute only while the window is visible, and also when it becomes visible. A failure keeps the last good events.
+16. **Subscriptions are not in `clearAllData` or the reset.** They are this computer's own setting, like the local pane copy, so a sign out keeps them.
+17. **Imported events are drawn with a dashed outline and 📅**, never a label colour, and open nothing.
+18. **iPhone: the day sheet now lists that day's tasks** (the tab showed none before). Stored tasks only (the phone has no series projection), as read only rows.
+19. **iPhone: "Not now"** on the calendar question is remembered on the phone. Settings, Calendars always shows the state and the button.
+20. **iPhone: no config plugin for expo-calendar**, because it would add Reminders permission texts Belific does not need. The two calendar strings are set directly.
+21. **The desktop Settings shows the iPhone permission state as an explanation only**, because the computer cannot know the phone's permission.
+
+## Check by hand (phase 8)
+
+Desktop (2.25.0):
+1. In Settings, 📅 Calendars, Calendars shown in Belific, add your real Google secret iCal link (Google Calendar, Settings, the calendar, Integrate calendar, Secret address in iCal format) and an Outlook published ICS link. Check the events in day, week and month view: a repeating meeting across the 25 October clock change, an all day event, and a trip over several days.
+2. Remove one and Refresh one. Turn the network off and Refresh: the error shows in words and the old events stay. Turn the network back on and Refresh: the error clears.
+3. Open `%APPDATA%\belific-desktop\logs\main.log`: only hosts and reasons, never your secret link.
+4. Signed in: Create feed link, Copy, Make a new link, Turn off. The link answers only after you deploy the function (`docs/CALENDAR_FEED_DEPLOY.md` has the checklist).
+
+iPhone (only in the 2.25.0 TestFlight build, which you make):
+5. Calendar tab: the card "Show your iPhone calendar events here?" shows. Not now hides it, and Settings, Calendars says "Not asked yet". Press Show my calendars: the iOS prompt shows the Belific text. Allow.
+6. Open a day with events in your iPhone Calendar app (an iCloud one, a Google one if added to the phone, an all day one, one past midnight). They show under "📅 iPhone calendars" with their calendar's colour and name and the right times. That day's tasks show under "✅ Tasks", and days with events have a dot.
+7. Check nothing changed in the iPhone Calendar app: no event created, moved or deleted.
+8. In the Settings app, Belific, Calendars, turn access off. Back in Belific, the denied card and Settings, Calendars say how to turn it on, and Open Settings goes there.
+9. Settings, Calendars on the phone, signed in: after a sync it shows the same feed link as the desktop. Try Share or copy, then New link; the desktop shows the new link after a sync.
+10. The rest of the phone is unchanged: Today, Brain Dump, Quests, Tasks, sign in, and adding and editing a custom event in the Calendar tab.
+
 ## Next session
 
-Phase 8, after Jethro's go (read the plan's section 3 and section 7). Read the plan's phase 4 and section 0 items 3, 4, 7 and 9, and the open questions above (triweekly section, annual month). The Quests screen is the only other thing that changes the desktop screen (with Profile). Shared pieces to reuse: `lib/series.ts`, `lib/seriesStreak.ts`, `lib/seriesActions.ts`, `lib/taskTotals.ts`, `lib/timerSession.ts`, `uiStore.ts` (overlays, details panel), `usePaneState.ts`, `lib/shortcuts.ts` (add keys there, never elsewhere). Real checks: `desktop/test/real/p2.js` and `p3.js` (build first with `node desktop/scripts/build-web.js`, then `cd desktop && npx electron test/real/p3.js`).
+Phase 9, after Jethro's go (read the plan's section 3). Before it: Jethro reviews and applies 003, deploys `belific-calendar-feed` (`docs/CALENDAR_FEED_DEPLOY.md`) and makes the 2.25.0 TestFlight build for the iPhone calendar check. The older notes below still apply. Read the plan's phase 4 and section 0 items 3, 4, 7 and 9, and the open questions above (triweekly section, annual month). The Quests screen is the only other thing that changes the desktop screen (with Profile). Shared pieces to reuse: `lib/series.ts`, `lib/seriesStreak.ts`, `lib/seriesActions.ts`, `lib/taskTotals.ts`, `lib/timerSession.ts`, `uiStore.ts` (overlays, details panel), `usePaneState.ts`, `lib/shortcuts.ts` (add keys there, never elsewhere). Real checks: `desktop/test/real/p2.js` and `p3.js` (build first with `node desktop/scripts/build-web.js`, then `cd desktop && npx electron test/real/p3.js`).

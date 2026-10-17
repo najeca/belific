@@ -37,6 +37,7 @@ import { supabase } from '../lib/supabase';
 import { signInWithApple, signOut, deleteAccount } from '../lib/auth';
 import { phoneGoogle } from '../lib/phoneGoogleAuth';
 import RoutineConvertSection from './components/RoutineConvertSection';
+import CalendarsSection from './components/CalendarsSection';
 import type { Session } from '@supabase/supabase-js';
 
 // Read from app.json's expo.version at runtime rather than hardcoded —
@@ -358,6 +359,9 @@ export default function SettingsScreen() {
             </>
           )}
         </View>
+
+        {/* Calendars (build plan phase 8): the phone's own calendars and the feed link */}
+        <CalendarsSection signedIn={!!session} />
 
         {/* Data section */}
         <Text style={styles.sectionHeader}>Data</Text>

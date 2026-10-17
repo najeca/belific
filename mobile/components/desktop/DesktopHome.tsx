@@ -30,6 +30,7 @@ import SearchPalette from './SearchPalette';
 import { usePaneState } from './usePaneState';
 import { refreshFeatures, useFeatures } from './featureStore';
 import { restorePomodoro } from './pomodoroStore';
+import { startIcsRefresh } from './icsStore';
 import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
 import { dateKey as todayDateKey } from '../../lib/kanban';
 import { RAIL_WIDTH, paneLayout, showCalendar, toggleCenter, toggleLeft, toggleOnlyToday, toggleRight, type CalendarView } from '../../lib/paneState';
@@ -209,6 +210,9 @@ export default function DesktopHome() {
   useEffect(() => {
     restorePomodoro();
   }, []);
+  // Imported calendar subscriptions (build plan phase 8): refreshed when due,
+  // checked every minute while the window is visible.
+  useEffect(() => startIcsRefresh(), []);
   // The layout (panes open or hidden, Kanban or Calendar, the Calendar view, show
   // only today), remembered in user_settings with a local fallback.
   const [paneState, updatePanes] = usePaneState();
@@ -434,7 +438,7 @@ export default function DesktopHome() {
         </View>
         {layout.right.collapsed && <Rail side="right" emoji="🕐" label="Show the right pane" onPress={() => updatePanes(toggleRight)} />}
       </View>
-      {view === 'settings' && <SettingsPage onOpenLabels={() => openOverlay({ kind: 'labels' })} onOpenSignIn={() => showView('signin')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} />}
+      {view === 'settings' && <SettingsPage onOpenLabels={() => openOverlay({ kind: 'labels' })} onOpenSignIn={() => showView('signin')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} refreshKey={refreshKey} />}
       {view === 'progress' && <ProgressPage />}
       {view === 'quests' && <QuestsPage refreshKey={refreshKey} />}
       {view === 'analytics' && <AnalyticsPage refreshKey={refreshKey} />}

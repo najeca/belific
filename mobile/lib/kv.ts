@@ -74,6 +74,10 @@ export interface BelificDesktop {
     // File, Progress (checkpoint 11).
     onOpenProgress?(listener: () => void): () => void;
   };
+  // Imported calendar subscriptions (build plan phase 8): main fetches the link.
+  ics?: {
+    fetch(url: string): Promise<{ ok: true; text: string; finalHost: string } | { ok: false; reason: string }>;
+  };
 }
 
 declare global {

@@ -40,9 +40,23 @@ test('submit.production exists and is empty: Apple details are asked for interac
   assert.deepEqual(eas.submit.production, {});
 });
 
-test('the app is 2.24.0, bundle com.najeca.belific, scheme belific (the callback link)', () => {
-  assert.equal(app.expo.version, '2.24.0');
+test('the app is 2.25.0, bundle com.najeca.belific, scheme belific (the callback link)', () => {
+  assert.equal(app.expo.version, '2.25.0');
   assert.equal(app.expo.ios.bundleIdentifier, 'com.najeca.belific');
   assert.equal(app.expo.scheme, 'belific');
   assert.equal(app.expo.ios.usesAppleSignIn, true);
+});
+
+test('phase 8: expo-calendar pinned to the SDK 54 version, calendar read text present, no Reminders permission asked for', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  assert.equal(pkg.dependencies['expo-calendar'], '15.0.8');
+  const plist = app.expo.ios.infoPlist;
+  for (const k of ['NSCalendarsUsageDescription', 'NSCalendarsFullAccessUsageDescription']) {
+    assert.match(plist[k], /only reads them: it never changes, copies or uploads them/, k);
+  }
+  assert.equal(plist.NSRemindersUsageDescription, undefined);
+  assert.equal(plist.NSRemindersFullAccessUsageDescription, undefined);
+  assert.equal(plist.NSCalendarsWriteOnlyAccessUsageDescription, undefined, 'no write access: Belific never writes to the phone calendar');
+  // The package's config plugin would add Reminders texts; the strings are set directly instead.
+  assert.ok(!JSON.stringify(app.expo.plugins).includes('expo-calendar'));
 });

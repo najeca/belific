@@ -411,3 +411,9 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Build plan phase 8: the calendar feed is opened by calendar apps, which send
+# no login; the secret token in its link is the credential (see the function).
+# Deploy only with JWT verification off. Only Jethro deploys.
+[functions.belific-calendar-feed]
+verify_jwt = false

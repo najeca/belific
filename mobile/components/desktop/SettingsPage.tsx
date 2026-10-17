@@ -20,6 +20,7 @@ import ResetCacheRow from './ResetCacheRow';
 import TemplatesManager from './TemplatesManager';
 import { setFeature, useFeatures } from './featureStore';
 import { FEATURES } from '../../lib/features';
+import CalendarsSection from './CalendarsSection';
 
 // The Settings page (checkpoint 9, decision 025): a view inside the app, not
 // an overlay. It replaces the old Settings modal; every setting and its
@@ -33,7 +34,7 @@ function openExternal(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, onChanged }: { onOpenLabels: () => void; onOpenSignIn: () => void; labelCount: number; onChanged: () => void }) {
+export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, onChanged, refreshKey = 0 }: { onOpenLabels: () => void; onOpenSignIn: () => void; labelCount: number; onChanged: () => void; refreshKey?: number }) {
   const { account, setAccount, persistent, ui, status } = useAccount();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -252,6 +253,10 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
             </Section>
           </>
         )}
+
+        <Section title="Calendars" emoji="📅">
+          <CalendarsSection signedIn={signedIn} refreshKey={refreshKey} />
+        </Section>
 
         <Section title="Power features" emoji="⚡">
           <Text style={styles.hint}>Turn off what you do not use and it disappears from the screen. Nothing is deleted: turn it on again and it is all still there.</Text>

@@ -35,6 +35,8 @@ import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
 import { openDetail } from './uiStore';
 import { useTick } from './timerUi';
 import FilterButton from './FilterButton';
+import { importedOccurrences, loadIcs, useIcs, type ImportedOccurrence } from './icsStore';
+import { minuteLabel, rangeOf, segmentsForDay, type DaySegment } from '../../lib/externalEvents';
 
 // The Calendar (build plan phase 3): the centre of the home screen when it is
 // switched from the Kanban board (V). Day, week and month views (D, W, M). The
@@ -48,17 +50,25 @@ import FilterButton from './FilterButton';
 // block or chip opens the same task menu. Dragging stays on the Timebox on the
 // right: that is where a task is given a time, so the Calendar draws nothing a
 // drop could land on. "Show only today" shows today's day view.
+//
+// Events from imported calendar subscriptions (build plan phase 8, Settings,
+// Calendars) are drawn read only beside the tasks: a dashed outline, the 📅
+// emoji and the calendar's name; nothing opens or moves them.
 const GUTTER = 48;
 const scopeOf = (dayKey: string) => `cal${dayKey}:`;
 
+type ImportedSeg = DaySegment & { occ: ImportedOccurrence };
+
 type Source =
   | { kind: 'event'; event: ScheduleEvent }
+  | { kind: 'imported'; seg: ImportedSeg }
   | { kind: 'task'; task: Task; projected: boolean }
   | { kind: 'continuation'; task: Task; projected: boolean };
 
 interface DayData {
   key: string;
   allDay: DayTask[];
+  importedAllDay: ImportedSeg[];
   sources: Map<string, Source>;
   blocks: ReturnType<typeof layoutItems>['blocks'];
 }
@@ -106,6 +116,18 @@ export default function CalendarPane({
   const key = onlyToday ? todayKey : anchor;
   const keys = useMemo(() => visibleDayKeys(effView, key), [effView, key]);
 
+  // Imported calendars (read only, this computer only).
+  const ics = useIcs();
+  useEffect(() => {
+    loadIcs();
+  }, []);
+  const imported = useMemo(() => {
+    if (keys.length === 0) return [];
+    const { fromMs, toMs } = rangeOf(keys[0], keys[keys.length - 1]);
+    return importedOccurrences(ics, fromMs, toMs);
+  }, [ics.version, ics.subs, keys]);
+  const icsFailing = ics.subs.filter((s) => s.lastError).length;
+
   const days: DayData[] = useMemo(() => {
     if (effView === 'month') return [];
     return keys.map((dayKey) => {
@@ -143,9 +165,19 @@ export default function CalendarPane({
         sources.set(rest.id, { kind: 'continuation', task: t, projected });
         items.push(rest);
       }
-      return { key: dayKey, allDay, sources, blocks: layoutItems(items).blocks };
+      const importedAllDay: ImportedSeg[] = [];
+      for (const seg of segmentsForDay(imported, dayKey) as ImportedSeg[]) {
+        if (seg.allDayRow) {
+          importedAllDay.push(seg);
+          continue;
+        }
+        const id = `ext:${seg.occ.id}`;
+        sources.set(id, { kind: 'imported', seg });
+        items.push({ id, startMin: seg.startMin, endMin: seg.endMin });
+      }
+      return { key: dayKey, allDay, importedAllDay, sources, blocks: layoutItems(items).blocks };
     });
-  }, [effView, keys, tasks, events, categories, filter, todayKey]);
+  }, [effView, keys, tasks, events, categories, filter, todayKey, imported]);
 
   // Opens at the day start (or about an hour before now when today is shown).
   useEffect(() => {
@@ -170,6 +202,12 @@ export default function CalendarPane({
     for (const list of map.values()) list.sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99') || a.title.localeCompare(b.title));
     return map;
   }, [effView, keys, tasks, filter, todayKey]);
+  const monthImported = useMemo(() => {
+    const map = new Map<string, ImportedOccurrence[]>();
+    if (effView !== 'month') return map;
+    for (const k of keys) map.set(k, segmentsForDay(imported, k).map((s) => s.occ as ImportedOccurrence));
+    return map;
+  }, [effView, keys, imported]);
 
   // Estimate against actual for what the view shows (the month: its own days only).
   const totalsText = useMemo(() => {
@@ -240,6 +278,11 @@ export default function CalendarPane({
         </Pressable>
       </View>
       {onlyToday && <Text style={styles.note}>📅 Showing only today (Shift+F to show everything).</Text>}
+      {icsFailing > 0 && (
+        <Text style={styles.note} accessibilityLabel="Imported calendar error">
+          📅 {icsFailing === 1 ? 'An imported calendar' : `${icsFailing} imported calendars`} could not be refreshed. Settings, Calendars says why; the events shown are from the last refresh.
+        </Text>
+      )}
 
       {effView === 'month' ? (
         <View style={styles.month}>
@@ -255,14 +298,17 @@ export default function CalendarPane({
               <View key={ri} style={styles.monthRow}>
                 {row.map((cell) => {
                   const list = monthTasks.get(cell.key) ?? [];
+                  const ext = monthImported.get(cell.key) ?? [];
                   const shown = list.slice(0, 3);
+                  const extShown = ext.slice(0, Math.max(0, 3 - shown.length));
+                  const more = list.length + ext.length - shown.length - extShown.length;
                   return (
                     <Pressable
                       key={cell.key}
                       onPress={() => goTo('day', cell.key)}
                       style={[styles.monthCell, !cell.inMonth && styles.monthOut, cell.isToday && styles.monthToday]}
                       accessibilityRole="button"
-                      accessibilityLabel={`Open ${cell.key}${list.length ? `, ${list.length} tasks` : ''}`}
+                      accessibilityLabel={`Open ${cell.key}${list.length ? `, ${list.length} tasks` : ''}${ext.length ? `, ${ext.length} imported events` : ''}`}
                       {...({ dataSet: { calDay: cell.key } } as object)}
                     >
                       <Text style={[styles.monthNum, cell.isToday && styles.monthNumToday]}>{parseDateKey(cell.key).getDate()}</Text>
@@ -283,7 +329,15 @@ export default function CalendarPane({
                           </Pressable>
                         );
                       })}
-                      {list.length > shown.length && <Text style={styles.more}>+{list.length - shown.length} more</Text>}
+                      {extShown.map((o) => (
+                        <View key={o.id} style={[styles.chip, styles.imported]} accessibilityLabel={`Imported event ${o.title}, ${o.calendarName}`} {...({ dataSet: { extChip: o.id } } as object)}>
+                          <Text style={styles.chipText} numberOfLines={1}>
+                            📅 {o.allDay ? '' : `${minuteLabel(minutesOfDay(new Date(o.startMs)))} `}
+                            {o.title || 'Busy'}
+                          </Text>
+                        </View>
+                      ))}
+                      {more > 0 && <Text style={styles.more}>+{more} more</Text>}
                     </Pressable>
                   );
                 })}
@@ -320,8 +374,20 @@ export default function CalendarPane({
             </View>
             {days.map((d) => (
               <View key={d.key} style={styles.allDayCell}>
-                {d.allDay.length === 0 ? null : (
+                {d.allDay.length === 0 && d.importedAllDay.length === 0 ? null : (
                   <ScrollView style={{ maxHeight: 92 }} showsVerticalScrollIndicator={false}>
+                    {d.importedAllDay.map((seg) => (
+                      <View
+                        key={seg.occ.id}
+                        style={[styles.chip, styles.imported]}
+                        accessibilityLabel={`Imported all day event ${seg.occ.title}, ${seg.occ.calendarName}`}
+                        {...({ dataSet: { extChip: seg.occ.id } } as object)}
+                      >
+                        <Text style={styles.chipText} numberOfLines={1}>
+                          📅 {seg.occ.title || 'Busy'}
+                        </Text>
+                      </View>
+                    ))}
                     {d.allDay.map(({ task: t, projected }) => {
                       const color = labelColor(labelOf(t)?.colorKey);
                       const scope = scopeOf(d.key);
@@ -371,6 +437,27 @@ export default function CalendarPane({
                     const source = d.sources.get(b.id);
                     if (!source) return null;
                     const pos = { top: b.top, height: b.height, left: `${(b.col * 100) / b.cols}%` as const, width: `${100 / b.cols}%` as const };
+                    if (source.kind === 'imported') {
+                      const { occ, startMin, endMin, continues } = source.seg;
+                      return (
+                        <View key={b.id} style={[styles.blockWrap, pos]}>
+                          <View
+                            style={[styles.block, styles.imported]}
+                            accessibilityLabel={`Imported event ${occ.title}, ${minuteLabel(startMin)} to ${minuteLabel(endMin)}, ${occ.calendarName}${continues ? ', continues from the day before' : ''}`}
+                            {...({ dataSet: { extBlock: occ.id } } as object)}
+                          >
+                            <Text style={styles.blockTitle} numberOfLines={1}>
+                              📅 {occ.title || 'Busy'}
+                            </Text>
+                            {!isCompactBlock(b.height) && (
+                              <Text style={styles.blockTime} numberOfLines={1}>
+                                {continues ? 'Continues' : minuteLabel(startMin)} to {minuteLabel(endMin)} · {occ.calendarName}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    }
                     if (source.kind === 'event') {
                       const e = source.event;
                       return (
@@ -471,6 +558,8 @@ const styles = StyleSheet.create({
   block: { flex: 1, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden', justifyContent: 'flex-start' },
   taskBlock: { backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
   projected: { opacity: 0.82 },
+  // Imported, read only: a dashed outline on the plain background, never a label colour.
+  imported: { backgroundColor: Colors.background, borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.textSecondary },
   blockTitle: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary },
   blockTime: { fontSize: 10, color: Colors.textSecondary },
   chip: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginVertical: 1, backgroundColor: Colors.background, minHeight: 20, justifyContent: 'center' },

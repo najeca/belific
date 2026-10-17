@@ -1,11 +1,12 @@
 # Belific schema files: ALREADY APPLIED LIVE, DO NOT RUN
 
-> **Both numbered files are applied to the shared project (`vlogfwnmaqorhialcqbr`, "belific landis proload"). Do not run either again, and do not run a rollback: they delete data.** Kept as the record of what was applied and for a rebuild after a restore. Any future change goes in a new numbered file (003, ...), reviewed first. (State per Jethro; not checked by Claude, who has no live access.)
+> **001 and 002 are applied to the shared project (`vlogfwnmaqorhialcqbr`, "belific landis proload"). Do not run either again, and do not run a rollback: they delete data.** 003 is written and waits for Jethro's review and apply. Kept as the record of what was applied and for a rebuild after a restore. Any future change goes in a new numbered file (003, ...), reviewed first. (State per Jethro; not checked by Claude, who has no live access.)
 
 | File | Applied | How | What it does |
 |---|---|---|---|
 | `001_belific_schema.sql` | 2026-10-15 | By hand in the SQL editor | The seven tables, `server_updated_at` trigger and indexes, row level security, grants. `belific` exposed under Data API. |
 | `002_lists_settings_timer.sql` | 2026-10-16 | Through the Supabase migration tool, recorded in the project's migration history as `belific_lists_settings_timer`, version `20261016153525` | Adds `tasks.actual_minutes`, `tasks.timer_started_at`, `tasks.list_key`, `tasks.emoji`, `projects.emoji`, and the tables `lists` and `user_settings` (owner only row level security, authenticated only). |
+| `003_calendar_feed_grants.sql` | **NOT APPLIED** (written 2026-10-17, for Jethro's review) | To be applied by Jethro like 002 (migration tool or SQL editor), never `db push` | One grant: `select on belific.user_settings to service_role`, so the Edge Function `belific-calendar-feed` can find the owner of a feed token. Jethro's check on 2026-10-17: service_role already had schema usage and select on `tasks`, not on `user_settings`. Steps: `docs/CALENDAR_FEED_DEPLOY.md`. |
 
 Post apply checks for 002 (Jethro, 2026-10-16): the five columns are present; `lists` and `user_settings` have row level security on with one owner policy each; no anon or public grants; row counts unchanged (36 tasks, 10 projects).
 

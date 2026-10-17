@@ -58,6 +58,12 @@ const actions = {
   openLicenses: () => ipcRenderer.invoke('desktop:openLicenses'),
 };
 
+// Imported calendar subscriptions (build plan phase 8): main fetches the link
+// under its own rules and returns { ok, text } or { ok: false, reason }.
+const ics = {
+  fetch: (url) => ipcRenderer.invoke('ics:fetch', url),
+};
+
 // File, Settings in the app menu asks the page to show its Settings page.
 const menu = {
   onOpenSettings: (listener) => {
@@ -81,5 +87,6 @@ contextBridge.exposeInMainWorld('belificDesktop', {
   notify,
   actions,
   menu,
+  ics,
   version: ipcRenderer.sendSync('desktop:version'),
 });

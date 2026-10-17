@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Modal,
   StyleSheet,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -18,9 +19,15 @@ import {
   timeToMinutes,
   formatDateKey,
 } from '../../lib/data';
-import { loadCustomEvents, loadCustomCategories } from '../../lib/storage';
+import { loadCustomEvents, loadCustomCategories, loadTasks } from '../../lib/storage';
+import { kv } from '../../lib/kv';
+import { askCalendarAccess, calendarAccess, loadDeviceEvents, openPhoneSettings, DEVICE_CALENDAR_TEXT, type CalendarAccess, type DeviceOccurrence } from '../../lib/deviceCalendar';
+import { minuteLabel, segmentsForDay } from '../../lib/externalEvents';
 import { EventForm } from '../components/AddEventModal';
-import type { ScheduleEvent, CustomEvent, CustomCategory } from '../../lib/types';
+import type { ScheduleEvent, CustomEvent, CustomCategory, Task } from '../../lib/types';
+
+// "Not now" on the calendar question, remembered on this phone (build plan phase 8).
+const CALENDAR_PROMPT_KEY = 'belific_calendar_prompt_dismissed';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_HEADERS = ['Mo','Tu','We','Th','Fr','Sa','Su'];
@@ -112,13 +119,70 @@ export default function CalendarScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [mode, setMode] = useState<'detail' | 'edit' | 'add' | null>(null);
   const [activeEvent, setActiveEvent] = useState<CustomEvent | undefined>(undefined);
+  // Build plan phase 8: the tasks with a Day, and the iPhone's own calendar
+  // events (read only, in memory only, after the person allows it).
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [access, setAccess] = useState<CalendarAccess | null>(null);
+  const [deviceEvents, setDeviceEvents] = useState<DeviceOccurrence[]>([]);
+  const [promptDismissed, setPromptDismissed] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       loadCustomEvents().then(setAllCustomEvents);
       loadCustomCategories().then(setCustomCategories);
+      loadTasks().then(setTasks).catch(() => {});
+      calendarAccess().then(setAccess);
+      kv.getItem(CALENDAR_PROMPT_KEY).then((v) => setPromptDismissed(v === '1')).catch(() => setPromptDismissed(false));
     }, []),
   );
+
+  // Coming back from the Settings app (where access may have been turned on or off).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') calendarAccess().then(setAccess);
+    });
+    return () => sub.remove();
+  }, []);
+
+  // The month on screen, read again when it changes or access is granted.
+  useEffect(() => {
+    if (access !== 'granted') {
+      setDeviceEvents([]);
+      return;
+    }
+    let live = true;
+    const first = formatDateKey(new Date(viewYear, viewMonth, 1));
+    const last = formatDateKey(new Date(viewYear, viewMonth + 1, 0));
+    loadDeviceEvents(first, last)
+      .then((list) => {
+        if (live) setDeviceEvents(list);
+      })
+      .catch(() => {
+        if (live) setDeviceEvents([]);
+      });
+    return () => {
+      live = false;
+    };
+  }, [access, viewYear, viewMonth]);
+
+  async function onAskAccess() {
+    setAccess(await askCalendarAccess());
+  }
+
+  function onNotNow() {
+    setPromptDismissed(true);
+    kv.setItem(CALENDAR_PROMPT_KEY, '1').catch(() => {});
+  }
+
+  function tasksOn(key: string): Task[] {
+    return tasks
+      .filter((t) => t.dueDate === key)
+      .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99') || a.title.localeCompare(b.title));
+  }
+
+  function deviceOn(key: string) {
+    return segmentsForDay(deviceEvents, key);
+  }
 
   function prevMonth() {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
@@ -133,7 +197,7 @@ export default function CalendarScreen() {
   function hasEvents(day: number): boolean {
     const date = new Date(viewYear, viewMonth, day);
     const key = formatDateKey(date);
-    return allCustomEvents.some(e => e.date === key);
+    return allCustomEvents.some(e => e.date === key) || tasks.some(t => t.dueDate === key) || deviceOn(key).length > 0;
   }
 
   function getEventsForDay(day: number): ScheduleEvent[] {
@@ -160,6 +224,9 @@ export default function CalendarScreen() {
     : realToday;
 
   const detailEvents = selectedDay != null ? getEventsForDay(selectedDay) : [];
+  const detailKey = formatDateKey(selectedDate);
+  const detailTasks = selectedDay != null ? tasksOn(detailKey) : [];
+  const detailDevice = selectedDay != null ? deviceOn(detailKey) : [];
 
   function formatDetailHeader(d: Date): string {
     return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
@@ -309,6 +376,36 @@ export default function CalendarScreen() {
         ))}
       </View>
 
+      {/* The iPhone's own calendars: asked in context, explained when off */}
+      {access === 'undetermined' && !promptDismissed && (
+        <View style={styles.calCard} accessibilityLabel="iPhone calendars">
+          <Text style={styles.calCardTitle}>📅 {DEVICE_CALENDAR_TEXT.askTitle}</Text>
+          <Text style={styles.calCardBody}>{DEVICE_CALENDAR_TEXT.askBody}</Text>
+          <View style={styles.calCardRow}>
+            <TouchableOpacity onPress={onAskAccess} style={styles.calCardPrimary} accessibilityRole="button">
+              <Text style={styles.calCardPrimaryText}>{DEVICE_CALENDAR_TEXT.askButton}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onNotNow} style={styles.calCardBtn} accessibilityRole="button">
+              <Text style={styles.calCardBtnText}>{DEVICE_CALENDAR_TEXT.notNow}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      {access === 'denied' && !promptDismissed && (
+        <View style={styles.calCard} accessibilityLabel="iPhone calendars">
+          <Text style={styles.calCardTitle}>📅 {DEVICE_CALENDAR_TEXT.deniedTitle}</Text>
+          <Text style={styles.calCardBody}>{DEVICE_CALENDAR_TEXT.deniedBody}</Text>
+          <View style={styles.calCardRow}>
+            <TouchableOpacity onPress={openPhoneSettings} style={styles.calCardPrimary} accessibilityRole="button">
+              <Text style={styles.calCardPrimaryText}>{DEVICE_CALENDAR_TEXT.openSettings}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onNotNow} style={styles.calCardBtn} accessibilityRole="button">
+              <Text style={styles.calCardBtnText}>{DEVICE_CALENDAR_TEXT.notNow}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* FAB */}
       <TouchableOpacity
         style={[styles.fab, { bottom: insets.bottom + 24 }]}
@@ -345,12 +442,12 @@ export default function CalendarScreen() {
               contentContainerStyle={styles.detailContent}
               showsVerticalScrollIndicator={false}
             >
-              {detailEvents.length === 0 ? (
+              {detailEvents.length === 0 && detailTasks.length === 0 && detailDevice.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyStateTitle}>No events scheduled</Text>
                   <Text style={styles.emptyStateSubtext}>Tap + to add your first event</Text>
                 </View>
-              ) : (
+              ) : detailEvents.length === 0 ? null : (
                 <View style={styles.eventListContainer}>
                   {detailEvents.map((e, i) => (
                     <EventRowCompact
@@ -361,6 +458,51 @@ export default function CalendarScreen() {
                     />
                   ))}
                 </View>
+              )}
+              {detailTasks.length > 0 && (
+                <>
+                  <Text style={styles.detailSection}>✅ Tasks</Text>
+                  <View style={styles.eventListContainer}>
+                    {detailTasks.map((t, i) => (
+                      <View key={t.id} style={[styles.eventRow, i === detailTasks.length - 1 && styles.eventRowLast]} accessibilityLabel={`Task ${t.title}${t.completed ? ', done' : ''}`}>
+                        <View style={[styles.eventBar, { backgroundColor: Colors.accent }]} />
+                        <View style={styles.eventTimes}>
+                          <Text style={styles.eventStart}>{t.startTime ?? ''}</Text>
+                        </View>
+                        <Text style={styles.eventIcon}>{t.completed ? '✅' : t.emoji ?? '☐'}</Text>
+                        <Text style={[styles.eventTitle, t.completed && styles.eventTitleLow]} numberOfLines={2}>
+                          {t.title}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+              {detailDevice.length > 0 && (
+                <>
+                  <Text style={styles.detailSection}>📅 iPhone calendars</Text>
+                  <View style={styles.eventListContainer}>
+                    {detailDevice.map((seg, i) => {
+                      const o = seg.occ as DeviceOccurrence;
+                      return (
+                        <View key={o.id} style={[styles.eventRow, i === detailDevice.length - 1 && styles.eventRowLast]} accessibilityLabel={`Calendar event ${o.title}, ${o.calendarName}, read only`}>
+                          <View style={[styles.eventBar, { backgroundColor: o.color }]} />
+                          <View style={styles.eventTimes}>
+                            <Text style={styles.eventStart}>{seg.allDayRow ? 'All day' : minuteLabel(seg.startMin)}</Text>
+                            {!seg.allDayRow && <Text style={styles.eventEnd}>{minuteLabel(seg.endMin)}</Text>}
+                          </View>
+                          <View style={{ flex: 1, paddingVertical: 10 }}>
+                            <Text style={[styles.eventTitle, { paddingVertical: 0 }]} numberOfLines={2}>
+                              {o.title}
+                            </Text>
+                            <Text style={styles.eventEnd}>{o.calendarName}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.detailNote}>Read only. Change these events in the Calendar app.</Text>
+                </>
               )}
               <View style={{ height: 40 }} />
             </ScrollView>
@@ -573,5 +715,67 @@ const styles = StyleSheet.create({
   },
   priorityFlag: {
     marginRight: 4,
+  },
+  detailSection: {
+    marginTop: 20,
+    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  detailNote: {
+    marginTop: 8,
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  calCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  calCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  calCardBody: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    color: Colors.textSecondary,
+  },
+  calCardRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  calCardPrimary: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: Colors.accent,
+    justifyContent: 'center',
+  },
+  calCardPrimaryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.onAccent,
+  },
+  calCardBtn: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+  },
+  calCardBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
 });

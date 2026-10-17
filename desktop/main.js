@@ -31,6 +31,9 @@ const { SecureStore } = require('./src/secureStore');
 const { ensureFirstSigninBackup } = require('./src/firstSignin');
 const { Scheduler } = require('./src/scheduler');
 const { DEFAULTS, loadSettings, saveSettings, sanitize, loginItemOptions } = require('./src/settings');
+// Called through the module (not destructured) so a real-app check can swap the
+// network transport underneath while every rule in it still runs.
+const icsFetch = require('./src/icsFetch');
 
 const IS_DEV = process.argv.includes('--dev');
 const DEV_URL = 'http://localhost:8081/';
@@ -136,10 +139,31 @@ function registerIpc() {
   ipcMain.handle('desktop:exportData', guard(() => exportData()));
   ipcMain.handle('desktop:openBackups', guard(() => openBackupsFolder()));
   ipcMain.handle('desktop:licensesAvailable', guard(() => fs.existsSync(licensesFile())));
+  ipcMain.handle('ics:fetch', guard((url) => fetchCalendar(url)));
   ipcMain.handle('desktop:openLicenses', guard(() => (fs.existsSync(licensesFile()) ? shell.openPath(licensesFile()) : undefined)));
   ipcMain.on('desktop:version', (event) => {
     event.returnValue = trustedSender(event) ? appVersion() : '';
   });
+}
+
+// An imported calendar subscription (build plan phase 8): fetched here under the
+// rules of src/icsFetch.js, never by the page. Only the host and a reason code
+// are logged, never the link (it is often a secret). At most 4 at a time.
+let icsInFlight = 0;
+async function fetchCalendar(url) {
+  if (icsInFlight >= 4) return { ok: false, reason: 'network' };
+  icsInFlight += 1;
+  const host = icsFetch.hostForLog(url);
+  try {
+    const result = await icsFetch.fetchIcs(String(url));
+    if (!result.ok) log(`calendar fetch ${host}: ${result.reason}`);
+    return result;
+  } catch {
+    log(`calendar fetch ${host}: failed`);
+    return { ok: false, reason: 'network' };
+  } finally {
+    icsInFlight -= 1;
+  }
 }
 
 // Opens the Apple or Google sign in page in the SYSTEM browser, never in the

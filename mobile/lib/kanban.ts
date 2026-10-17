@@ -2,7 +2,7 @@
 // react-native or other runtime imports so `node --test` can run it; see
 // kanban.test.ts. Dates are local calendar days as 'YYYY-MM-DD' keys, the
 // same format as Task.dueDate and CustomEvent.date.
-import type { Task } from './types';
+import type { Task } from './types.ts';
 
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Belific",
     "slug": "belific",
-    "version": "2.24.0",
+    "version": "2.25.0",
     "scheme": "belific",
     "orientation": "portrait",
     "icon": "./assets/belificappicon.png",
@@ -25,7 +25,9 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UNNotificationDefaultSoundName": "notification.wav"
+        "UNNotificationDefaultSoundName": "notification.wav",
+        "NSCalendarsUsageDescription": "Belific shows the events from your iPhone calendars next to your tasks in its Calendar tab. It only reads them: it never changes, copies or uploads them.",
+        "NSCalendarsFullAccessUsageDescription": "Belific shows the events from your iPhone calendars next to your tasks in its Calendar tab. It only reads them: it never changes, copies or uploads them."
       }
     },
     "plugins": [

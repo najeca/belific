@@ -51,6 +51,13 @@ const MARKERS = [
   'routine-convert',
   'Convert routines from your iPhone',
   'Show streaks',
+  // 2.25.0 (build plan phase 8): imported ICS subscriptions are desktop only.
+  // The iPhone reads its own calendars (lib/deviceCalendar.ts) and shares only
+  // the pure day layout (lib/externalEvents.ts) and the feed link code.
+  'parseIcs',
+  'expandCalendar',
+  'addSubscription',
+  'Calendars shown in Belific',
 ];
 
 const ALLOWED = {

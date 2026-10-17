@@ -33,7 +33,7 @@ import { usePaneState } from './usePaneState';
 import { refreshFeatures, useFeatures } from './featureStore';
 import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
-import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
+import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
 import { dateKey as todayDateKey } from '../../lib/kanban';
 import { SIDEBAR_DOCK_MIN, SIDEBAR_WIDTH, TIMEBOX_WIDTH, responsiveLayout, showCalendar, sidebarToggle, timeboxToggle, toggleCenter, toggleOnlyToday, type CalendarView } from '../../lib/paneState';
 import { kv } from '../../lib/kv';
@@ -207,6 +207,7 @@ export default function DesktopHome() {
   // The list the left pane showed last time (local UI state).
   useEffect(() => {
     restoreSelectedList();
+    restoreNewColorsOk();
   }, []);
   const overlay = useOverlay();
   const features = useFeatures();

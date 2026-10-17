@@ -90,6 +90,38 @@ export async function restoreSelectedList(): Promise<void> {
   }
 }
 
+// ---- the 2.26.0 label colours (labelColors.ts) ----
+// Locked until the person says every computer runs 2.26 or later, because an
+// older desktop changes a label with a new colour back to one of the original
+// eight. Stored on this computer only (kv), never synced.
+export const NEW_COLORS_KEY = 'belific_desktop_new_label_colors_ok';
+let newColorsOk = false;
+const colorListeners = new Set<() => void>();
+export const useNewColorsOk = () =>
+  useSyncExternalStore(
+    (l) => {
+      colorListeners.add(l);
+      return () => colorListeners.delete(l);
+    },
+    () => newColorsOk,
+    () => newColorsOk,
+  );
+export function setNewColorsOk(ok: boolean): void {
+  newColorsOk = ok;
+  colorListeners.forEach((l) => l());
+  (ok ? kv.setItem(NEW_COLORS_KEY, '1') : kv.removeItem(NEW_COLORS_KEY)).catch(() => {});
+}
+export async function restoreNewColorsOk(): Promise<void> {
+  try {
+    if ((await kv.getItem(NEW_COLORS_KEY)) === '1' && !newColorsOk) {
+      newColorsOk = true;
+      colorListeners.forEach((l) => l());
+    }
+  } catch {
+    // locked
+  }
+}
+
 // ---- reveal one task (search results) ----
 let nonce = 0;
 export const useReveal = () => use((s) => s.reveal);

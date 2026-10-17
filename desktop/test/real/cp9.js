@@ -407,9 +407,9 @@ async function run() {
 
   // Recolour from the palette.
   await click(byLabel('Colour of Household stuff'));
-  check('Colour: opens a small popover with the 8 palette colours', (await popoverOpen('Colour for Household stuff')) && (await js(`document.querySelectorAll('[aria-label^="Colour "][role="button"]').length`)) >= 8);
+  check('Colour: opens a small popover with the 20 palette colours (12 locked until every computer runs 2.26)', (await popoverOpen('Colour for Household stuff')) && (await js(`document.querySelectorAll('[data-swatch]').length`)) === 20 && (await js(`document.querySelectorAll('[data-swatch][aria-disabled="true"]').length`)) === 12);
   check('Colour: no full viewport overlay', await noNewOverlay());
-  await click(byLabel('Colour Plum'));
+  await click(byLabel('Plum colour for Household stuff'));
   await C.waitFor(() => labelNamed('Household stuff')?.colorKey === 'plum', 6000).catch(() => {});
   check('Colour: choosing Plum saves it', labelNamed('Household stuff')?.colorKey === 'plum', JSON.stringify(labelNamed('Household stuff')));
   check('Colour: the popover closed', !(await popoverOpen('Colour for Household stuff')));

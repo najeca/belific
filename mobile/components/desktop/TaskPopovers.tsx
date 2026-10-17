@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { addDays, clampToToday, dateKey, formatShortDate, isDateKey, parseDateKey } from '../../lib/kanban';
 import { DURATION_PRESETS, parseDuration, presetLabel } from '../../lib/duration';
-import { LABEL_COLORS, labelColor } from '../../lib/labelColors';
+import { labelColor, nextColorKey } from '../../lib/labelColors';
+import { LabelColorPicker } from './LabelColorPicker';
 import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
 import { availableSuggestions, findLabelByName, normalizeName } from '../../lib/labelRules';
 import { REMINDER_OPTIONS, NO_START_NOTE, optionEnabled, reminderState } from '../../lib/reminder';
@@ -38,7 +39,7 @@ import { isTimerRunning } from '../../lib/taskTimer';
 import type { EventPriority, Project, Task, WeekDay } from '../../lib/types';
 import EmojiField from './EmojiField';
 import HoverPressable from './HoverPressable';
-import { notifyChanged, openDetail } from './uiStore';
+import { notifyChanged, openDetail, openOverlay } from './uiStore';
 import { toggleTimer, useNow } from './timerUi';
 import { PopoverHeading, Row, popoverStyles } from './Popover';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -422,6 +423,8 @@ export function RepeatBody({ task, ops, done }: BodyProps) {
 // Search, the existing labels (colour dot, tick on the selected one), Create
 // "text" when it matches none, then the ready made suggestions not yet used.
 // A hover edit icon on a row switches it to rename, colours and delete.
+// 2.26.0: "New label" opens a small form (name, emoji, the 20 colours), and
+// "Edit labels" opens the Labels page.
 export function LabelBody({ task, ops, done }: BodyProps) {
   const [labels, setLabels] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -430,8 +433,21 @@ export function LabelBody({ task, ops, done }: BodyProps) {
   const [renameText, setRenameText] = useState('');
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
   const [note, setNote] = useState<{ text: string; warn?: boolean } | null>(null);
+  const [form, setForm] = useState<{ name: string; emoji?: string; colorKey: string } | null>(null);
 
   const reload = () => loadLabels().then(setLabels);
+
+  async function submitForm() {
+    if (!form || !form.name.trim()) return;
+    if (findLabelByName(labels, form.name)) {
+      setNote({ text: 'A label with that name already exists', warn: true });
+      return;
+    }
+    const result = await createLabel(form.name, form.emoji, form.colorKey);
+    if (!result) return;
+    notifyChanged();
+    await choose(result.label.key);
+  }
   useEffect(() => {
     reload();
     loadTasks().then(setTasks);
@@ -499,7 +515,7 @@ export function LabelBody({ task, ops, done }: BodyProps) {
         />
       </View>
 
-      {task.projectKey && !query && <Row label="No label" onPress={() => choose(undefined)} />}
+      {task.projectKey && !query && <Row label="Remove label" leading={<Ionicons name="close" size={16} color={Colors.textSecondary} />} onPress={() => choose(undefined)} a11y="Remove label" />}
 
       {shown.map((l) => {
         const color = labelColor(l.colorKey);
@@ -527,26 +543,15 @@ export function LabelBody({ task, ops, done }: BodyProps) {
                   notifyChanged();
                 }}
               />
-              <View style={styles.swatches}>
-                {LABEL_COLORS.map((c) => {
-                  const on = l.colorKey === c.key;
-                  return (
-                    <Pressable
-                      key={c.key}
-                      onPress={async () => {
-                        setLabels((prev) => prev.map((p) => (p.key === l.key ? { ...p, colorKey: c.key } : p)));
-                        await setLabelColor(l.key, c.key);
-                      }}
-                      style={[styles.swatch, on && styles.swatchOn]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: on }}
-                      accessibilityLabel={`${c.name} colour for ${l.name}`}
-                    >
-                      <View style={[styles.swatchFill, { backgroundColor: c.edge }]} />
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <LabelColorPicker
+                value={l.colorKey}
+                forName={l.name}
+                onPick={async (key) => {
+                  setLabels((prev) => prev.map((p) => (p.key === l.key ? { ...p, colorKey: key } : p)));
+                  await setLabelColor(l.key, key);
+                  notifyChanged();
+                }}
+              />
               {confirmKey === l.key ? (
                 <View style={styles.confirm}>
                   <Text style={styles.muted}>
@@ -626,6 +631,52 @@ export function LabelBody({ task, ops, done }: BodyProps) {
           a11y={`Create label ${text.trim()}`}
         />
       )}
+
+      {form ? (
+        <View style={styles.editBox} {...({ dataSet: { newLabelForm: '1' } } as object)}>
+          <TextInput
+            style={styles.search}
+            value={form.name}
+            placeholder="Label name"
+            placeholderTextColor={Colors.textSecondary}
+            onChangeText={(name) => setForm({ ...form, name })}
+            onSubmitEditing={submitForm}
+            blurOnSubmit={false}
+            accessibilityLabel="New label name"
+            autoFocus
+          />
+          <EmojiField label="New label emoji" value={form.emoji} onChange={(emoji) => setForm((f) => (f ? { ...f, emoji } : f))} />
+          <LabelColorPicker value={form.colorKey} forName="the new label" onPick={(colorKey) => setForm((f) => (f ? { ...f, colorKey } : f))} />
+          <View style={styles.linkRow}>
+            <Pressable onPress={submitForm} disabled={!form.name.trim()} accessibilityRole="button" accessibilityLabel="Create the new label">
+              <Text style={[styles.link, !form.name.trim() && styles.disabled]}>Create</Text>
+            </Pressable>
+            <Pressable onPress={() => setForm(null)} accessibilityRole="button" accessibilityLabel="Cancel new label">
+              <Text style={styles.link}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Row
+          label="New label"
+          leading={<Ionicons name="add" size={16} color={Colors.accentText} />}
+          onPress={() => {
+            setForm({ name: text.trim(), colorKey: nextColorKey(labels) });
+            setEditingKey(null);
+            setNote(null);
+          }}
+          a11y="New label"
+        />
+      )}
+      <Row
+        label="Edit labels"
+        leading={<Ionicons name="pencil" size={14} color={Colors.textSecondary} />}
+        onPress={() => {
+          done();
+          openOverlay({ kind: 'labels' });
+        }}
+        a11y="Edit labels"
+      />
 
       {suggestions.length > 0 && (
         <>

@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { LABEL_COLORS, labelColor } from '../../lib/labelColors';
+import { labelColor } from '../../lib/labelColors';
+import { LabelColorPicker } from './LabelColorPicker';
 import { availableSuggestions, deletedLabelTarget, findLabelByName } from '../../lib/labelRules';
 import { openCountText, openTaskCounts } from '../../lib/labelUsage';
 import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor, setLabelEmoji } from '../../lib/labels';
@@ -289,18 +290,9 @@ function LabelRow({
           </View>
         </View>
       )}
-      <Popover id={colorId} anchor={get} width={216} label={`Colour for ${label.name}`}>
-        <View style={{ paddingVertical: 6 }}>
-          {LABEL_COLORS.map((c) => (
-            <Row
-              key={c.key}
-              label={c.name}
-              selected={c.key === label.colorKey}
-              a11y={`Colour ${c.name}`}
-              leading={<View style={[styles.dot, { backgroundColor: c.edge }]} />}
-              onPress={() => pickColor(c.key)}
-            />
-          ))}
+      <Popover id={colorId} anchor={get} width={268} label={`Colour for ${label.name}`}>
+        <View style={{ padding: 12 }}>
+          <LabelColorPicker value={label.colorKey} forName={label.name} onPick={pickColor} />
         </View>
       </Popover>
     </View>

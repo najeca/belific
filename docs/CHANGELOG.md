@@ -44,6 +44,13 @@ to know the current version and recent history.
 - **Drag feedback, the same everywhere:** the lifted card is drawn like a task card (emoji, title, snapped time); a day column shows a dashed placeholder, a time grid a dashed slot with its time.
 - p9 checks the Calendar drag to another day and time, the slot preview, the resize, the drop from the list, the arrow keys (and that Left stops at today), the drop on the all day row, and Next and Today on the rolling week. p3 updated for the rolling week.
 
+### The labels menu: 20 colours and emoji (step 5)
+- **Twelve new label colours** beside the original eight (Teal, Forest, Olive, Mustard, Amber, Coral, Berry, Lavender, Indigo, Ocean, Stone, Charcoal), each readable with Belific's text on its tint (AA, tested). **The original eight keep their keys, names and colours exactly**, and no existing label changes colour.
+- **Safe on older versions.** A desktop before 2.26.0 treats a colour it does not know as missing, gives the label one of the original eight and syncs that, so it would change the colour back everywhere. So the new colours are locked in the picker until "Every computer runs Belific 2.26 or later" is ticked (kept on this computer only, never synced), and a new label is only ever given one of the original eight automatically. From 2.26.0 a colour the app does not know is left alone and drawn neutral, so a later palette cannot be overwritten. The iPhone app does not show label colours, so nothing changes there.
+- **The label menu** (Ctrl+L on a card, the card's label button, a Timebox block): New label opens a small form with the name, an emoji and the 20 colours; Edit labels opens the Labels page; Remove label (was "No label") takes the label off the task. Search, create by typing, rename, recolour, emoji and delete on each row and the Suggested list are unchanged. The Labels page's colour popover uses the same 20 colour picker.
+- No sync or schema change: the colour is the existing `color_key` text.
+- p9 checks the New label form, the lock and its tick, creating a label with an emoji and a new colour, the card's tint, Remove label and Edit labels. cp9 updated for the 20 colour picker.
+
 ## 2.25.0 — 2026-10-17 (build plan phase 8, calendar connections)
 
 **Desktop and iPhone. No table or column change. One grant written for review (003, not applied). One Edge Function written and tested locally, NOT deployed. The iPhone part needs a new TestFlight build (a new native module).** Section 7 steps 1 to 3 of the build plan; two way Google and Microsoft sync (step 4) is out.

@@ -2,12 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { formatShortDate } from '../../lib/kanban';
 import { formatClock } from '../../lib/duration';
 import { generateId } from '../../lib/data';
 import { shortRepeat } from '../../lib/repeat';
 import { reminderState } from '../../lib/reminder';
-import { addSubtask, counterLabel, deleteSubtask, moveSubtask, renameSubtask } from '../../lib/subtasks';
+import { addSubtask, counter, counterLabel, deleteSubtask, moveSubtask, renameSubtask } from '../../lib/subtasks';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { isEditableTarget } from '../../lib/editable';
@@ -29,8 +28,16 @@ import { toggleTimer, useNow } from './timerUi';
 // A task on the board or in the left list (checkpoint 8.2, decision 021). Every
 // edit happens on the card: the title renames in place, each small icon opens a
 // small dropdown beside it, and clicking the card body expands it in place to
-// show notes and subtasks. There is no modal. Drag still works from anywhere on
-// the card that is not a button, and the card keeps the label tint and edge.
+// show notes and subtasks. Drag works from anywhere on the card that is not a
+// button.
+// 2.26.0 look: a soft solid fill in the label's colour (white with no label),
+// 12 px corners, a light shadow that deepens on hover, padding 11 x 12. Two lines:
+// the tick, the emoji and title and the estimate; then what the task carries
+// (label, time, steps ring, repeat, reminder, time spent), as plain text. On
+// hover, or while the keyboard is inside the card, the row of controls (label,
+// steps, repeat, reminder, timer, actual time, move to day, more) lies over
+// that second line in the card's own colour, so the card never changes height;
+// an expanded card shows the controls in the flow, above its notes and steps.
 export default function TaskCard({
   task,
   ops,
@@ -66,6 +73,7 @@ export default function TaskCard({
   const [showTime, setShowTime] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(task.title);
+  const [focusWithin, setFocusWithin] = useState(false);
   const cancelled = useRef(false);
 
   // Applies an edit, then refreshes the panes.
@@ -235,7 +243,18 @@ export default function TaskCard({
         }
       };
       el.addEventListener('keydown', onKey);
-      cleanupKeys.current = () => el.removeEventListener('keydown', onKey);
+      // The quiet controls show while the keyboard is anywhere inside the card.
+      const onIn = () => setFocusWithin(true);
+      const onOut = (e: FocusEvent) => {
+        if (!el.contains(e.relatedTarget as Node | null)) setFocusWithin(false);
+      };
+      el.addEventListener('focusin', onIn);
+      el.addEventListener('focusout', onOut);
+      cleanupKeys.current = () => {
+        el.removeEventListener('keydown', onKey);
+        el.removeEventListener('focusin', onIn);
+        el.removeEventListener('focusout', onOut);
+      };
     },
     // nodeRef is a cached ref callback per card; re-attaching is harmless.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -244,6 +263,9 @@ export default function TaskCard({
 
   const dayOpen = useIsOpen(`${id}:day`);
   const moreOpen = useIsOpen(`${id}:more`);
+
+  const steps = counter(task.subtasks);
+  const actualShown = running || (task.actualMinutes ?? 0) > 0;
 
   return (
     <>
@@ -259,25 +281,31 @@ export default function TaskCard({
         style={[
           styles.card,
           variant === 'row' && styles.row,
-          divider && !(variant === 'card' && color) && styles.divider,
-          variant === 'card' && color && [styles.labelled, { backgroundColor: color.tint, borderLeftColor: color.edge }],
-          divider && (variant === 'card' ? styles.cardGap : styles.rowGap),
+          { backgroundColor: color?.tint ?? CARD_PLAIN },
+          task.completed && styles.done,
           dragging && styles.dragging,
           projected && styles.projected,
         ]}
-        hoverStyle={variant === 'card' && color ? styles.labelledHover : styles.hover}
+        hoverStyle={styles.hover}
         // Not a button: RN web renders role button as a native <button>, and a
         // field inside a <button> turns a typed Space into a click on it.
         accessibilityLabel={`Task ${task.title}`}
-        // The board finds the card under a dragged task through this (a legacy
-        // phone item is not a real task yet, so it is never a drop host).
-        // A projected occurrence is never a host either: nothing can be dropped on it.
         {...(task.id.startsWith('dump:') || projected ? {} : ({ dataSet: { taskCard: task.id } } as object))}
         {...(projected ? ({ dataSet: { projected: '1' } } as object) : {})}
       >
-        {(hovered) => (
+        {(hovered) => {
+          const live = hovered || focusWithin || expanded;
+          return (
           <>
             <View style={styles.titleRow}>
+              <Pressable
+                onPress={() => wrapped.setCompleted(!task.completed)}
+                style={styles.check}
+                accessibilityRole="button"
+                accessibilityLabel={task.completed ? `Mark ${task.title} incomplete` : `Mark ${task.title} complete`}
+              >
+                <View style={[styles.box, task.completed && styles.boxDone]}>{task.completed && <Ionicons name="checkmark" size={13} color={Colors.onAccent} />}</View>
+              </Pressable>
               {renaming ? (
                 // A Pressable so the nearest press handler for keys typed in the field
                 // is this one, not the card's (Enter must not toggle the card).
@@ -312,29 +340,12 @@ export default function TaskCard({
                   {task.title}
                 </Text>
               )}
-              {/* Both icons are always laid out and only fade in on hover, so nothing
-                  in the card moves when the pointer arrives or leaves. */}
-              <HeaderIcon id={`${id}:day`} glyph="📅" a11y={`Move ${task.title} to day`} shown={!renaming && !projected && (hovered || dayOpen)}>
-                  {(anchor) => (
-                    <Popover id={`${id}:day`} anchor={anchor} width={248}>
-                      <MoveToDayBody task={task} ops={wrapped} done={() => closePopover(true)} />
-                    </Popover>
-                  )}
-                </HeaderIcon>
-              <HeaderIcon id={`${id}:more`} ctl="more" icon="ellipsis-horizontal" a11y={`More actions for ${task.title}`} shown={!renaming && (hovered || moreOpen || deleteArmed)}>
-                  {(anchor) => (
-                    <Popover id={`${id}:more`} anchor={anchor} width={236}>
-                      <OverflowBody task={task} ops={wrapped} armed={deleteArmed} done={() => closePopover()} />
-                    </Popover>
-                  )}
-                </HeaderIcon>
-              {/* The start time of a placed task sits beside the chip as its own small
-                  muted text, so "15:00" and "0:15" are never read as one value. */}
-              {placed && <Text style={styles.startTime}>{task.startTime}</Text>}
               <Control id={`${id}:duration`} ctl="duration" a11y={`Duration of ${task.title}: ${clock}${placed ? `, starts ${task.startTime}` : ''}`} style={styles.chip}>
                 {(anchor) => (
                   <>
-                    <Text style={[styles.chipText, task.durationMinutes === undefined && styles.chipTextMuted]}>{clock}</Text>
+                    <Text style={[styles.chipText, task.durationMinutes === undefined && styles.chipTextMuted]} {...MONO}>
+                      {clock}
+                    </Text>
                     <Popover id={`${id}:duration`} anchor={anchor} width={272}>
                       <DurationBody task={task} ops={wrapped} done={() => closePopover(true)} />
                     </Popover>
@@ -356,20 +367,62 @@ export default function TaskCard({
                 </Pressable>
               </View>
             )}
-            <View style={styles.controls}>
-              <Pressable
-                onPress={() => wrapped.setCompleted(!task.completed)}
-                style={styles.icon}
-                accessibilityRole="button"
-                accessibilityLabel={task.completed ? `Mark ${task.title} incomplete` : `Mark ${task.title} complete`}
-              >
-                <Ionicons
-                  name={task.completed ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={18}
-                  color={task.completed ? Colors.accent : Colors.textSecondary}
-                />
-              </Pressable>
 
+            {/* What the task carries, as plain text (never a control). */}
+            <View style={styles.meta} accessible={false} {...({ dataSet: { cardMeta: '1' } } as object)}>
+              {label && (
+                <View style={styles.metaItem}>
+                  {label.emoji ? <Text style={styles.labelEmoji}>{label.emoji}</Text> : <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />}
+                  <Text style={styles.labelText} numberOfLines={1}>
+                    {label.name}
+                  </Text>
+                </View>
+              )}
+              {placed && (
+                <Text style={styles.metaTime} {...MONO}>
+                  {task.startTime}
+                </Text>
+              )}
+              {steps.total > 0 && (
+                <View style={styles.metaItem}>
+                  <StepsRing done={steps.done} total={steps.total} />
+                  <Text style={[styles.counter, steps.done === steps.total && styles.counterDone]} {...MONO}>
+                    {subCount}
+                  </Text>
+                </View>
+              )}
+              {task.recurrence && <Text style={styles.metaGlyph}>🔁</Text>}
+              {bell === 'set' && feats.dueDates && <Text style={styles.metaGlyph}>🔔</Text>}
+              {actualShown && !projected && <ActualText task={task} />}
+            </View>
+
+            {/* The controls: over the second line while hovered or focused, in the flow when expanded. */}
+            <View
+              style={[expanded ? styles.controlsInline : [styles.controlsOver, { backgroundColor: color?.tint ?? CARD_PLAIN }], !expanded && !live && !dayOpen && !moreOpen && !deleteArmed && styles.quiet]}
+              {...({ dataSet: { cardControls: '1' } } as object)}
+            >
+              <Control id={`${id}:label`} ctl="label" a11y={label ? `Label: ${label.name}` : 'Select label'} style={styles.labelBtn}>
+                {(anchor) => (
+                  <>
+                    {label ? (
+                      label.emoji ? <Text style={styles.labelEmoji}>{label.emoji}</Text> : <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />
+                    ) : (
+                      <Text style={styles.labelPlaceholder} numberOfLines={1}>
+                        🏷️
+                      </Text>
+                    )}
+                    <Popover id={`${id}:label`} anchor={anchor} width={272}>
+                      <LabelBody task={task} ops={wrapped} done={() => closePopover(true)} />
+                    </Popover>
+                  </>
+                )}
+              </Control>
+              <Pressable onPress={() => setExpanded((e) => !e)} style={styles.iconWithText} accessibilityRole="button" accessibilityLabel={`Subtasks ${subCount}`}>
+                <StepsRing done={steps.done} total={steps.total} />
+                <Text style={[styles.counter, steps.total > 0 && steps.done === steps.total && styles.counterDone]} {...MONO}>
+                  {subCount}
+                </Text>
+              </Pressable>
               <Control id={`${id}:repeat`} a11y={task.recurrence ? `Repeat: ${repeatText}` : 'Repeat'} style={styles.icon}>
                 {(anchor) => (
                   <>
@@ -380,43 +433,30 @@ export default function TaskCard({
                   </>
                 )}
               </Control>
-
-              <Pressable
-                onPress={() => setExpanded((e) => !e)}
-                style={styles.iconWithText}
-                accessibilityRole="button"
-                accessibilityLabel={`Subtasks ${subCount}`}
-              >
-                <Glyph char="☑️" on={!!task.subtasks && task.subtasks.length > 0} />
-                <Text style={styles.counter}>{subCount}</Text>
-              </Pressable>
-
               {feats.priority && (
-              <Control id={`${id}:priority`} a11y={`Priority: ${task.priority ?? 'normal'}`} style={styles.icon}>
-                {(anchor) => (
-                  <>
-                    <Glyph char={task.priority === 'low' ? '🔽' : task.priority === 'high' ? '🚩' : '🏳️'} on={!!task.priority} />
-                    <Popover id={`${id}:priority`} anchor={anchor} width={220}>
-                      <PriorityBody task={task} ops={wrapped} done={() => closePopover(true)} />
-                    </Popover>
-                  </>
-                )}
-              </Control>
+                <Control id={`${id}:priority`} a11y={`Priority: ${task.priority ?? 'normal'}`} style={styles.icon}>
+                  {(anchor) => (
+                    <>
+                      <Glyph char={task.priority === 'low' ? '🔽' : task.priority === 'high' ? '🚩' : '🏳️'} on={!!task.priority} />
+                      <Popover id={`${id}:priority`} anchor={anchor} width={220}>
+                        <PriorityBody task={task} ops={wrapped} done={() => closePopover(true)} />
+                      </Popover>
+                    </>
+                  )}
+                </Control>
               )}
-
               {feats.dueDates && (
-              <Control id={`${id}:reminder`} a11y={`Reminder: ${bell === 'default' ? 'default' : bell === 'off' ? 'off' : 'set'}`} style={styles.icon}>
-                {(anchor) => (
-                  <>
-                    <Glyph char={bell === 'off' ? '🔕' : '🔔'} on={bell === 'set'} />
-                    <Popover id={`${id}:reminder`} anchor={anchor} width={240}>
-                      <ReminderBody task={task} ops={wrapped} done={() => closePopover(true)} />
-                    </Popover>
-                  </>
-                )}
-              </Control>
+                <Control id={`${id}:reminder`} a11y={`Reminder: ${bell === 'default' ? 'default' : bell === 'off' ? 'off' : 'set'}`} style={styles.icon}>
+                  {(anchor) => (
+                    <>
+                      <Glyph char={bell === 'off' ? '🔕' : '🔔'} on={bell === 'set'} />
+                      <Popover id={`${id}:reminder`} anchor={anchor} width={240}>
+                        <ReminderBody task={task} ops={wrapped} done={() => closePopover(true)} />
+                      </Popover>
+                    </>
+                  )}
+                </Control>
               )}
-
               {!projected && (
                 <>
                   <Pressable
@@ -439,7 +479,24 @@ export default function TaskCard({
                       <Text style={{ fontSize: 13 }}>🍅</Text>
                     </Pressable>
                   )}
-                  <Control id={`${id}:actual`} ctl="actual" a11y={`Actual time of ${task.title}`} style={styles.actualBtn}>
+                </>
+              )}
+              <HeaderIcon id={`${id}:day`} glyph="📅" a11y={`Move ${task.title} to day`} shown={!renaming && !projected}>
+                {(anchor) => (
+                  <Popover id={`${id}:day`} anchor={anchor} width={248}>
+                    <MoveToDayBody task={task} ops={wrapped} done={() => closePopover(true)} />
+                  </Popover>
+                )}
+              </HeaderIcon>
+              <HeaderIcon id={`${id}:more`} ctl="more" icon="ellipsis-horizontal" a11y={`More actions for ${task.title}`} shown={!renaming}>
+                {(anchor) => (
+                  <Popover id={`${id}:more`} anchor={anchor} width={236}>
+                    <OverflowBody task={task} ops={wrapped} armed={deleteArmed} done={() => closePopover()} />
+                  </Popover>
+                )}
+              </HeaderIcon>
+              {!projected && (
+                <Control id={`${id}:actual`} ctl="actual" a11y={`Actual time of ${task.title}`} style={styles.actualBtn}>
                     {(anchor) => (
                       <>
                         <ActualText task={task} />
@@ -449,41 +506,51 @@ export default function TaskCard({
                       </>
                     )}
                   </Control>
-                </>
               )}
-
-              <View style={{ flex: 1 }} />
-
-              <Control id={`${id}:label`} ctl="label" a11y={label ? `Label: ${label.name}` : 'Select label'} style={styles.labelBtn}>
-                {(anchor) => (
-                  <>
-                    {label ? (
-                      <>
-                        {label.emoji ? <Text style={styles.labelEmoji}>{label.emoji}</Text> : <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.border }]} />}
-                        <Text style={styles.labelText} numberOfLines={1}>
-                          {label.name}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={styles.labelPlaceholder} numberOfLines={1}>
-                        Select label
-                      </Text>
-                    )}
-                    <Popover id={`${id}:label`} anchor={anchor} width={272}>
-                      <LabelBody task={task} ops={wrapped} done={() => closePopover(true)} />
-                    </Popover>
-                  </>
-                )}
-              </Control>
             </View>
 
             {expanded && <ExpandedBody task={task} ops={wrapped} cardNode={() => cardEl.current} projected={projected} />}
           </>
-        )}
+          );
+        }}
       </HoverPressable>
     </>
   );
 }
+
+// The steps of a task as a small ring that fills in sage as they are ticked and
+// turns solid with a tick when every one is done (2.26.0). Grey and empty with
+// no steps. Web only (a conic gradient on a plain element).
+export function StepsRing({ done, total, size = 16 }: { done: number; total: number; size?: number }) {
+  const all = total > 0 && done >= total;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const track = 'rgba(38,37,31,0.18)';
+  return (
+    <div
+      aria-hidden="true"
+      data-steps-ring={all ? 'done' : total > 0 ? 'part' : 'none'}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        flex: 'none',
+        display: 'grid',
+        placeItems: 'center',
+        background: all ? Colors.accent : `conic-gradient(${Colors.accent} ${pct}%, ${track} 0)`,
+      }}
+    >
+      {all ? (
+        <span style={{ color: Colors.onAccent, fontSize: size * 0.62, lineHeight: 1, fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>✓</span>
+      ) : (
+        <span style={{ width: size - 5, height: size - 5, borderRadius: '50%', background: '#FFFFFF' }} />
+      )}
+    </div>
+  );
+}
+
+// The timer and clock figures use Roboto Mono (2.26.0, lib's desktopFonts).
+const MONO = { dataSet: { mono: '1' } } as object;
+const CARD_PLAIN = '#FFFFFF';
 
 // A small icon button in the title row (calendar, overflow).
 function HeaderIcon({
@@ -573,7 +640,11 @@ function ActualText({ task }: { task: Task }) {
   const running = isTimerRunning(task);
   const now = useNow(running);
   const minutes = shownMinutes(task, now);
-  return <Text style={[styles.actualText, minutes === 0 && !running && styles.actualMuted, running && styles.actualRunning]}>{formatClock(minutes)}</Text>;
+  return (
+    <Text style={[styles.actualText, minutes === 0 && !running && styles.actualMuted, running && styles.actualRunning]} {...MONO}>
+      {formatClock(minutes)}
+    </Text>
+  );
 }
 
 // ---- expanded in place: notes and subtasks ----
@@ -791,28 +862,32 @@ function SubtaskRow({
   );
 }
 
+const SHADOW = '0 1px 2px rgba(38,37,31,0.06), 0 2px 6px rgba(38,37,31,0.05)';
+const SHADOW_HOVER = '0 2px 4px rgba(38,37,31,0.07), 0 6px 14px rgba(38,37,31,0.09)';
+
 const styles = StyleSheet.create({
-  card: { paddingVertical: 8, paddingHorizontal: 4, gap: 4 },
-  row: { minHeight: 44 },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
-  labelled: { borderLeftWidth: 4, borderRadius: 8, paddingLeft: 6 },
-  // Checkpoint 8.4: air between cards (12) and between left list rows (10).
-  cardGap: { marginTop: 12 },
-  rowGap: { marginTop: 10 },
-  hover: { backgroundColor: Colors.background },
-  // Hover on a tinted card: a hairline outline instead of replacing the tint.
-  labelledHover: { outlineWidth: 1, outlineStyle: 'solid', outlineColor: Colors.border },
-  dragging: { opacity: 0.4 },
+  // 2.26.0: the reference's measured card: padding 11 x 12, 12 px corners, a
+  // light shadow, no hairline. The list sets the 10 px gap between cards.
+  card: { paddingVertical: 11, paddingHorizontal: 12, gap: 6, borderRadius: 12, boxShadow: SHADOW, transitionDuration: '120ms', transitionProperty: 'box-shadow' } as object,
+  row: {},
+  // Only the shadow changes on hover: nothing moves (real check cp8e).
+  hover: { boxShadow: SHADOW_HOVER } as object,
+  done: { opacity: 0.72 },
+  dragging: { opacity: 0.35 },
   // A projected occurrence reads a little lighter than a stored one.
   projected: { opacity: 0.82 },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
-  title: { flex: 1, fontSize: 14, color: Colors.textPrimary, minWidth: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  check: { paddingTop: 1 },
+  box: { width: 18, height: 18, borderRadius: 6, borderWidth: 1.5, borderColor: 'rgba(38,37,31,0.35)', backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+  boxDone: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  title: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', color: Colors.textPrimary, minWidth: 0 },
   titleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   titleLow: { color: Colors.textSecondary },
   renameWrap: { flex: 1, minWidth: 0 },
   titleInput: {
     minWidth: 0,
     fontSize: 14,
+    fontWeight: '600',
     color: Colors.textPrimary,
     paddingVertical: 0,
     paddingHorizontal: 4,
@@ -822,33 +897,39 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     outlineWidth: 0,
   },
-  headerIcon: { padding: 3, width: 21, height: 21, alignItems: 'center', justifyContent: 'center' },
+  headerIcon: { padding: 3, width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   headerIconHidden: { opacity: 0, pointerEvents: 'none' },
-  chip: { paddingHorizontal: 7, height: 22, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.surface },
-  chipText: { fontSize: 11, fontWeight: '500', color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
-  startTime: { fontSize: 11, lineHeight: 22, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
+  chip: { paddingHorizontal: 7, height: 22, borderRadius: 6, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.75)' },
+  chipText: { fontSize: 11.5, fontWeight: '500', color: Colors.textPrimary },
+  startTime: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
   chipTextMuted: { color: Colors.textSecondary },
-  glyph: { fontSize: 14, lineHeight: 18 },
+  glyph: { fontSize: 13, lineHeight: 18 },
   glyphQuiet: { opacity: 0.45 },
-  labelEmoji: { fontSize: 13 },
+  labelEmoji: { fontSize: 12 },
   timerActive: { fontSize: 11, fontWeight: '600', color: Colors.accentText },
   timeSection: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingVertical: 2 },
   timeSectionText: { fontSize: 12, color: Colors.textPrimary },
   timeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 24, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
   timeBtnText: { fontSize: 11, color: Colors.accentText },
-  actualBtn: { paddingHorizontal: 5, height: 24, borderRadius: 8, justifyContent: 'center' },
-  actualText: { fontSize: 11, color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
+  actualBtn: { paddingHorizontal: 5, height: 24, borderRadius: 6, justifyContent: 'center' },
+  actualText: { fontSize: 11.5, color: Colors.textPrimary },
   actualMuted: { color: Colors.textSecondary },
   actualRunning: { color: Colors.accentText, fontWeight: '700' },
-  from: { fontSize: 12, color: Colors.textSecondary },
-  controls: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 2, minHeight: 28 },
-  icon: { width: 24, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8, flexDirection: 'row' },
-  iconWithText: { height: 28, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', borderRadius: 8, flexDirection: 'row', gap: 3 },
-  counter: { fontSize: 11, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
-  controlOpen: { backgroundColor: Colors.background },
-  labelBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, paddingHorizontal: 4, borderRadius: 8, flexShrink: 1, minWidth: 0 },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 22, paddingLeft: 26, overflow: 'hidden' },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5, minWidth: 0, flexShrink: 1 },
+  metaTime: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
+  metaGlyph: { fontSize: 12 },
+  controlsOver: { position: 'absolute', left: 34, right: 6, bottom: 9, height: 26, flexDirection: 'row', alignItems: 'center', gap: 0, borderRadius: 8, overflow: 'hidden' },
+  controlsInline: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 2, minHeight: 26, paddingLeft: 22 },
+  quiet: { opacity: 0 },
+  icon: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderRadius: 6, flexDirection: 'row' },
+  iconWithText: { height: 24, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center', borderRadius: 6, flexDirection: 'row', gap: 4 },
+  counter: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
+  counterDone: { color: Colors.accentText, fontWeight: '700' },
+  controlOpen: { backgroundColor: 'rgba(255,255,255,0.8)' },
+  labelBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 24, paddingHorizontal: 4, borderRadius: 6, flexShrink: 1, minWidth: 0 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  labelText: { fontSize: 12, color: Colors.textPrimary, flexShrink: 1 },
+  labelText: { fontSize: 12, fontWeight: '500', color: Colors.textPrimary, flexShrink: 1 },
   labelPlaceholder: { fontSize: 12, color: Colors.textSecondary },
   expanded: { gap: 4, paddingTop: 4 },
   notes: {

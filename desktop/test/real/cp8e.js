@@ -73,7 +73,8 @@ async function run() {
   const center = (title) =>
     js(`(() => { const el = ${q(cardSel(title))}; el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.x + 24), y: Math.round(r.y + Math.min(r.height / 2, 40)) }; })()`);
   const iconOpacity = (title) =>
-    js(`(() => { const el = ${q(`${cardSel(title)} [aria-label^="Move "]`)}; return el ? getComputedStyle(el).opacity : null; })()`);
+    // 2.26.0: the hover controls (Move to day among them) fade in as one row.
+    js(`(() => { const el = ${q(`${cardSel(title)} [aria-label^="Move "]`)}; const row = el && el.closest('[data-card-controls]'); return row ? getComputedStyle(row).opacity : null; })()`);
   // Moves the pointer onto the card until the page has seen it arrive (an
   // injected move is sometimes not turned into a hover on the first try).
   const hoverOn = async (title, c) => {

@@ -42,6 +42,8 @@ async function run() {
       T('far', 'Far ahead', { dueDate: day(9) }),
       T('bd', 'Brain one', { durationMinutes: 120 }),
       T('bd2', 'Brain two', { durationMinutes: 45 }),
+      T('sd', 'All steps done', { dueDate: today, subtasks: [{ id: 'd1', title: 'One', done: true }, { id: 'd2', title: 'Two', done: true }] }),
+      T('st', 'Steps task', { dueDate: today, subtasks: [{ id: 's1', title: 'First', done: true }, { id: 's2', title: 'Second', done: false }] }),
     ]),
   );
 
@@ -66,7 +68,7 @@ async function run() {
   const stripLeft = () => I.js(`Math.round(document.querySelector('[data-strip]').getBoundingClientRect().left)`);
   const rendered = () => I.js(`document.querySelectorAll('[data-strip] [data-day-col]').length`);
   const drag = async (fromExpr, toExpr, { hold = 300, release = true, offsetY = 0 } = {}) => {
-    const a = await I.js(`(() => { const e = ${fromExpr}; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + 24), y: Math.round(r.top + 14) }; })()`);
+    const a = await I.js(`(() => { const e = ${fromExpr}; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + 80), y: Math.round(r.top + 18) }; })()`);
     const b = await I.js(`(() => { const e = ${toExpr}; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 120) }; })()`);
     win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y });
     await C.sleep(80);
@@ -145,6 +147,27 @@ async function run() {
   check('dropping a task onto another card moves it to that day and never makes it a subtask', byId('t2').dueDate === today && !byId('t2').deletedAt && !(host.subtasks || []).some((x) => x.title === 'Mover'), JSON.stringify({ t2: byId('t2'), host: host.subtasks }));
   await I.click(I.byLabel('Show today in Tasks'));
   await C.sleep(300);
+
+  // ======== Step 3: the card, Inter, the steps ring ========
+  const fontOf = (expr) => I.js(`(() => { const e = ${expr}; return e ? getComputedStyle(e).fontFamily : ''; })()`);
+  const ring = () => I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Steps task"]'); const r = c && c.querySelector('[data-card-meta] [data-steps-ring]'); return r ? r.dataset.stepsRing : null; })()`);
+  const faces = await I.js(`[...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/["']/g, '') + ' ' + f.weight)`);
+  check('Inter is loaded from the app and draws the card titles (as the "Segoe UI" face of the text stack)', faces.some((f) => /^Segoe UI 600/.test(f)) && /Segoe UI/.test(await fontOf(`document.querySelector('[aria-label="Title Today task"]')`)), JSON.stringify(faces));
+  check('the estimate figure uses Roboto Mono', /Roboto Mono/.test(await fontOf(`document.querySelector('[aria-label^="Duration of Today task"] [data-mono]')`)));
+  const cardStyle = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); const s = getComputedStyle(c); return { r: s.borderTopLeftRadius, shadow: s.boxShadow !== 'none', border: s.borderTopWidth, pt: s.paddingTop, pl: s.paddingLeft }; })()`);
+  check('cards: 12 px corners, a light shadow, no hairline, padding 11 x 12', cardStyle.r === '12px' && cardStyle.shadow && cardStyle.border === '0px' && cardStyle.pt === '11px' && cardStyle.pl === '12px', JSON.stringify(cardStyle));
+  check('a task with one of two steps done shows a part filled ring', (await ring()) === 'part');
+  await I.js(`document.querySelector('[data-day-col="${today}"] [aria-label="Task Steps task"]').focus()`);
+  await I.key('s');
+  await C.waitFor(() => I.exists(`document.querySelector('[aria-label="Tick Second"]')`), 4000).catch(() => {});
+  await I.click(`document.querySelector('[aria-label="Tick Second"]')`, 500);
+  await C.waitFor(() => (byId('st').subtasks || []).every((x) => x.done), 6000).catch(() => {});
+  check('ticking the last step ticks it, and (as before) completes the task', (byId('st').subtasks || []).every((x) => x.done) && byId('st').completed === true);
+  const doneRing = await I.js(`(() => { const r = document.querySelector('[data-day-col="${today}"] [aria-label="Task All steps done"] [data-card-meta] [data-steps-ring]'); return r ? r.dataset.stepsRing : null; })()`);
+  check('every step done: the ring is solid with a tick', doneRing === 'done');
+  const ringBg = await I.js(`(() => { const r = document.querySelector('[data-day-col="${today}"] [aria-label="Task All steps done"] [data-card-meta] [data-steps-ring]'); return r ? getComputedStyle(r).backgroundColor : ''; })()`);
+  check('the full ring is the sage accent (#5C7A6B)', ringBg === 'rgb(92, 122, 107)', ringBg);
+  await I.shot('p9-03-cards');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

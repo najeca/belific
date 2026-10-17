@@ -139,7 +139,7 @@ export default function BrainDumpPane({
         {templatesOn && <TemplatePicker listKey={selected} refreshKey={refreshKey} onChanged={onChanged} />}
       </View>
 
-      <ScrollView ref={scrollRef('left') as never} style={styles.list} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef('left') as never} style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         {rows.length === 0 ? (
           <Text style={styles.empty}>
             {selected === undefined ? '🧠 Nothing waiting. Type above and press Enter; add the details later.' : '📋 This list is empty. Type above and press Enter to add to it.'}
@@ -159,7 +159,7 @@ export default function BrainDumpPane({
                 variant="row"
                 todayKey={todayKey}
                 onChanged={onChanged}
-                divider={index > 0}
+                divider={false}
                 dragging={drag?.item.id === id}
                 nodeRef={sourceRef(`row:${id}`, () => ({
                   kind: 'row',
@@ -239,6 +239,8 @@ const styles = StyleSheet.create({
   addText: { fontSize: 12, fontWeight: '700', color: Colors.onAccent },
   planned: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
   list: { flex: 1 },
+  // 2.26.0: cards 10 px apart, with room for their shadow.
+  listContent: { gap: 10, padding: 2, paddingBottom: 12 },
   empty: { marginTop: 12, fontSize: 14, color: Colors.textSecondary },
   row: {
     flexDirection: 'row',

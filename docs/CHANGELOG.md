@@ -31,6 +31,12 @@ to know the current version and recent history.
 - The left list's header no longer repeats the actual / estimate figure (its box shows "… planned").
 - New real check `desktop/test/real/p9.js` (strip, Today, arrows, wheel, add per day, no carry over, placeholder, past day refusal, never a merge). cp8b, cp8g, cp8h and p3 updated for the strip (cp8h keeps its weeks by naming seven days and jumping to them).
 
+### Cards and text (step 3)
+- **Inter for the whole interface and Roboto Mono for timer and clock figures**, shipped inside the app (`mobile/assets/fonts`, with their licences: Inter under the SIL Open Font License, Roboto Mono under the Apache License 2.0), so it works offline. `components/desktop/desktopFonts.ts` registers them (the same Inter files also stand in for "Segoe UI", the first family of react-native-web's text stack on Windows, so every text is Inter without touching the icon font or emoji); `mobile/metro.config.js` adds `.woff2` as an asset type. Desktop only.
+- **Cards** (measured from the reference): a soft solid fill in the label's colour (white with no label), no hairline, 12 px corners, a light shadow that deepens on hover (120 ms; nothing moves), padding 11 × 12, 10 px between cards. Two lines: a rounded tick box, the emoji and title (14 px, 600) and the estimate (mono); then what the task carries as quiet text (label, time, steps ring, repeat, reminder, time spent). The controls lie over that second line on hover or keyboard focus (so the card never changes height) and sit in the flow when the card is expanded.
+- **Steps ring:** the grey ☑️ is now a ring that fills in sage as steps are ticked and turns solid sage with a tick when every step is done.
+- p9 checks the fonts, the card's measured style and the ring.
+
 ## 2.25.0 — 2026-10-17 (build plan phase 8, calendar connections)
 
 **Desktop and iPhone. No table or column change. One grant written for review (003, not applied). One Edge Function written and tested locally, NOT deployed. The iPhone part needs a new TestFlight build (a new native module).** Section 7 steps 1 to 3 of the build plan; two way Google and Microsoft sync (step 4) is out.

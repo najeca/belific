@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   totals: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
   totalsOver: { color: Colors.accentText, fontWeight: '700' },
   columnList: { flex: 1 },
-  columnListContent: { gap: 10, paddingBottom: 16 },
+  columnListContent: { gap: 10, padding: 2, paddingBottom: 16 },
   placeholder: { height: 52, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: 'rgba(92,122,107,0.08)', justifyContent: 'center', paddingHorizontal: 12 },
   placeholderText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
 });

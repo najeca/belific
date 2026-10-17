@@ -5,5 +5,6 @@
 // the Day, "Jump to week", "Move to date" and duration fields. Every DOM
 // control on the desktop uses this constant instead. Web only; the iPhone
 // never imports it.
+// 2.26.0: Inter first (components/desktop/desktopFonts.ts ships it).
 export const DESKTOP_FONT_FAMILY =
-  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';

@@ -45,6 +45,7 @@ async function run() {
       T('cb', 'Cal block', { dueDate: today, startTime: '10:00', durationMinutes: 30 }),
       T('sd', 'All steps done', { dueDate: today, subtasks: [{ id: 'd1', title: 'One', done: true }, { id: 'd2', title: 'Two', done: true }] }),
       T('st', 'Steps task', { dueDate: today, subtasks: [{ id: 's1', title: 'First', done: true }, { id: 's2', title: 'Second', done: false }] }),
+      T('mr', 'Morning Routine', { dueDate: day(-1), recurrence: 'daily', completed: true, completedAt: stamp, subtasks: [{ id: 'm1', title: 'Stretch', done: true }, { id: 'm2', title: 'Water', done: true }, { id: 'm3', title: 'Journal', done: true }] }),
     ]),
   );
 
@@ -358,6 +359,26 @@ async function run() {
   check('no Priority row in the details', !(await I.js(`document.querySelector('[data-detail-panel]').innerText.includes('Priority')`)));
   await I.key('Escape');
   await C.sleep(300);
+
+  // ======== Step 10: the Quests page shows and ticks steps ========
+  await I.click(I.byLabel('Quests'), 600);
+  await I.waitBody('Morning Routine', 8000);
+  const count = () => I.js(`(() => { const e = document.querySelector('[data-quest="mr"] [data-quest-steps]'); return e ? e.dataset.questSteps : null; })()`);
+  check('a quest with steps shows how many are done for today ("Morning Routine 0/3")', (await count()) === '0/3' && (await I.js(`document.querySelector('[data-quest="mr"]').innerText.includes('0/3')`)), String(await count()));
+  check('its steps are hidden until it is expanded', !(await I.exists(`document.querySelector('[data-quest-step-list="mr"]')`)));
+  await I.click(I.byLabel('Show the steps of Morning Routine'), 300);
+  check('Show the steps lists them, for today', (await I.js(`(document.querySelector('[data-quest-step-list="mr"]') || {}).innerText || ''`)).includes('Stretch') && (await I.js(`document.querySelector('[data-quest-step-list="mr"]').innerText.includes('Today')`)));
+  await I.shot('p9-10-quest-open');
+  await I.click(I.byLabel('Stretch (Morning Routine)'), 500);
+  const occ = () => tasks().find((t) => t.id === `mr:${today}`);
+  await C.waitFor(() => !!occ() && (occ().subtasks || []).some((x) => x.done), 6000).catch(() => {});
+  check('ticking a step stores today\'s occurrence with that step done (the template is untouched)', !!occ() && (occ().subtasks || []).filter((x) => x.done).length === 1 && occ().subtasks.find((x) => x.done).title === 'Stretch' && (byId('mr').subtasks || []).every((x) => x.done), JSON.stringify({ occ: occ(), tpl: byId('mr').subtasks }));
+  await C.waitFor(async () => (await count()) === '1/3', 4000).catch(() => {});
+  check('the count reads 1/3 and the list stays open', (await count()) === '1/3' && (await I.exists(`document.querySelector('[data-quest-step-list="mr"]')`)), String(await count()));
+  await I.click(I.byLabel('Stretch (Morning Routine)'), 500);
+  await C.waitFor(() => !!occ() && (occ().subtasks || []).every((x) => !x.done), 4000).catch(() => {});
+  check('a second tap unticks it', !!occ() && (occ().subtasks || []).every((x) => !x.done));
+  await I.click(I.byLabel('Back'), 400);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

@@ -68,6 +68,10 @@ to know the current version and recent history.
 - **The iPhone part needs the next TestFlight build**: until then the iPhone keeps showing priority.
 - p9 checks no priority control on a card or in the details; p7 checks there is no Priority toggle and that editing keeps a stored High; p2 and cp8b updated (no priority control).
 
+### Quests show and tick their steps (step 10)
+- **A quest with steps shows how many are done** beside its name ("Morning Routine 0/3", in Roboto Mono) and the steps ring, and **expands** (the ring and chevron button, "Show the steps of …") to list them for the day that is due ("Today"). Ticking a step there is the same tick as on the board: a day that is only projected is stored on the first tick (decision 023), the series template is never changed, a second tap unticks, and ticking the last step completes the day as everywhere else. When this period is already done, the card shows the done day's steps. Quest cards are 340 px wide so the name and count share a line.
+- p9 seeds a daily "Morning Routine" with three steps and checks the 0/3 count, that the list is hidden until expanded, ticking a step (today's occurrence stored with that step done, the template untouched), the 1/3 count, and unticking.
+
 ## 2.25.0 — 2026-10-17 (build plan phase 8, calendar connections)
 
 **Desktop and iPhone. No table or column change. One grant written for review (003, not applied). One Edge Function written and tested locally, NOT deployed. The iPhone part needs a new TestFlight build (a new native module).** Section 7 steps 1 to 3 of the build plan; two way Google and Microsoft sync (step 4) is out.

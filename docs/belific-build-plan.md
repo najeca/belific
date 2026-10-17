@@ -160,6 +160,8 @@ Principles worth adopting from the reference, none of which are anyone's propert
 7. Time is the main piece of metadata. Chips on the right edge, totals as actual / estimated, timebox blocks coloured by label.
 8. Sidebars are always collapsible so the calendar or kanban can have the full width.
 
+**2.26.0 desktop redesign (decision 032, approved 2026-10-17):** three full height columns, Inter and Roboto Mono bundled, label-tinted cards with a soft shadow, a continuous strip of days, the details modal, and priority removed from the interface; it overrides points 1 and 3 above where they differ. Record: `docs/build-progress.md`, "Desktop redesign".
+
 Belific specific: the primary button and active states use the sage green, not a saturated accent. Daily Planning and Shutdown are overlays. Quests and Profile are the only things that change the screen on desktop home.
 
 ## 7. Integrations, in a sensible order

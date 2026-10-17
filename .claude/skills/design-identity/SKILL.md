@@ -38,5 +38,13 @@ Reference: a clean card-based UI with sage green primary action buttons, cream b
 ## Typography — deliberately deferred
 The global "Quiet Function" skill specifies Nunito (body) / Hahmlet (headlines). Belific v2's Phase 1–4 restructuring deliberately did NOT bundle these fonts — deferred as its own phase, because `expo-font` is the most build-fragile dependency in this project (see `docs/IOS_BUILD_NOTES.md` issues 4 and 5: autolinking silently skips it, needs a manual pod line, needs a deployment-target bump). Bundling two more font families should be verified with a local Release build in isolation before stacking anything else on top of it. Belific currently uses system fonts everywhere. Do not assume Nunito/Hahmlet are wired up — check `app.json`'s `plugins` and actual `fontFamily` usage in styles before relying on this.
 
+## Desktop override (2.26.0, approved by Jethro on 2026-10-17, decision 032)
+The Windows desktop redesign deliberately departs from the shared shell. Do not "fix" these back:
+- **Type:** Inter for the interface and Roboto Mono for times and durations, bundled as woff2 in `mobile/assets/fonts` and loaded by `components/desktop/desktopFonts.ts` (the desktop only; the iPhone keeps system fonts, and no `expo-font` is involved).
+- **Cards:** task cards are white or label-tinted tiles with 12 px corners and a soft shadow (no hairline), padding 11 × 12 and a 10 px gap. Card grids are fine: day columns, Quests cards and the Calendar.
+- **Measurements:** 20 px day headers with a muted date, and a 23 px title in the task details modal (not the 4/8/12 scale).
+- **Layout:** three full-height columns (the list on the left, Tasks or Calendar in the centre, the Timebox on the right), with the day actions in the profile menu.
+- **Unchanged:** the sage accent, emoji icons, sentence case, no motion, and the psychology rules above.
+
 ## Status
 This is a living reference. Update this file directly when palette or principles change - do not let color decisions drift across sessions without updating this file.

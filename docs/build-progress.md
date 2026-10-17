@@ -2,7 +2,7 @@
 
 The running record of `docs/belific-build-plan.md`. A new session can start cold from the plan and this file: read both, then `docs/CURRENT_TRUTH.md` for anything outside the plan. Add a checkpoint at the end of every phase.
 
-Branch: `v2-redesign`. App version: **2.25.0** (phase 2 is 2.19.0, phase 3 is 2.20.0, phase 4 is 2.21.0, phase 5 is 2.22.0, phase 6 is 2.23.0, phase 7 is 2.24.0, phase 8 is 2.25.0; phases 4 to 8 bumped in their own commits). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
+Branch: `v2-redesign`. App version: **2.26.0** (the desktop redesign; phase 2 is 2.19.0, phase 3 is 2.20.0, phase 4 is 2.21.0, phase 5 is 2.22.0, phase 6 is 2.23.0, phase 7 is 2.24.0, phase 8 is 2.25.0; phases 4 to 8 bumped in their own commits). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
 
 ## Where things stand
 
@@ -16,6 +16,7 @@ Branch: `v2-redesign`. App version: **2.25.0** (phase 2 is 2.19.0, phase 3 is 2.
 | 6 Analytics, Trash, data export | **Done 2026-10-16** (commit `85bb6dc`, 2.23.0). Desktop only. |
 | 7 Power features | **Done 2026-10-16** (2.24.0). Desktop only. |
 | 8 Calendar connections | **Done in code 2026-10-17** (2.25.0). Section 7 steps 1 to 3. Desktop and iPhone. Edge Function `belific-calendar-feed` and grant 003 written and tested locally, **not deployed or applied** (Jethro deploys). The iPhone part needs a new TestFlight build. |
+| Desktop redesign | **Done in code 2026-10-17** (2.26.0, ten steps, one commit each). Outside the phases, asked for by Jethro. Desktop, plus priority removed on the iPhone (needs a TestFlight build). Decision 032. |
 | 9 | Not started. |
 | iOS adaptation | Steps 1 (Brain Dump on tasks) and 2 (Convert routines) **done in code** with phase 4, plus the Quests tab. Not run on a device. Phases 2, 3 and 5 have no iPhone UI yet. |
 
@@ -316,6 +317,45 @@ iPhone (only in the 2.25.0 TestFlight build, which you make):
 8. In the Settings app, Belific, Calendars, turn access off. Back in Belific, the denied card and Settings, Calendars say how to turn it on, and Open Settings goes there.
 9. Settings, Calendars on the phone, signed in: after a sync it shows the same feed link as the desktop. Try Share or copy, then New link; the desktop shows the new link after a sync.
 10. The rest of the phone is unchanged: Today, Brain Dump, Quests, Tasks, sign in, and adding and editing a custom event in the Calendar tab.
+
+## Checkpoint: the desktop redesign (2026-10-17, 2.26.0)
+
+Asked for by Jethro with reference screenshots (kept outside the repo; layout, behaviour and feel only). Ten steps, each committed after typecheck, tests, the security scan, the iOS marker gate and every real check (p2 to p9, cp6 to cp12): 1 the three column layout and profile menu (`454f7d9`), 2 continuous days, Today, Add a task per day, no carry over, no drop to subtask (`135e84f`), 3 cards, Inter and Roboto Mono, the steps ring (`31b6dd4`), 4 Calendar drag and resize like the Timebox, keyboard moves, the rolling week (`c65ee59`), 5 the labels menu with 20 colours (`6d6d37d`), 6 Tasks, not Kanban (`c528296`), 7 the task details modal (`a162008`), 8 Today and the per day boxes (done in step 2), 9 priority removed (`faaa5a6`), 10 Quests steps (`ada856f`). What each does: `docs/CHANGELOG.md` 2.26.0. Decision 032. New real check `desktop/test/real/p9.js` (one section per step).
+
+## Decisions I made on my own (desktop redesign)
+
+1. **Cards are filled with the label's tint** (white without a label), not the reference's neutral cards: Belific already coloured by label.
+2. **The card's second line keeps its height when empty**, and the hover controls cover it, so a card never changes height on hover. No hover lift (cp8e requires the card to stay put).
+3. **Keyboard moves use plain arrows** (Up, Down, Left, Right, Shift+Up, Shift+Down on a focused block), not Alt: Alt is never a shortcut in Belific.
+4. **Past days have no Add a task box** and refuse drops (as decided); their totals still show.
+5. **From a page (Settings, Quests…) the profile menu's day actions go home first.**
+6. **Inter is applied through a "Segoe UI" alias**, so every existing font stack picks it up without touching each style. Roboto Mono is Apache 2.0 (Inter OFL); the licences sit beside the files.
+7. **The left list's header no longer shows actual against estimate**; the Add a task box shows "N planned" instead.
+8. **The day strip spans 5 years either way.**
+9. **Ticking the last step still completes the task** (an existing rule, kept everywhere, Quests included).
+10. **Trash keeps the old merge heuristic** for subtasks made by the removed drop to subtask, so old data still restores.
+11. **The window's minimum width is 760 px**; the left pane docks from 900 px, the Timebox from 1180 px, overlays below.
+12. **The Tasks Today button is called "Show today in Tasks"** (the Timebox already had a "Go to today").
+13. **The Timebox's show button sits at the right end of the centre's top row** when the Timebox is hidden.
+14. **Label colours:** the 12 new ones are locked per computer until "Every computer runs Belific 2.26 or later" is ticked; automatic colours only come from the original 8; an unknown key is now kept (drawn neutral) instead of replaced. Five new tints were lightened one step so Belific's secondary text stays AA on them.
+15. **"No label" in the label menu is now "Remove label"**; the filter keeps its "No label" row.
+16. **The details modal keeps a List row** (after Repeats; it was not in the agreed list but the field must stay reachable) and **a done box beside the title**. Escape closes it from a text field too (the title has the keyboard when it opens); a press outside closes it.
+17. **Priority:** the iPhone forms keep a stored priority and write it back unchanged; the `feature.priority` setting row is left in place, unread; the data export keeps the priority column.
+18. **Quests:** when the period is already done, the card shows the done day's steps; cards are 340 px wide so the name and count share a line.
+19. **Planning's Finish still moves unfinished earlier tasks to today** (phase 5 rule; the screen says so). The board itself never moves anything.
+20. **Step 6 (docs only)** was committed after the unit tests and the security scan; the real checks ran in full again with step 7.
+
+## Check by hand (desktop redesign)
+
+1. Resize the window from wide to 760 px: the left pane docks until 900 px and the Timebox until 1180 px, then each opens as an overlay from its show button; Escape or a press outside closes the overlay.
+2. The profile menu: Plan my day, Shut down my day, Quick capture, Search, Settings, Keyboard shortcuts, then the account items; their shortcuts still work with the menu closed.
+3. Tasks: scroll sideways through weeks without a jump; Today brings today back to the left edge; Add a task on a future day puts the task on that day; an unfinished task from earlier stays on its day.
+4. Cards: Inter text, the Roboto Mono time chip, the controls appear on hover without the card growing, the steps ring fills as steps are ticked.
+5. Calendar week: drag a block to another day and time, drag its bottom edge, drop a task from the list onto a time, drop a block on the all day row; arrow keys on a focused block. The same in the Timebox.
+6. Labels: New label with an emoji and an original colour; tick "Every computer runs Belific 2.26 or later" only once no computer runs an older desktop, then try a new colour.
+7. Task details: O on a card opens the centred modal; the ⋮ menu; Escape and a press outside close it.
+8. Priority: no flag or option anywhere on the desktop. On the iPhone after the 2.26.0 TestFlight build: no flag, no muted title, no picker; editing a task that had a priority keeps it (check on the desktop's export or in the data).
+9. Quests: a repeating task with steps shows "0/N", expands, and ticking a step there shows on today's card.
 
 ## Next session
 

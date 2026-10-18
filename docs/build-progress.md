@@ -2,7 +2,7 @@
 
 The running record of `docs/belific-build-plan.md`. A new session can start cold from the plan and this file: read both, then `docs/CURRENT_TRUTH.md` for anything outside the plan. Add a checkpoint at the end of every phase.
 
-Branch: `v2-redesign`. App version: **2.26.0** (the desktop redesign; phase 2 is 2.19.0, phase 3 is 2.20.0, phase 4 is 2.21.0, phase 5 is 2.22.0, phase 6 is 2.23.0, phase 7 is 2.24.0, phase 8 is 2.25.0; phases 4 to 8 bumped in their own commits). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
+Branch: `v2-redesign`. App version: **2.27.1** (the 2.27.1 small fix batch; 2.27.0 the fix batch; 2.26.0 the desktop redesign; phase 2 is 2.19.0, phase 3 is 2.20.0, phase 4 is 2.21.0, phase 5 is 2.22.0, phase 6 is 2.23.0, phase 7 is 2.24.0, phase 8 is 2.25.0; phases 4 to 8 bumped in their own commits). The bump was made after both phases were committed, in its own commit, once Jethro allowed `easConfig.test.ts` to change; from now on every feature or fix bumps `app.json` in the same commit (CHANGELOG rule: patch for fixes, minor for features).
 
 ## Where things stand
 
@@ -411,3 +411,42 @@ All ten items are in, one commit each (item 2 has a second commit that made its 
 8. ⋯ on a day: Mark as away with tasks on it asks (next free day, spread, leave); the day is greyed on the board and the Calendar; adding there warns; Daily Planning says when today or tomorrow is away. On the other computer (after it has 2.27) the day shows away too.
 9. Must do: the switch in the details and the ⋮ row; the small marker on the card.
 10. ⋯ on a day: Shift unfinished to next day and Push rest of week by a week, each with its count, then Undo.
+
+## Checkpoint: the small fix batch (2026-10-19, 2.27.1)
+
+Asked for by Jethro: five items, one commit each, the version bump in the last commit (with this file, the changelog and CURRENT_TRUTH). No schema change, no new table, no sync change; not pushed, not deployed. What each item does: `docs/CHANGELOG.md` 2.27.1. Real check `desktop/test/real/p11.js` has one section per item.
+
+## Decisions I made on my own (small fix batch)
+
+1. **Item 1: the card keeps its 3 px label edge.** The card had no lines between its parts; the left edge is the label's colour, not a separator. The modal keeps its 600 px width and 23 px title; only the rows were compacted. Say if the edge should go too.
+2. **Item 2: one Custom field** takes 90, 1:30 or 1 h 30 (not two boxes). Odd stored values show as "1 h 05" and are listed as "Set before".
+3. **Item 2: Actual time keeps the timer beside the drop-down** ("(Start timer)"; while it runs, the live figure and "Stop timer").
+4. **Item 2: in the Add a task box the drop-down shows once you type** and starts empty again after each add (the label is kept, as before). In Planning it is on the rows of the day being planned (steps 2 to 4; Shutdown step 2) and is a draft until Finish.
+5. **Item 3: the label on a card became a chip** (colour dot, emoji, name) as the brief describes it; before it was only a dot or an emoji. Calendar month and all-day chips and short blocks have no room, so they show no list emoji.
+6. **Item 4: an existing label saves its colour and emoji as they are picked, and its name on Enter or Save**; a new label is made only on Create.
+7. **Item 4: with the tick off and every original colour taken, the form picks nothing and Create asks for a colour.** That follows "two labels cannot share a colour" strictly; before, a quick label quietly reused a taken colour. The note says to tick the box (once every computer runs 2.27) or free a colour first.
+8. **Item 4: nothing makes a label without the form any more**: Enter on a new name, Create "…" and a suggestion (in the menu and on the Labels page) open it filled in.
+9. **Item 4: the list in the label menu scrolls inside about 270 px**, so the menu stays about 320 px (decision 021); the form gets up to 540 px.
+10. **Item 4: tooltips moved onto plain wrappers.** react-native-web drops `title` on a Pressable, so the 2.27.0 "Used by …" tooltip never showed; it does now, with the lock reason.
+11. **Item 5: the picker opens in place, not as a popover**, because emoji fields sit inside popovers (the label form, the ⋮ menu) and only one popover is open at a time. Escape closes the picker first (the `data-own-keys` mark tells the popover, the details and the Labels overlay to leave Escape and the arrows to it).
+12. **Item 5: Emoji 15.0 and no skin tones.** That is what Windows 11's Segoe UI Emoji draws. The recent row is per computer (kv), never synced.
+13. **Item 5: `THIRD_PARTY_NOTICES.md` is new** (there was none, only licence files beside the fonts). It covers emojibase-data, Inter, Roboto Mono and Electron, and ships in the app's resources folder (`desktop/package.json` extraResources).
+14. **Item 2 needed a follow-up commit**: the calendar feed's Edge Function keeps a byte-for-byte copy of `lib/duration.ts` (its test caught the drift). The function does not use the new helpers; nothing to redeploy.
+
+## Small fix batch done (2026-10-19): 2.27.1
+
+**Paused (2026-10-19) by Jethro, before the final gates finished.** Done: all five items committed (plus the item 2 follow-up), version 2.27.1, typecheck clean, 767 unit tests pass, security scan passed, iOS export plus marker gate (22 markers, 0 hits), desktop `npm test`. Real checks in the final run:
+- **Passed:** p2 (44), p3 (59), p4 (29), p5 (34), p6 (39), p7 (55), p8 (44), p9 (68), p10 (87), p11 (79), cp6 (61), cp8c (23), cp8d (13), cp8e (17), cp8h (53), cp9 (106), cp10 (50), cp11 (52), cp12 (58).
+- **Failed, not looked at yet:** cp8g, 32/33: "the details are for the same task (its title, and the full 8 hour estimate)" (probably reads the old estimate text; item 2 shows "8 h" now).
+- **Not run:** cp7 (`node test/real/run-cp7.js`), cp8b (`node test/real/run-cp8b.js`) and cp8f (`node test/real/run-cp8f.js`). In earlier targeted runs during the batch cp8b passed 56/56 plus relaunch 2/2 and cp8f 23/23, but not in this final run.
+- **Still to do:** look at cp8g, run the checks not run, then write the final gates line here in place of this note.
+
+## Check by hand (small fix batch, 2.27.1)
+
+1. **Details modal:** open any task. Every row is one line, name on the left and value on the right, with no lines between rows. Make the window short: the modal scrolls inside itself and nothing is cut off.
+2. **Time drop-downs:** Estimated and Actual time each open the short list. Try the keyboard only: Tab to it, then Enter, Down, Enter. Try Custom with 90 and with 1:30, then Clear. Check the same drop-down in the Add a task box (type a title first) and in Daily Planning (step 2), and that Escape there closes only the drop-down. Ctrl+E and Ctrl+B on a card open it.
+3. **List emoji:** give a list an emoji (list menu, This list). Its tasks show it small before the label chip on the board, in the left pane, on Timebox and Calendar blocks, and on the details List row. A list with no emoji shows nothing.
+4. **Labels:** on a task, open the label menu, then New label: name, emoji and colour show together; Create puts it on the task. The pencil on a label edits all three. On the Labels page, the dot, emoji or name opens the same form, and Add shows all three. With "Every computer runs Belific 2.27 or later" off, the last 12 colours and the wheel show a lock. If all 8 original colours are taken, the note says so. Change the colour of an old label.
+5. **Emoji picker:** in the ⋮ menu, Emoji, type "game" and get 🎮. Check the recent row, the category tabs and Win+. pasting. Keyboard only: Down from the search box, the arrows, then Enter; Escape closes only the picker.
+6. **Emoji on other computers:** set a task, label or list emoji from a newer emoji (for example 🫠) and check it shows on the iPhone and on any other computer, which draw it with their own font.
+7. **Windows build:** after the next installer build, `THIRD_PARTY_NOTICES.md` is in the app's `resources` folder.

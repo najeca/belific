@@ -8,6 +8,36 @@ to know the current version and recent history.
 
 ---
 
+## 2.27.1 — 2026-10-19 (small fix batch)
+
+**Five fixes asked for by Jethro, one commit each (plus a follow-up that resyncs the calendar feed's vendored `duration.ts`); the version moves to 2.27.1 in the last commit. No schema change, no new table, no sync change, nothing pushed or deployed. The Ellie screenshots were used for behaviour and layout only (no icon, logo, text or asset of theirs). Nothing here changes an iPhone screen.**
+
+### 1. A compact details modal, no lines
+- Every row is one 32 px line: the name on the left, the value on the right, tight even spacing, **no divider lines**. Same row order. Values read as text until used (borderless date, time and list fields; quiet Repeats, Reminder and Label); Remove time is a small ×; Notes and the subtask field have no boxes. The modal keeps its own scroll, so a short window cuts nothing off.
+
+### 2. One time drop-down for every task length
+- **`DurationSelect`**: a small button with the length as short text ("45 min", "1 h 30") that opens 5, 10, 15, 20, 30, 45 minutes, 1 to 4 hours in 15 minute steps, 5, 6 and 8 hours, then **Custom** (type 90, 1:30 or 1 h 30) and **Clear**. Enter, Space or Down opens it at the current value; Up and Down move; Enter chooses; Escape closes.
+- Used for **Estimated time** and **Actual time** in the details (the timer stays beside Actual time), in the **Add a task box** (once you type; the new task gets it) and on the task rows of **Daily Planning and Shutdown** (a draft until Finish). Ctrl+E and Ctrl+B open the details with that drop-down open. Stored exactly as before (whole minutes in `durationMinutes` and `actualMinutes`).
+- Fixed on the way: Escape in a drop-down inside Planning closed the whole flow; it now closes only the drop-down.
+
+### 3. The list's emoji on every card
+- A card shows its list's emoji, small, at the start of the meta line, before the label, which is now a **coloured chip** (dot, emoji and name). No list, or a list without an emoji: nothing. Tasks board, left pane, Timebox and Calendar blocks tall enough for a time line, and the details List row. Lists already stored and edited an emoji, so no new storage.
+
+### 4. A label's colour is always there
+- **Why it failed:** picking a colour did save once the picker was reached, but it was hard or impossible to reach: New label put its form under the list (below the fold of a 320 px menu), editing hid behind a hover-only pencil, the details Label row was a plain select, the Labels page Add and Enter on a typed name made a label with a colour picked for you, and the selected swatch was never announced. Before the tick, nine labels take all 8 original colours, so every swatch was dimmed with no word why.
+- **One small form, `LabelForm`, with name, emoji and colour together** for creating and editing, in the task label menu (card, details, Add a task box) and on the Labels page. New label, Enter on a new name, Create "…" and a suggestion all open it. Editing works for every label, 2.26 colours included.
+- The label menu lists each label with its colour dot, emoji and name and a pencil; New label, Edit labels, Remove label. The details Label row shows the label and opens that menu.
+- The colour section is never hidden: before "Every computer runs Belific 2.27 or later" the 12 new colours and the wheel show a lock with the reason; when every allowed colour is taken it says so and nothing is pre-picked. Still no two labels with one colour.
+
+### 5. One emoji picker everywhere
+- **`EmojiPicker`**, used by every emoji field (tasks, labels, lists): a search box over names and keywords ("game" finds the controller), a recently used row, a tab per category, the system emoji font, fully usable from the keyboard.
+- Data: **emojibase-data 17.0.0 (MIT)**, trimmed to Emoji 15.0 with no skin tones by `mobile/scripts/build-emoji-data.js` into `mobile/lib/emojiData.ts` (1,870 emoji, 94 KB source; the desktop bundle grows by about 117 KB, 36 KB gzipped). Bundled, no network calls, no dependency added.
+- New **`THIRD_PARTY_NOTICES.md`** (emojibase-data, Inter, Roboto Mono, Electron), shipped in the Windows app's resources folder.
+
+Real check: new `desktop/test/real/p11.js` (one section per item, 79 checks). p2, p7, p9, p10, cp8b, cp8c, cp8f, cp8h and cp9 follow the new drop-down, label form and picker.
+
+---
+
 ## 2.27.0 — 2026-10-18 (fix batch for the desktop redesign)
 
 **Ten fixes asked for by Jethro after using 2.26.0, one commit each; the version in `mobile/app.json` moves to 2.27.0 in the last commit (as asked). No schema change, no new table, no sync change. The Ellie screenshots were used for behaviour and layout only (no icon, logo, text or asset of theirs). Nothing here changes an iPhone screen.**

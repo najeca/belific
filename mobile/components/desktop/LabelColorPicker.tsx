@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { LABEL_COLORS, isCustomColor, isNewColor, labelColor } from '../../lib/labelColors';
+import { LABEL_COLORS, colorClash, isCustomColor, isNewColor, labelColor } from '../../lib/labelColors';
 import type { Project } from '../../lib/types';
 import ColorWheel from './ColorWheel';
 import { setNewColorsOk, useNewColorsOk } from './uiStore';
@@ -14,6 +14,9 @@ export const NEW_COLORS_TICK = 'Every computer runs Belific 2.27 or later';
 // locked until "Every computer runs Belific 2.27 or later" is ticked: a desktop
 // before 2.26 changes such a label back to one of the eight on every device, and
 // 2.26 draws it neutral (see labelColors.ts).
+// No two labels share a colour (item 3): a colour another label has is dimmed
+// with a small marker and cannot be chosen; the wheel refuses one that is too
+// close and says which label has it.
 export function LabelColorPicker({
   value,
   onPick,
@@ -24,9 +27,9 @@ export function LabelColorPicker({
   value?: string;
   onPick: (key: string) => void;
   forName: string;
-  // Every live label (the colour wheel's clash check).
+  // Every live label, to show the colours already taken.
   labels?: Pick<Project, 'key' | 'name' | 'colorKey' | 'deletedAt'>[];
-  // The label being edited.
+  // The label being edited, whose own colour is not "taken".
   exceptKey?: string;
 }) {
   const ok = useNewColorsOk();
@@ -39,19 +42,20 @@ export function LabelColorPicker({
         {LABEL_COLORS.map((c) => {
           const on = value === c.key;
           const locked = isNewColor(c.key) && !ok;
-          const off = locked;
+          const takenBy = on ? undefined : colorClash(labels, c.key, exceptKey);
+          const off = locked || !!takenBy;
           return (
             <Pressable
               key={c.key}
               onPress={() => !off && onPick(c.key)}
               disabled={off}
-              style={[styles.swatch, on && styles.swatchOn, locked && styles.locked]}
+              style={[styles.swatch, on && styles.swatchOn, locked && styles.locked, takenBy && styles.taken]}
               accessibilityRole="button"
               accessibilityState={{ selected: on, disabled: off }}
-              accessibilityLabel={`${c.name} colour for ${forName}`}
-              {...({ dataSet: { swatch: c.key }, title: c.name } as object)}
+              accessibilityLabel={`${c.name} colour for ${forName}${takenBy ? `, used by ${takenBy.name}` : ''}`}
+              {...({ dataSet: { swatch: c.key, ...(locked ? { locked: '1' } : {}), ...(takenBy ? { taken: takenBy.name } : {}) }, title: takenBy ? `Used by ${takenBy.name}` : c.name } as object)}
             >
-              <View style={[styles.fill, { backgroundColor: c.edge }]} />
+              <View style={[styles.fill, { backgroundColor: c.edge }]}>{takenBy && <View style={styles.mark} />}</View>
             </Pressable>
           );
         })}
@@ -62,7 +66,7 @@ export function LabelColorPicker({
           accessibilityRole="button"
           accessibilityState={{ expanded: wheel, disabled: !ok, selected: custom }}
           accessibilityLabel={`Any colour for ${forName}`}
-          {...({ dataSet: { swatch: 'wheel' } } as object)}
+          {...({ dataSet: { swatch: 'wheel', ...(!ok ? { locked: '1' } : {}) } } as object)}
         >
           <View style={[styles.fill, custom && current ? { backgroundColor: current.edge } : styles.rainbow]} />
         </Pressable>
@@ -101,7 +105,9 @@ const styles = StyleSheet.create({
   swatch: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
   swatchOn: { borderColor: Colors.textPrimary },
   locked: { opacity: 0.3 },
+  taken: { opacity: 0.35 },
   fill: { width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  mark: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: Colors.textPrimary },
   rainbow: { backgroundImage: 'conic-gradient(#E23B3B, #F07A1A, #BF9100, #1F9E4E, #0B97CF, #4F46C8, #CC36B4, #E23B3B)' } as object,
   tickRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 },
   tick: { width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: Colors.textSecondary, alignItems: 'center', justifyContent: 'center' },

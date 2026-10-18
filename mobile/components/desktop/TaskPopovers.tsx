@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { addDays, clampToToday, dateKey, formatShortDate, isDateKey, parseDateKey } from '../../lib/kanban';
 import { DURATION_PRESETS, parseDuration, presetLabel } from '../../lib/duration';
-import { labelColor, nextColorKey } from '../../lib/labelColors';
+import { colorClash, labelColor, nextColorKey } from '../../lib/labelColors';
 import { LabelColorPicker } from './LabelColorPicker';
 import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
 import { availableSuggestions, findLabelByName, normalizeName } from '../../lib/labelRules';
@@ -414,7 +414,12 @@ export function LabelBody({ task, ops, done }: BodyProps) {
       setNote({ text: 'A label with that name already exists', warn: true });
       return;
     }
-    const result = await createLabel(form.name, form.emoji, form.colorKey);
+    const clash = colorClash(labels, form.colorKey);
+    if (clash) {
+      setNote({ text: `"${clash.name}" already has that colour. Pick another.`, warn: true });
+      return;
+    }
+    const result = await createLabel(form.name, form.emoji, form.colorKey, newColorsOk);
     if (!result) return;
     notifyChanged();
     await choose(result.label.key);
@@ -517,9 +522,15 @@ export function LabelBody({ task, ops, done }: BodyProps) {
               <LabelColorPicker
                 value={l.colorKey}
                 forName={l.name}
+                labels={labels}
+                exceptKey={l.key}
                 onPick={async (key) => {
+                  const problem = await setLabelColor(l.key, key);
+                  if (problem) {
+                    setNote({ text: problem, warn: true });
+                    return;
+                  }
                   setLabels((prev) => prev.map((p) => (p.key === l.key ? { ...p, colorKey: key } : p)));
-                  await setLabelColor(l.key, key);
                   notifyChanged();
                 }}
               />
@@ -617,7 +628,7 @@ export function LabelBody({ task, ops, done }: BodyProps) {
             autoFocus
           />
           <EmojiField label="New label emoji" value={form.emoji} onChange={(emoji) => setForm((f) => (f ? { ...f, emoji } : f))} />
-          <LabelColorPicker value={form.colorKey} forName="the new label" onPick={(colorKey) => setForm((f) => (f ? { ...f, colorKey } : f))} />
+          <LabelColorPicker value={form.colorKey} forName="the new label" labels={labels} onPick={(colorKey) => setForm((f) => (f ? { ...f, colorKey } : f))} />
           <View style={styles.linkRow}>
             <Pressable onPress={submitForm} disabled={!form.name.trim()} accessibilityRole="button" accessibilityLabel="Create the new label">
               <Text style={[styles.link, !form.name.trim() && styles.disabled]}>Create</Text>

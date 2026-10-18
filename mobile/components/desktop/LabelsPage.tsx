@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { labelColor } from '../../lib/labelColors';
+import { labelColor, sharedColorGroups } from '../../lib/labelColors';
+import { useNewColorsOk } from './uiStore';
 import { LabelColorPicker } from './LabelColorPicker';
 import { availableSuggestions, deletedLabelTarget, findLabelByName } from '../../lib/labelRules';
 import { openCountText, openTaskCounts } from '../../lib/labelUsage';
@@ -44,6 +45,9 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
 
   const counts = openTaskCounts(tasks);
   const suggestions = availableSuggestions(labels);
+  const newColorsOk = useNewColorsOk();
+  // 2.27.0: labels that already share a colour are left alone, with a notice.
+  const shared = sharedColorGroups(labels);
 
   async function add(name: string) {
     const trimmed = name.trim();
@@ -53,13 +57,20 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
       return;
     }
     setAddProblem(null);
-    await createLabel(trimmed);
+    await createLabel(trimmed, undefined, undefined, newColorsOk);
     setNewName('');
     await changed();
   }
 
   return (
     <View style={styles.column}>
+        {shared.length > 0 && (
+          <View style={styles.notice} accessibilityLabel="Labels that share a colour" {...({ dataSet: { sharedColors: '1' } } as object)}>
+            <Text style={styles.noticeText}>
+              {shared.map((g) => g.map((l) => l.name).join(' and ')).join('; ')} share a colour. Change one of them to tell them apart on the board and the calendar.
+            </Text>
+          </View>
+        )}
         <View style={styles.card}>
           {loaded && labels.length === 0 && <Text style={styles.empty}>No labels yet. Add one below.</Text>}
           {labels.map((label, i) => (
@@ -176,11 +187,15 @@ function LabelRow({
   }
 
   async function pickColor(key: string) {
-    closePopover(true);
-    if (key !== label.colorKey) {
-      await setLabelColor(label.key, key);
-      await onChanged();
+    if (key === label.colorKey) return closePopover(true);
+    const msg = await setLabelColor(label.key, key);
+    if (msg) {
+      setProblem(msg);
+      return;
     }
+    closePopover(true);
+    setProblem(null);
+    await onChanged();
   }
 
   async function confirmDelete() {
@@ -292,7 +307,7 @@ function LabelRow({
       )}
       <Popover id={colorId} anchor={get} width={268} label={`Colour for ${label.name}`}>
         <View style={{ padding: 12 }}>
-          <LabelColorPicker value={label.colorKey} forName={label.name} onPick={pickColor} />
+          <LabelColorPicker value={label.colorKey} forName={label.name} onPick={pickColor} labels={labels} exceptKey={label.key} />
         </View>
       </Popover>
     </View>
@@ -330,6 +345,8 @@ const styles = StyleSheet.create({
   count: { fontSize: 12, color: Colors.textSecondary },
   iconBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   problem: { marginTop: 4, fontSize: 12, color: Colors.danger },
+  notice: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  noticeText: { fontSize: 13, color: Colors.textPrimary, lineHeight: 18 },
   confirm: { marginTop: 6, marginBottom: 4, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, gap: 8 },
   confirmRow: { flexDirection: 'row', gap: 8 },
   body: { fontSize: 14, color: Colors.textPrimary },

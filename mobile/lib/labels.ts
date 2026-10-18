@@ -1,5 +1,5 @@
 import { addProject, deleteProject, loadTasks, patchProjects, updateProject, updateTask } from './storage';
-import { assignMissingColors, nextColorKey } from './labelColors';
+import { assignMissingColors, colorClash, nextColorKey } from './labelColors';
 import { deletedLabelTarget, findLabelByName, renameProblem } from './labelRules';
 import { firstEmoji } from './emoji';
 import type { Project } from './types';
@@ -16,9 +16,13 @@ export async function loadLabels(): Promise<Project[]> {
 }
 
 // Changes one label's colour: a real edit since checkpoint 5 (stamped and
-// synced like a rename).
-export async function setLabelColor(key: string, colorKey: string): Promise<void> {
+// synced like a rename). 2.27.0: a colour another label already has (or one too
+// close to it) is refused, and the sentence to show is returned instead.
+export async function setLabelColor(key: string, colorKey: string): Promise<string | null> {
+  const clash = colorClash(await loadLabels(), colorKey, key);
+  if (clash) return `"${clash.name}" already has that colour`;
   await patchProjects((raw) => raw.map((p) => (p.key === key ? { ...p, colorKey } : p)), { stamp: true });
+  return null;
 }
 
 // Sets or clears a label's emoji (a real, synced edit, build plan phase 2). Text
@@ -41,7 +45,8 @@ export async function setLabelEmoji(key: string, emojiText: string | undefined):
 // Creates a label, or returns the existing one with the same name (trimmed,
 // case insensitive) so a name never exists twice. A new label takes the next
 // unused palette colour unless one is chosen (2.26.0, the New label form); the
-// 2.27 colours only when `allowNew` (every computer runs 2.27).
+// 2.27 colours only when `allowNew` (every computer runs 2.27). A chosen colour
+// another label has is not used (2.27.0): the next free one is taken instead.
 export async function createLabel(name: string, emojiText?: string, colorKey?: string, allowNew = false): Promise<{ label: Project; created: boolean } | null> {
   const trimmed = name.trim();
   if (!trimmed) return null;
@@ -54,7 +59,7 @@ export async function createLabel(name: string, emojiText?: string, colorKey?: s
     name: trimmed,
     createdAt: now,
     updatedAt: now,
-    colorKey: colorKey ?? nextColorKey(labels, allowNew),
+    colorKey: colorKey && !colorClash(labels, colorKey) ? colorKey : nextColorKey(labels, allowNew),
   };
   const emoji = firstEmoji(emojiText);
   if (emoji) label.emoji = emoji;

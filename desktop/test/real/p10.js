@@ -46,7 +46,11 @@ async function run() {
   );
   fs.writeFileSync(
     path.join(dataDir, 'belific_projects.kv'),
-    JSON.stringify([{ key: 'pw', name: 'Work', colorKey: 'sage', createdAt: stamp, updatedAt: stamp }]),
+    // Work and Home already share Sage (item 3: left alone, with a notice).
+    JSON.stringify([
+      { key: 'pw', name: 'Work', colorKey: 'sage', createdAt: stamp, updatedAt: stamp },
+      { key: 'ph', name: 'Home', colorKey: 'sage', createdAt: stamp, updatedAt: stamp },
+    ]),
   );
 
   const read = readKv(dataDir);
@@ -179,8 +183,8 @@ async function run() {
   };
   await openLabelMenu('Later task');
   await I.click(I.byLabel('New label'), 300);
-  const names = await I.js(`[...document.querySelectorAll('[data-new-label-form] [data-swatch]')].map((s) => s.getAttribute('aria-label').replace(' colour for the new label', ''))`);
-  check('2: the swatches are the original eight, then red, orange, yellow, lime, green, teal, cyan, blue, indigo, purple, magenta, pink, then the wheel', JSON.stringify(names) === JSON.stringify(['Sage', 'Clay', 'Sky', 'Sand', 'Plum', 'Moss', 'Rose', 'Slate', 'Red', 'Orange', 'Yellow', 'Lime', 'Green', 'Teal', 'Cyan', 'Blue', 'Indigo', 'Purple', 'Magenta', 'Pink', 'Any colour for the new label']), JSON.stringify(names));
+  const names = await I.js(`[...document.querySelectorAll('[data-new-label-form] [data-swatch]')].map((s) => s.getAttribute('aria-label').replace(' colour for the new label', '').replace(/, used by .*$/, ''))`);
+  check('2: the swatches are the original eight, then red, orange, yellow, lime, green, teal, cyan, blue, indigo, purple, magenta, pink, then the wheel', JSON.stringify(names) === JSON.stringify(['Sage', 'Clay', 'Sky', 'Sand', 'Plum', 'Moss', 'Rose', 'Slate', 'Red', 'Orange', 'Yellow', 'Lime', 'Green', 'Teal', 'Cyan', 'Blue', 'Indigo', 'Purple', 'Magenta', 'Pink', 'Any']), JSON.stringify(names));
   check('2: the new colours need "Every computer runs Belific 2.27 or later"', (await I.exists(I.byLabel('Every computer runs Belific 2.27 or later'))) && (await I.js(`document.querySelector('[data-swatch="wheel"]').getAttribute('aria-disabled')`)) === 'true');
   await I.click(I.byLabel('Every computer runs Belific 2.27 or later'), 300);
   await I.click(`document.querySelector('[data-new-label-form] [data-swatch="wheel"]')`, 300);
@@ -199,6 +203,37 @@ async function run() {
   const vtEdge = await I.js(`getComputedStyle(${card(today, 'Later task')}).borderLeftColor`);
   check('2: the card draws it (edge in the colour, a light tint)', vtEdge === 'rgb(122, 63, 208)', vtEdge);
   await I.shot('p10-02-colours');
+
+  // ======== 3. No two labels with the same colour ========
+  await openLabelMenu('Today task');
+  await I.click(I.byLabel('New label'), 300);
+  const sw = (key) => `document.querySelector('[data-new-label-form] [data-swatch="${key}"]')`;
+  const sageTaken = await I.js(`(() => { const s = ${sw('sage')}; return s ? [s.getAttribute('data-taken'), s.getAttribute('aria-disabled'), getComputedStyle(s).opacity, !!s.querySelector('div div')] : null; })()`);
+  check('3: a taken colour is dimmed, marked and says which label has it', !!sageTaken && sageTaken[0] === 'Work' && sageTaken[1] === 'true' && Number(sageTaken[2]) < 0.5 && sageTaken[3], JSON.stringify(sageTaken));
+  check('3: a free colour is not marked', (await I.js(`${sw('clay')}.getAttribute('data-taken')`)) === null);
+  const formColour = async () => I.js(`[...document.querySelectorAll('[data-new-label-form] [data-swatch]')].filter((s) => s.getAttribute('aria-selected') === 'true').map((s) => s.getAttribute('data-swatch')).join(',')`);
+  const pickedBefore = await formColour();
+  await I.click(sw('sage'), 300);
+  check('3: a taken colour cannot be picked', (await formColour()) === pickedBefore && pickedBefore !== 'sage', pickedBefore);
+  await I.click(sw('wheel'), 300);
+  await I.click(I.byLabel('Hex colour for the new label'), 150);
+  await I.js('document.activeElement.select()');
+  await I.type('#7b41d0');
+  await C.sleep(200);
+  const clashName = await I.js(`document.querySelector('[data-color-clash]')?.getAttribute('data-color-clash') ?? null`);
+  const useOff = await I.js(`document.querySelector('[aria-label="Use this colour for the new label"]').getAttribute('aria-disabled')`);
+  check('3: the wheel refuses a colour too close to another label and names it', clashName === 'Violet thing' && useOff === 'true' && (await I.body()).includes('Too close to the colour of “Violet thing”'), JSON.stringify([clashName, useOff]));
+  await I.key('Escape');
+  await C.sleep(300);
+  if (await I.exists(I.byLabel('Edit labels'))) await I.key('Escape');
+  await openLabelMenu('Today task');
+  await I.click(I.byLabel('Edit labels'), 600);
+  await C.waitFor(() => I.exists('document.querySelector(\'[data-shared-colors]\')'), 4000).catch(() => {});
+  const notice = await I.js(`document.querySelector('[data-shared-colors]')?.innerText ?? ''`);
+  check('3: the Labels page names the labels that already share a colour, and leaves them alone', notice.includes('Work and Home share a colour') && labelNamed('Work').colorKey === 'sage' && labelNamed('Home').colorKey === 'sage', notice);
+  await I.shot('p10-03-taken');
+  await I.key('Escape');
+  await C.sleep(300);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

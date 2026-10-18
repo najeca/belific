@@ -29,6 +29,14 @@ to know the current version and recent history.
 - **The colour wheel:** the last swatch opens a picker for any colour (hue, shade and a hex field, `ColorWheel.tsx`), stored as `#RRGGBB` in the existing label colour field (no schema change). Its card tint is worked out from it so text stays AA.
 - **The tick is now "Every computer runs Belific 2.27 or later"** (a new local key, so a 2.26 tick does not count), and it unlocks the twelve and the wheel. An older Belific never breaks on a custom colour: 2.26 keeps a key it does not know and draws it neutral, the iPhone shows no label colours and passes the value through, and a desktop before 2.26 would change it back to one of the eight (the tick is there for that).
 - A new label takes the first free colour; the vibrant ones only once the tick is on.
+- Real checks: p9 step 5 and cp9 (the 20 swatches, the lock, the teal tint and edge, the new local key) and p10 section 2 (the order of the swatches, the tick, a wheel colour stored as hex and drawn on the card).
+
+### 3. No two labels with the same colour
+- **A colour another label already has is dimmed, carries a small white marker and says which label has it** ("Sage colour for the new label, used by Work"); it cannot be picked, in the label menu's New label form, on the Labels page or anywhere else the picker shows. Locked colours (no 2.27 tick yet) and taken colours are told apart.
+- **The colour wheel refuses a colour too close to another label's** (CIE Lab distance under 12) and names it: "Too close to the colour of “Work”".
+- **The storage rule refuses it too** (`setLabelColor` returns the message; creating a label with a taken colour takes the next free one), so no path can write a clash. A rule of this app only: the server does not check it.
+- **Labels that already share a colour are left alone.** The Labels page shows a notice naming them ("Work and Home share a colour. Change one of them to tell them apart"), until one is changed.
+- Real check: p10 section 3.
 
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 

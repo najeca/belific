@@ -33,13 +33,16 @@ export interface RevealRequest {
 interface State {
   overlay: Overlay;
   detailId: string | null;
+  // What the details modal puts the keyboard on when it opens (2.27.0: the
+  // card's keys for steps, notes, estimate and actual open the modal there).
+  detailFocus: DetailFocus | null;
   selectedList: string | null;
   reveal: RevealRequest | null;
   timerConfirm: TimerConfirm | null;
   goToday: number;
 }
 
-let state: State = { overlay: null, detailId: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0 };
+let state: State = { overlay: null, detailId: null, detailFocus: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0 };
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const subscribe = (l: () => void) => {
@@ -65,12 +68,14 @@ export function closeOverlay(): void {
 }
 
 // ---- the task details panel ----
+export type DetailFocus = 'title' | 'subtask' | 'notes' | 'estimate' | 'actual';
 export const useDetailId = () => use((s) => s.detailId);
-export function openDetail(taskId: string): void {
-  set({ detailId: taskId });
+export const getDetailFocus = () => state.detailFocus;
+export function openDetail(taskId: string, focus: DetailFocus = 'title'): void {
+  set({ detailId: taskId, detailFocus: focus });
 }
 export function closeDetail(): void {
-  if (state.detailId) set({ detailId: null });
+  if (state.detailId) set({ detailId: null, detailFocus: null });
 }
 
 // ---- the list the left pane shows (null = Brain Dump) ----

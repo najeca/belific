@@ -327,11 +327,18 @@ async function run() {
   await press('Escape');
   await C.waitFor(async () => !(await onProgress()), 5000);
 
-  await click(`${cards('Single tick')}[0].querySelector('[aria-label^="Repeat"]')`);
+  // 2.27.0: Repeat is in the task details, which a click on the card opens.
+  await click(`${cards('Single tick')}[0].querySelector('[aria-label="Title Single tick"]')`);
+  await C.waitFor(() => exists(`document.querySelector('[role="dialog"][aria-label="Task details"]')`), 4000).catch(() => {});
+  await click(`document.querySelector('[role="dialog"][aria-label="Task details"] [aria-label^="Repeat:"]')`);
   await click(`document.querySelector('[data-popover] [aria-label="Repeat Does not repeat"]')`);
   await click(`document.querySelector('[data-popover] [aria-label="Apply repeat"]')`);
   await C.waitFor(() => tasks().filter((r) => r.id === 'st' || r.id.startsWith('st:')).every((r) => !r.recurrence), 8000);
   await C.sleep(400);
+  if (await exists(`document.querySelector('[role="dialog"][aria-label="Task details"]')`)) {
+    await press('Escape');
+    await C.sleep(300);
+  }
   await click(`${cards('Gap run')}[0].querySelector('[aria-label="More actions for Gap run"]')`);
   await click(`document.querySelector('[data-popover] [aria-label="Delete repeating task"]')`);
   await click(`document.querySelector('[data-popover] [aria-label="Confirm delete repeating task"]')`);

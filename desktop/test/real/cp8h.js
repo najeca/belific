@@ -172,7 +172,18 @@ async function run() {
   const countCards = (title) => js(`${cardsExpr(title)}.length`);
   const projectedFlags = (title) => js(`${cardsExpr(title)}.map((c) => c.hasAttribute('data-projected'))`);
   const cardTexts = (title) => js(`${cardsExpr(title)}.map((c) => c.innerText.replace(/\\s+/g, ' '))`);
-  const chip = (title, i) => js(`(() => { const c = ${nth(title, i)}; const e = c && c.querySelector('[aria-label^="Duration of"]'); return e ? e.innerText.trim() : null; })()`);
+  const chip = (title, i) => js(`(() => { const c = ${nth(title, i)}; const e = c && c.querySelector('[data-card-time]'); return e ? e.innerText.trim() : null; })()`);
+  // 2.27.0: a card opens the details modal; edits are made there.
+  const modal = '[role="dialog"][aria-label="Task details"]';
+  const modalOpen = () => exists(q(modal));
+  const openNth = async (title, i) => {
+    await click(inNth(title, i, `[aria-label="Title ${title}"]`));
+    await C.waitFor(() => modalOpen(), 4000).catch(() => {});
+  };
+  const closeModal = async () => {
+    await press('Escape');
+    await C.waitFor(async () => !(await modalOpen()), 3000).catch(() => {});
+  };
   const waitCards = (title, n) => C.waitFor(async () => (await countCards(title)) === n, 8000).catch(() => {});
   const popover = () => exists(q('[data-popover]'));
 
@@ -182,7 +193,7 @@ async function run() {
   check('the current week shows the daily routine on every visible day', n >= 1 && n === flags.length, `n=${n}`);
   check('today is the stored occurrence and every later day is projected', flags[0] === false && flags.slice(1).every((f) => f === true), JSON.stringify(flags));
   check('nothing was stored for the projected days', rootRows('rt').length === 1, JSON.stringify(rootRows('rt').map((r) => r.id)));
-  check('a projected card still has all its controls', (await exists(inNth('Daily walk', Math.min(1, n - 1), '[aria-label^="Repeat"]'))) && (await exists(inNth('Daily walk', Math.min(1, n - 1), '[aria-label^="Duration of"]'))) && (await exists(inNth('Daily walk', Math.min(1, n - 1), '[aria-label^="Mark Daily walk"]'))));
+  check('a projected card has the same face as a stored one (tick, time, label and menu icons)', (await exists(inNth('Daily walk', Math.min(1, n - 1), '[data-card-time]'))) && (await exists(inNth('Daily walk', Math.min(1, n - 1), '[data-ctl="more"]'))) && (await exists(inNth('Daily walk', Math.min(1, n - 1), '[data-ctl="label"]'))) && (await exists(inNth('Daily walk', Math.min(1, n - 1), '[aria-label^="Mark Daily walk"]'))));
   check('the left list is not touched by the routine (only the plain thought is there)', (await body()).includes('Plain thought'));
   await shot('cp8h-week-daily');
 
@@ -352,26 +363,31 @@ async function run() {
   await shot('cp8h-skip-and-tick');
 
   // ================================================== 7. edit on a projected card applies to every day
-  await click(inNth('Daily walk', 4, '[aria-label^="Subtasks"]'));
-  check('an expanded projected card says "Repeating: changes apply to every day"', (await cardTexts('Daily walk')).some((tx) => tx.includes('Repeating: changes apply to every day')));
-  await click(inNth('Daily walk', 4, '[aria-label^="Duration of"]'));
-  await click(q('[data-popover] [aria-label="45 min"]'));
-  await C.waitFor(async () => (await chip('Daily walk', 0)) === '0:45', 8000).catch(() => {});
-  const chips = [];
+  await openNth('Daily walk', 4);
+  check('the details of a projected card say "Repeating: changes apply to every day"', (await js(`${q(modal)}.innerText`)).includes('Repeating: changes apply to every day'));
+  await click(q(`${modal} [aria-label="45 min"]`));
+  await C.waitFor(() => rowById('rt').durationMinutes === 45, 8000).catch(() => {});
   const total = await countCards('Daily walk');
+  // 2.27.0: a placed card shows its start time; the estimate is in the details.
+  const chips = [];
   for (let i = 0; i < total; i++) chips.push(await chip('Daily walk', i));
-  check('a duration change on one projected card shows on every day', chips.every((c) => c === '0:45'), JSON.stringify(chips));
+  check('every day still shows the series time on its card', chips.every((c) => c === '05:00'), JSON.stringify(chips));
   const stored = rows().filter((r) => r.id.startsWith('rt') && !r.deletedAt);
   check('it was written to the template and the open stored rows, with no new row', rows().length === rowsBefore + 2 && stored.every((r) => r.completed || r.durationMinutes === 45) && stored.find((r) => r.id === `rt:${tickedKey}`).durationMinutes === 45);
   check('the ticked day is still completed with its completion time', rowById(`rt:${tickedKey}`).completed === true && !!rowById(`rt:${tickedKey}`).completedAt);
-  // rename from a projected card
-  await click(inNth('Daily walk', 4, '[aria-label="Title Daily walk"]'));
+  // rename from a projected card (in its details)
+  await click(q(`${modal} [aria-label="Title"]`));
+  await js('document.activeElement.select()');
   await C.sleep(200);
   await type('Daily stroll');
   await enter();
+  await closeModal();
   await C.waitFor(() => rowById('rt').title === 'Daily stroll', 8000).catch(() => {});
   await waitCards('Daily stroll', total);
   check('renaming a projected card renames the routine on every open day', (await countCards('Daily stroll')) === total && (await countCards('Daily walk')) === 0, `${await countCards('Daily stroll')} stroll, ${await countCards('Daily walk')} walk`);
+  await openNth('Daily stroll', 1);
+  check('a duration change on one projected card shows on every day (another day\'s details read 0:45)', (await js(`(${q(modal)}.querySelector('[data-detail-row="Estimated time"]') || {}).innerText || ''`)).includes('0:45'));
+  await closeModal();
   check('the ticked day is still completed after the rename', rowById(`rt:${tickedKey}`).completed === true);
 
   // ================================================== 8. the label filter applies to projected cards
@@ -388,7 +404,8 @@ async function run() {
   check('unticking the label brings the routine back', (await countCards('Daily stroll')) === total);
 
   // ================================================== 9. Does not repeat ends the series
-  await click(inNth('Daily stroll', 5, '[aria-label^="Repeat"]'));
+  await openNth('Daily stroll', 5);
+  await click(q(`${modal} [aria-label^="Repeat:"]`));
   await click(q('[data-popover] [aria-label="Repeat Does not repeat"]'));
   await click(q('[data-popover] [aria-label="Apply repeat"]'));
   await C.waitFor(() => rootRows('rt').every((r) => !r.recurrence), 8000).catch(() => {});

@@ -129,7 +129,8 @@ async function run() {
 
   // ======== 1. The timer found again after a restart ========
   check('a timer left running is found on launch: the floating timer shows its task', await exists(byLabel('Timer running for Running task')));
-  check('its card says the timer is active', (await js(`(${card('Running task')} || {}).innerText || ''`)).includes('Timer active'));
+  // 2.27.0: the card face carries no timer line; the floating timer is the one place.
+  check('its card stays a plain face (no timer line on it)', !(await js(`(${card('Running task')} || {}).innerText || ''`)).includes('Timer active'));
   await shot('p2-01-launch');
 
   // ======== 2. Stopping from the floating timer adds whole minutes ========
@@ -162,11 +163,11 @@ async function run() {
   check('Shift+/ opens the keyboard shortcut help', (await body()).includes('Keyboard shortcuts') && (await body()).includes('Start or stop the timer'));
   await shot('p2-03-help');
   await key('Escape');
-  check('Escape closes the help', !(await body()).includes('Show or hide notes and subtasks'));
+  check('Escape closes the help', !(await body()).includes('Open the details (notes and subtasks)'));
   // Typing letters that are shortcuts into a box does nothing but type.
   await click(byLabel('Capture a thought'));
   await type('qcsod? ');
-  check('letters and ? typed in the capture box are text, not shortcuts', (await js(`${byLabel('Capture a thought')}.value`)) === 'qcsod? ' && !(await body()).includes('Show or hide notes and subtasks'));
+  check('letters and ? typed in the capture box are text, not shortcuts', (await js(`${byLabel('Capture a thought')}.value`)) === 'qcsod? ' && !(await body()).includes('Open the details (notes and subtasks)'));
   await js(`(() => { const i = ${byLabel('Capture a thought')}; i.select(); })()`);
   await key('Delete');
 
@@ -184,10 +185,14 @@ async function run() {
   await focusCard('Keyboard task');
   const id = () => byTitle('Keyboard task')[0].id;
 
+  // 2.27.0: Ctrl+E and Ctrl+B open the details modal at the estimate or actual field.
   await key('E', ['control']);
-  check('Ctrl+E opens the estimate box', await exists(dialog('Task options')));
+  await C.waitFor(async () => (await activeLabel()) === 'Custom estimate', 4000).catch(() => {});
+  check('Ctrl+E opens the details at the estimate box', (await exists(dialog('Task details'))) && (await activeLabel()) === 'Custom estimate', String(await activeLabel()));
   await type('45m');
   await enter(500);
+  await key('Escape');
+  await C.sleep(300);
   await C.waitFor(() => byTitle('Keyboard task')[0].durationMinutes === 45, 8000);
   check('the estimate is 45 minutes', byTitle('Keyboard task')[0].durationMinutes === 45);
 
@@ -214,9 +219,12 @@ async function run() {
 
   await focusCard('Keyboard task');
   await key('B', ['control']);
-  check('Ctrl+B opens the actual time box', await exists(dialog('Task options')));
+  await C.waitFor(async () => (await activeLabel()) === 'Set the actual time', 4000).catch(() => {});
+  check('Ctrl+B opens the details at the actual time box', (await exists(dialog('Task details'))) && (await activeLabel()) === 'Set the actual time', String(await activeLabel()));
   await type('20m');
   await enter(500);
+  await key('Escape');
+  await C.sleep(300);
   await C.waitFor(() => byTitle('Keyboard task')[0].actualMinutes === 20, 8000);
   check('the actual time is 20 minutes', byTitle('Keyboard task')[0].actualMinutes === 20);
 

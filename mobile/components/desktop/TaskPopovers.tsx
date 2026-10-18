@@ -41,6 +41,8 @@ import EmojiField from './EmojiField';
 import HoverPressable from './HoverPressable';
 import { notifyChanged, openDetail, openOverlay } from './uiStore';
 import { toggleTimer, useNow } from './timerUi';
+import { useFeatures } from './featureStore';
+import { startFocus } from './pomodoroStore';
 import { PopoverHeading, Row, popoverStyles } from './Popover';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import type { TaskOps } from './taskOps';
@@ -668,18 +670,65 @@ export function SeriesNote() {
   return <Text style={styles.seriesNote}>{SERIES_NOTE}</Text>;
 }
 
+// The ⋮ menu of a card (2.27.0): Open details first, then what is not on the
+// card face: the timer, a pomodoro, duplicate, and skip or delete.
 export function OverflowBody({
   task,
   ops,
   done,
   armed,
+  projected,
+  onOpen,
 }: Pick<BodyProps, 'ops' | 'done'> & {
-  task?: Pick<Task, 'id' | 'dueDate' | 'completed'>;
+  task?: Task;
   // Opened by Ctrl+Delete: start at the "Delete? Yes / No" question.
   armed?: boolean;
+  projected?: boolean;
+  // Opens the details modal (a card passes its own, which converts a phone item).
+  onOpen?: () => void;
 }) {
   const [confirming, setConfirming] = useState(!!armed);
+  const feats = useFeatures();
   const series = ops.series;
+  const openRow =
+    task && (onOpen || !task.id.startsWith('dump:')) ? (
+      <Row
+        label="Open details"
+        leading={<Text>📝</Text>}
+        onPress={() => {
+          done();
+          if (onOpen) onOpen();
+          else openDetail(task.id);
+        }}
+        a11y="Open details"
+      />
+    ) : null;
+  const running = !!task && isTimerRunning(task);
+  const timerRows =
+    task && !projected && !task.id.startsWith('dump:') ? (
+      <>
+        <Row
+          label={running ? 'Stop the timer' : 'Start the timer'}
+          leading={<Text>⏱️</Text>}
+          onPress={async () => {
+            done();
+            await toggleTimer(task);
+          }}
+          a11y={running ? 'Stop the timer' : 'Start the timer'}
+        />
+        {feats.pomodoro && !task.completed && (
+          <Row
+            label="Start a pomodoro"
+            leading={<Text>🍅</Text>}
+            onPress={() => {
+              done();
+              startFocus(task);
+            }}
+            a11y="Start a pomodoro"
+          />
+        )}
+      </>
+    ) : null;
   // A repeating task (stored or projected): skip one day, or delete the series.
   if (series) {
     const canSkip = !!task?.dueDate && !task.completed;
@@ -704,6 +753,8 @@ export function OverflowBody({
           </View>
         ) : (
           <>
+            {openRow}
+            {timerRows}
             {canSkip && (
               <Row
                 label="Skip this day"
@@ -742,18 +793,13 @@ export function OverflowBody({
         </View>
       ) : (
         <>
+          {openRow}
+          {timerRows}
           {task?.id && !task.id.startsWith('dump:') && (
             <>
               <Row
-                label="Open details"
-                onPress={() => {
-                  openDetail(task.id);
-                  done();
-                }}
-                a11y="Open details"
-              />
-              <Row
                 label="Duplicate task"
+                leading={<Text>📄</Text>}
                 onPress={async () => {
                   await duplicateTaskById(task.id);
                   notifyChanged();

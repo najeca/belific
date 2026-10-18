@@ -145,92 +145,89 @@ async function run() {
   const waitFile = (pred, ms = 8000) => C.waitFor(() => pred(), ms);
 
   {
-    // ---- the chip ----
-    check('chip: a new task shows 0:00 (not None)', (await chipText('Fresh')) === '0:00', String(await chipText('Fresh')));
-    check('chip: a placed task shows its duration as H:MM', (await chipText('Placed')) === '0:15', String(await chipText('Placed')));
-    const startTimeText = await js(`(() => { const el = Array.from(document.querySelectorAll(${JSON.stringify(cardSel('Placed') + ' *')})).find((e) => e.children.length === 0 && e.textContent === '09:30'); return el ? el.textContent : null; })()`);
-    check('chip: the start time of a placed task is its own small text, not inside the chip', startTimeText === '09:30' && !(await chipLabel('Placed')).includes('·') && (await chipText('Placed')) === '0:15');
+    // ---- the card's time figure (2.27.0: a face, not a control) ----
+    // The estimate (or, for a placed task, its start time) is plain text; a click
+    // anywhere on the card opens the details, where the estimate is set.
+    const modal = '[role="dialog"][aria-label="Task details"]';
+    const inModal = (inner) => q(`${modal} ${inner}`);
+    const modalOpen = () => exists(q(modal));
+    const openModal = async (title) => {
+      // The time figure sits under the hover icons; the title is the usual place to click.
+      await click(inCard(title, `[aria-label="Title ${title}"]`), 500);
+      await C.waitFor(() => modalOpen(), 4000).catch(() => {});
+    };
+    const closeModal = async () => {
+      await press('Escape');
+      await C.waitFor(async () => !(await modalOpen()), 3000).catch(() => {});
+    };
+    const custom = async (text) => {
+      await click(inModal('[aria-label="Custom estimate"]'), 150);
+      await js('document.activeElement.select && document.activeElement.select()');
+      await type(text);
+      await enter();
+    };
+    const timeText = (title) => js(`(() => { const el = ${inCard(title, '[data-card-time]')}; return el ? el.innerText.trim() : null; })()`);
+    check('card: a new task shows 0:00 (not None)', (await timeText('Fresh')) === '0:00', String(await timeText('Fresh')));
+    check('card: a placed task shows its start time', (await timeText('Placed')) === '09:30', String(await timeText('Placed')));
     await shot('cp8f-chip');
 
-    // ---- the dropdown ----
-    await click(inCard('Fresh', '[aria-label^="Duration of"]'));
-    check('the chip opens a small dropdown', await popover());
-    // Build plan phase 2 (2.19.0) changed the field's wording and the presets; 2.26.0 updated this check.
-    check('the field is focused, placeholder "Custom: 45m, 1h 30m, 130..."', (await activeLabel()) === 'Duration' && (await js(`document.activeElement.placeholder`)) === 'Custom: 45m, 1h 30m, 130...', String(await js(`document.activeElement.placeholder`)));
-    const pr = await js(`(() => { const r = ${q('[data-popover]')}.getBoundingClientRect(); return { w: r.width, h: r.height, vw: innerWidth, vh: innerHeight }; })()`);
-    check('the dropdown is small and inside the window', pr.w < 400 && pr.h <= 330 && pr.w < pr.vw / 2 && pr.h < pr.vh / 2 && pr.h > 100);
-    check('no full viewport overlay while it is open', await noNewOverlay());
-    const labels = await js(`Array.from(document.querySelectorAll('[data-popover] [role="button"]')).map((e) => e.getAttribute('aria-label'))`);
+    // ---- the estimate in the details ----
+    await openModal('Fresh');
+    check('a click on the card opens the details (the time figure is not a control of its own)', (await modalOpen()) && !(await popover()) && (await js(`${inCard('Fresh', '[data-card-time]')}.getAttribute('role')`)) !== 'button');
+    const labels = await js(`Array.from(document.querySelectorAll('${modal} [data-detail-row="Estimated time"] [aria-pressed]')).map((e) => e.getAttribute('aria-label'))`);
     check(
-      'the presets are listed in order, with "No duration" first',
-      JSON.stringify(labels) === JSON.stringify(['No duration', '5 min', '10 min', '15 min', '30 min', '45 min', '1h', '1h 30m', '2h']),
+      'the presets are listed in order, with "None" first',
+      JSON.stringify(labels) === JSON.stringify(['None', '5 min', '10 min', '15 min', '30 min', '45 min', '1h', '1h 30m', '2h']),
       JSON.stringify(labels),
     );
-    check('the preset list scrolls inside the dropdown', await js(`(() => { let e = ${inPopover('[aria-label="2h"]')}; while (e && e.getAttribute('data-popover') === null) { if (getComputedStyle(e).overflowY === 'auto' && e.scrollHeight > e.clientHeight) return true; e = e.parentElement; } return false; })()`));
-    await C.sleep(400);
+    check('the custom field reads "Custom: 45m, 1h 30m, 130"', (await js(`${inModal('[aria-label="Custom estimate"]')}.placeholder`)) === 'Custom: 45m, 1h 30m, 130');
     await shot('cp8f-dropdown');
-    await press('Escape');
-    check('Escape closes the dropdown', !(await popover()));
 
     // ---- pick a preset ----
-    await click(inCard('Fresh', '[aria-label^="Duration of"]'));
-    await click(inPopover('[aria-label="15 min"]'));
+    await click(inModal('[aria-label="15 min"]'));
     await waitFile(() => taskNamed('Fresh').durationMinutes === 15);
-    check('picking "15 min" saves 15 and closes the dropdown', taskNamed('Fresh').durationMinutes === 15 && !(await popover()));
-    await C.waitFor(async () => (await chipText('Fresh')) === '0:15', 5000).catch(() => {});
-    check('the chip now shows 0:15', (await chipText('Fresh')) === '0:15', String(await chipText('Fresh')));
-    await click(inCard('Fresh', '[aria-label^="Duration of"]'));
-    const ticked = (label) => js(`(() => { const e = ${q(`[data-popover] [aria-label="${label}"]`)}; return e ? e.children.length : -1; })()`);
-    check('the current preset has a tick (an extra check mark beside the label) and the others do not', (await ticked('15 min')) === 2 && (await ticked('30 min')) === 1);
+    check('picking "15 min" saves 15', taskNamed('Fresh').durationMinutes === 15);
+    await C.waitFor(async () => (await timeText('Fresh')) === '0:15', 5000).catch(() => {});
+    check('the card now shows 0:15', (await timeText('Fresh')) === '0:15', String(await timeText('Fresh')));
+    check('the current preset is marked and the others are not', (await js(`${inModal('[aria-label="15 min"]')}.getAttribute('aria-pressed')`)) === 'true' && (await js(`${inModal('[aria-label="30 min"]')}.getAttribute('aria-pressed')`)) === 'false');
 
     // ---- type "1h 30m" (real keys, with the space) ----
+    await click(inModal('[aria-label="Custom estimate"]'), 150);
     await type('1h 30m');
     check('typed text is exact, spaces included', (await activeValue()) === '1h 30m', String(await activeValue()));
-    check('typing does not close the dropdown', await popover());
     await enter();
     await waitFile(() => taskNamed('Fresh').durationMinutes === 90);
-    check('"1h 30m" + Enter saves 90 and closes', taskNamed('Fresh').durationMinutes === 90 && !(await popover()));
-    await C.waitFor(async () => (await chipText('Fresh')) === '1:30', 5000).catch(() => {});
-    check('the chip shows 1:30', (await chipText('Fresh')) === '1:30', String(await chipText('Fresh')));
+    check('"1h 30m" + Enter saves 90', taskNamed('Fresh').durationMinutes === 90);
+    await C.waitFor(async () => (await timeText('Fresh')) === '1:30', 5000).catch(() => {});
+    check('the card shows 1:30', (await timeText('Fresh')) === '1:30', String(await timeText('Fresh')));
 
     // ---- type "130" ----
-    await click(inCard('Fresh', '[aria-label^="Duration of"]'));
-    await type('130');
-    await enter();
+    await custom('130');
     await waitFile(() => taskNamed('Fresh').durationMinutes === 130);
     check('"130" (bare number = minutes) saves 130', taskNamed('Fresh').durationMinutes === 130);
 
     // ---- invalid input applies nothing and shows a quiet hint ----
-    await click(inCard('Fresh', '[aria-label^="Duration of"]'));
-    await type('soon');
-    await enter();
-    check('invalid text: the dropdown stays open with a hint, nothing applied', (await popover()) && (await js(`${q('[data-popover]')}.innerText`)).includes('Not a duration') && taskNamed('Fresh').durationMinutes === 130);
-    await press('Escape');
+    await custom('soon');
+    check('invalid text: a quiet hint, nothing applied', (await js(`${q(modal)}.innerText`)).includes('Not a time') && taskNamed('Fresh').durationMinutes === 130);
     for (const bad of ['0', '1441']) {
-      await click(inCard('Fresh', '[aria-label^="Duration of"]'));
-      await type(bad);
-      await enter();
-      check(`"${bad}" is rejected, nothing applied`, (await popover()) && taskNamed('Fresh').durationMinutes === 130);
-      await press('Escape');
+      await custom(bad);
+      await C.sleep(300);
+      check(`"${bad}" is rejected, nothing applied`, taskNamed('Fresh').durationMinutes === 130);
     }
-    await click(inCard('Fresh', '[aria-label^="Duration of"]'));
-    await type('1.5h');
-    await enter();
+    await custom('1.5h');
     await waitFile(() => taskNamed('Fresh').durationMinutes === 90);
     check('"1.5h" saves 90', taskNamed('Fresh').durationMinutes === 90);
-    await click(inCard('Fresh', '[aria-label^="Duration of"]'));
-    await type('1:30');
-    await enter();
+    await custom('1:30');
     await C.sleep(300);
-    check('"1:30" saves 90', taskNamed('Fresh').durationMinutes === 90 && !(await popover()));
+    check('"1:30" saves 90', taskNamed('Fresh').durationMinutes === 90);
 
-    // ---- No duration ----
-    await click(inCard('Fresh', '[aria-label^="Duration of"]'));
-    await click(inPopover('[aria-label="No duration"]'));
+    // ---- None ----
+    await click(inModal('[aria-label="None"]'));
     await waitFile(() => taskNamed('Fresh').durationMinutes === undefined);
-    await C.waitFor(async () => (await chipText('Fresh')) === '0:00', 5000).catch(() => {});
-    check('"No duration" clears it and the chip shows 0:00 again', taskNamed('Fresh').durationMinutes === undefined && (await chipText('Fresh')) === '0:00');
+    await C.waitFor(async () => (await timeText('Fresh')) === '0:00', 5000).catch(() => {});
+    check('"None" clears it and the card shows 0:00 again', taskNamed('Fresh').durationMinutes === undefined && (await timeText('Fresh')) === '0:00');
     check('there is no old Custom hours and minutes picker', !(await exists(`document.querySelector('select[aria-label="Hours"]')`)));
+    await closeModal();
 
     // ---- spacing (2.14.0): about 12px between cards, about 10px between left rows ----
     const gaps = (sel) => js(`(() => {
@@ -262,17 +259,18 @@ async function run() {
     check('spacing: left list rows are about 10px apart', rowGaps.length === 2 && rowGaps.every((g) => g >= 9 && g <= 11), JSON.stringify(rowGaps));
     await shot('cp8f-spacing');
 
-    // ---- Actual time came back in build plan phase 2 (decision 028): the card has a timer button ----
-    await expand('Fresh');
-    const txt = await cardText('Fresh');
-    check('an expanded card has the timer button again (build plan phase 2)', await exists(inCard('Fresh', '[aria-label^="Start timer"]')), txt);
+    // ---- Actual time (build plan phase 2, decision 028): the timer is in the details ----
+    await openModal('Fresh');
+    check('the details have the timer button (build plan phase 2)', await exists(inModal('[aria-label="Start the timer"]')));
     check('the stored task has no actualSeconds field', !('actualSeconds' in taskNamed('Fresh')));
+    await closeModal();
     // A task stored by 2.13.0 with Actual time: any save of it rewrites it without the field.
-    await click(inCard('Legacy', '[aria-label^="Duration of"]'));
-    await click(inPopover('[aria-label="30 min"]'));
+    await openModal('Legacy');
+    await click(inModal('[aria-label="30 min"]'));
     await waitFile(() => taskNamed('Legacy').durationMinutes === 30);
     check('a legacy actualSeconds in the stored data is stripped when the task is next saved', !('actualSeconds' in taskNamed('Legacy')) && taskNamed('Legacy').durationMinutes === 30);
-    check('no full viewport overlay at any point', await noNewOverlay());
+    await closeModal();
+    check('no full viewport overlay is left once the details are closed', await noNewOverlay());
     app.exit(summary() ? 1 : 0);
   }
 }

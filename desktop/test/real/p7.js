@@ -140,7 +140,17 @@ async function run() {
   await I.click(I.byLabel('🔔 Due dates and reminders'));
   await C.waitFor(() => setting('feature.dueDates')?.value === 'off', 6000).catch(() => {});
   await back();
-  check('Reminders off: no bell on any card', !(await anyExists('[aria-label^="Reminder:"]')));
+  // 2.27.0: the reminder is set in the task details (no bell on the card face).
+  const reminderRow = async () => {
+    await focusCard('Alpha');
+    await I.key('o');
+    await C.waitFor(() => I.exists(I.dialog('Task details')), 4000).catch(() => {});
+    const has = await I.exists(`${I.dialog('Task details')}.querySelector('[aria-label^="Reminder:"]')`);
+    await I.key('Escape');
+    await C.sleep(300);
+    return has;
+  };
+  check('Reminders off: no bell on any card and no Reminder row in the details', !(await anyExists('[aria-label^="Reminder:"]')) && !(await reminderRow()));
   check('Reminders off: the reminder already set is kept', byId('a1').reminderMinutes === 15);
 
   // Both back on.
@@ -148,7 +158,7 @@ async function run() {
   await I.click(I.byLabel('🔔 Due dates and reminders'));
   await C.waitFor(() => setting('feature.dueDates')?.value === 'on', 6000).catch(() => {});
   await back();
-  check('reminders on again: the bell is back', await anyExists('[aria-label^="Reminder:"]'));
+  check('reminders on again: the Reminder row is back in the details', await reminderRow());
 
   // Daily planning off.
   check('planning is on: the profile menu has Plan my day and Shut down my day', (await menuHas('Plan my day')) && (await menuHas('Shut down my day')));
@@ -215,7 +225,13 @@ async function run() {
   check('Skipping the break starts the focus period: Alpha\'s timer runs, and only Alpha\'s', tasks().filter((t) => t.timerStartedAt).map((t) => t.id).join() === 'a1');
   check('the countdown is on a fresh focus period', /Focus 2[45]:\d\d left/.test(await text('Pomodoro status')), await text('Pomodoro status'));
   // The one timer rule: starting another task's timer stops this one and ends the pomodoro.
-  await I.click(`${card('Beta')}.querySelector('[aria-label="Start timer for Beta"]') || document.querySelector('[aria-label="Start timer for Beta"]')`);
+  // 2.27.0: the timer and the pomodoro are in the card's ⋮ menu.
+  const fromMenu = async (title, row) => {
+    await I.hover(card(title));
+    await I.click(`${card(title)}.querySelector('[data-ctl="more"]')`);
+    await I.click(`document.querySelector('[data-popover] [aria-label="${row}"]')`);
+  };
+  await fromMenu('Beta', 'Start the timer');
   await C.waitFor(() => !!byId('b1').timerStartedAt && !byId('a1').timerStartedAt, 8000);
   check('one timer at a time still holds: Beta runs, Alpha\'s stopped', tasks().filter((t) => t.timerStartedAt).map((t) => t.id).join() === 'b1');
   check('Alpha\'s whole minutes were kept (not rounded up, nothing lost)', byId('a1').actualMinutes === 30, JSON.stringify(byId('a1')));
@@ -224,7 +240,7 @@ async function run() {
   await I.click(I.byLabel('Stop the timer for Beta'));
   await C.waitFor(() => !byId('b1').timerStartedAt, 8000);
   // A fresh pomodoro from the card.
-  await I.click(I.byLabel('Start a pomodoro on Beta'));
+  await fromMenu('Beta', 'Start a pomodoro');
   await C.waitFor(() => !!byId('b1').timerStartedAt, 8000);
   check('Start a pomodoro on a card starts that task\'s timer and a 25 minute countdown', /Focus 2[45]:\d\d left/.test(await text('Pomodoro status')), await text('Pomodoro status'));
   // Switching the feature off ends the pomodoro, but the task timer carries on.

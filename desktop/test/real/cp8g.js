@@ -189,7 +189,8 @@ async function run() {
   const blk = await rectOf(blockSel('night'));
   check('the block runs from 22:00 to the bottom of the day (24:00)', near(blk.top, gr.top + 22 * PX, 3) && near(blk.bottom, gr.top + 24 * PX, 4), `${blk.top - gr.top} .. ${blk.bottom - gr.top}`);
   check('the block shows it continues', await exists(q('[aria-label="Continues after 24:00"]')));
-  check('the card chip still shows the full 8:00', (await js(`(() => { const el = ${q('[aria-label="Task Night shift"]:not([data-block-id]) [aria-label^="Duration of"]')}; return el ? el.innerText.trim() : null; })()`)) === '8:00');
+  // 2.27.0: a placed card shows its start time; the stored estimate stays 8 hours.
+  check('the card shows its start time and the estimate stays the full 8 hours', (await js(`(() => { const el = ${q('[aria-label="Task Night shift"]:not([data-block-id]) [data-card-time]')}; return el ? el.innerText.trim() : null; })()`)) === '22:00' && taskNamed('Night shift').durationMinutes === 480);
   await shot('cp8g-overnight-day');
 
   // ---- next day: "Continues from yesterday" until 06:00 ----
@@ -206,9 +207,12 @@ async function run() {
   check('the original block is not drawn on this day, and nothing is stored for the continuation', !(await exists(blockSel('night'))) && read('belific_tasks').length === tasks.length);
   await shot('cp8g-overnight-next');
   await click(contSel);
-  check('clicking the continuation opens the same task popover (not a modal)', (await exists(q('[data-popover]'))) && (await noNewOverlay()));
-  check('the popover is for the same task (its rename field holds the title, and it shows the full 8 hour estimate)', (await exists(q('[data-popover] [aria-label="Rename Night shift"]'))) && (await js(`${q('[data-popover]')}.innerText`)).includes('8:00'));
+  // 2.27.0: it opens the same task details as the block and the card.
+  await C.waitFor(() => exists(q('[role="dialog"][aria-label="Task details"]')), 4000).catch(() => {});
+  check('clicking the continuation opens the details of the same task', await exists(q('[role="dialog"][aria-label="Task details"]')));
+  check('the details are for the same task (its title, and the full 8 hour estimate)', (await js(`${q('[role="dialog"] [aria-label="Title"]')}.value`)) === 'Night shift' && (await js(`${q('[role="dialog"]')}.innerText`)).includes('8:00'));
   await press('Escape');
+  await C.sleep(300);
   await click(q('[aria-label="Next day"]'));
   await C.sleep(300);
   check('the day after has no continuation', !(await exists(contSel)));

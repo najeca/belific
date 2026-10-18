@@ -104,66 +104,97 @@ async function run() {
   const textInCard = (title, text) =>
     `Array.from(document.querySelectorAll(${JSON.stringify(cardSel(title) + ' *')})).find((e) => e.children.length === 0 && e.textContent === ${JSON.stringify(text)})`;
   const NOTES = 'hello world with spaces';
-  const expanded = (title) => exists(inCard(title, '[aria-label^="Add subtask to"]'));
+  // 2.27.0: the card no longer expands; its fields are in the details modal,
+  // which a click on the card opens. The same typing checks run there.
+  const modal = '[role="dialog"][aria-label="Task details"]';
+  const inModal = (inner) => q(`${modal} ${inner}`);
+  const modalOpen = () => exists(q(modal));
+  const openModal = async (title) => {
+    await click(inCard(title, `[aria-label="Title ${title}"]`), 500);
+    await C.waitFor(() => modalOpen(), 4000).catch(() => {});
+  };
+  const closeModal = async () => {
+    await press('Escape');
+    await C.waitFor(async () => !(await modalOpen()), 3000).catch(() => {});
+  };
 
   // ---- Notes ----
-  await click(inCard('Alpha', '[aria-label="Subtasks 0/1"]'));
-  check('the card expands', await expanded('Alpha'));
-  await click(inCard('Alpha', '[aria-label="Notes for Alpha"]'));
+  await openModal('Alpha');
+  check('a click on the card opens its details', await modalOpen());
+  await click(inModal('[aria-label="Notes"]'));
   await type(NOTES);
-  check('Notes: the card is still expanded after typing spaces', await expanded('Alpha'));
+  check('Notes: the details stay open after typing spaces', await modalOpen());
   check('Notes: the value is exact', (await activeValue()) === NOTES, String(await activeValue()));
   await enter();
   await type('next line');
-  check('Notes: Enter inserts a new line and the card stays open', (await activeValue()) === `${NOTES}\nnext line` && (await expanded('Alpha')), JSON.stringify(await activeValue()));
+  check('Notes: Enter inserts a new line and the details stay open', (await activeValue()) === `${NOTES}
+next line` && (await modalOpen()), JSON.stringify(await activeValue()));
   await press('Backspace');
   await press('Left');
-  check('Notes: Backspace and arrows behave normally', (await activeValue()) === `${NOTES}\nnext lin`, JSON.stringify(await activeValue()));
+  check('Notes: Backspace and arrows behave normally', (await activeValue()) === `${NOTES}
+next lin`, JSON.stringify(await activeValue()));
   await press('Escape');
-  check('Escape in Notes blurs the field and does not collapse the card', (await expanded('Alpha')) && !(await js(`document.activeElement && document.activeElement.tagName === 'TEXTAREA'`)));
-  await C.waitFor(() => taskNamed('Alpha').notes === `${NOTES}\nnext lin`, 6000).catch(() => {});
-  check('Notes saved on blur', taskNamed('Alpha').notes === `${NOTES}\nnext lin`, JSON.stringify(taskNamed('Alpha').notes));
+  await C.waitFor(() => taskNamed('Alpha').notes === `${NOTES}
+next lin`, 6000).catch(() => {});
+  check('Escape in Notes saves them and closes the details', taskNamed('Alpha').notes === `${NOTES}
+next lin` && !(await modalOpen()), JSON.stringify(taskNamed('Alpha').notes));
   check('no drag started while typing', await noDrag());
-  await press('Escape');
-  check('a second Escape (on the card) collapses it', !(await expanded('Alpha')));
-  await click(inCard('Alpha', '[aria-label="Subtasks 0/1"]'));
-  check('the card expands again', await expanded('Alpha'));
 
   // ---- Add subtask: spaces and Enter ----
-  await click(inCard('Alpha', '[aria-label^="Add subtask to"]'));
+  await openModal('Alpha');
+  await click(inModal('[aria-label^="Add subtask to"]'));
   await type('second subtask here');
-  check('Add subtask: spaces typed, card still expanded', (await activeValue()) === 'second subtask here' && (await expanded('Alpha')));
+  check('Add subtask: spaces typed, details still open', (await activeValue()) === 'second subtask here' && (await modalOpen()));
   await press('Return');
   await C.waitFor(() => (taskNamed('Alpha').subtasks || []).length === 2, 6000).catch(() => {});
-  check('Add subtask: Enter still adds it and keeps the input open', (taskNamed('Alpha').subtasks || []).map((s) => s.title).join('|') === 'first sub|second subtask here' && (await expanded('Alpha')));
+  check('Add subtask: Enter adds it and keeps the field ready', (taskNamed('Alpha').subtasks || []).map((s) => s.title).join('|') === 'first sub|second subtask here' && (await activeValue()) === '' && (await modalOpen()));
 
   // ---- Subtask title edit ----
-  await click(textInCard('Alpha', 'first sub'));
+  await click(inModal('[aria-label="Rename subtask first sub"]'));
   check('subtask title editing starts', (await js(`document.activeElement && document.activeElement.getAttribute('aria-label')`)) === 'Edit subtask first sub');
   await js('document.activeElement.select()');
   await type('edited subtask with spaces');
-  check('Subtask edit: spaces typed, value exact, card still expanded', (await activeValue()) === 'edited subtask with spaces' && (await expanded('Alpha')), String(await activeValue()));
+  check('Subtask edit: spaces typed, value exact, details still open', (await activeValue()) === 'edited subtask with spaces' && (await modalOpen()), String(await activeValue()));
   await press('Return');
   await C.waitFor(() => (taskNamed('Alpha').subtasks || [])[0].title === 'edited subtask with spaces', 6000).catch(() => {});
   check('Subtask edit: Enter saves it', (taskNamed('Alpha').subtasks || [])[0].title === 'edited subtask with spaces');
 
   // ---- Title rename ----
-  await click(inCard('Alpha', '[aria-label="Title Alpha"]'));
+  await click(inModal('[aria-label="Title"]'));
   await js('document.activeElement.select()');
   await type('Alpha renamed with spaces');
-  check('Title rename: spaces typed, value exact, card still expanded', (await activeValue()) === 'Alpha renamed with spaces' && (await expanded('Alpha')), String(await activeValue()));
+  check('Title rename: spaces typed, value exact, details still open', (await activeValue()) === 'Alpha renamed with spaces' && (await modalOpen()), String(await activeValue()));
   await press('Return');
   await C.waitFor(() => !!taskNamed('Alpha renamed with spaces'), 6000).catch(() => {});
-  check('Title rename: Enter still saves it', !!taskNamed('Alpha renamed with spaces'));
-  await C.waitFor(() => exists(q(cardSel('Alpha renamed with spaces'))), 6000).catch(() => {});
-  check('the card is still expanded after the rename', await expanded('Alpha renamed with spaces'));
+  check('Title rename: Enter saves it', !!taskNamed('Alpha renamed with spaces'));
+  check('the details are still open after the rename', await modalOpen());
 
-  // ---- Label search (popover) ----
+  // ---- Duration field in the details ----
+  await click(inModal('[aria-label="Custom estimate"]'));
+  await type('1h 30m');
+  check('Estimate field: spaces typed, value exact, details still open', (await activeValue()) === '1h 30m' && (await modalOpen()), String(await activeValue()));
+  await press('Return');
+  await C.waitFor(() => taskNamed('Alpha renamed with spaces').durationMinutes === 90, 6000).catch(() => {});
+  check('Estimate field: Enter saves 1h 30m', taskNamed('Alpha renamed with spaces').durationMinutes === 90);
+
+  // ---- Repeat day of month field (the Repeats row of the details) ----
+  await click(inModal('[aria-label^="Repeat:"]'));
+  await click(q('[data-popover] [aria-label="Repeat Monthly"]'));
+  await click(q('[data-popover] [aria-label="Day of the month"]'));
+  await js('document.activeElement.select()');
+  await type('15');
+  check('Repeat day of month: typing works and the popover stays open', (await activeValue()) === '15' && (await exists(q('[data-popover]'))), String(await activeValue()));
+  await press('Escape');
+  await C.sleep(200);
+  await closeModal();
+  check('Escape closes the details', !(await modalOpen()));
+
+  // ---- Label search (the card's hover icon) ----
   await click(inCard('Bravo', '[aria-label="Select label"]'));
   await focused('Search labels');
   await type('new label name');
   check('Label search: spaces typed, value exact, popover still open', (await activeValue()) === 'new label name' && (await exists(q('[data-popover]'))), String(await activeValue()));
-  check('Label search: the card did not expand', !(await expanded('Bravo')));
+  check('Label search: the details did not open', !(await modalOpen()));
   await press('Escape');
 
   // ---- Filter search (popover) ----
@@ -171,22 +202,6 @@ async function run() {
   await focused('Search filter labels');
   await type('some words here');
   check('Filter search: spaces typed, value exact, popover still open', (await activeValue()) === 'some words here' && (await exists(q('[data-popover]'))), String(await activeValue()));
-  await press('Escape');
-
-  // ---- Repeat day of month field ----
-  await click(inCard('Bravo', '[aria-label^="Repeat"]'));
-  await click(q('[data-popover] [aria-label="Repeat Monthly"]'));
-  await click(q('[data-popover] [aria-label="Day of the month"]'));
-  await js('document.activeElement.select()');
-  await type('15');
-  check('Repeat day of month: typing works and the popover stays open', (await activeValue()) === '15' && (await exists(q('[data-popover]'))), String(await activeValue()));
-  await press('Escape');
-
-  // ---- Duration field: spaces and arrows inside the popover ----
-  await click(inCard('Bravo', '[aria-label^="Duration of"]'));
-  await focused('Duration');
-  await type('1h 30m');
-  check('Duration field: spaces typed, value exact, popover open, card not expanded', (await activeValue()) === '1h 30m' && (await exists(q('[data-popover]'))) && !(await expanded('Bravo')), String(await activeValue()));
   await press('Escape');
 
   check('no drag ever started', await noDrag());

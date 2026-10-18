@@ -5,6 +5,7 @@ import { Colors } from '../../lib/theme';
 import { bucketTasks, dateKey, isDateKey, parseDateKey, type ColumnDay } from '../../lib/kanban';
 import { columnHeading, dayAt, indexOfDay, leftDay, offsetOfDay, pageOffset, rangeTitle, stripAround, visibleRange } from '../../lib/dayStrip';
 import TaskCard from './TaskCard';
+import AddTaskBox from './AddTaskBox';
 import FilterButton from './FilterButton';
 import { filterTasks, type TaskFilter } from '../../lib/taskFilter';
 import { opsForProjected, opsForTask } from './taskOps';
@@ -65,34 +66,20 @@ function DayTotals({ items, now }: { items: Task[]; now: number }) {
   );
 }
 
-// The day's "Add a task" box: Enter adds a task on that Day (like T for today).
-function AddTaskBox({ dayKey, items, now, onChanged }: { dayKey: string; items: Task[]; now: number; onChanged: () => void }) {
-  const [text, setText] = useState('');
-  const ref = useRef<TextInput>(null);
-  async function add() {
-    if (!text.trim()) return;
-    await createTaskIn(text, { dueDate: dayKey });
-    setText('');
-    onChanged();
-    ref.current?.focus();
-  }
+// The day's "Add a task" box (AddTaskBox.tsx): Enter adds a task on that Day
+// (like T for today), with the time and label chosen in the box.
+function DayAddBox({ dayKey, items, now, onChanged }: { dayKey: string; items: Task[]; now: number; onChanged: () => void }) {
   return (
-    <View style={styles.addBox}>
-      <Text style={styles.addPlus} accessible={false}>
-        ＋
-      </Text>
-      <TextInput
-        ref={ref}
-        value={text}
-        onChangeText={setText}
-        onSubmitEditing={add}
-        placeholder="Add a task"
-        placeholderTextColor={Colors.textSecondary}
-        style={styles.addInput}
-        accessibilityLabel={`Add a task on ${dayKey}`}
-      />
-      <DayTotals items={items} now={now} />
-    </View>
+    <AddTaskBox
+      id={dayKey}
+      a11y={`Add a task on ${dayKey}`}
+      withTime
+      trailing={<DayTotals items={items} now={now} />}
+      onAdd={async (title, extra) => {
+        await createTaskIn(title, { dueDate: dayKey, ...extra });
+        onChanged();
+      }}
+    />
   );
 }
 
@@ -149,10 +136,27 @@ export default function KanbanPane({
     [strip],
   );
   // Opens on today once the board has a width (and again if the day changes).
+  // The strip's content can be laid out after its width is known; a scroll set
+  // before that is clamped to 0 (five years back) and the scroll event then
+  // reports 0, so the jump is tried again until it lands. Timers, not animation
+  // frames: a window behind another one gets no frames but still runs timers.
   useEffect(() => {
     if (viewW === 0) return;
     opened.current = true;
-    goTo(todayKey);
+    // Only while the strip is still at 0 (the clamped jump): once anything has
+    // scrolled it elsewhere, the person is using it and it is left alone.
+    let tries = 20;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const want = offsetOfDay(strip, todayKey, STEP);
+    const stuck = () => !!boardNode.current && boardNode.current.scrollLeft < 1 && want > 0;
+    const attempt = () => {
+      goTo(todayKey);
+      if (stuck() && --tries > 0) timer = setTimeout(attempt, 50);
+      // The scroll event of the clamped jump can arrive after it landed: check once more.
+      else if (tries > 0) timer = setTimeout(() => stuck() && --tries > 0 && attempt(), 300);
+    };
+    attempt();
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewW > 0, todayKey]);
   // Back from "only today": land on today.
@@ -242,7 +246,7 @@ export default function KanbanPane({
             <DayTotals items={items.map((i) => i.task)} now={now} />
           </View>
         ) : (
-          <AddTaskBox dayKey={day.key} items={items.map((i) => i.task)} now={now} onChanged={onChanged} />
+          <DayAddBox dayKey={day.key} items={items.map((i) => i.task)} now={now} onChanged={onChanged} />
         )}
         <ScrollView ref={scrollRef(`day:${day.key}`) as never} style={styles.columnList} contentContainerStyle={styles.columnListContent} showsVerticalScrollIndicator={false}>
           {items.map((item) => {

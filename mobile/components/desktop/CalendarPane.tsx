@@ -35,7 +35,6 @@ import { loadLabels } from '../../lib/labels';
 import { loadCustomCategories, loadCustomEvents, loadTasksRaw } from '../../lib/storage';
 import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task } from '../../lib/types';
 import { useDayStart } from './useDayStart';
-import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
 import { openDetail } from './uiStore';
 import { useTick } from './timerUi';
 import FilterButton from './FilterButton';
@@ -445,7 +444,7 @@ export default function CalendarPane({
                         return (
                           <Pressable
                             key={t.id + (t.dueDate ?? '')}
-                            onPress={() => (t.id.includes(':') && t.recurrence ? goTo('day', cell.key) : openDetail(t.id))}
+                            onPress={() => openDetail(t.id)}
                             style={[styles.chip, color && { backgroundColor: color.tint, borderLeftColor: color.edge, borderLeftWidth: 3 }]}
                             accessibilityRole="button"
                             accessibilityLabel={`Calendar task ${t.title}`}
@@ -528,7 +527,7 @@ export default function CalendarPane({
                             <View key={t.id + d.key}>
                               <Pressable
                                 ref={sourceRef(`calchip:${d.key}:${t.id}`, () => ({ kind: 'card', task: t, id: t.id, title: t.title, emoji: t.emoji, duration: taskDuration(t), projected })) as never}
-                                onPress={() => toggleBlockPopover(t.id, scope)}
+                                onPress={() => openDetail(t.id)}
                                 style={[styles.chip, { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent, borderLeftWidth: 3 }, projected && styles.projected]}
                                 accessibilityRole="button"
                                 accessibilityLabel={`All day task ${t.title}`}
@@ -539,7 +538,6 @@ export default function CalendarPane({
                                   {t.title}
                                 </Text>
                               </Pressable>
-                              <TaskBlockPopover task={t} label={labelOf(t)} onChanged={onChanged} projected={projected} scope={scope} />
                             </View>
                           );
                         })}
@@ -621,7 +619,7 @@ export default function CalendarPane({
                       return (
                         <View key={b.id} style={[styles.blockWrap, pos]}>
                           <Pressable
-                            onPress={() => toggleBlockPopover(t.id, scope)}
+                            onPress={() => openDetail(t.id)}
                             style={[styles.block, styles.taskBlock, { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent }, styles.projected]}
                             accessibilityRole="button"
                             accessibilityLabel={`Calendar block, continues from yesterday: ${t.title}`}
@@ -633,7 +631,6 @@ export default function CalendarPane({
                             </Text>
                             {!isCompactBlock(b.height) && <Text style={styles.blockTime}>Continues from yesterday</Text>}
                           </Pressable>
-                          <TaskBlockPopover task={t} label={labelOf(t)} onChanged={onChanged} projected={source.projected} scope={scope} />
                         </View>
                       );
                     }

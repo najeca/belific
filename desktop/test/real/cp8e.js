@@ -74,7 +74,7 @@ async function run() {
     js(`(() => { const el = ${q(cardSel(title))}; el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.x + 24), y: Math.round(r.y + Math.min(r.height / 2, 40)) }; })()`);
   const iconOpacity = (title) =>
     // 2.26.0: the hover controls (Move to day among them) fade in as one row.
-    js(`(() => { const el = ${q(`${cardSel(title)} [aria-label^="Move "]`)}; const row = el && el.closest('[data-card-controls]'); return row ? getComputedStyle(row).opacity : null; })()`);
+    js(`(() => { const row = ${q(`${cardSel(title)} [data-card-controls]`)}; return row ? getComputedStyle(row).opacity : null; })()`);
   // Moves the pointer onto the card until the page has seen it arrive (an
   // injected move is sometimes not turned into a hover on the first try).
   const hoverOn = async (title, c) => {
@@ -116,24 +116,25 @@ async function run() {
     check(`"${short}": the hover icons are transparent away and shown on hover`, hiddenOpacity === '0' && shownOpacity === '1', `${hiddenOpacity} / ${shownOpacity}`);
   }
 
-  // The same for an expanded card
+  // 2.27.0: a click on a card opens the details modal; the card itself never
+  // expands and nothing on it moves.
   const card = 'Short';
-  const rr = await js(`(() => { const el = ${q(`${cardSel(card)} [aria-label^="Subtasks"]`)}; el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
-  await move(rr.x, rr.y, 200);
-  win.webContents.sendInputEvent({ type: 'mouseDown', x: rr.x, y: rr.y, button: 'left', clickCount: 1 });
-  win.webContents.sendInputEvent({ type: 'mouseUp', x: rr.x, y: rr.y, button: 'left', clickCount: 1 });
-  await C.sleep(500);
-  check('the card expands', await js(`!!${q(`${cardSel(card)} [aria-label^="Add subtask to"]`)}`));
-  const c2 = await center(card);
+  await center(card);
   await move(4, 4);
   const b2 = await measure(card);
-  await hoverOn(card, c2);
-  const d2 = await measure(card);
+  const tp = await js(`(() => { const el = ${q(`${cardSel(card)} [aria-label="Title ${card}"]`)}; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + 10), y: Math.round(r.y + r.height / 2) }; })()`);
+  await move(tp.x, tp.y, 200);
+  win.webContents.sendInputEvent({ type: 'mouseDown', x: tp.x, y: tp.y, button: 'left', clickCount: 1 });
+  win.webContents.sendInputEvent({ type: 'mouseUp', x: tp.x, y: tp.y, button: 'left', clickCount: 1 });
+  await C.sleep(600);
+  check('a click on the card opens the details', await js(`!!document.querySelector('[role="dialog"][aria-label="Task details"]')`));
+  win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+  win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+  await C.sleep(400);
   await move(4, 4);
   await C.waitFor(async () => (await iconOpacity(card)) === '0', 4000).catch(() => {});
   const a2 = await measure(card);
-  check('expanded card: nothing moves when the pointer arrives', diff(b2, d2).length === 0, diff(b2, d2).slice(0, 3).join(' ; '));
-  check('expanded card: nothing moves when the pointer leaves', diff(d2, a2).length === 0, diff(d2, a2).slice(0, 3).join(' ; '));
+  check('after the details close, the card is exactly as before (it never expanded)', diff(b2, a2).length === 0, diff(b2, a2).slice(0, 3).join(' ; '));
 
   const failed = summary();
   app.exit(failed ? 1 : 0);

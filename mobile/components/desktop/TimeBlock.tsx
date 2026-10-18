@@ -14,11 +14,11 @@ import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { domNode, useDrag } from './DragProvider';
 import { isPopoverOpen } from './Popover';
-import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
+import { openDetail } from './uiStore';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
 // day and week views draw the same block, so they behave the same. A press
-// opens the task menu; a drag moves it (DragProvider and lib/drag.ts: 30
+// opens the task details modal (2.27.0, as a card does); a drag moves it (DragProvider and lib/drag.ts: 30
 // minute steps, never onto a past day; a projected occurrence of a repeating
 // series changes the series' time, never its day); the bottom edge resizes
 // it (the estimate); with the keyboard on the block, the arrows move it
@@ -152,7 +152,7 @@ export default function TimeBlock({
       <View style={styles.base}>
         <Pressable
           ref={blockRef as never}
-          onPress={() => toggleBlockPopover(task.id, scope)}
+          onPress={() => openDetail(task.id)}
           style={[
             styles.block,
             { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent },
@@ -191,7 +191,6 @@ export default function TimeBlock({
             <Ionicons name="arrow-down" size={10} color={Colors.textSecondary} />
           </View>
         )}
-        <TaskBlockPopover task={task} label={label} onChanged={onChanged} projected={projected} scope={scope || undefined} />
         <View ref={handleRef as never} style={styles.handle} accessibilityLabel={`Resize ${task.title}`} />
       </View>
     </View>

@@ -175,10 +175,14 @@ async function run() {
   check('Shift+T puts the keyboard on the first task of today', !!firstToday && (await I.activeLabel()) === firstToday, `${await I.activeLabel()} / ${firstToday}`);
   // Ctrl+I on a stored task (an occurrence of a repeating task has no time section).
   await I.js(`(() => { const c = ${I.byLabel('Task Brain one')}; c && c.focus(); })()`);
+  // 2.27.0: the card has no time section; Ctrl+I opens the details (actual and estimated are there).
   await I.key('i', ['control']);
-  check('Ctrl+I shows the time section on the card', await I.exists(I.byLabel('Time of Brain one')));
-  await I.key('i', ['control']);
-  check('Ctrl+I again hides it', !(await I.exists(I.byLabel('Time of Brain one'))));
+  await C.waitFor(() => I.exists(I.dialog('Task details')), 3000).catch(() => {});
+  check('Ctrl+I opens the details of the task (the time rows are there)', (await I.exists(I.dialog('Task details'))) && (await I.textOf(I.dialog('Task details'))).includes('Actual time'));
+  await I.key('Escape');
+  await C.sleep(300);
+  check('Escape closes them again', !(await I.exists(I.dialog('Task details'))));
+  await I.js(`(() => { const c = ${I.byLabel('Task Brain one')}; c && c.focus(); })()`);
   if (now.getDay() !== 0) {
     await I.key('Right');
     const right = await I.activeLabel();
@@ -203,7 +207,7 @@ async function run() {
   check('Ctrl+Shift+P in a box does not open Planning', !(await flowOpen()));
   await I.blur();
   await I.key('/', ['shift']);
-  check('the help lists the phase 5 keys', (await I.body()).includes('Daily Planning') && (await I.body()).includes('First task of the next day') && (await I.body()).includes('Show or hide the time on the card'));
+  check('the help lists the phase 5 keys', (await I.body()).includes('Daily Planning') && (await I.body()).includes('First task of the next day') && (await I.body()).includes('Open the details (time)'));
   await I.key('Escape');
 
   const failed = summary();

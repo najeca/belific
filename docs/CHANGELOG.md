@@ -8,6 +8,20 @@ to know the current version and recent history.
 
 ---
 
+## 2.27.0 — 2026-10-18 (fix batch for the desktop redesign)
+
+**Ten fixes asked for by Jethro after using 2.26.0, one commit each; the version in `mobile/app.json` moves to 2.27.0 in the last commit (as asked). No schema change, no new table, no sync change. The Ellie screenshots were used for behaviour and layout only. This entry grows with each item.**
+
+### 1. The card, the Add a task box and the details modal
+- **A click anywhere on a card opens the task details modal**, the same in every view: Tasks, the left list and every list, the Timebox, the Calendar (blocks, the all day row, month chips, "continues from yesterday" blocks). Only the tick box and the steps ring do something else. Enter on a focused card opens it too. A day of a repeating series that is only shown (not stored) opens as well: the modal edits the series and opening it writes nothing. A legacy phone Brain Dump item is converted to a task when opened (its first edit, as before).
+- **The inline expand and collapse and the inline row of controls are gone** (and the Timebox block menu, `TaskBlockPopover.tsx`, is removed). The card face shows only the tick box, the emoji and title, the time (a placed task's start time, else the estimate), the label's colour and emoji, the steps ring with "1/2" when there are steps (no counter without steps), a small "Must do" marker, and, on today's card of a repeating task, the quiet run line of decision 007.
+- **On hover at most three small icons**, top right, in the card's colour: 🏷️ Label first, ☀️ Move to today (not on today's tasks or a repeating day) and the ⋮ menu (Open details, Start or stop the timer, Start a pomodoro when on, Duplicate, Skip this day or Delete). The card never changes size on hover.
+- **The steps ring** ticks the next open step; with all done it opens the details at the steps.
+- **The details modal** now holds what left the card: the time of day beside the date (and Remove time), a Reminder row, and the steps (add with Enter, rename by clicking, delete). The card keys open it where they used to act: S, O and Ctrl+I open it, Ctrl+S at a new step, Ctrl+E at the estimate, Ctrl+B at the actual time. Ctrl+L still opens the card's label menu, Ctrl+Delete the ⋮ menu at "Delete?".
+- **The Add a task box** (one component, `AddTaskBox.tsx`, on every day and in the left list) has the title, a time (on a day; it shows once you type) and the 🏷️ Label button, which is always there and sits inside the box. Enter adds the task with them.
+- **Fix found on the way:** the Tasks strip sometimes opened five years back (October 2021) because the jump to today ran before the strip was laid out; it now tries again until it lands.
+- Real checks: new `desktop/test/real/p10.js` (one section per item); p2, p3, p5, p7, p9, cp8b, cp8c, cp8d, cp8e, cp8f, cp8g, cp8h and cp11 moved from the inline controls to the modal (same typing and editing checks, now in the details).
+
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 
 **Desktop redesign after Jethro's review, with the Ellie planner as the reference for layout, behaviour and feel only (no copied icons, text or visuals). No schema change, no sync change: every stored value (priority included) is untouched and still syncs. Built and committed step by step; this entry grows with each step.**

@@ -19,14 +19,19 @@ export async function duplicateTaskById(id: string): Promise<Task | null> {
   return copy;
 }
 
-// A task typed into a capture box: title only, in a list or on a Day. Returns
-// null for blank text.
-export async function createTaskIn(title: string, where: { listKey?: string; dueDate?: string } = {}): Promise<Task | null> {
+// A task typed into a capture box: a title, in a list or on a Day, and (2.27.0)
+// optionally a label and, on a Day, a time. Returns null for blank text.
+export async function createTaskIn(
+  title: string,
+  where: { listKey?: string; dueDate?: string; startTime?: string; projectKey?: string } = {},
+): Promise<Task | null> {
   const base = newThought(generateId(), title, new Date().toISOString());
   if (!base) return null;
   const task: Task = { ...base };
   if (where.listKey) task.listKey = where.listKey;
   if (where.dueDate) task.dueDate = where.dueDate;
+  if (where.dueDate && where.startTime && /^\d\d:\d\d$/.test(where.startTime)) task.startTime = where.startTime;
+  if (where.projectKey) task.projectKey = where.projectKey;
   await addTask(task);
   return task;
 }

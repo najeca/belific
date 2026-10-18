@@ -183,26 +183,43 @@ async function run() {
   await waitTask('Alpha', (t) => t.projectKey === 'work');
   check('the label was saved on the task', taskNamed('Alpha').projectKey === 'work');
   const posAfter = await rectOf(q(cardSel('Alpha')));
-  check('the card never moved or opened a page', posBefore && posAfter && Math.abs(posAfter.w - posBefore.w) < 2);
+  check('the card never moved or opened a page', posBefore && posAfter && Math.abs(posAfter.x - posBefore.x) < 2 && !(await js(`!!${q('[role="dialog"][aria-label="Task details"]')}`)), JSON.stringify({ posBefore, posAfter }));
+
+  // 2.27.0: the card is a face; everything but the label is edited in the
+  // details modal, which a click on the card (or a Timebox block) opens. The
+  // modal is the one overlay; it leaves nothing behind when it closes.
+  const modal = '[role="dialog"][aria-label="Task details"]';
+  const inModal = (inner) => q(`${modal} ${inner}`);
+  const modalOpen = () => js(`!!${q(modal)}`);
+  const openModal = async (title) => {
+    await click(inCard(title, `[aria-label="Title ${title}"]`));
+    await C.waitFor(() => modalOpen(), 4000).catch(() => {});
+  };
+  const closeModal = async () => {
+    await key('Escape');
+    await C.waitFor(async () => !(await modalOpen()), 3000).catch(() => {});
+  };
+  const pickSelect = (label, value) =>
+    js(`(() => { const el = ${inModal(`select[aria-label="${label}"]`)}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
 
   // ---- 2. only one open at a time ----
-  await click(inCard('Bravo', '[aria-label^="Duration of"]'));
-  await click(inCard('Alpha', '[aria-label^="Reminder"]'));
+  await click(inCard('Bravo', '[aria-label="Select label"]'));
+  await click(inCard('Alpha', '[aria-label^="Label"]'));
   const count = await js(`document.querySelectorAll('[data-popover]').length`);
   check('only one dropdown is open at a time', count === 1);
   await key('Escape');
 
-  // ---- 3. edit label, duration, repeat, reminder on three cards in a row ----
-  // (2.26.0: no priority control any more)
+  // ---- 3. edit duration, reminder and repeat in the details, three cards in a row ----
   check('no card has a priority control', !(await js(`!!document.querySelector('[aria-label^="Priority"]')`)));
   // Alpha
-  await click(inCard('Alpha', '[aria-label^="Duration of"]'));
-  await click(inPopover('[aria-label="1h"]'));
+  await openModal('Alpha');
+  check('a click on the card opens the details', await modalOpen());
+  await click(inModal('[aria-label="1h"]'));
   await waitTask('Alpha', (t) => t.durationMinutes === 60);
-  await click(inCard('Alpha', '[aria-label^="Reminder"]'));
+  await click(inModal('[aria-label^="Reminder:"]'));
   await click(inPopover('[aria-label="None"]'));
   await waitTask('Alpha', (t) => t.reminderMinutes === -1);
-  await click(inCard('Alpha', '[aria-label^="Repeat"]'));
+  await click(inModal('[aria-label^="Repeat:"]'));
   await click(inPopover('[aria-label="Repeat Weekly"]'));
   await click(inPopover('[aria-label="Weekdays"]'));
   check('the repeat dropdown states exactly what will happen', (await js(`${inPopover('[aria-label="Repeat summary"]')}.innerText`)).includes('weekday'));
@@ -213,21 +230,23 @@ async function run() {
     const t = taskNamed('Alpha');
     return t.projectKey === 'work' && t.durationMinutes === 60 && t.reminderMinutes === -1 && t.recurrence === 'weekly' && t.recurrenceDays.length === 5;
   })());
-  check('no overlay appeared while editing Alpha', await noNewOverlay());
+  await closeModal();
+  check('no overlay is left after the details close', await noNewOverlay());
 
   // Bravo
   await click(inCard('Bravo', '[aria-label="Select label"]'));
   await click(inPopover('[aria-label="Home"]'));
   await waitTask('Bravo', (t) => t.projectKey === 'home');
-  await click(inCard('Bravo', '[aria-label^="Duration of"]'));
+  await openModal('Bravo');
+  await click(inModal('[aria-label="Custom estimate"]'));
   await typeText('1h 30m');
   await key('Return');
   await waitTask('Bravo', (t) => t.durationMinutes === 90);
   check('Bravo: typed duration "1h 30m" saved', taskNamed('Bravo').durationMinutes === 90);
-  check('typing a duration and Enter closed the dropdown', !(await popover()));
-  await click(inCard('Bravo', '[aria-label^="Reminder"]'));
+  await click(inModal('[aria-label^="Reminder:"]'));
   check('a task with no start time shows the quiet daily reminder note', (await js(`${q('[data-popover]')}.innerText`)).includes('Reminds at your daily reminder time'));
   await key('Escape');
+  await closeModal();
 
   // Charlie: create a label from the search box
   await click(inCard('Charlie', '[aria-label="Select label"]'));
@@ -236,67 +255,63 @@ async function run() {
   await key('Return');
   await waitTask('Charlie', (t) => !!t.projectKey);
   check('created a label from the search box and selected it', read('belific_projects').some((p) => p.name === 'Errands' && p.key === taskNamed('Charlie').projectKey));
-  await click(inCard('Charlie', '[aria-label^="Duration of"]'));
-  await click(inPopover('[aria-label="30 min"]'));
+  await openModal('Charlie');
+  await click(inModal('[aria-label="30 min"]'));
   await waitTask('Charlie', (t) => t.durationMinutes === 30);
-  check('no overlay appeared while editing three cards in a row', await noNewOverlay());
+  await closeModal();
+  check('no overlay is left after editing three cards in a row', await noNewOverlay());
 
-  // ---- 4. title rename on the card ----
-  await click(inCard('Delta', '[aria-label="Title Delta"]'));
+  // ---- 4. title rename in the details ----
+  await openModal('Delta');
   await key('End');
   await typeText(' two');
   await key('Return');
   await waitTask('Delta two', () => true).catch(() => {});
-  check('clicking the title renames it in place (Enter saves)', !!taskNamed('Delta two'));
-  await click(inCard('Delta two', '[aria-label="Title Delta two"]'));
-  await typeText('zzz');
-  await key('Escape');
-  await C.sleep(300);
-  check('Escape cancels a rename', !!taskNamed('Delta two') && !taskNamed('zzz'));
+  check('the title is renamed in the details (Enter saves)', !!taskNamed('Delta two'));
+  await closeModal();
+  check('Escape closes the details', !(await modalOpen()));
 
-  // ---- 5. expand in place: notes and subtasks ----
+  // ---- 5. notes and subtasks in the details ----
   // (completed tasks are hidden by default, so show them while this runs)
   await click(q('[aria-label="Filter"]'));
   await click(inPopover('[aria-label="Show complete"]'));
   await key('Escape');
-  await click(inCard('Charlie', '[aria-label="Subtasks 0/0"]'));
-  check('clicking the subtask counter expands the card in place', await js(`!!${inCard('Charlie', '[aria-label^="Add subtask to"]')}`));
-  await click(inCard('Charlie', '[aria-label^="Add subtask to"]'));
+  check('a card with no subtasks shows no counter', !(await js(`/\\d\\/\\d/.test(${q(cardSel('Charlie'))}.innerText)`)));
+  await openModal('Charlie');
+  await click(inModal('[aria-label^="Add subtask to"]'));
   await typeText('one');
   await key('Return');
   await typeText('two');
   await key('Return');
   await waitTask('Charlie', (t) => (t.subtasks || []).length === 2);
-  check('Enter adds a subtask and keeps the input open for the next', (taskNamed('Charlie').subtasks || []).map((s) => s.title).join(',') === 'one,two');
-  check('the counter shows 0/2', (await js(`!!${inCard('Charlie', '[aria-label="Subtasks 0/2"]')}`)));
-  await shot('expanded-card');
-  await click(inCard('Charlie', '[aria-label="Tick one"]'));
+  check('Enter adds a subtask and keeps the field ready for the next', (taskNamed('Charlie').subtasks || []).map((s) => s.title).join(',') === 'one,two');
+  check('the card shows 0/2', (await js(`${q(cardSel('Charlie'))}.innerText`)).includes('0/2'));
+  await shot('details-subtasks');
+  await click(inModal('[aria-label="Tick one"]'));
   await waitTask('Charlie', (t) => t.subtasks.some((s) => s.done));
   check('ticking one subtask leaves the task open', !taskNamed('Charlie').completed);
-  await click(inCard('Charlie', '[aria-label="Tick two"]'));
+  await click(inModal('[aria-label="Tick two"]'));
   await waitTask('Charlie', (t) => t.completed === true);
   check('ticking the last subtask completes the task', taskNamed('Charlie').completed === true);
-  await click(inCard('Charlie', '[aria-label="Untick one"]'));
+  await click(inModal('[aria-label="Untick one"]'));
   await waitTask('Charlie', (t) => t.completed === false);
   check('unticking a subtask of a completed task reopens it', taskNamed('Charlie').completed === false);
-  check('no overlay while expanding and editing subtasks', await noNewOverlay());
+  await closeModal();
+  check('no overlay is left after editing subtasks', await noNewOverlay());
 
-  // ---- 6. Timebox block popover ----
+  // ---- 6. a Timebox block opens the same details ----
   await click(q('[data-block-id="p"]'));
-  check('clicking a placed block opens a small popover (not a modal)', (await popover()) && (await noNewOverlay()));
-  const bp = await js(`(() => { const r = ${q('[data-popover]')}.getBoundingClientRect(); return { w: r.width, h: r.height }; })()`);
-  check('the block popover is small', bp.w < 400 && bp.h <= 330);
-  await click(inPopover('[aria-label="Label"]'));
-  await click(inPopover('[aria-label="Work"]'));
+  await C.waitFor(() => modalOpen(), 4000).catch(() => {});
+  check('clicking a placed block opens its details', (await modalOpen()) && (await js(`${inModal('[aria-label="Title"]')}.value`)) === 'Placed one');
+  await pickSelect('Label', 'work');
   await waitTask('Placed one', (t) => t.projectKey === 'work');
-  await click(inPopover('[aria-label="Duration"]'));
-  await click(inPopover('[aria-label="2h"]'));
+  await click(inModal('[aria-label="2h"]'));
   await waitTask('Placed one', (t) => t.durationMinutes === 120);
-  check('edited a placed block label and duration via the popover', taskNamed('Placed one').projectKey === 'work' && taskNamed('Placed one').durationMinutes === 120);
-  check('no overlay appeared in the block popover', await noNewOverlay());
-  await click(inPopover('[aria-label="Remove time"]'));
+  check('edited a placed block label and duration in the details', taskNamed('Placed one').projectKey === 'work' && taskNamed('Placed one').durationMinutes === 120);
+  await click(inModal('[aria-label="Remove time"]'));
   await waitTask('Placed one', (t) => !t.startTime);
   check('Remove time takes it off the Timebox and keeps its day', taskNamed('Placed one').startTime === undefined && taskNamed('Placed one').dueDate === today);
+  await closeModal();
 
   // ---- 7. legacy phone Brain Dump item converts in place on first edit ----
   const tasksBefore = read('belific_tasks').filter((x) => !x.deletedAt).length;

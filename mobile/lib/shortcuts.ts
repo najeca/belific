@@ -81,11 +81,11 @@ export const PHASE2_SHORTCUTS: ShortcutDef[] = [
   { id: 'prevTask', keys: 'Up', label: 'Previous task', group: 'Navigation', scope: 'card' },
 
   { id: 'complete', keys: 'C', label: 'Complete or reopen the task', group: 'Task', scope: 'card' },
-  { id: 'toggleSubtasks', keys: 'S', label: 'Show or hide notes and subtasks', group: 'Task', scope: 'card' },
-  { id: 'newSubtask', keys: 'Ctrl+S', label: 'New subtask', group: 'Task', scope: 'card' },
+  { id: 'toggleSubtasks', keys: 'S', label: 'Open the details (notes and subtasks)', group: 'Task', scope: 'card' },
+  { id: 'newSubtask', keys: 'Ctrl+S', label: 'New subtask (in the details)', group: 'Task', scope: 'card' },
   { id: 'openDetails', keys: 'O', label: 'Open the task details', group: 'Task', scope: 'card' },
-  { id: 'editEstimate', keys: 'Ctrl+E', label: 'Set the estimate', group: 'Task', scope: 'card' },
-  { id: 'editActual', keys: 'Ctrl+B', label: 'Set the actual time', group: 'Task', scope: 'card' },
+  { id: 'editEstimate', keys: 'Ctrl+E', label: 'Set the estimate (in the details)', group: 'Task', scope: 'card' },
+  { id: 'editActual', keys: 'Ctrl+B', label: 'Set the actual time (in the details)', group: 'Task', scope: 'card' },
   { id: 'selectLabel', keys: 'Ctrl+L', label: 'Choose a label', group: 'Task', scope: 'card' },
   { id: 'toggleTimer', keys: 'Ctrl+Shift+Enter', label: 'Start or stop the timer', group: 'Task', scope: 'card' },
   { id: 'duplicateTask', keys: 'Ctrl+Shift+D', label: 'Duplicate the task', group: 'Task', scope: 'card' },
@@ -113,7 +113,7 @@ export const PHASE5_SHORTCUTS: ShortcutDef[] = [
   { id: 'firstBrainDump', keys: 'Shift+B', label: 'First Brain Dump task', group: 'Navigation', scope: 'home' },
   { id: 'prevDay', keys: 'Left', label: 'First task of the day before', group: 'Navigation', scope: 'card' },
   { id: 'nextDay', keys: 'Right', label: 'First task of the next day', group: 'Navigation', scope: 'card' },
-  { id: 'toggleTimeSection', keys: 'Ctrl+I', label: 'Show or hide the time on the card', group: 'Task', scope: 'card' },
+  { id: 'toggleTimeSection', keys: 'Ctrl+I', label: 'Open the details (time)', group: 'Task', scope: 'card' },
 ];
 
 // 2.26.0: moving a time block with the keyboard (Timebox and Calendar), by the

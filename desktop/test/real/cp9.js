@@ -473,28 +473,31 @@ async function run() {
   const title = String(onCard).replace(/^Task /, '');
   check('the focused card has a visible focus ring in the accent colour', await js(`(() => { const s = getComputedStyle(document.activeElement); return s.outlineStyle === 'solid' && parseFloat(s.outlineWidth) >= 2 && s.outlineColor === 'rgb(92, 122, 107)'; })()`), JSON.stringify(await js(`(() => { const s = getComputedStyle(document.activeElement); return [s.outlineStyle, s.outlineWidth, s.outlineColor]; })()`)));
   await shot('cp9-card-focus');
-  check('it starts collapsed', !(await expanded(title)));
+  // 2.27.0: Enter on the card opens its details (no expanding in place); the
+  // focus goes back to the card when they close.
+  const modal = q('[role="dialog"][aria-label="Task details"]');
+  const modalOpen = () => exists(modal);
+  check('it is a face: no notes box on the card', !(await exists(q(`${cardSel(title)} [aria-label^="Notes for"]`))));
   await enter();
-  check('Enter expands the card', await expanded(title));
-  await enter();
-  check('Enter again collapses it', !(await expanded(title)));
-  await enter();
-  check('Enter expands it once more', await expanded(title));
+  await C.waitFor(() => modalOpen(), 3000).catch(() => {});
+  check('Enter opens the details of the card', await modalOpen());
   await press('Escape');
-  check('Escape collapses it', !(await expanded(title)));
+  await C.waitFor(async () => !(await modalOpen()), 3000).catch(() => {});
+  check('Escape closes them and the keyboard is back on the card', !(await modalOpen()) && (await js(`document.activeElement && document.activeElement.getAttribute('aria-label')`)) === `Task ${title}`);
+  await enter();
+  await C.waitFor(() => modalOpen(), 3000).catch(() => {});
+  check('Enter opens them once more', await modalOpen());
 
   // Typing in a field never reaches the card (the 2.12.1 space key bug stays fixed).
-  await enter();
-  await click(q(`${cardSel(title)} [aria-label="Notes for ${title}"]`));
+  await click(q('[role="dialog"][aria-label="Task details"] [aria-label="Notes"]'));
   await type('a b  c');
-  check('Notes: spaces typed, the card stayed expanded', (await activeValue()) === 'a b  c' && (await expanded(title)), String(await activeValue()));
+  check('Notes: spaces typed, the details stayed open', (await activeValue()) === 'a b  c' && (await modalOpen()), String(await activeValue()));
   await enter();
   await type('x');
-  check('Notes: Enter is a new line and does not collapse the card', (await activeValue()) === 'a b  c\nx' && (await expanded(title)), JSON.stringify(await activeValue()));
+  check('Notes: Enter is a new line and does not close the details', (await activeValue()) === 'a b  c\nx' && (await modalOpen()), JSON.stringify(await activeValue()));
   await press('Escape');
-  check('Escape in Notes only leaves the field; the card stays open', (await expanded(title)) && !(await js(`document.activeElement.tagName === 'TEXTAREA'`)));
-  await press('Escape');
-  check('the next Escape (on the card itself) collapses it', !(await expanded(title)));
+  await C.waitFor(async () => !(await modalOpen()), 3000).catch(() => {});
+  check('Escape in Notes saves them and closes the details', !(await modalOpen()));
   check('no popover or drag is left over', (await noNewOverlay()) && (await js(`document.body.style.cursor !== 'grabbing'`)));
 
   // Sign out from the popover at the end, back to the neutral icon.

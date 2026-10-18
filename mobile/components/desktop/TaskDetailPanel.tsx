@@ -6,7 +6,10 @@ import { DURATION_PRESETS, formatClock, parseDuration, presetLabel } from '../..
 import { isDateKey } from '../../lib/kanban';
 import { isTimerRunning } from '../../lib/taskTimer';
 import { formatTaskTime } from '../../lib/taskTotals';
-import { counterLabel } from '../../lib/subtasks';
+import { addSubtask, counterLabel, deleteSubtask, renameSubtask } from '../../lib/subtasks';
+import { generateId } from '../../lib/data';
+import { idDate, projectOccurrences } from '../../lib/series';
+import { reminderLabel } from '../../lib/reminder';
 import { effectiveListKey, listTitle } from '../../lib/lists';
 import { setActualFor } from '../../lib/timerActions';
 import { duplicateTaskById } from '../../lib/taskCommands';
@@ -17,12 +20,13 @@ import type { Project, Task, TaskList } from '../../lib/types';
 import EmojiField from './EmojiField';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
-import { RepeatBody } from './TaskPopovers';
+import { ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import StreakLine from './StreakLine';
 import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
-import { opsForTask, type TaskOps } from './taskOps';
+import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
 import { toggleTimer, useNow } from './timerUi';
-import { closeDetail, notifyChanged, useDetailId } from './uiStore';
+import { closeDetail, getDetailFocus, notifyChanged, useDetailId } from './uiStore';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
@@ -42,14 +46,25 @@ import { saveTemplateFromTask } from '../../lib/templateActions';
 export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) {
   const id = useDetailId();
   const [task, setTask] = useState<Task | null>(null);
+  // A day of a repeating series that is shown, not stored (decision 023): the
+  // modal edits the series, as the card did, and opening it writes nothing.
+  const [projected, setProjected] = useState(false);
   const [labels, setLabels] = useState<Project[]>([]);
   const [lists, setLists] = useState<TaskList[]>([]);
 
   const reload = useCallback(async () => {
     if (!id) return;
     const [tasks, l, ls] = await Promise.all([loadTasksRaw(), loadLabels(), loadLists()]);
-    const found = tasks.find((t) => t.id === id && !t.deletedAt) ?? null;
+    let found = tasks.find((t) => t.id === id && !t.deletedAt) ?? null;
+    let proj = false;
+    const day = idDate(id);
+    if (!found && day && !tasks.some((t) => t.id === id)) {
+      const today = dateKey(new Date());
+      found = projectOccurrences(tasks, [day], today, { minKey: day }).find((t) => t.id === id) ?? null;
+      proj = !!found;
+    }
     setTask(found);
+    setProjected(proj);
     setLabels(l);
     setLists(ls);
     // The task was deleted (here, or on the other device): nothing to show.
@@ -93,14 +108,14 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     <View style={styles.layer} {...({ dataSet: { detailLayer: '1' } } as object)}>
       <Pressable style={styles.scrim} onPress={closeDetail} accessibilityLabel="Close the task details" {...({ tabIndex: -1 } as object)} />
       <View style={styles.centre} pointerEvents="box-none">
-        <Panel key={task.id} task={task} labels={labels} lists={lists} onSaved={() => { notifyChanged(); reload(); }} />
+        <Panel key={task.id} task={task} projected={projected} labels={labels} lists={lists} onSaved={() => { notifyChanged(); reload(); }} />
       </View>
     </View>
   );
 }
 
-function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]; lists: TaskList[]; onSaved: () => void }) {
-  const ops: TaskOps = opsForTask(task);
+function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; onSaved: () => void }) {
+  const ops: TaskOps = projected ? opsForProjected(task) : opsForTask(task);
   const patch = async (fields: Partial<Task>) => {
     await ops.patch(fields);
     onSaved();
@@ -124,10 +139,32 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
   const moreOpen = useIsOpen(moreId);
   useEffect(() => setTitle(task.title), [task.title]);
   useEffect(() => setNotes(task.notes ?? ''), [task.notes]);
+  const subRef = useRef<TextInput>(null);
+  const notesRef = useRef<TextInput>(null);
+  const customRef = useRef<TextInput>(null);
+  const actualRef = useRef<TextInput>(null);
+  const [newSub, setNewSub] = useState('');
+  const [editingSub, setEditingSub] = useState<string | null>(null);
+  const [editSubText, setEditSubText] = useState('');
+  // The keyboard goes where the card's key asked (2.27.0), else the title.
   useEffect(() => {
-    const t = setTimeout(() => titleRef.current?.focus(), 30);
+    const focus = getDetailFocus();
+    const target = { subtask: subRef, notes: notesRef, estimate: customRef, actual: actualRef, title: titleRef }[focus ?? 'title'] ?? titleRef;
+    const t = setTimeout(() => (target.current ?? titleRef.current)?.focus(), 30);
     return () => clearTimeout(t);
   }, []);
+  const addStep = async () => {
+    const t = newSub.trim();
+    if (!t) return;
+    setNewSub('');
+    await patch({ subtasks: addSubtask(task.subtasks, t, generateId()) });
+    subRef.current?.focus();
+  };
+  const commitStep = (sid: string, before: string) => {
+    const t = editSubText.trim();
+    setEditingSub(null);
+    if (t && t !== before) patch({ subtasks: renameSubtask(task.subtasks, sid, t) });
+  };
 
   const saveTitle = () => {
     const t = title.trim();
@@ -202,16 +239,35 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {projected && <SeriesNote />}
+        <StreakLine task={task} />
         <DetailRow glyph="📅" label="Task date">
           <View style={styles.row}>
             <input
               type="date"
               value={isDateKey(task.dueDate) ? task.dueDate : ''}
               aria-label="Day"
+              disabled={projected}
               onChange={(e) => patch({ dueDate: e.target.value || undefined })}
               style={domSelect}
             />
-            {task.dueDate ? (
+            {/* A time of day belongs to a Day (patchTask clears it with the Day). */}
+            {isDateKey(task.dueDate) && (
+              <input
+                type="time"
+                step={300}
+                value={task.startTime ?? ''}
+                aria-label="Time"
+                onChange={(e) => patch({ startTime: /^\d\d:\d\d$/.test(e.target.value) ? e.target.value : undefined })}
+                style={domSelect}
+              />
+            )}
+            {task.startTime ? (
+              <Pressable onPress={() => patch({ startTime: undefined })} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Remove time">
+                <Text style={styles.quietText}>Remove time</Text>
+              </Pressable>
+            ) : null}
+            {task.dueDate && !projected ? (
               <Pressable onPress={() => patch({ dueDate: undefined })} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Remove the day">
                 <Text style={styles.quietText}>Remove date</Text>
               </Pressable>
@@ -228,6 +284,7 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
           </View>
           <View style={styles.row}>
             <TextInput
+              ref={customRef}
               style={[styles.input, customBad && styles.inputBad]}
               value={custom}
               onChangeText={(t) => {
@@ -255,6 +312,7 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
               <Text style={[styles.bigBtnText, running && styles.bigBtnTextOn]}>{running ? 'Stop' : 'Start'}</Text>
             </Pressable>
             <TextInput
+              ref={actualRef}
               style={[styles.input, actualBad && styles.inputBad]}
               value={actualText}
               onChangeText={(t) => {
@@ -291,6 +349,12 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
           <RepeatField task={task} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
+        {feats.dueDates && (
+          <DetailRow glyph="🔔" label="Reminder">
+            <ReminderField task={task} ops={ops} onSaved={onSaved} />
+          </DetailRow>
+        )}
+
         <DetailRow glyph="📋" label="List">
           <select value={listKey ?? ''} aria-label="List" onChange={(e) => patch({ listKey: e.target.value || undefined })} style={domSelect}>
             <option value="">{listTitle(undefined)}</option>
@@ -307,6 +371,7 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
             📝  Notes
           </Text>
           <TextInput
+            ref={notesRef}
             style={styles.notes}
             value={notes}
             onChangeText={setNotes}
@@ -322,22 +387,57 @@ function Panel({ task, labels, lists, onSaved }: { task: Task; labels: Project[]
           <Text style={styles.sectionLabel} accessibilityRole="header">
             ☑️  Subtasks  {counterLabel(task.subtasks)}
           </Text>
-          {subtasks.length === 0 ? (
-            <Text style={styles.muted}>None. Add them on the card (S, then Ctrl+S).</Text>
-          ) : (
-            subtasks.map((s) => (
+          {subtasks.map((s) => (
+            <View key={s.id} style={styles.subRow} {...({ dataSet: { subRow: s.id } } as object)}>
               <Pressable
-                key={s.id}
                 onPress={() => ops.toggleSubtask(s.id).then(onSaved)}
-                style={styles.subRow}
                 accessibilityRole="button"
                 accessibilityLabel={s.done ? `Untick ${s.title}` : `Tick ${s.title}`}
               >
                 <Ionicons name={s.done ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={s.done ? Colors.accent : Colors.textSecondary} />
-                <Text style={[styles.subText, s.done && styles.subDone]}>{s.title}</Text>
               </Pressable>
-            ))
-          )}
+              {editingSub === s.id ? (
+                <TextInput
+                  style={[styles.input, styles.subInput]}
+                  value={editSubText}
+                  onChangeText={setEditSubText}
+                  onSubmitEditing={() => commitStep(s.id, s.title)}
+                  onBlur={() => commitStep(s.id, s.title)}
+                  autoFocus
+                  selectTextOnFocus
+                  accessibilityLabel={`Edit subtask ${s.title}`}
+                />
+              ) : (
+                <Text
+                  style={[styles.subText, s.done && styles.subDone]}
+                  onPress={() => {
+                    setEditingSub(s.id);
+                    setEditSubText(s.title);
+                  }}
+                  accessibilityLabel={`Rename subtask ${s.title}`}
+                >
+                  {s.title}
+                </Text>
+              )}
+              <Pressable onPress={() => patch({ subtasks: deleteSubtask(task.subtasks, s.id) })} style={styles.subDelete} accessibilityRole="button" accessibilityLabel={`Delete subtask ${s.title}`}>
+                <Ionicons name="close" size={14} color={Colors.textSecondary} />
+              </Pressable>
+            </View>
+          ))}
+          <View style={styles.subRow}>
+            <Ionicons name="add" size={18} color={Colors.textSecondary} />
+            <TextInput
+              ref={subRef}
+              style={[styles.input, styles.subInput]}
+              value={newSub}
+              onChangeText={setNewSub}
+              onSubmitEditing={addStep}
+              blurOnSubmit={false}
+              placeholder="Add subtask"
+              placeholderTextColor={Colors.textSecondary}
+              accessibilityLabel={`Add subtask to ${task.title}`}
+            />
+          </View>
         </View>
 
         {feats.templates && tplOpen && (
@@ -460,6 +560,32 @@ function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved
   );
 }
 
+// The card's Reminder dropdown (TaskPopovers.ReminderBody), opened from the
+// modal (2.27.0: the bell left the card face).
+function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved: () => void }) {
+  const { ref, get } = usePopoverAnchor();
+  const id = `detail:${task.id}:reminder`;
+  const open = useIsOpen(id);
+  const wrapped: TaskOps = { ...ops, patch: (f) => ops.patch(f).then(onSaved) };
+  return (
+    <>
+      <Pressable
+        ref={ref as never}
+        onPress={() => togglePopover(id, get)}
+        style={[styles.quiet, open && styles.chipOn, { alignSelf: 'flex-start' }]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`Reminder: ${reminderLabel(task.reminderMinutes)}`}
+      >
+        <Text style={[styles.quietText, open && styles.chipTextOn]}>{reminderLabel(task.reminderMinutes)}</Text>
+      </Pressable>
+      <Popover id={id} anchor={get} width={240}>
+        <ReminderBody task={task} ops={wrapped} done={() => closePopover(true)} />
+      </Popover>
+    </>
+  );
+}
+
 // One row of the modal: the name on the left (with its value), the control on
 // the right.
 function DetailRow({ glyph, label, value, children }: { glyph: string; label: string; value?: string; children: React.ReactNode }) {
@@ -558,6 +684,8 @@ const styles = StyleSheet.create({
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30 },
   subText: { flex: 1, fontSize: 14, color: Colors.textPrimary },
   subDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
+  subInput: { height: 30, minWidth: 0 },
+  subDelete: { padding: 6 },
   confirm: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 8 },
   yes: { fontSize: 13, fontWeight: '700', color: Colors.danger },
   no: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },

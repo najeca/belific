@@ -360,3 +360,18 @@ Asked for by Jethro with reference screenshots (kept outside the repo; layout, b
 ## Next session
 
 Phase 9, after Jethro's go (read the plan's section 3). Before it: Jethro reviews and applies 003, deploys `belific-calendar-feed` (`docs/CALENDAR_FEED_DEPLOY.md`) and makes the 2.25.0 TestFlight build for the iPhone calendar check. The older notes below still apply. Read the plan's phase 4 and section 0 items 3, 4, 7 and 9, and the open questions above (triweekly section, annual month). The Quests screen is the only other thing that changes the desktop screen (with Profile). Shared pieces to reuse: `lib/series.ts`, `lib/seriesStreak.ts`, `lib/seriesActions.ts`, `lib/taskTotals.ts`, `lib/timerSession.ts`, `uiStore.ts` (overlays, details panel), `usePaneState.ts`, `lib/shortcuts.ts` (add keys there, never elsewhere). Real checks: `desktop/test/real/p2.js` and `p3.js` (build first with `node desktop/scripts/build-web.js`, then `cd desktop && npx electron test/real/p3.js`).
+
+## Checkpoint: the fix batch for the redesign (2026-10-18, 2.27.0)
+
+Asked for by Jethro after using 2.26.0: ten items, one commit each, the version bump in the last commit. No schema change, no new table, no sync change. Real check `desktop/test/real/p10.js` has one section per item. What each item does: `docs/CHANGELOG.md` 2.27.0.
+
+## Decisions I made on my own (fix batch)
+
+1. **The card face keeps decision 007's run line** ("11 days in a row") on today's card of a repeating task. The brief lists what the face shows and the line is not on it, but it is not a control, shows only from 2, and removing it would undo decision 007, which the brief did not ask for. It also shows in the details modal. Say if it should leave the card.
+2. **A placed task's card shows its start time instead of the estimate** ("time or estimate"); the estimate is in the details.
+3. **The steps ring ticks the next open step** (a click on it is not an open); with every step done it opens the details at the steps.
+4. **Move to today is not shown** on a task already on today, a done task or a repeating day (the series has its own days).
+5. **Opening a legacy phone Brain Dump item converts it to a task** (opening is its first edit; until 2.26 that happened on the first change).
+6. **The Timebox block menu is gone**: blocks open the same modal as cards. The modal gained Remove time so nothing the menu did is lost.
+7. **The left list's Add a task box has no time field**: a time belongs to a Day, and the list holds tasks without one. Day boxes have it.
+8. **The Tasks strip retries the jump to today** for up to 20 frames when it lands short (found while testing: it could open on October 2021).

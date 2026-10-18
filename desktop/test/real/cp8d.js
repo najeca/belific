@@ -69,10 +69,22 @@ async function run() {
   const inPopover = (inner) => q(`[data-popover] ${inner}`);
   const exists = (expr) => js(`!!${expr}`);
   const text = (expr) => js(`(${expr} || {}).innerText || ''`);
+  // 2.27.0: Repeat lives in the details modal (a click on the card opens it).
+  const modal = '[role="dialog"][aria-label="Task details"]';
+  const openRepeat = async (title) => {
+    await click(inCard(title, `[aria-label="Title ${title}"]`), 500);
+    await C.waitFor(() => exists(q(modal)), 4000).catch(() => {});
+    await click(q(`${modal} [aria-label^="Repeat:"]`));
+  };
+  const closeModal = async () => {
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+    await C.sleep(300);
+  };
   const selected = (expr) => js(`(${expr} || { getAttribute: () => null }).getAttribute('aria-pressed')`);
 
   // ---- Alpha: pick Daily, apply, complete, next occurrence is tomorrow ----
-  await click(inCard('Alpha', '[aria-label^="Repeat"]'));
+  await openRepeat('Alpha');
   const labels = await js(`Array.from(document.querySelectorAll('[data-popover] [aria-label^="Repeat "]')).map((e) => e.getAttribute('aria-label')).filter((l) => l !== 'Repeat summary')`);
   // 2.21.0 (build plan phase 4) added Every year at the end.
   check('options in order: Does not repeat, Daily, Weekly, Every 2 weeks, Monthly, Every year', labels.join('|') === 'Repeat Does not repeat|Repeat Daily|Repeat Weekly|Repeat Every 2 weeks|Repeat Monthly|Repeat Every year', labels.join('|'));
@@ -84,7 +96,8 @@ async function run() {
   const a = taskNamed('Alpha');
   check('Daily stores recurrence daily with no days or month day', a.recurrence === 'daily' && a.recurrenceDays === undefined && a.recurrenceMonthDay === undefined && a.dueDate === today);
   await C.sleep(400);
-  check('the card shows the repeat mark with "Every day"', await exists(inCard('Alpha', '[aria-label="Repeat: Every day"]')));
+  check('the details show the repeat as "Every day"', await exists(q(`${modal} [aria-label="Repeat: Every day"]`)));
+  await closeModal();
   await click(inCard('Alpha', '[aria-label="Mark Alpha complete"]'));
   await C.waitFor(() => tasks().some((x) => x.id === 'a' && x.completed), 8000).catch(() => {});
   await C.sleep(700);
@@ -95,7 +108,7 @@ async function run() {
   check('the original is completed', taskNamed('Alpha') === undefined || taskNamed('Alpha').completed === true);
 
   // ---- Bravo: Weekly with all seven days switches to Daily ----
-  await click(inCard('Bravo', '[aria-label^="Repeat"]'));
+  await openRepeat('Bravo');
   await click(inPopover('[aria-label="Repeat Weekly"]'));
   await click(inPopover('[aria-label="Weekdays"]'));
   check('Weekly with the weekdays stays Weekly', (await selected(inPopover('[aria-label="Repeat Weekly"]'))) === 'true');
@@ -108,7 +121,7 @@ async function run() {
   check('Bravo is stored as daily with no days', taskNamed('Bravo').recurrence === 'daily' && taskNamed('Bravo').recurrenceDays === undefined);
   // reopening a stored daily task opens on Daily
   await C.sleep(400);
-  await click(inCard('Bravo', '[aria-label^="Repeat"]'));
+  await click(q(`${modal} [aria-label^="Repeat:"]`));
   check('a stored daily task opens the dropdown on Daily', (await selected(inPopover('[aria-label="Repeat Daily"]'))) === 'true');
 
   const failed = summary();

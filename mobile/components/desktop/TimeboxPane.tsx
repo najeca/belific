@@ -29,7 +29,6 @@ import { useDayStart } from './useDayStart';
 import { domNode, useDrag } from './DragProvider';
 import TimeBlock, { SlotPreview } from './TimeBlock';
 import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
-import TaskBlockPopover, { toggleBlockPopover } from './TaskBlockPopover';
 import usePaneScroll from './usePaneScroll';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { formatDuration } from '../../lib/duration';
@@ -46,6 +45,7 @@ import {
   deleteCustomEvent,
 } from '../../lib/storage';
 import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task } from '../../lib/types';
+import { openDetail } from './uiStore';
 
 // Desktop Timebox (decision 009): an hourly grid for one day, the whole 24
 // hours, 00:00 to 24:00 (decision 024). It opens at the "My day starts at"
@@ -244,7 +244,7 @@ export default function TimeboxPane({
   }
 
   function openSource(source: Source) {
-    if (source.kind === 'task' || source.kind === 'continuation') toggleBlockPopover(source.task.id);
+    if (source.kind === 'task' || source.kind === 'continuation') openDetail(source.task.id);
     else if (source.custom) setEditing(source.custom);
   }
 
@@ -373,7 +373,6 @@ export default function TimeboxPane({
                         </View>
                         {!isCompactBlock(b.height) && <Text style={styles.blockTime}>Continues from yesterday</Text>}
                       </Pressable>
-                      <TaskBlockPopover task={t} label={labels.find((p) => p.key === t.projectKey)} onChanged={onChanged} projected={source.projected} />
                     </View>
                   </View>
                 );

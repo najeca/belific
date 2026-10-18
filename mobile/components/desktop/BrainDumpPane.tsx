@@ -12,6 +12,7 @@ import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { setTaskCompleted } from '../../lib/taskActions';
 import TaskCard from './TaskCard';
+import AddTaskBox from './AddTaskBox';
 import { matchesLabels, type TaskFilter } from '../../lib/taskFilter';
 import { dumpAsTask, opsForDump, opsForTask } from './taskOps';
 import { useDrag } from './DragProvider';
@@ -19,7 +20,8 @@ import usePaneScroll from './usePaneScroll';
 import { taskDuration } from '../../lib/drag';
 import type { BrainDumpItem, Project, Task, TaskList } from '../../lib/types';
 import ListSwitcher from './ListSwitcher';
-import { useSelectedList } from './uiStore';
+import { openDetail, useSelectedList } from './uiStore';
+import { editDumpItem } from '../../lib/taskActions';
 import { useTick } from './timerUi';
 import { useFeature } from './featureStore';
 import TemplatePicker from './TemplatePicker';
@@ -48,7 +50,6 @@ export default function BrainDumpPane({
   const [lists, setLists] = useState<TaskList[]>([]);
   const selectedRaw = useSelectedList();
   const templatesOn = useFeature('templates');
-  const [captureText, setCaptureText] = useState('');
   const [doneOpen, setDoneOpen] = useState(false);
   const captureRef = useRef<TextInput>(null);
   const { drag, registerZone, sourceRef } = useDrag();
@@ -91,14 +92,6 @@ export default function BrainDumpPane({
   // The add task box's total (2.26.0): "5h planned" for what is still to do.
   const planned = useMemo(() => plannedText(rows.map((r) => (r.kind === 'task' ? r.task : dumpAsTask(r.item)))), [rows]);
 
-  async function handleCapture() {
-    if (!captureText.trim()) return;
-    await createTaskIn(captureText, { listKey: selected });
-    setCaptureText('');
-    onChanged();
-    captureRef.current?.focus();
-  }
-
   async function untick(task: Task) {
     await setTaskCompleted(task, false);
     onChanged();
@@ -112,29 +105,23 @@ export default function BrainDumpPane({
 
       <View style={styles.captureRow}>
         <View style={styles.captureBox}>
-          <Text style={styles.capturePlus} accessible={false}>
-            ＋
-          </Text>
-          <TextInput
-            ref={captureRef}
-            style={styles.captureInput}
-            placeholder="Add a task"
-            placeholderTextColor={Colors.textSecondary}
-            value={captureText}
-            onChangeText={setCaptureText}
-            onSubmitEditing={handleCapture}
-            accessibilityLabel="Capture a thought"
+          <AddTaskBox
+            id="left"
+            a11y="Capture a thought"
             autoFocus
+            inputRef={captureRef}
+            trailing={
+              planned ? (
+                <Text style={styles.planned} accessibilityLabel={`Estimated time still to do in this list: ${planned}`} {...({ dataSet: { planned: '1' } } as object)}>
+                  {planned}
+                </Text>
+              ) : null
+            }
+            onAdd={async (title, extra) => {
+              await createTaskIn(title, { listKey: selected, projectKey: extra.projectKey });
+              onChanged();
+            }}
           />
-          {captureText.trim() ? (
-            <Pressable style={styles.addBtn} onPress={handleCapture} accessibilityRole="button" accessibilityLabel="Add">
-              <Text style={styles.addText}>Add</Text>
-            </Pressable>
-          ) : planned ? (
-            <Text style={styles.planned} accessibilityLabel={`Estimated time still to do in this list: ${planned}`} {...({ dataSet: { planned: '1' } } as object)}>
-              {planned}
-            </Text>
-          ) : null}
         </View>
         {templatesOn && <TemplatePicker listKey={selected} refreshKey={refreshKey} onChanged={onChanged} />}
       </View>
@@ -158,6 +145,8 @@ export default function BrainDumpPane({
                 color={labelColor(proj?.colorKey)}
                 variant="row"
                 todayKey={todayKey}
+                // A legacy phone item becomes a task on its first edit; opening it is that edit.
+                onOpen={row.kind === 'dump' ? (focus) => editDumpItem(row.item, {}).then((t) => (onChanged(), openDetail(t.id, focus))) : undefined}
                 onChanged={onChanged}
                 divider={false}
                 dragging={drag?.item.id === id}
@@ -226,7 +215,7 @@ const styles = StyleSheet.create({
   totals: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   totalsOver: { color: Colors.accentText, fontWeight: '700' },
   captureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 8 },
-  captureBox: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 40, paddingLeft: 10, paddingRight: 6, borderRadius: 10, backgroundColor: Colors.background, gap: 6 },
+  captureBox: { flex: 1, minWidth: 0, marginBottom: -10 },
   capturePlus: { fontSize: 14, color: Colors.textSecondary, width: 16, textAlign: 'center' },
   captureInput: {
     flex: 1,

@@ -210,9 +210,12 @@ async function run() {
   await click(byLabel('Calendar go to today'));
   await C.sleep(400);
   await click(byLabel('Calendar block Alpha today'));
-  check('a block opens the same task menu as the Timebox', await exists(dialog('Task options')));
+  // 2.27.0: a block opens the task details modal, as a card and a Timebox block do.
+  await C.waitFor(() => exists(dialog('Task details')), 3000).catch(() => {});
+  check('a block opens the task details, the same as the Timebox', await exists(dialog('Task details')));
   await key('Escape');
-  check('Escape closes it', !(await exists(dialog('Task options'))));
+  await C.sleep(300);
+  check('Escape closes it', !(await exists(dialog('Task details'))));
   // the calendar has its own filter button and moves by week
   check('the calendar has a filter', (await body()).includes('Filter'));
   await key('w');

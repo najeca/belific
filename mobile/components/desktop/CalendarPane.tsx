@@ -4,6 +4,7 @@ import { domNode, useDrag } from './DragProvider';
 import TimeBlock, { SlotPreview } from './TimeBlock';
 import { taskDuration } from '../../lib/drag';
 import { dayAt, followToday, indexOfDay, leftDay, stripAround, visibleRange, weekRangeTitle } from '../../lib/dayStrip';
+import { useAwayDays } from './awayStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { customToScheduleEvent, formatTime, getWeeklyEventsForDate } from '../../lib/data';
@@ -116,6 +117,8 @@ export default function CalendarPane({
   const zoneRefs = useRef(new Map<string, (node: unknown) => void>());
   const dayStartMin = useDayStart();
   const now = useTick(30000);
+  // Away days (2.27.0) are greyed in every view.
+  const awayDays = useAwayDays(refreshKey);
 
   const reload = useCallback(() => {
     // Raw rows, tombstones included: a skipped day of a series blocks its projection.
@@ -449,10 +452,10 @@ export default function CalendarPane({
                     <Pressable
                       key={cell.key}
                       onPress={() => goTo('day', cell.key)}
-                      style={[styles.monthCell, !cell.inMonth && styles.monthOut, cell.isToday && styles.monthToday]}
+                      style={[styles.monthCell, !cell.inMonth && styles.monthOut, awayDays.has(cell.key) && styles.awayDay, cell.isToday && styles.monthToday]}
                       accessibilityRole="button"
-                      accessibilityLabel={`Open ${cell.key}${list.length ? `, ${list.length} tasks` : ''}${ext.length ? `, ${ext.length} imported events` : ''}`}
-                      {...({ dataSet: { calDay: cell.key } } as object)}
+                      accessibilityLabel={`Open ${cell.key}${awayDays.has(cell.key) ? ', away' : ''}${list.length ? `, ${list.length} tasks` : ''}${ext.length ? `, ${ext.length} imported events` : ''}`}
+                      {...({ dataSet: { calDay: cell.key, ...(awayDays.has(cell.key) ? { away: '1' } : {}) } } as object)}
                     >
                       <Text style={[styles.monthNum, cell.isToday && styles.monthNumToday]}>{parseDateKey(cell.key).getDate()}</Text>
                       {shown.map((t) => {
@@ -514,13 +517,14 @@ export default function CalendarPane({
                     <Pressable
                       onPress={() => effView === 'week' && goTo('day', d.key)}
                       disabled={effView === 'day'}
-                      style={[styles.dayHead, { position: 'absolute', left, top: 0, width: colW, height: HEAD_H }]}
+                      style={[styles.dayHead, awayDays.has(d.key) && styles.awayDay, { position: 'absolute', left, top: 0, width: colW, height: HEAD_H }]}
                       accessibilityRole="button"
-                      accessibilityLabel={`${WEEKDAYS[date.getDay()]} ${date.getDate()}`}
-                      {...({ dataSet: { calHead: d.key } } as object)}
+                      accessibilityLabel={`${WEEKDAYS[date.getDay()]} ${date.getDate()}${awayDays.has(d.key) ? ', away' : ''}`}
+                      {...({ dataSet: { calHead: d.key, ...(awayDays.has(d.key) ? { away: '1' } : {}) } } as object)}
                     >
                       <Text style={[styles.dayHeadText, isToday && styles.dayHeadToday, d.key < todayKey && styles.past]}>
                         {WEEKDAYS[date.getDay()]} <Text style={styles.dayHeadDate}>{date.getDate()}</Text>
+                        {awayDays.has(d.key) ? ' ✈️' : ''}
                       </Text>
                     </Pressable>
                     <View
@@ -582,7 +586,7 @@ export default function CalendarPane({
                 <View
                   key={d.key}
                   ref={columnRef(d.key) as never}
-                  style={[styles.dayCol, { left: GUTTER + colLeft(d.key), width: colW }]}
+                  style={[styles.dayCol, awayDays.has(d.key) && styles.awayDay, { left: GUTTER + colLeft(d.key), width: colW }]}
                   {...({ dataSet: { calCol: d.key } } as object)}
                 >
                   {d.blocks.map((b) => {
@@ -706,6 +710,7 @@ const styles = StyleSheet.create({
   note: { fontSize: 12, color: Colors.textSecondary, marginBottom: 6 },
   headRow: { flexDirection: 'row' },
   dayHead: { alignItems: 'center', justifyContent: 'center' },
+  awayDay: { backgroundColor: 'rgba(38,37,31,0.07)' },
   dayHeadDate: { fontWeight: '700' },
   past: { opacity: 0.55 },
   cellTarget: { backgroundColor: 'rgba(92,122,107,0.10)' },

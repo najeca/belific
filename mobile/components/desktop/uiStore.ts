@@ -41,9 +41,17 @@ interface State {
   reveal: RevealRequest | null;
   timerConfirm: TimerConfirm | null;
   goToday: number;
+  undo: UndoOffer | null;
 }
 
-let state: State = { overlay: null, detailId: null, detailFocus: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0 };
+// One change that can be taken back straight after (2.27.0: moving a day's tasks).
+export interface UndoOffer {
+  text: string;
+  run: () => Promise<unknown>;
+  nonce: number;
+}
+
+let state: State = { overlay: null, detailId: null, detailFocus: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0, undo: null };
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const subscribe = (l: () => void) => {
@@ -56,6 +64,15 @@ function set(patch: Partial<State>): void {
 }
 function use<T>(pick: (s: State) => T): T {
   return useSyncExternalStore(subscribe, () => pick(state), () => pick(state));
+}
+
+// ---- undo ----
+export const useUndo = () => use((s) => s.undo);
+export function offerUndo(text: string, run: () => Promise<unknown>): void {
+  set({ undo: { text, run, nonce: Date.now() } });
+}
+export function clearUndo(): void {
+  if (state.undo) set({ undo: null });
 }
 
 // ---- overlays ----

@@ -15,6 +15,9 @@ import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { taskDuration } from '../../lib/drag';
 import { loadTasksRaw } from '../../lib/storage';
+import { AWAY_ADD_WARNING } from '../../lib/awayDays';
+import DayMenu from './DayMenu';
+import { useAwayDays } from './awayStore';
 import { createTaskIn } from '../../lib/taskCommands';
 import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
 import { useTick } from './timerUi';
@@ -68,12 +71,14 @@ function DayTotals({ items, now }: { items: Task[]; now: number }) {
 
 // The day's "Add a task" box (AddTaskBox.tsx): Enter adds a task on that Day
 // (like T for today), with the time and label chosen in the box.
-function DayAddBox({ dayKey, items, now, onChanged }: { dayKey: string; items: Task[]; now: number; onChanged: () => void }) {
+function DayAddBox({ dayKey, items, now, onChanged, away }: { dayKey: string; items: Task[]; now: number; onChanged: () => void; away?: boolean }) {
   return (
     <AddTaskBox
       id={dayKey}
       a11y={`Add a task on ${dayKey}`}
       withTime
+      // An away day (2.27.0): adding is allowed, with a quiet warning.
+      warning={away ? AWAY_ADD_WARNING : null}
       trailing={<DayTotals items={items} now={now} />}
       onAdd={async (title, extra) => {
         await createTaskIn(title, { dueDate: dayKey, ...extra });
@@ -194,6 +199,7 @@ export default function KanbanPane({
   const projected = useMemo(() => filterTasks(projectOccurrences(tasks, days.map((d) => d.key), todayKey), filter), [tasks, days, todayKey, filter]);
   const columns = useMemo(() => bucketTasks(shownTasks, days, todayKey, { projected }), [shownTasks, days, todayKey, projected]);
   const now = useTick(30000);
+  const awayDays = useAwayDays(refreshKey);
 
   const firstShown = onlyToday ? todayKey : leftDay(strip, scrollLeft, STEP);
   const lastShown = onlyToday ? todayKey : dayAt(strip, Math.min(strip.total - 1, indexOfDay(strip, firstShown) + Math.max(0, Math.floor((viewW || STEP) / STEP) - 1)));
@@ -227,12 +233,13 @@ export default function KanbanPane({
     const items = columns.days[day.key] ?? [];
     const head = columnHeading(day.key, todayKey);
     const isTarget = dropDay === day.key;
+    const away = awayDays.has(day.key);
     return (
       <View
         key={day.key}
         ref={columnRef(day.key) as never}
-        style={[styles.column, left !== null && { position: 'absolute', left, top: 0, bottom: 0 }, isTarget && styles.columnTarget]}
-        {...({ dataSet: { dayCol: day.key, when: head.when } } as object)}
+        style={[styles.column, left !== null && { position: 'absolute', left, top: 0, bottom: 0 }, away && styles.awayColumn, isTarget && styles.columnTarget]}
+        {...({ dataSet: { dayCol: day.key, when: head.when, ...(away ? { away: '1' } : {}) } } as object)}
       >
         <View style={styles.columnHeader}>
           <Text style={[styles.weekday, head.when === 'past' && styles.past]} accessibilityRole="header">
@@ -240,13 +247,15 @@ export default function KanbanPane({
           </Text>
           <Text style={[styles.date, head.when === 'past' && styles.past]}>{head.date}</Text>
           {head.when === 'today' && <Text style={styles.todayTag}>Today</Text>}
+          {away && <Text style={styles.awayTag}>✈️ Away</Text>}
+          {head.when !== 'past' && !onlyToday && <DayMenu dayKey={day.key} tasks={tasks} away={away} awayDays={awayDays} onChanged={onChanged} />}
         </View>
         {head.when === 'past' ? (
           <View style={styles.pastTotals}>
             <DayTotals items={items.map((i) => i.task)} now={now} />
           </View>
         ) : (
-          <DayAddBox dayKey={day.key} items={items.map((i) => i.task)} now={now} onChanged={onChanged} />
+          <DayAddBox dayKey={day.key} items={items.map((i) => i.task)} now={now} onChanged={onChanged} away={away} />
         )}
         <ScrollView ref={scrollRef(`day:${day.key}`) as never} style={styles.columnList} contentContainerStyle={styles.columnListContent} showsVerticalScrollIndicator={false}>
           {items.map((item) => {
@@ -396,6 +405,9 @@ const styles = StyleSheet.create({
   date: { fontSize: 20, fontWeight: '500', color: Colors.textSecondary },
   past: { opacity: 0.6 },
   todayTag: { marginLeft: 4, fontSize: 12, fontWeight: '700', color: Colors.accentText },
+  // An away day (2.27.0): greyed, with a small tag.
+  awayColumn: { backgroundColor: 'rgba(38,37,31,0.07)' },
+  awayTag: { marginLeft: 4, fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
   addBox: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 10, paddingRight: 8, borderRadius: 10, backgroundColor: Colors.background, marginBottom: 10 },
   addPlus: { fontSize: 14, color: Colors.textSecondary, width: 16, textAlign: 'center' },
   addInput: { flex: 1, minWidth: 0, height: 40, fontSize: 14, color: Colors.textPrimary, outlineStyle: 'none' } as object,

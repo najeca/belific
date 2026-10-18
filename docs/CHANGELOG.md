@@ -63,6 +63,15 @@ to know the current version and recent history.
 - **A repeating day is never late** (stored or only shown): its days are never moved. A late task of an earlier day is also in the Missed list.
 - Real check: p10 section 7 (skipped before 00:16, when the seeded block is not late yet).
 
+### 8. Away days
+- **A day header menu** (⋯ beside each day's name on the Tasks board, today and later) has **Mark as away** (and Not away any more). Stored with existing storage only: one `user_settings` row per day, key `away.YYYY-MM-DD`, value `1` or `0` (a value, not a delete, because a delete wins on sync and the day could never be marked again). No schema change, no new table; it syncs to the other computer like any setting.
+- **Marking a day that has unfinished one off tasks asks first:** move them all to the next free day, spread them one a day across the next free days (in the order the board shows them), or leave them. Away days are skipped when picking free days; each task keeps its time of day; done tasks and repeating days never move. A move can be undone straight after (the undo bar, 12 seconds).
+- **Greyed** on the Tasks board (with a ✈️ Away tag) and in the Calendar (day and week headers and columns, month cells).
+- **Adding a task to an away day warns** ("This is an away day. The task is added anyway.") and adds it.
+- **Daily Planning shows it:** a line in the rail when today or tomorrow is away, and on the Tomorrow column.
+- **An older Belific does not break:** 2.26 reads only the settings keys it knows (features, templates, panes, the calendar feed token) and keeps other rows as they are when it syncs; the iPhone does the same. They simply do not show away days.
+- Real check: p10 section 8.
+
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 
 **Desktop redesign after Jethro's review, with the Ellie planner as the reference for layout, behaviour and feel only (no copied icons, text or visuals). No schema change, no sync change: every stored value (priority included) is untouched and still syncs. Built and committed step by step; this entry grows with each step.**

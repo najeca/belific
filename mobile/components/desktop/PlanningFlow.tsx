@@ -13,6 +13,7 @@ import { canCarryToTomorrow, tomorrowOf } from '../../lib/rollover';
 import { EMPTY_DRAFT, doneOn, draftAdd, draftEdit, draftSkip, draftView, isSkipDrafted, missedTasks, nextWeekStart, onDay, type Draft } from '../../lib/planningDraft';
 import { doTodayCopy, missedItems, type MissedItem } from '../../lib/missed';
 import MissedList, { type MissedActions } from './MissedList';
+import { useAwayDays } from './awayStore';
 import { finishFlow } from '../../lib/planningActions';
 import { estimateOf, formatTotals, totalsOf } from '../../lib/taskTotals';
 import { minutesOfDay, nowLineTop } from '../../lib/calendarView';
@@ -49,6 +50,9 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
   const yesterday = dateKey(addDays(parseDateKey(todayKey), -1));
   const tomorrow = tomorrowOf(todayKey);
   const nextWeek = nextWeekStart(todayKey);
+  // Away days (2.27.0) show in the flow: a line in the rail, and on the day's column.
+  const awayDays = useAwayDays();
+  const awayNote = [awayDays.has(todayKey) && 'Today', awayDays.has(tomorrow) && 'Tomorrow'].filter(Boolean).join(' and ');
 
   useEffect(() => {
     Promise.all([loadTasksRaw(), loadLabels(), loadLists()]).then(([t, l, ls]) => {
@@ -189,7 +193,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
             <Row key={t.id} task={t} label={labelOf(t)} actions={[{ text: '→ Tomorrow', a11y: `Move ${t.title} to tomorrow`, onPress: () => move(t, tomorrow) }, { text: '→ Next week', a11y: `Move ${t.title} to next week`, onPress: () => move(t, nextWeek) }]} />
           ))}
         </Column>
-        <Column title="Tomorrow" emoji="🌅" hint="Add tasks that can wait">
+        <Column title="Tomorrow" emoji="🌅" hint={awayDays.has(tomorrow) ? '✈️ Tomorrow is an away day' : 'Add tasks that can wait'}>
           {tomorrowList.map((t) => (
             <Row key={t.id} task={t} label={labelOf(t)} actions={[{ text: '← Today', a11y: `Move ${t.title} to today`, onPress: () => move(t, todayKey) }]} />
           ))}
@@ -286,6 +290,11 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         </Text>
         <Text style={styles.helper}>{s.helper}</Text>
         <Text style={styles.helper}>Everything is a draft until you finish. Cancel changes nothing.</Text>
+        {awayNote ? (
+          <Text style={styles.helper} {...({ dataSet: { flowAway: '1' } } as object)}>
+            ✈️ {awayNote} {awayNote.includes(' and ') ? 'are away days' : 'is an away day'}. Tasks can still go there.
+          </Text>
+        ) : null}
         <View style={styles.figures}>
           {figures.map(([k, v]) => (
             <View key={k} style={styles.figure}>

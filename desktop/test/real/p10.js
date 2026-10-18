@@ -45,6 +45,9 @@ async function run() {
       T('ls1', 'Buy stamps', { listKey: 'le', dueDate: day(3), startTime: '14:00', durationMinutes: 15 }),
       T('ls2', 'Call bank', { listKey: 'le' }),
       T('late1', 'Late one', { dueDate: today, startTime: '00:00', durationMinutes: 15 }),
+      T('a1', 'Trip prep', { dueDate: day(2) }),
+      T('a2', 'Trip call', { dueDate: day(2), startTime: '15:00' }),
+      T('a3', 'Trip done', { dueDate: day(2), completed: true, completedAt: stamp }),
       T('om', 'Old must', { dueDate: day(-3), priority: 'high' }),
       T('o1', 'Old one', { dueDate: day(-2) }),
       T('o2', 'Old two', { dueDate: day(-1), startTime: '08:00' }),
@@ -353,6 +356,55 @@ async function run() {
   } else {
     console.log('SKIP 7: it is before 00:16, so the seeded block is not late yet');
   }
+
+  // ======== 8. Away days ========
+  const settings = () => read('belific_user_settings') || [];
+  const awayRow = (k) => settings().find((s) => s.key === `away.${k}`);
+  const dayMenu = (k) => `document.querySelector('[data-day-menu="${k}"]')`;
+  const menuRow = (label) => `document.querySelector('[role="dialog"] [aria-label=${JSON.stringify(label)}]') || document.querySelector('[aria-label=${JSON.stringify(label)}][role="button"]')`;
+  await I.click(`document.querySelector('[aria-label="Show today in Tasks"]')`).catch(() => {});
+  await C.sleep(400);
+  await I.click(dayMenu(day(2)), 400);
+  const markText = await I.js(`[...document.querySelectorAll('[role="button"]')].find((b) => (b.getAttribute('aria-label') || '').startsWith('Mark ') && b.getAttribute('aria-label').endsWith(' as away'))?.innerText ?? ''`);
+  check('8: the day header menu offers Mark as away, saying how many tasks are on the day', markText.includes('Mark as away') && markText.includes('2 tasks on this day'), markText);
+  await I.click(`[...document.querySelectorAll('[role="button"]')].find((b) => (b.getAttribute('aria-label') || '').endsWith(' as away'))`, 400);
+  check('8: a day with tasks asks first: next free day, spread, or leave them', (await I.exists(menuRow('Move them to the next free day'))) && (await I.exists(menuRow('Spread them across the next days'))) && (await I.exists(menuRow('Leave them here'))) && !awayRow(day(2)));
+  await I.click(menuRow('Spread them across the next days'), 800);
+  await C.waitFor(() => byId('a1').dueDate !== day(2), 4000).catch(() => {});
+  check('8: the day is stored as away in a settings row (existing storage)', awayRow(day(2))?.value === '1', JSON.stringify(awayRow(day(2))));
+  check('8: spread: one a day in board order, the time of day kept, a done task left alone', byId('a1').dueDate === day(3) && byId('a2').dueDate === day(4) && byId('a2').startTime === '15:00' && byId('a3').dueDate === day(2), JSON.stringify([byId('a1'), byId('a2'), byId('a3')]));
+  await C.sleep(300);
+  const awayCol = await I.js(`(() => { const c = ${col(day(2))}; return c ? [c.getAttribute('data-away'), getComputedStyle(c).backgroundColor, c.innerText.includes('Away')] : null; })()`);
+  check('8: the day is greyed on the board, with an Away tag', !!awayCol && awayCol[0] === '1' && awayCol[1] !== 'rgba(0, 0, 0, 0)' && awayCol[2], JSON.stringify(awayCol));
+  check('8: an undo is offered straight after', (await I.exists(`document.querySelector('[data-undo-bar]')`)) && (await I.textOf(`document.querySelector('[data-undo-bar]')`)).includes('Moved 2 tasks'));
+  await I.click(`document.querySelector('[data-undo-bar] [aria-label="Undo"]')`, 800);
+  await C.waitFor(() => byId('a1').dueDate === day(2) && byId('a2').dueDate === day(2), 4000).catch(() => {});
+  check('8: Undo puts them back (the day stays away)', byId('a1').dueDate === day(2) && byId('a2').dueDate === day(2) && byId('a2').startTime === '15:00' && awayRow(day(2))?.value === '1');
+  const warnText = await I.textOf(col(day(2)));
+  check('8: adding to an away day warns', warnText.includes('This is an away day. The task is added anyway.'), warnText.slice(0, 200));
+  await I.click(I.byLabel(`Add a task on ${day(2)}`), 200);
+  await I.type('Packed lunch');
+  await I.enter();
+  await C.waitFor(() => !!byTitle('Packed lunch'), 4000).catch(() => {});
+  check('8: but allows it', byTitle('Packed lunch')?.dueDate === day(2));
+  await I.shot('p10-08-away');
+  await I.click(I.byLabel('Show the Calendar'), 1200);
+  await C.waitFor(() => I.exists(`document.querySelector('[data-cal-head="${day(2)}"]')`), 5000).catch(() => {});
+  check('8: greyed in the Calendar too', (await I.js(`document.querySelector('[data-cal-head="${day(2)}"]')?.getAttribute('data-away') ?? null`)) === '1' && (await I.js(`document.querySelector('[data-cal-head="${day(1)}"]')?.getAttribute('data-away') ?? null`)) === null);
+  await I.click(I.byLabel('Show Tasks'), 1000);
+  // Tomorrow away: Daily Planning says so.
+  await I.click(dayMenu(day(1)), 400);
+  await I.click(`[...document.querySelectorAll('[role="button"]')].find((b) => (b.getAttribute('aria-label') || '').endsWith(' as away'))`, 400);
+  if (await I.exists(menuRow('Leave them here'))) await I.click(menuRow('Leave them here'), 600);
+  await C.waitFor(() => awayRow(day(1))?.value === '1', 4000).catch(() => {});
+  check('8: Leave them here marks the day and moves nothing', awayRow(day(1))?.value === '1' && byTitle('Fresh one')?.dueDate === day(1));
+  await openPlanning();
+  check('8: Daily Planning shows the away day', (await I.js(`document.querySelector('[data-flow-away]')?.innerText ?? ''`)).includes('Tomorrow is an away day'));
+  await I.click(inFlow('Cancel and change nothing'), 600);
+  await I.click(dayMenu(day(1)), 400);
+  await I.click(`[...document.querySelectorAll('[role="button"]')].find((b) => (b.getAttribute('aria-label') || '').startsWith('Not away on'))`, 600);
+  await C.waitFor(() => awayRow(day(1))?.value === '0', 4000).catch(() => {});
+  check('8: Not away any more writes the row back to 0 (not a tombstone, so it can be marked again)', awayRow(day(1))?.value === '0' && !awayRow(day(1))?.deletedAt && (await I.js(`${col(day(1))}.getAttribute('data-away')`)) === null);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

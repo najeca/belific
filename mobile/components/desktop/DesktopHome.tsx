@@ -5,6 +5,7 @@ import { Colors } from '../../lib/theme';
 import { pressStyle } from './pressStyle';
 import BrainDumpPane from './BrainDumpPane';
 import MissedPanel from './MissedPanel';
+import UndoBar from './UndoBar';
 import KanbanPane from './KanbanPane';
 import TimeboxPane from './TimeboxPane';
 import DragProvider from './DragProvider';
@@ -490,6 +491,7 @@ export default function DesktopHome() {
       {overlay?.kind === 'labels' && <LabelsOverlay onChanged={onChanged} />}
       {view === 'home' && overlay?.kind === 'flow' && <PlanningFlow key={overlay.mode} mode={overlay.mode} />}
       {view === 'home' && overlay?.kind === 'missed' && <MissedPanel refreshKey={refreshKey} />}
+      {view === 'home' && <UndoBar />}
       <TimerWidget refreshKey={refreshKey} />
       <AccountChoiceModal />
     </View>

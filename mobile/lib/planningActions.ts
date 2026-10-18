@@ -1,6 +1,7 @@
 import { addTask, loadTasksRaw } from './storage';
 import { completeTaskById, patchTask } from './taskActions';
 import { finishWrites, type Draft } from './planningDraft';
+import { skipOccurrence } from './seriesActions';
 
 // Finish in Daily Planning or Daily Shutdown (build plan phase 5): the only
 // place these flows write. The writes are worked out from the LATEST stored rows
@@ -21,6 +22,8 @@ export function finishFlow(draft: Draft, todayKey: string, mode: 'planning' | 's
       if (Object.keys(rest).length > 0) await patchTask(p.id, rest);
       if (completed !== undefined) await completeTaskById(p.id, completed);
     }
+    // Missed days of a series skipped in the flow: the usual skip tombstone.
+    for (const occ of draft.skips ?? []) await skipOccurrence(occ);
     return { patched: w.patches.length, added: w.adds.length };
   });
   chain = run.catch(() => {});

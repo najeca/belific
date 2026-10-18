@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. The Daily Planning and Shutdown draft (phase 5).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_DRAFT, doneOn, draftAdd, draftEdit, draftView, finishWrites, isEmptyDraft, missedTasks, nextWeekStart, onDay } from './planningDraft.ts';
+import { EMPTY_DRAFT, doneOn, draftAdd, draftEdit, draftSkip, draftView, finishWrites, isEmptyDraft, isSkipDrafted, missedTasks, nextWeekStart, onDay } from './planningDraft.ts';
 import type { Task } from './types.ts';
 
 const STAMP = '2026-10-01T00:00:00.000Z';
@@ -85,4 +85,15 @@ test('what the steps show: missed (oldest first, no series rows), done on a day,
   assert.deepEqual(onDay(stored, TODAY).map((t) => t.id), ['today1']);
   assert.equal(nextWeekStart('2026-10-16'), '2026-10-19');
   assert.equal(nextWeekStart('2026-10-19'), '2026-10-26');
+});
+
+test('a missed day of a series skipped in the flow is held in the draft, once, and is not a write of a stored row', () => {
+  const occ = { id: 'gym:2026-10-16', title: 'Gym', completed: false, createdAt: 'x', updatedAt: 'x', dueDate: '2026-10-16' };
+  let d = draftSkip(EMPTY_DRAFT, occ);
+  d = draftSkip(d, occ);
+  assert.equal(d.skips?.length, 1);
+  assert.ok(isSkipDrafted(d, occ));
+  assert.ok(!isSkipDrafted(d, { id: 'gym:2026-10-15', dueDate: '2026-10-15' }));
+  assert.equal(isEmptyDraft(d), false);
+  assert.deepEqual(finishWrites([], d, '2026-10-18', 'planning').patches, []);
 });

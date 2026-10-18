@@ -10,7 +10,9 @@ import { listTitle, tasksInList } from '../../lib/lists';
 import { generateId } from '../../lib/data';
 import { newThought } from '../../lib/thoughts';
 import { canCarryToTomorrow, tomorrowOf } from '../../lib/rollover';
-import { EMPTY_DRAFT, doneOn, draftAdd, draftEdit, draftView, missedTasks, nextWeekStart, onDay, type Draft } from '../../lib/planningDraft';
+import { EMPTY_DRAFT, doneOn, draftAdd, draftEdit, draftSkip, draftView, isSkipDrafted, missedTasks, nextWeekStart, onDay, type Draft } from '../../lib/planningDraft';
+import { doTodayCopy, missedItems, type MissedItem } from '../../lib/missed';
+import MissedList, { type MissedActions } from './MissedList';
 import { finishFlow } from '../../lib/planningActions';
 import { estimateOf, formatTotals, totalsOf } from '../../lib/taskTotals';
 import { minutesOfDay, nowLineTop } from '../../lib/calendarView';
@@ -96,6 +98,32 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
   const tomorrowList = onDay(view, tomorrow);
   const nextWeekList = onDay(view, nextWeek);
 
+  // The Missed list (2.27.0): the same rows and actions as the Missed panel,
+  // here as draft edits written on Finish. Worked out from the rows with
+  // tombstones (a skipped series day is not missed). A task ticked done in the
+  // flow stays listed, ticked, so the tick can be undone.
+  const missedRows: MissedItem[] = tasks
+    ? [
+        ...missedItems(draftView(tasks, draft), todayKey).filter((m) => m.kind === 'task' || !isSkipDrafted(draft, m.task)),
+        ...view.filter((t) => draft.edits[t.id]?.completed === true && t.dueDate && t.dueDate < todayKey).map((t): MissedItem => ({ kind: 'task', task: t, day: t.dueDate as string, stored: true })),
+      ]
+    : [];
+  const missedActions: MissedActions = {
+    today: (t) => edit(t.id, { dueDate: todayKey }),
+    tomorrow: (t) => edit(t.id, { dueDate: tomorrow }),
+    pickDay: (t, day) => edit(t.id, { dueDate: day }),
+    drop: (t) => edit(t.id, { dueDate: undefined, startTime: undefined }),
+    skip: (occ) => setDraft((d) => draftSkip(d, occ)),
+    doToday: (occ) => setDraft((d) => draftSkip(draftAdd(d, doTodayCopy(occ, generateId(), todayKey, new Date().toISOString(), generateId)), occ)),
+    allToday: () => missedRows.forEach((m) => m.kind === 'task' && !m.task.completed && edit(m.task.id, { dueDate: todayKey })),
+    tick: (t) => edit(t.id, t.completed ? { completed: false } : { completed: true, completedAt: new Date().toISOString() }),
+  };
+  const missedColumn = (title: string, hint: string) => (
+    <Column title={title} emoji="🕓" hint={hint}>
+      <MissedList items={missedRows} labels={labels} todayKey={todayKey} actions={missedActions} rowLabel={(t) => `Flow task ${t.title}`} empty="No missed tasks to review. Add anything you want to work on in the next step." />
+    </Column>
+  );
+
   const s = steps[step];
   let figures: Array<[string, string]> = [];
   let columns: React.ReactNode = null;
@@ -114,15 +142,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         <Column title="Here's what you finished" emoji="✅">
           {done.length === 0 ? <Text style={styles.muted}>Nothing was finished yesterday.</Text> : done.map((t) => <Row key={t.id} task={t} label={labelOf(t)} />)}
         </Column>
-        <Column title="Here's what you missed" emoji="🌤️" hint="Tick any that were actually done. The rest come to today when you finish.">
-          {missed.length === 0 && Object.keys(draft.edits).every((id) => !('completed' in draft.edits[id])) ? (
-            <Text style={styles.muted}>No missed tasks to review. Add anything you want to work on in the next step.</Text>
-          ) : (
-            [...missed, ...view.filter((t) => draft.edits[t.id]?.completed === true && t.dueDate && t.dueDate < todayKey)].map((t) => (
-              <Row key={t.id} task={t} label={labelOf(t)} sub={t.dueDate ? `from ${formatShortDate(t.dueDate)}` : undefined} tick={t.completed} onTick={() => edit(t.id, t.completed ? { completed: false } : { completed: true, completedAt: new Date().toISOString() })} />
-            ))
-          )}
-        </Column>
+        {missedColumn("Here's what you missed", 'Tick any that were actually done, or choose a day. The one off tasks you leave come to today when you finish; repeating days are never moved.')}
       </>
     );
   } else if ((mode === 'planning' && step === 1) || (mode === 'shutdown' && step === 1)) {
@@ -226,6 +246,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         <Column title="Here's what you did today" emoji="✅" hint="Corrections are fine: untick anything that is not done.">
           {done.length === 0 ? <Text style={styles.muted}>Nothing finished today, and that is fine.</Text> : done.map((t) => <Row key={t.id} task={t} label={labelOf(t)} tick onTick={() => edit(t.id, { completed: false })} />)}
         </Column>
+        {missedRows.length > 0 && missedColumn('From earlier days', 'The Missed list. Nothing here moves unless you choose; Shutdown does not bring them to today.')}
         <Column title="What you missed" emoji="🌙" hint="Ticked ones go to tomorrow when you finish.">
           {left.length === 0 ? (
             <Text style={styles.muted}>Nothing left over from today.</Text>

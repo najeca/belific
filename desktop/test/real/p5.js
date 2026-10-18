@@ -99,7 +99,8 @@ async function run() {
   await I.click(I.byLabel('Profile, not signed in'));
   await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Plan my day"]')`, 600);
   check('the Daily Planning overlay opens, step 1 of 4', (await flowOpen()) && (await I.body()).includes('Step 1 of 4') && (await I.body()).includes('Review your work'));
-  check('step 1 lists the missed tasks, not the repeating one', (await I.exists(inFlow('Flow task Missed one'))) && (await I.exists(inFlow('Flow task Missed placed'))) && !(await I.exists(inFlow('Flow task Repeating daily'))));
+  // 2.27.0 (the Missed list): a missed day of a repeating task is listed too, but only to skip or do today; it is never moved.
+  check('step 1 lists the missed tasks; a repeating day only to skip or do today, never to move', (await I.exists(inFlow('Flow task Missed one'))) && (await I.exists(inFlow('Flow task Missed placed'))) && (await I.exists(inFlow('Do Repeating daily today'))) && !(await I.exists(inFlow('Move Repeating daily to today'))) && !(await I.exists(inFlow('Move Repeating daily to tomorrow'))));
   check('and what was finished yesterday', await I.exists(inFlow('Flow task Done yesterday')));
   await I.shot('p5-01-step1');
   await draftEverything(true);

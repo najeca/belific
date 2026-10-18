@@ -12,6 +12,7 @@ import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { setTaskCompleted } from '../../lib/taskActions';
 import TaskCard from './TaskCard';
+import MissedButton from './MissedButton';
 import AddTaskBox from './AddTaskBox';
 import { matchesLabels, type TaskFilter } from '../../lib/taskFilter';
 import { dumpAsTask, opsForDump, opsForTask } from './taskOps';
@@ -103,6 +104,7 @@ export default function BrainDumpPane({
     <View ref={paneRef as never} style={[styles.pane, isTarget && styles.paneTarget]}>
       <View style={styles.headRow}>
         <ListSwitcher lists={lists} counts={counts} selected={selected} />
+        <MissedButton refreshKey={refreshKey} />
       </View>
 
       <View style={styles.captureRow}>

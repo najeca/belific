@@ -14,6 +14,7 @@ export type Overlay =
   | { kind: 'capture'; mode: 'list' | 'today' }
   | { kind: 'flow'; mode: 'planning' | 'shutdown' }
   | { kind: 'labels' }
+  | { kind: 'missed' }
   | null;
 
 export interface TimerConfirm {

@@ -44,6 +44,11 @@ async function run() {
       T('bd', 'Brain one'),
       T('ls1', 'Buy stamps', { listKey: 'le', dueDate: day(3), startTime: '14:00', durationMinutes: 15 }),
       T('ls2', 'Call bank', { listKey: 'le' }),
+      T('om', 'Old must', { dueDate: day(-3), priority: 'high' }),
+      T('o1', 'Old one', { dueDate: day(-2) }),
+      T('o2', 'Old two', { dueDate: day(-1), startTime: '08:00' }),
+      T('o3', 'Old three', { dueDate: day(-1) }),
+      T('o4', 'Old four', { dueDate: day(-1), startTime: '09:00' }),
     ]),
   );
   fs.writeFileSync(
@@ -255,6 +260,73 @@ async function run() {
   await I.click(I.byLabel('List: Errands. Change list'), 400);
   await I.click(I.byLabel('Show Brain Dump'), 500);
   check('4: Brain Dump keeps its rule: a task with a day leaves it', !(await I.js(`[...document.querySelectorAll('[aria-label="Task Buy stamps"]')].some((c) => !c.closest('[data-day-col]'))`)));
+
+  // ======== 6. The Missed list ========
+  const missedBadge = () => I.js(`document.querySelector('[data-missed-button]')?.getAttribute('data-missed-button') ?? null`);
+  check('6: nothing moved by itself on launch (missed tasks keep their days)', byId('o1').dueDate === day(-2) && byId('om').dueDate === day(-3) && byId('o4').dueDate === day(-1));
+  // Five one off tasks, and the six days Gym (daily since six days ago) was due and not done.
+  check('6: the Missed button in the left pane shows the count', (await missedBadge()) === '11', String(await missedBadge()));
+  await I.click(`document.querySelector('[data-missed-button]')`, 600);
+  const panel = (sel) => `document.querySelector('[role="dialog"][aria-label="Missed"] ${sel}')`;
+  const rows = () => I.js(`[...document.querySelectorAll('[role="dialog"][aria-label="Missed"] [data-missed-row]')].map((r) => r.getAttribute('data-missed-row'))`);
+  const r0 = await rows();
+  check('6: the panel lists them all, Must do first', r0.length === 11 && r0[0] === 'om', JSON.stringify(r0));
+  check('6: a missed task is not shown in today\'s column', !(await I.exists(card(today, 'Old one'))));
+  check('6: one off tasks offer Today, Tomorrow, Pick a day and Drop; repeating days only Skip and Do it today', (await I.exists(panel('[aria-label="Move Old one to today"]'))) && (await I.exists(panel('[aria-label="Move Old one to tomorrow"]'))) && (await I.exists(panel('[aria-label="Pick a day for Old one"]'))) && (await I.exists(panel('[aria-label="Drop the day of Old one"]'))) && (await I.exists(panel('[aria-label="Do Gym today"]'))) && (await I.exists(panel('[aria-label^="Skip Gym on"]'))) && !(await I.exists(panel('[aria-label="Move Gym to today"]'))));
+  await I.click(panel('[aria-label="Move Old one to today"]'), 600);
+  await C.waitFor(() => byId('o1').dueDate === today, 4000).catch(() => {});
+  check('6: Today moves the task to today', byId('o1').dueDate === today);
+  await I.js(`(() => { const t = ${panel('[aria-label="Pick a day for Old must"]')}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(t, '${day(4)}'); t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await C.waitFor(() => byId('om').dueDate === day(4), 4000).catch(() => {});
+  check('6: Pick a day moves it to that day', byId('om').dueDate === day(4), JSON.stringify(byId('om')));
+  await I.click(panel('[aria-label="Drop the day of Old four"]'), 600);
+  await C.waitFor(() => !byId('o4').dueDate, 4000).catch(() => {});
+  check('6: Drop clears the day and the time, the task stays', !byId('o4').dueDate && !byId('o4').startTime && !byId('o4').deletedAt, JSON.stringify(byId('o4')));
+  await C.waitFor(() => I.exists(panel('[aria-label="Move all 2 to today"]')), 3000).catch(() => {});
+  await I.click(panel('[aria-label="Move all 2 to today"]'), 800);
+  await C.waitFor(() => byId('o2').dueDate === today && byId('o3').dueDate === today, 4000).catch(() => {});
+  check('6: Move all to today moves the rest, keeping a time of day', byId('o2').dueDate === today && byId('o2').startTime === '08:00' && byId('o3').dueDate === today);
+  const gymRows = () => tasks().filter((t) => t.id === 'gym' || t.id.startsWith('gym:'));
+  // The days the panel still lists for Gym, and whether a Gym day was moved onto today.
+  const missedDays = () => I.js(`[...document.querySelectorAll('[role="dialog"][aria-label="Missed"] [data-missed-row^="gym"]')].map((r) => r.getAttribute('data-missed-day'))`);
+  const openGymToday = () => gymRows().some((t) => t.id !== 'gym' && !t.deletedAt && !t.completed && t.dueDate === today);
+  await I.click(panel('[aria-label^="Skip Gym on"]'), 800);
+  await C.waitFor(async () => !(await missedDays()).includes(day(-6)), 4000).catch(() => {});
+  check('6: Skip writes the usual skip for that day (not moved)', !(await missedDays()).includes(day(-6)) && gymRows().some((t) => t.deletedAt) && !openGymToday(), JSON.stringify([await missedDays(), gymRows()]));
+  const before6 = tasks().length;
+  await I.click(panel('[aria-label="Do Gym today"]'), 800);
+  await C.waitFor(() => tasks().some((t) => t.title === 'Gym' && t.id !== 'gym' && !t.id.startsWith('gym:') && t.dueDate === today), 4000).catch(() => {});
+  await C.sleep(400);
+  const copy = tasks().find((t) => t.title === 'Gym' && t.id !== 'gym' && !t.id.startsWith('gym:'));
+  check('6: Do it today makes a one off task for today (no repeat), and that missed day is skipped', !!copy && copy.dueDate === today && !copy.recurrence && !(await missedDays()).includes(day(-5)) && !openGymToday() && tasks().length > before6, JSON.stringify(copy));
+  await C.sleep(400);
+  const r1 = await rows();
+  check('6: what is left is the four other Gym days', r1.length === 4 && r1.every((id) => id === 'gym' || id.startsWith('gym:')), JSON.stringify(r1));
+  await I.shot('p10-06-missed');
+  await I.key('Escape');
+  await C.sleep(500);
+  check('6: the badge follows', (await missedBadge()) === '4', String(await missedBadge()));
+  // Daily Planning shows the same list; its actions are a draft: Cancel writes nothing, Finish writes the skip.
+  const inFlow = (label) => `document.querySelector('[data-flow] [aria-label=${JSON.stringify(label)}]')`;
+  const openPlanning = async () => {
+    await I.blur();
+    await I.key('P', ['control', 'shift']);
+    await C.waitFor(() => I.exists(`document.querySelector('[data-flow]')`), 4000).catch(() => {});
+  };
+  await openPlanning();
+  const flowRows = await I.js(`document.querySelectorAll('[data-flow] [data-missed-row^="gym"]').length`);
+  check('6: Daily Planning lists the same missed days, with the same actions', flowRows === 4 && (await I.exists(`document.querySelector('[data-flow] [aria-label^="Skip Gym on"]')`)), String(flowRows));
+  const rawBefore = JSON.stringify(tasks());
+  await I.click(`document.querySelector('[data-flow] [aria-label^="Skip Gym on"]')`, 400);
+  check('6: in Planning a skip is a draft (the row goes, nothing written yet)', (await I.js(`document.querySelectorAll('[data-flow] [data-missed-row^="gym"]').length`)) === 3 && JSON.stringify(tasks()) === rawBefore);
+  await I.click(inFlow('Cancel and change nothing'), 600);
+  check('6: Cancel writes nothing', JSON.stringify(tasks()) === rawBefore && (await missedBadge()) === '4');
+  await openPlanning();
+  await I.click(`document.querySelector('[data-flow] [aria-label^="Skip Gym on"]')`, 400);
+  for (let i = 0; i < 3; i++) await I.click(inFlow('Next step'), 400);
+  await I.click(inFlow('Finish'), 1000);
+  await C.waitFor(async () => (await missedBadge()) === '3', 5000).catch(() => {});
+  check('6: Finish writes the skip (three Gym days left)', (await missedBadge()) === '3', String(await missedBadge()));
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

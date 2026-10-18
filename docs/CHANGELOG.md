@@ -48,6 +48,15 @@ to know the current version and recent history.
 - **Bug found and fixed:** the Timebox and the Calendar kept the day they were opened on. Belific lives in the tray for days, so after midnight they still showed yesterday instead of today. Now a view that was on today moves on to the new today at midnight, and a view moved to another day stays put; the Calendar week also keeps its first day (the strip is counted from today, so before this it slid by a day). The Tasks board already followed (it redraws every 30 seconds and jumps to today when the date changes).
 - The October 2021 startup fix is in item 1.
 
+### 6. The Missed list
+- **What is missed:** a one off task with a day before today, not done and not deleted; and a day of a repeating task in the last 7 days that was due and is neither done nor skipped (stored or only ever shown). Worked out from the stored rows every time; nothing is stored for it and nothing moves by itself (no rollover on launch, as before).
+- **🕓 Missed in the left pane**, beside the list name, with a count badge; it opens the Missed panel. Missed tasks are never put in the day columns (a past task stays on its own past day, as before).
+- **One off tasks:** Today, Tomorrow, Pick a day (today or later), Drop (the day and its time are cleared; the task stays in its list), and "Move all to today" when there are two or more. A time of day is kept when a task moves. Must do first, then the oldest day.
+- **Repeating days are never moved:** Skip (the usual skip of that day, so the streak treats it as a skipped day: neutral) and Do it today (a one off task for today with the same name, emoji, label, estimate, notes and unticked steps, no repeat; that missed day is skipped at the same time, so it leaves the list).
+- **Streak:** a day you skip, or do as a one off today, is a skipped day for the streak (neutral: the run is neither broken nor lengthened by it). Ticking the one off copy does not count as the series being done. A missed day left alone stays a day not done and ends the run, as before.
+- **Daily Planning and Daily Shutdown use the same list and the same actions** (Planning step 1 "Here's what you missed"; Shutdown step 1 "From earlier days" when there are any), as draft edits written on Finish; Cancel writes nothing. Their rules are unchanged: Finish in Planning still brings the one off tasks you did not decide about to today, keeping their time; Shutdown still moves only today's chosen tasks to tomorrow. A skip chosen in a flow is held in the draft and written on Finish.
+- Real checks: p10 section 6 (the badge, the order, every action, the series rules, Planning's draft); p5's step 1 check now expects a missed repeating day to be listed with Skip and Do it today and never offered a move.
+
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 
 **Desktop redesign after Jethro's review, with the Ellie planner as the reference for layout, behaviour and feel only (no copied icons, text or visuals). No schema change, no sync change: every stored value (priority included) is untouched and still syncs. Built and committed step by step; this entry grows with each step.**

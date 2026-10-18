@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { pressStyle } from './pressStyle';
 import BrainDumpPane from './BrainDumpPane';
+import MissedPanel from './MissedPanel';
 import KanbanPane from './KanbanPane';
 import TimeboxPane from './TimeboxPane';
 import DragProvider from './DragProvider';
@@ -298,7 +299,7 @@ export default function DesktopHome() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
       // The Labels overlay has fields of its own that use Escape; it closes itself.
-      if (overlay.kind === 'labels') return;
+      if (overlay.kind === 'labels' || overlay.kind === 'missed') return;
       e.preventDefault();
       closeOverlay();
     };
@@ -488,6 +489,7 @@ export default function DesktopHome() {
       {view === 'home' && overlay?.kind === 'search' && <SearchPalette />}
       {overlay?.kind === 'labels' && <LabelsOverlay onChanged={onChanged} />}
       {view === 'home' && overlay?.kind === 'flow' && <PlanningFlow key={overlay.mode} mode={overlay.mode} />}
+      {view === 'home' && overlay?.kind === 'missed' && <MissedPanel refreshKey={refreshKey} />}
       <TimerWidget refreshKey={refreshKey} />
       <AccountChoiceModal />
     </View>

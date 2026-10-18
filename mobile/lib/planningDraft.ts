@@ -18,9 +18,20 @@ export interface Draft {
   edits: Record<string, Partial<Task>>;
   // Tasks typed in the flow.
   added: Task[];
+  // Missed days of repeating series to skip on Finish (2.27.0, the Missed list).
+  skips?: Task[];
 }
 
 export const EMPTY_DRAFT: Draft = { edits: {}, added: [] };
+
+export function draftSkip(d: Draft, occ: Task): Draft {
+  if ((d.skips ?? []).some((s) => s.id === occ.id && s.dueDate === occ.dueDate)) return d;
+  return { ...d, skips: [...(d.skips ?? []), occ] };
+}
+
+export function isSkipDrafted(d: Draft, occ: Pick<Task, 'id' | 'dueDate'>): boolean {
+  return (d.skips ?? []).some((s) => s.id === occ.id && s.dueDate === occ.dueDate);
+}
 
 export function draftEdit(d: Draft, id: string, fields: Partial<Task>): Draft {
   const added = d.added.find((t) => t.id === id);
@@ -33,7 +44,7 @@ export function draftAdd(d: Draft, task: Task): Draft {
 }
 
 export function isEmptyDraft(d: Draft): boolean {
-  return Object.keys(d.edits).length === 0 && d.added.length === 0;
+  return Object.keys(d.edits).length === 0 && d.added.length === 0 && (d.skips ?? []).length === 0;
 }
 
 // The tasks as the flow shows them: stored rows with the draft's edits, plus

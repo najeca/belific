@@ -312,8 +312,8 @@ async function run() {
   await C.sleep(400);
   const tint = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); return c ? getComputedStyle(c).backgroundColor : ''; })()`);
   check('the card takes the teal tint', tint === 'rgb(210, 246, 241)', tint);
-  const edge = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); return c ? getComputedStyle(c).borderLeftColor : ''; })()`);
-  check('and the strong teal as its left edge', edge === 'rgb(15, 158, 142)', edge);
+  const tealEdge = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); return c ? getComputedStyle(c).borderLeftColor : ''; })()`);
+  check('and the strong teal as its left edge', tealEdge === 'rgb(15, 158, 142)', tealEdge);
   check('the unlock is stored locally only', readKv(dataDir)('belific_desktop_label_colors_227_ok') === 1 || readKv(dataDir)('belific_desktop_label_colors_227_ok') === '1');
   await openLabelMenu();
   check('Remove label is offered for a task with a label', await I.exists(I.byLabel('Remove label')));

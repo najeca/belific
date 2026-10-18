@@ -177,7 +177,7 @@ async function run() {
     await I.key('L', ['control']);
     await C.waitFor(() => I.exists(I.byLabel('New label')), 4000).catch(() => {});
   };
-  await openLabelMenu('No steps here');
+  await openLabelMenu('Later task');
   await I.click(I.byLabel('New label'), 300);
   const names = await I.js(`[...document.querySelectorAll('[data-new-label-form] [data-swatch]')].map((s) => s.getAttribute('aria-label').replace(' colour for the new label', ''))`);
   check('2: the swatches are the original eight, then red, orange, yellow, lime, green, teal, cyan, blue, indigo, purple, magenta, pink, then the wheel', JSON.stringify(names) === JSON.stringify(['Sage', 'Clay', 'Sky', 'Sand', 'Plum', 'Moss', 'Rose', 'Slate', 'Red', 'Orange', 'Yellow', 'Lime', 'Green', 'Teal', 'Cyan', 'Blue', 'Indigo', 'Purple', 'Magenta', 'Pink', 'Any colour for the new label']), JSON.stringify(names));
@@ -196,7 +196,7 @@ async function run() {
   const vt = labelNamed('Violet thing');
   check('2: a wheel colour is stored as a hex value in the label colour field', !!vt && vt.colorKey === '#7A3FD0', JSON.stringify(vt));
   await C.sleep(400);
-  const vtEdge = await I.js(`getComputedStyle(${card(today, 'No steps here')}).borderLeftColor`);
+  const vtEdge = await I.js(`getComputedStyle(${card(today, 'Later task')}).borderLeftColor`);
   check('2: the card draws it (edge in the colour, a light tint)', vtEdge === 'rgb(122, 63, 208)', vtEdge);
   await I.shot('p10-02-colours');
 

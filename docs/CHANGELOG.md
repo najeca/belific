@@ -57,6 +57,12 @@ to know the current version and recent history.
 - **Daily Planning and Daily Shutdown use the same list and the same actions** (Planning step 1 "Here's what you missed"; Shutdown step 1 "From earlier days" when there are any), as draft edits written on Finish; Cancel writes nothing. Their rules are unchanged: Finish in Planning still brings the one off tasks you did not decide about to today, keeping their time; Shutdown still moves only today's chosen tasks to tomorrow. A skip chosen in a flow is held in the draft and written on Finish.
 - Real checks: p10 section 6 (the badge, the order, every action, the series rules, Planning's draft); p5's step 1 check now expects a missed repeating day to be listed with Skip and Do it today and never offered a move.
 
+### 7. Late timed tasks
+- **A placed task whose time is over and that is not done is faded** (half opacity) in the Timebox and the Calendar, the same block in both. It turns late on its own (the panes redraw every 30 seconds); nothing moves by itself.
+- **A small action on the block** (`→ 14:30`) moves it to the next free half hour from now today where its estimate fits (30 minutes without one), around the tasks placed today (repeating days included) and your own events; when nothing fits before midnight it reads `→ Tomorrow` and moves it to tomorrow at the same time. Its full label says which ("Move to next free slot today (14:30)", "No free slot left today: move to tomorrow"). The slot is worked out again when pressed. Calendars subscribed by link are not counted as busy.
+- **A repeating day is never late** (stored or only shown): its days are never moved. A late task of an earlier day is also in the Missed list.
+- Real check: p10 section 7 (skipped before 00:16, when the seeded block is not late yet).
+
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 
 **Desktop redesign after Jethro's review, with the Ellie planner as the reference for layout, behaviour and feel only (no copied icons, text or visuals). No schema change, no sync change: every stored value (priority included) is untouched and still syncs. Built and committed step by step; this entry grows with each step.**

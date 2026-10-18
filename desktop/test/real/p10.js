@@ -44,6 +44,7 @@ async function run() {
       T('bd', 'Brain one'),
       T('ls1', 'Buy stamps', { listKey: 'le', dueDate: day(3), startTime: '14:00', durationMinutes: 15 }),
       T('ls2', 'Call bank', { listKey: 'le' }),
+      T('late1', 'Late one', { dueDate: today, startTime: '00:00', durationMinutes: 15 }),
       T('om', 'Old must', { dueDate: day(-3), priority: 'high' }),
       T('o1', 'Old one', { dueDate: day(-2) }),
       T('o2', 'Old two', { dueDate: day(-1), startTime: '08:00' }),
@@ -327,6 +328,31 @@ async function run() {
   await I.click(inFlow('Finish'), 1000);
   await C.waitFor(async () => (await missedBadge()) === '3', 5000).catch(() => {});
   check('6: Finish writes the skip (three Gym days left)', (await missedBadge()) === '3', String(await missedBadge()));
+
+  // ======== 7. Late timed tasks ========
+  // "Late one" was placed at 00:00 for 15 minutes today (late from 00:15 on).
+  const lateBlock = `document.querySelector('[data-block-id="late1"]')`;
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  if (nowMin >= 16) {
+    await C.waitFor(() => I.exists(`document.querySelector('[data-late-move="late1"]')`), 5000).catch(() => {});
+    const lateState = await I.js(`(() => { const b = ${lateBlock}; return b ? [b.getAttribute('data-late'), getComputedStyle(b).opacity] : null; })()`);
+    check('7: a placed task whose time has passed, not done, is faded', !!lateState && lateState[0] === '1' && Number(lateState[1]) <= 0.6, JSON.stringify(lateState));
+    const moveLabel = await I.js(`document.querySelector('[data-late-move="late1"]')?.getAttribute('aria-label') ?? ''`);
+    const toSlot = moveLabel.startsWith('Move to next free slot today');
+    check('7: it offers Move to next free slot today (or Tomorrow when today is full)', toSlot || moveLabel.startsWith('No free slot left today: move to tomorrow'), moveLabel);
+    check('7: nothing moved by itself', byId('late1').dueDate === today && byId('late1').startTime === '00:00');
+    await I.click(`document.querySelector('[data-late-move="late1"]')`, 800);
+    await C.waitFor(() => byId('late1').startTime !== '00:00' || byId('late1').dueDate !== today, 4000).catch(() => {});
+    const moved = byId('late1');
+    const [mh, mm] = (moved.startTime || '0:0').split(':').map(Number);
+    const busyClash = tasks().some((t) => t.id !== 'late1' && !t.deletedAt && t.dueDate === moved.dueDate && t.startTime && (() => { const [h, m] = t.startTime.split(':').map(Number); const s = h * 60 + m; const e = s + (t.durationMinutes || 30); return mh * 60 + mm < e && s < mh * 60 + mm + 15; })());
+    check('7: the move lands on a free half hour from now, or tomorrow at the same time', toSlot ? moved.dueDate === today && (mh * 60 + mm) % 30 === 0 && mh * 60 + mm >= nowMin && !busyClash : moved.dueDate === day(1) && moved.startTime === '00:00', JSON.stringify(moved));
+    await C.sleep(500);
+    check('7: once moved it is no longer late', !(await I.js(`${lateBlock}?.getAttribute('data-late') === '1'`)));
+    await I.shot('p10-07-late');
+  } else {
+    console.log('SKIP 7: it is before 00:16, so the seeded block is not late yet');
+  }
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

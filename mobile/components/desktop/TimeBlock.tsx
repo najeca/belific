@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
@@ -15,6 +15,8 @@ import type { Project, Task } from '../../lib/types';
 import { domNode, useDrag } from './DragProvider';
 import { isPopoverOpen } from './Popover';
 import { openDetail } from './uiStore';
+import { isLate } from '../../lib/lateTasks';
+import { lateMoveFor, moveLateTask } from '../../lib/lateActions';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
 // day and week views draw the same block, so they behave the same. A press
@@ -143,6 +145,25 @@ export default function TimeBlock({
     [startResize, scope],
   );
 
+  // Late (2.27.0): placed, not done, its end has passed. The block fades and
+  // offers one move: the next free slot today, or tomorrow when there is none.
+  // The panes redraw every 30 seconds, so a block turns late on its own.
+  const late = isLate(task, new Date(), projected);
+  const [move, setMove] = useState<{ label: string; short: string } | null>(null);
+  useEffect(() => {
+    if (!late) {
+      setMove(null);
+      return;
+    }
+    let live = true;
+    lateMoveFor(task.id).then((m) => {
+      if (live) setMove(m ? { label: m.label, short: m.patch.dueDate === dateKey(new Date()) ? `→ ${m.patch.startTime}` : '→ Tomorrow' } : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [late, task.id, task.startTime, task.durationMinutes, task.dueDate]);
+
   const sized = resizing ? { ...positioned, height: blockHeightPx(resizing) } : positioned;
   const compact = isCompactBlock(resizing ? blockHeightPx(resizing) : height);
   const dataSet = scope ? { calBlock: `${scope}${task.id}`, blockTask: task.id } : { blockId: task.id, blockTask: task.id };
@@ -158,11 +179,12 @@ export default function TimeBlock({
             { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent },
             continues && styles.continues,
             projected && styles.projected,
+            late && styles.late,
             resizing !== undefined && styles.active,
           ]}
           accessibilityRole="button"
           accessibilityLabel={a11y}
-          {...({ dataSet } as object)}
+          {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
           <View style={styles.titleRow}>
             <Text style={[styles.title, task.completed && styles.titleDone]} numberOfLines={1}>
@@ -192,6 +214,19 @@ export default function TimeBlock({
           </View>
         )}
         <View ref={handleRef as never} style={styles.handle} accessibilityLabel={`Resize ${task.title}`} />
+        {late && move && resizing === undefined && (
+          <Pressable
+            onPress={() => moveLateTask(task.id).then((ok) => ok && onChanged())}
+            style={styles.lateBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`${move.label}: ${task.title}`}
+            {...({ dataSet: { lateMove: task.id }, title: move.label } as object)}
+          >
+            <Text style={styles.lateText} {...({ dataSet: { mono: '1' } } as object)}>
+              {move.short}
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -216,6 +251,9 @@ const styles = StyleSheet.create({
   block: { flex: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', borderLeftWidth: 3 },
   continues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   projected: { opacity: 0.82 },
+  late: { opacity: 0.5 },
+  lateBtn: { position: 'absolute', top: 3, right: 4, height: 18, paddingHorizontal: 6, borderRadius: 6, justifyContent: 'center', backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
+  lateText: { fontSize: 10.5, fontWeight: '700', color: Colors.accentText },
   active: { boxShadow: `inset 0 0 0 1px ${Colors.accent}` } as object,
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   title: { flexShrink: 1, fontSize: 12, lineHeight: 16, fontWeight: '600', color: Colors.textPrimary },

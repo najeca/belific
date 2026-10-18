@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { domNode, useDrag } from './DragProvider';
 import TimeBlock, { SlotPreview } from './TimeBlock';
 import { taskDuration } from '../../lib/drag';
-import { dayAt, indexOfDay, leftDay, stripAround, visibleRange, weekRangeTitle } from '../../lib/dayStrip';
+import { dayAt, followToday, indexOfDay, leftDay, stripAround, visibleRange, weekRangeTitle } from '../../lib/dayStrip';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { customToScheduleEvent, formatTime, getWeeklyEventsForDate } from '../../lib/data';
@@ -304,6 +304,22 @@ export default function CalendarPane({
       setAnchor(dayAt(strip, i));
     } else setAnchor(stepAnchor(effView, key, delta));
   };
+  // At midnight with the app open (2.27.0): a view on today moves on to the new
+  // today, and a week the person scrolled elsewhere keeps its first day (the
+  // strip is counted from today, so the same scroll would show the next day).
+  const prevToday = useRef(todayKey);
+  const lastWeekLeft = useRef(weekLeft);
+  useEffect(() => {
+    const prev = prevToday.current;
+    prevToday.current = todayKey;
+    if (prev === todayKey) return;
+    setAnchor((a) => followToday(a, prev, todayKey));
+    if (effView === 'week') showWeekAt(followToday(lastWeekLeft.current, prev, todayKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayKey]);
+  useEffect(() => {
+    lastWeekLeft.current = weekLeft;
+  });
   const goToday = () => {
     setAnchor(todayKey);
     if (effView === 'week') showWeekAt(todayKey);

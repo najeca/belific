@@ -95,3 +95,12 @@ export function weekRangeTitle(firstKey: string): string {
   if (a.getMonth() !== b.getMonth()) return `${a.getDate()} ${MONTHS[a.getMonth()]} to ${b.getDate()} ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
   return `${a.getDate()} to ${b.getDate()} ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
 }
+
+// When the date changes while the app stays open (it lives in the tray for
+// days), a view that was showing today moves on to the new today; a view the
+// person had moved elsewhere stays where it is (2.27.0, item 5). Before this the
+// Timebox and the Calendar kept the day they opened on, so after midnight they
+// still read yesterday's weekday as "today".
+export function followToday(viewKey: string, prevTodayKey: string, todayKey: string): string {
+  return viewKey === prevTodayKey && prevTodayKey !== todayKey ? todayKey : viewKey;
+}

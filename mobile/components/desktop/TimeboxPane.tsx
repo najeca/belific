@@ -26,6 +26,7 @@ import {
 import { openingMinutes } from '../../lib/dayStart';
 import { tasksForTimebox } from '../../lib/timeboxTasks';
 import { useDayStart } from './useDayStart';
+import { followToday } from '../../lib/dayStrip';
 import { domNode, useDrag } from './DragProvider';
 import TimeBlock, { SlotPreview } from './TimeBlock';
 import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
@@ -146,6 +147,14 @@ export default function TimeboxPane({
 
   const key = dateKey(day);
   const todayKey = dateKey(new Date());
+  // The app stays open in the tray for days: at midnight a Timebox that was on
+  // today moves on to the new today (2.27.0); one on another day stays put.
+  const prevToday = useRef(todayKey);
+  useEffect(() => {
+    const prev = prevToday.current;
+    prevToday.current = todayKey;
+    if (prev !== todayKey) setDay((d) => parseDateKey(followToday(dateKey(d), prev, todayKey)));
+  }, [todayKey]);
 
   // Opening a day (the pane opening, another day chosen, or the day start
   // changed): any day other than today opens at the day start; today opens

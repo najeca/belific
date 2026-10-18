@@ -43,6 +43,11 @@ to know the current version and recent history.
 - **Brain Dump keeps its rule**: a task with a day leaves it (it is the inbox of tasks with no day).
 - Decision written in `docs/build-progress.md` (fix batch decision 13). Real check: p10 section 4.
 
+### 5. The weekday on 18 October 2026
+- **Checked: the maths is right.** The day header, the Today button and the strip all work in local time; Sunday 18 October 2026 (Europe/London, BST) shows as Sunday at every hour, and so does the day of the clock change a week later. New unit test `lib/weekday.test.ts` with fixed dates (it runs a child process with `TZ=Europe/London`).
+- **Bug found and fixed:** the Timebox and the Calendar kept the day they were opened on. Belific lives in the tray for days, so after midnight they still showed yesterday instead of today. Now a view that was on today moves on to the new today at midnight, and a view moved to another day stays put; the Calendar week also keeps its first day (the strip is counted from today, so before this it slid by a day). The Tasks board already followed (it redraws every 30 seconds and jumps to today when the date changes).
+- The October 2021 startup fix is in item 1.
+
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 
 **Desktop redesign after Jethro's review, with the Ellie planner as the reference for layout, behaviour and feel only (no copied icons, text or visuals). No schema change, no sync change: every stored value (priority included) is untouched and still syncs. Built and committed step by step; this entry grows with each step.**

@@ -306,7 +306,7 @@ async function run() {
   await I.click(I.byLabel('Create the new label'), 500);
   await C.waitFor(() => !!labelNamed('Garden'), 6000).catch(() => {});
   const g = labelNamed('Garden');
-  check('Create saves the label with its emoji and the new colour', !!g && g.colorKey === 'aqua' && g.emoji === '🌱', JSON.stringify(g));
+  check('Create saves the label with its emoji and the new colour', !!g && g.colorKey === 'aqua' && g.emoji === '🌱', JSON.stringify(g || (read('belific_projects') || []).slice(-2)));
   await C.waitFor(() => byId('t1').projectKey === (g && g.key), 4000).catch(() => {});
   check('and puts it on the task', !!g && byId('t1').projectKey === g.key, JSON.stringify(byId('t1')));
   await C.sleep(400);

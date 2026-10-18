@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
-import { EMOJI_CHOICES, firstEmoji } from '../../lib/emoji';
-import { DESKTOP_FONT_FAMILY } from './desktopFont';
+import { firstEmoji } from '../../lib/emoji';
+import EmojiPicker from './EmojiPicker';
 
-// One emoji for a task, label or list (build plan section 0, item 9). A short
-// field to type or paste into (Win+. opens the system emoji picker on Windows)
-// and a row of suggestions. The field keeps only the first emoji it finds, so a
-// pasted sentence cannot become one. The emoji is drawn by the system.
+// One emoji for a task, label or list (build plan section 0, item 9). 2.27.1: a
+// small button with the emoji (or "Choose") that opens the shared emoji picker
+// in place (search, recent row, categories; EmojiPicker.tsx), and Clear. In
+// place rather than as a popover, because it often sits inside one (the label
+// form, the ⋮ menu) and only one popover is open at a time. The field keeps one
+// emoji; the system draws it.
 export default function EmojiField({
   value,
   onChange,
@@ -17,93 +19,58 @@ export default function EmojiField({
   onChange: (emoji: string | undefined) => void;
   label: string;
 }) {
-  const [text, setText] = useState(value ?? '');
   const [open, setOpen] = useState(false);
-  React.useEffect(() => setText(value ?? ''), [value]);
-
-  const commit = (raw: string) => {
-    const e = firstEmoji(raw);
-    setText(e ?? '');
-    onChange(e);
+  const [button, setButton] = useState<HTMLElement | null>(null);
+  const close = () => {
+    setOpen(false);
+    button?.focus();
   };
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} {...({ dataSet: { emojiField: label } } as object)}>
       <View style={styles.row}>
-        <input
-          type="text"
-          value={text}
-          placeholder="🙂"
-          aria-label={label}
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(e) => {
-            const v = e.target.value;
-            setText(v);
-            // A typed emoji applies at once; a plain word waits for blur or Enter.
-            if (firstEmoji(v)) commit(v);
+        <Pressable
+          ref={(n) => setButton(n as unknown as HTMLElement | null)}
+          onPress={() => setOpen((o) => !o)}
+          style={(state) => {
+            const s = state as typeof state & { hovered?: boolean };
+            return [styles.btn, (open || s.hovered) && styles.btnOn];
           }}
-          onBlur={() => commit(text)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              commit(text);
-            }
-          }}
-          style={domInput}
-        />
-        <Pressable onPress={() => setOpen((o) => !o)} style={styles.more} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`Suggestions for ${label}`}>
-          <Text style={styles.moreText}>{open ? 'Hide' : 'Suggestions'}</Text>
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={label}
+          {...({ 'aria-haspopup': 'dialog' } as object)}
+        >
+          {value ? <Text style={styles.emoji}>{value}</Text> : <Text style={styles.choose}>🙂 Choose</Text>}
         </Pressable>
         {value ? (
-          <Pressable onPress={() => commit('')} style={styles.more} accessibilityRole="button" accessibilityLabel={`Clear ${label}`}>
-            <Text style={styles.moreText}>Clear</Text>
+          <Pressable onPress={() => onChange(undefined)} style={styles.clear} accessibilityRole="button" accessibilityLabel={`Clear ${label}`}>
+            <Text style={styles.clearText}>Clear</Text>
           </Pressable>
         ) : null}
       </View>
       {open && (
-        <View style={styles.grid}>
-          {EMOJI_CHOICES.map((e) => (
-            <Pressable
-              key={e}
-              onPress={() => {
-                commit(e);
-                setOpen(false);
-              }}
-              style={[styles.choice, value === e && styles.choiceOn]}
-              accessibilityRole="button"
-              accessibilityLabel={`Use ${e}`}
-            >
-              <Text style={styles.choiceText}>{e}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <EmojiPicker
+          label={label}
+          value={value}
+          onPick={(e) => {
+            onChange(firstEmoji(e) ?? e);
+            close();
+          }}
+          onClose={close}
+        />
       )}
     </View>
   );
 }
 
-const domInput: React.CSSProperties = {
-  width: 56,
-  height: 34,
-  padding: '0 8px',
-  borderRadius: 10,
-  border: `1px solid ${Colors.border}`,
-  background: Colors.background,
-  color: Colors.textPrimary,
-  fontSize: 16,
-  textAlign: 'center',
-  fontFamily: DESKTOP_FONT_FAMILY,
-  outlineColor: Colors.accent,
-};
-
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  more: { paddingHorizontal: 10, height: 30, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.surface },
-  moreText: { fontSize: 12, color: Colors.textPrimary },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  choice: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
-  choiceOn: { borderColor: Colors.accent, backgroundColor: Colors.background },
-  choiceText: { fontSize: 18 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  btn: { minWidth: 44, height: 30, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
+  btnOn: { borderColor: Colors.accent },
+  emoji: { fontSize: 17, fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif' } as object,
+  choose: { fontSize: 12, color: Colors.textSecondary },
+  clear: { paddingHorizontal: 8, height: 30, borderRadius: 8, justifyContent: 'center' },
+  clearText: { fontSize: 12, color: Colors.textSecondary },
 });

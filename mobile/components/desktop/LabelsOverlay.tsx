@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { isTextEntryTarget } from '../../lib/editable';
+import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import LabelsPage from './LabelsPage';
 import { isPopoverOpen } from './Popover';
 import { closeOverlay } from './uiStore';
@@ -16,7 +16,7 @@ export default function LabelsOverlay({ onChanged }: { onChanged: () => void }) 
     const before = document.activeElement as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-      if (isPopoverOpen() || isTextEntryTarget(e.target)) return;
+      if (isPopoverOpen() || isTextEntryTarget(e.target) || ownsKeys(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
       closeOverlay();

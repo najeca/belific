@@ -4,6 +4,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { placePopover, MAX_POPOVER_HEIGHT, type Placement } from '../../lib/popover';
+import { ownsKeys } from '../../lib/editable';
 
 // The one popover every task control uses (checkpoint 8.2, decision 021).
 // Anchored to its trigger: opens below, flips above or sideways, and stays
@@ -135,6 +136,8 @@ export default function Popover({
     const onKey = (e: KeyboardEvent) => {
       const el = box.current;
       if (!el) return;
+      // The emoji picker inside handles its own Escape and arrows (2.27.1).
+      if (ownsKeys(e.target)) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();

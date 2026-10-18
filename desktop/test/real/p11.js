@@ -331,6 +331,63 @@ async function run() {
   await I.key('Escape');
   await C.sleep(400);
 
+  // ======== 5. One emoji picker everywhere ========
+  const picker = `document.querySelector('[data-emoji-picker]')`;
+  const strip = (e) => String(e || '').replace(/️/g, '');
+  await openModal('Plain task');
+  await I.click(I.byLabel('More task actions'), 400);
+  await I.click(I.byLabel('Task emoji'), 500);
+  check('5: the emoji button opens the picker with its search box ready', (await I.exists(picker)) && (await I.activeLabel()) === 'Search emoji for Task emoji', String(await I.activeLabel()));
+  const tabs = await I.js(`[...${picker}.querySelectorAll('[role="tab"]')].map((t) => t.getAttribute('aria-label'))`);
+  check('5: category tabs', JSON.stringify(tabs) === JSON.stringify(['Smileys and emotion', 'People and body', 'Animals and nature', 'Food and drink', 'Travel and places', 'Activities', 'Objects', 'Symbols', 'Flags']), JSON.stringify(tabs));
+  await I.type('game');
+  await C.sleep(300);
+  const found = await I.js(`[...${picker}.querySelectorAll('[data-emoji-cell]')].map((b) => b.getAttribute('aria-label'))`);
+  check('5: typing "game" finds the controller (video game)', found.includes('video game'), JSON.stringify(found.slice(0, 12)));
+  const font = await I.js(`getComputedStyle(${picker}.querySelector('[data-emoji-cell]')).fontFamily`);
+  check('5: drawn with the system emoji font', /Segoe UI Emoji/.test(font), font);
+  // Keyboard only: Down into the grid, the arrows, Enter.
+  await I.js(`(() => { const i = ${picker}.querySelector('input'); i.select(); })()`);
+  await I.type('video game');
+  await C.sleep(300);
+  await I.key('Down', [], 200);
+  check('5: Down from the search box goes into the grid', (await I.activeLabel()) === 'video game', String(await I.activeLabel()));
+  await I.key('Right', [], 150);
+  const right = await I.activeLabel();
+  await I.key('Left', [], 150);
+  check('5: the arrows move in the grid (and the menu does not take them)', right !== 'video game' && (await I.activeLabel()) === 'video game' && (await I.exists(picker)), String(right));
+  await I.enter([], 600);
+  await C.waitFor(() => strip(byId('t2').emoji) === '🎮', 4000).catch(() => {});
+  check('5: Enter chooses it: the task has the controller', strip(byId('t2').emoji) === '🎮', JSON.stringify(byId('t2').emoji));
+  check('5: the picker closes and focus goes back to the emoji button', !(await I.exists(picker)) && (await I.activeLabel()) === 'Task emoji', String(await I.activeLabel()));
+  await I.click(I.byLabel('Task emoji'), 500);
+  const recent = await I.js(`[...${picker}.querySelectorAll('[data-emoji-recent] button')].map((b) => b.textContent)`);
+  check('5: a recently used row (the controller first)', recent.length > 0 && strip(recent[0]) === '🎮', JSON.stringify(recent));
+  await I.click(`${picker}.querySelector('[data-emoji-tab="animals"]')`, 300);
+  check('5: a category tab shows that category', (await I.js(`[...${picker}.querySelectorAll('[data-emoji-cell]')].some((b) => b.getAttribute('aria-label') === 'dog face')`)) && (await I.js(`${picker}.querySelector('[data-emoji-tab="animals"]').getAttribute('aria-selected')`)) === 'true');
+  await I.js(`${picker}.querySelector('[data-emoji-tab="animals"]').focus()`);
+  await I.key('Escape', [], 300);
+  check('5: Escape closes the picker only (the menu stays open)', !(await I.exists(picker)) && (await I.exists(`document.querySelector('[data-popover]')`)));
+  await I.key('Escape', [], 300);
+  await closeModal();
+  // Labels and lists use the same picker.
+  await I.click(`document.querySelector('[data-add-box="${today}"] [data-ctl="addLabel"]')`, 500);
+  await I.click(`${lp}.querySelector('[aria-label="New label"]')`, 400);
+  await I.click(`${lp}.querySelector('[aria-label="New label emoji"]')`, 400);
+  check('5: the label form uses the same picker', await I.exists(`${lp}.querySelector('[data-emoji-picker]')`));
+  await I.type('🎮');
+  await C.sleep(300);
+  check('5: a typed or pasted emoji is taken as it is', strip(await I.js(`${lp}.querySelector('[aria-label="New label emoji"]').textContent`)) === '🎮');
+  await I.key('Escape', [], 300);
+  await I.click(`document.querySelector('[aria-label^="List: "][aria-label$="Change list"]')`, 400);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Emoji for Games"], [data-popover] [aria-label="New list emoji"]')`, 400);
+  check('5: the list menu uses the same picker', await I.exists(`document.querySelector('[data-popover] [data-emoji-picker]')`));
+  await I.key('Escape', [], 300);
+  await I.key('Escape', [], 300);
+  const net = await I.js(`performance.getEntriesByType('resource').map((e) => e.name).filter((n) => /^https?:/.test(n))`);
+  check('5: no network calls (the data is bundled)', net.length === 0, JSON.stringify(net));
+  await I.shot('p11-05-picker');
+
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);
 }

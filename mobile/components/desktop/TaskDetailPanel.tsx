@@ -14,7 +14,7 @@ import { setActualFor } from '../../lib/timerActions';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
-import { isTextEntryTarget } from '../../lib/editable';
+import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { isMustDo, mustDoPatch } from '../../lib/mustDo';
 import EmojiField from './EmojiField';
@@ -86,7 +86,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     if (!id) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-      if (isPopoverOpen()) return;
+      if (isPopoverOpen() || ownsKeys(e.target)) return;
       e.preventDefault();
       if (isTextEntryTarget(e.target)) (e.target as HTMLElement).blur();
       closeDetail();
@@ -454,7 +454,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
         )}
       </ScrollView>
 
-      <Popover id={moreId} anchor={more.get} width={260} label="More task actions" maxHeight={480}>
+      <Popover id={moreId} anchor={more.get} width={300} label="More task actions" maxHeight={560}>
         <View style={styles.menuEmoji}>
           <Text style={styles.menuLabel}>🙂  Emoji</Text>
           <EmojiField label="Task emoji" value={task.emoji} onChange={(emoji) => patch({ emoji })} />

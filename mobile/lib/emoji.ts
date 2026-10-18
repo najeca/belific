@@ -26,12 +26,8 @@ export function firstEmoji(input: unknown): string | undefined {
   return undefined;
 }
 
-// The suggestions under an emoji field. Fixed order; nothing is rendered from
-// a bundled image set.
-export const EMOJI_CHOICES: string[] = [
-  '💼', '🏠', '📚', '🛒', '💪', '🎯', '🎨', '💻', '🧹', '📞',
-  '✉️', '💡', '🌱', '❤️', '🐶', '✈️', '🍽️', '💰', '🎵', '🧘',
-];
+// The emoji picker (2.27.1, components/desktop/EmojiPicker.tsx) offers the
+// bundled emojibase set (lib/emojiData.ts); nothing is drawn from images.
 
 export const DEFAULT_LIST_EMOJI = '📋';
 export const DEFAULT_LABEL_EMOJI = '🏷️';

@@ -58,6 +58,9 @@ const MARKERS = [
   'expandCalendar',
   'addSubscription',
   'Calendars shown in Belific',
+  // 2.27.1: the emoji picker and its bundled emojibase data are desktop only.
+  'searchEmoji',
+  'Search emoji for',
 ];
 
 const ALLOWED = {

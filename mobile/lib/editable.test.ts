@@ -34,3 +34,12 @@ test('isTextEntryTarget: text fields count, a switch or a button does not (Escap
   }
   for (const part of ['textarea', 'select', 'contenteditable']) assert.ok(TEXT_ENTRY_SELECTOR.includes(part), part);
 });
+
+import { OWN_KEYS_SELECTOR, ownsKeys } from './editable.ts';
+
+test('ownsKeys: inside a widget marked data-own-keys (the emoji picker), never throws', () => {
+  assert.equal(OWN_KEYS_SELECTOR, '[data-own-keys]');
+  assert.equal(ownsKeys({ closest: (s: string) => (s === OWN_KEYS_SELECTOR ? {} : null) }), true);
+  assert.equal(ownsKeys({ closest: () => null }), false);
+  for (const bad of [null, undefined, 3, {}, { closest: () => { throw new Error('boom'); } }]) assert.equal(ownsKeys(bad), false);
+});

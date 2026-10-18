@@ -31,3 +31,19 @@ export function isTextEntryTarget(target: unknown): boolean {
     return false;
   }
 }
+
+// A widget inside that handles its own Escape and arrow keys (the emoji picker,
+// 2.27.1, marked data-own-keys): the popover, the details and the Labels overlay
+// leave those keys to it instead of closing.
+export const OWN_KEYS_SELECTOR = '[data-own-keys]';
+
+export function ownsKeys(target: unknown): boolean {
+  const t = target as { closest?: (selector: string) => unknown } | null | undefined;
+  if (!t || typeof t.closest !== 'function') return false;
+  try {
+    const hit = t.closest(OWN_KEYS_SELECTOR);
+    return hit !== null && hit !== undefined;
+  } catch {
+    return false;
+  }
+}

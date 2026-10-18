@@ -72,6 +72,13 @@ to know the current version and recent history.
 - **An older Belific does not break:** 2.26 reads only the settings keys it knows (features, templates, panes, the calendar feed token) and keeps other rows as they are when it syncs; the iPhone does the same. They simply do not show away days.
 - Real check: p10 section 8.
 
+### 9. Must do
+- **One Must do switch**, in two places only: the details modal (❗ Must do) and the card's ⋮ menu (a toggle row). Nowhere else; no new field.
+- **On stores priority `high`; off goes back to what a new task has, which is no priority at all** (stored as nothing, which reads as normal). A task stored as 'low' by an older version shows the switch off and keeps 'low' until the switch is used. **A task already stored as high counts as Must do**: it shows the small Must do marker on its card (item 1) and comes first in the Missed list.
+- **Priority sync is unchanged** (the existing priority column, as before). On a repeating task the switch applies to the series, like any edit of it.
+- The switch now tells a screen reader whether it is on (react-native-web left `aria-checked` off a switch).
+- Real check: p10 section 9.
+
 ### 10. Shift a day
 - **The day header menu has "Shift unfinished to next day"** (that day's unfinished one off tasks to the day after) and **"Push rest of week by a week"** (every unfinished one off task from that day to the Sunday ending its week, each seven days on). Each says how many will move before you choose ("3 tasks will move"), and is greyed out when there is nothing to move.
 - **Each task keeps its time of day and its place among the others** (the board orders a day by its own fields, which do not change). **Done tasks and repeating days never move** (a repeating task's days belong to its rule).

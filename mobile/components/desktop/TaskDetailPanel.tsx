@@ -17,6 +17,7 @@ import { loadLabels } from '../../lib/labels';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
 import { isTextEntryTarget } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
+import { isMustDo, mustDoPatch } from '../../lib/mustDo';
 import EmojiField from './EmojiField';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
@@ -345,6 +346,24 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           </select>
         </DetailRow>
 
+        {/* Must do (2.27.0): one switch over the stored priority (on = high, off = none). */}
+        <DetailRow glyph="❗" label="Must do">
+          <View style={styles.row}>
+            <Pressable
+              onPress={() => patch(mustDoPatch(!isMustDo(task)))}
+              style={[styles.switch, isMustDo(task) && styles.switchOn]}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: isMustDo(task) }}
+              accessibilityLabel="Must do"
+              // react-native-web leaves aria-checked off a switch: set it, so its state is read out.
+              {...({ 'aria-checked': isMustDo(task), dataSet: { mustDoSwitch: isMustDo(task) ? '1' : '0' } } as object)}
+            >
+              <View style={[styles.knob, isMustDo(task) && styles.knobOn]} />
+            </Pressable>
+            <Text style={styles.quietText}>{isMustDo(task) ? 'Shown first, with a Must do marker' : 'Off'}</Text>
+          </View>
+        </DetailRow>
+
         <DetailRow glyph="🔁" label="Repeats">
           <RepeatField task={task} ops={ops} onSaved={onSaved} />
         </DetailRow>
@@ -666,6 +685,10 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  switch: { width: 40, height: 24, borderRadius: 12, padding: 3, backgroundColor: Colors.border, justifyContent: 'center' },
+  switchOn: { backgroundColor: Colors.accent },
+  knob: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#FFFFFF' },
+  knobOn: { alignSelf: 'flex-end' },
   chip: { paddingHorizontal: 10, height: 30, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
   chipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   chipText: { fontSize: 13, color: Colors.textPrimary },

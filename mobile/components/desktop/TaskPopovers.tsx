@@ -39,6 +39,7 @@ import { isTimerRunning } from '../../lib/taskTimer';
 import type { Project, Task, WeekDay } from '../../lib/types';
 import EmojiField from './EmojiField';
 import HoverPressable from './HoverPressable';
+import { isMustDo, mustDoPatch } from '../../lib/mustDo';
 import { notifyChanged, openDetail, openOverlay, useNewColorsOk } from './uiStore';
 import { toggleTimer, useNow } from './timerUi';
 import { useFeatures } from './featureStore';
@@ -742,6 +743,21 @@ export function OverflowBody({
         )}
       </>
     ) : null;
+  // Must do (2.27.0): the same switch as in the details (on = priority high, off = none).
+  const mustRow =
+    task && (onOpen || !task.id.startsWith('dump:')) ? (
+      <Row
+        label="Must do"
+        selected={isMustDo(task)}
+        leading={<Text>❗</Text>}
+        onPress={async () => {
+          await ops.patch(mustDoPatch(!isMustDo(task)));
+          notifyChanged();
+          done();
+        }}
+        a11y={isMustDo(task) ? 'Must do, on: turn it off' : 'Must do, off: turn it on'}
+      />
+    ) : null;
   // A repeating task (stored or projected): skip one day, or delete the series.
   if (series) {
     const canSkip = !!task?.dueDate && !task.completed;
@@ -768,6 +784,7 @@ export function OverflowBody({
           <>
             {openRow}
             {timerRows}
+            {mustRow}
             {canSkip && (
               <Row
                 label="Skip this day"
@@ -808,6 +825,7 @@ export function OverflowBody({
         <>
           {openRow}
           {timerRows}
+          {mustRow}
           {task?.id && !task.id.startsWith('dump:') && (
             <>
               <Row

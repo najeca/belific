@@ -73,6 +73,17 @@ async function run() {
     await I.key('Escape');
     await C.waitFor(async () => !(await modalOpen()), 3000).catch(() => {});
   };
+  // Moves the pointer onto a card until its hover icons really show (an injected
+  // move is sometimes not seen as a hover on the first try).
+  const hoverIcons = async (expr) => {
+    for (let i = 0; i < 10; i++) {
+      await I.hover(expr, 200);
+      if ((await I.js(`getComputedStyle(${expr}.querySelector('[data-card-controls]')).opacity`)) === '1') return true;
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: 2, y: 2 });
+      await C.sleep(150);
+    }
+    return false;
+  };
 
   // ======== 1. The card, the add box and the modal ========
   // Clicking the card body opens the modal; the card never expands.
@@ -86,7 +97,7 @@ async function run() {
   check('1: no subtask counter on a card without subtasks', !/\d\/\d/.test(await I.textOf(card(today, 'No steps here'))), await I.textOf(card(today, 'No steps here')));
   check('1: a card with subtasks shows the ring and 1/2', (await I.textOf(card(today, 'Steps task'))).includes('1/2') && (await I.exists(`${card(today, 'Steps task')}.querySelector('[data-steps-ring="part"]')`)));
   // Hover: at most three icons, Label first.
-  await I.hover(card(today, 'Today task'));
+  await hoverIcons(card(today, 'Today task'));
   const icons = await I.js(`[...${card(today, 'Today task')}.querySelectorAll('[data-card-controls] [role="button"]')].map((b) => b.getAttribute('aria-label'))`);
   check('1: on hover at most three icons: Label first, Move to today, the menu', icons.length <= 3 && /^Label|^Select label/.test(icons[0]) && icons[icons.length - 1].startsWith('More actions'), JSON.stringify(icons));
   const ctlOpacity = await I.js(`getComputedStyle(${card(today, 'Today task')}.querySelector('[data-card-controls]')).opacity`);
@@ -102,8 +113,9 @@ async function run() {
   // Move to today from the hover icon.
   await C.sleep(300);
   await I.click(`document.querySelector('[aria-label="Show today in Tasks"]')`).catch(() => {});
-  await I.hover(card(day(2), 'Later task'));
+  await hoverIcons(card(day(2), 'Later task'));
   await I.click(`${card(day(2), 'Later task')}.querySelector('[data-ctl="today"]')`, 600);
+  if (await modalOpen()) await closeModal();
   await C.waitFor(() => byId('later').dueDate === today, 4000).catch(() => {});
   check('1: Move to today on hover moves the task to today', byId('later').dueDate === today);
 
@@ -155,6 +167,38 @@ async function run() {
   await I.click(`${card(day(1), 'Gym')}.querySelector('[aria-label="Title Gym"]')`, 600);
   check('1: a repeating day opens the modal (series edits) and opening writes nothing', (await modalTitle()) === 'Gym' && tasks().length === before && (await I.body()).includes('Repeating: changes apply to every day'));
   await closeModal();
+
+  // ======== 2. Label colours: vibrant swatches and the colour wheel ========
+  const projects = () => read('belific_projects') || [];
+  const labelNamed = (n) => projects().find((p) => p.name === n && !p.deletedAt);
+  const openLabelMenu = async (title) => {
+    await I.js(`${card(today, title)}.focus()`);
+    await C.sleep(150);
+    await I.key('L', ['control']);
+    await C.waitFor(() => I.exists(I.byLabel('New label')), 4000).catch(() => {});
+  };
+  await openLabelMenu('No steps here');
+  await I.click(I.byLabel('New label'), 300);
+  const names = await I.js(`[...document.querySelectorAll('[data-new-label-form] [data-swatch]')].map((s) => s.getAttribute('aria-label').replace(' colour for the new label', ''))`);
+  check('2: the swatches are the original eight, then red, orange, yellow, lime, green, teal, cyan, blue, indigo, purple, magenta, pink, then the wheel', JSON.stringify(names) === JSON.stringify(['Sage', 'Clay', 'Sky', 'Sand', 'Plum', 'Moss', 'Rose', 'Slate', 'Red', 'Orange', 'Yellow', 'Lime', 'Green', 'Teal', 'Cyan', 'Blue', 'Indigo', 'Purple', 'Magenta', 'Pink', 'Any colour for the new label']), JSON.stringify(names));
+  check('2: the new colours need "Every computer runs Belific 2.27 or later"', (await I.exists(I.byLabel('Every computer runs Belific 2.27 or later'))) && (await I.js(`document.querySelector('[data-swatch="wheel"]').getAttribute('aria-disabled')`)) === 'true');
+  await I.click(I.byLabel('Every computer runs Belific 2.27 or later'), 300);
+  await I.click(`document.querySelector('[data-new-label-form] [data-swatch="wheel"]')`, 300);
+  check('2: the wheel opens with a hue, a shade and a hex field', (await I.exists(I.byLabel('Hue for the new label'))) && (await I.exists(I.byLabel('Shade for the new label'))) && (await I.exists(I.byLabel('Hex colour for the new label'))));
+  await I.click(I.byLabel('Hex colour for the new label'), 150);
+  await I.js('document.activeElement.select()');
+  await I.type('#7a3fd0');
+  await I.click(I.byLabel('Use this colour for the new label'), 300);
+  await I.click(I.byLabel('New label name'), 100);
+  await I.type('Violet thing');
+  await I.click(I.byLabel('Create the new label'), 600);
+  await C.waitFor(() => !!labelNamed('Violet thing'), 5000).catch(() => {});
+  const vt = labelNamed('Violet thing');
+  check('2: a wheel colour is stored as a hex value in the label colour field', !!vt && vt.colorKey === '#7A3FD0', JSON.stringify(vt));
+  await C.sleep(400);
+  const vtEdge = await I.js(`getComputedStyle(${card(today, 'No steps here')}).borderLeftColor`);
+  check('2: the card draws it (edge in the colour, a light tint)', vtEdge === 'rgb(122, 63, 208)', vtEdge);
+  await I.shot('p10-02-colours');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

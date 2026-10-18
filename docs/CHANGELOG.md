@@ -22,6 +22,14 @@ to know the current version and recent history.
 - **Fix found on the way:** the Tasks strip sometimes opened five years back (October 2021) because the jump to today ran before the strip was laid out; it now tries again until it lands.
 - Real checks: new `desktop/test/real/p10.js` (one section per item); p2, p3, p5, p7, p9, cp8b, cp8c, cp8d, cp8e, cp8f, cp8g, cp8h and cp11 moved from the inline controls to the modal (same typing and editing checks, now in the details).
 
+### 2. Label colours
+- **Twenty swatches: the original eight, unchanged (names, keys, colours), then twelve vibrant, well separated ones of our own:** Red `#E23B3B`, Orange `#F07A1A`, Yellow `#BF9100`, Lime `#6FA80F`, Green `#1F9E4E`, Teal `#0F9E8E`, Cyan `#0B97CF`, Blue `#2F6FEB`, Indigo `#4F46C8`, Purple `#A44BE0`, Magenta `#CC36B4`, Pink `#E8508E`, each with a light tint. Tested: both text colours stay AA on every tint, every edge is at least 2.5:1 on the surface, the twelve are at least 20 apart in CIE Lab (red, orange, yellow and pink at least 30).
+- **The twelve muted 2.26 colours are no longer offered**; a label that has one keeps it and is drawn exactly as before (`LEGACY_COLORS`).
+- **A labelled card now has a 3 px left edge in the label's strong colour** (the tints have to stay light for readable text, so the edge carries the colour on the board, as blocks already did on the Calendar and Timebox).
+- **The colour wheel:** the last swatch opens a picker for any colour (hue, shade and a hex field, `ColorWheel.tsx`), stored as `#RRGGBB` in the existing label colour field (no schema change). Its card tint is worked out from it so text stays AA.
+- **The tick is now "Every computer runs Belific 2.27 or later"** (a new local key, so a 2.26 tick does not count), and it unlocks the twelve and the wheel. An older Belific never breaks on a custom colour: 2.26 keeps a key it does not know and draws it neutral, the iPhone shows no label colours and passes the value through, and a desktop before 2.26 would change it back to one of the eight (the tick is there for that).
+- A new label takes the first free colour; the vibrant ones only once the tick is on.
+
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 
 **Desktop redesign after Jethro's review, with the Ellie planner as the reference for layout, behaviour and feel only (no copied icons, text or visuals). No schema change, no sync change: every stored value (priority included) is untouched and still syncs. Built and committed step by step; this entry grows with each step.**

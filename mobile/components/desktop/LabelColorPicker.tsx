@@ -1,48 +1,96 @@
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { LABEL_COLORS, isNewColor } from '../../lib/labelColors';
+import { LABEL_COLORS, isCustomColor, isNewColor, labelColor } from '../../lib/labelColors';
+import type { Project } from '../../lib/types';
+import ColorWheel from './ColorWheel';
 import { setNewColorsOk, useNewColorsOk } from './uiStore';
 
-// The 20 label colours (2.26.0) as a grid of swatches: the original eight, then
-// the twelve new ones. The new ones stay locked until "Every computer runs
-// Belific 2.26 or later" is ticked, because an older desktop would change such
-// a label back to one of the eight on every device (see labelColors.ts).
-export function LabelColorPicker({ value, onPick, forName }: { value?: string; onPick: (key: string) => void; forName: string }) {
+export const NEW_COLORS_TICK = 'Every computer runs Belific 2.27 or later';
+
+// The label colours (2.27.0): the original eight, the twelve vibrant ones and a
+// colour wheel for any other colour. The new ones (and any wheel colour) stay
+// locked until "Every computer runs Belific 2.27 or later" is ticked: a desktop
+// before 2.26 changes such a label back to one of the eight on every device, and
+// 2.26 draws it neutral (see labelColors.ts).
+export function LabelColorPicker({
+  value,
+  onPick,
+  forName,
+  labels = [],
+  exceptKey,
+}: {
+  value?: string;
+  onPick: (key: string) => void;
+  forName: string;
+  // Every live label (the colour wheel's clash check).
+  labels?: Pick<Project, 'key' | 'name' | 'colorKey' | 'deletedAt'>[];
+  // The label being edited.
+  exceptKey?: string;
+}) {
   const ok = useNewColorsOk();
+  const [wheel, setWheel] = useState(false);
+  const current = labelColor(value);
+  const custom = isCustomColor(value);
   return (
     <View style={styles.wrap} {...({ dataSet: { colorPicker: '1' } } as object)}>
       <View style={styles.grid}>
         {LABEL_COLORS.map((c) => {
           const on = value === c.key;
           const locked = isNewColor(c.key) && !ok;
+          const off = locked;
           return (
             <Pressable
               key={c.key}
-              onPress={() => !locked && onPick(c.key)}
-              disabled={locked}
+              onPress={() => !off && onPick(c.key)}
+              disabled={off}
               style={[styles.swatch, on && styles.swatchOn, locked && styles.locked]}
               accessibilityRole="button"
-              accessibilityState={{ selected: on, disabled: locked }}
+              accessibilityState={{ selected: on, disabled: off }}
               accessibilityLabel={`${c.name} colour for ${forName}`}
-              {...({ dataSet: { swatch: c.key } } as object)}
+              {...({ dataSet: { swatch: c.key }, title: c.name } as object)}
             >
               <View style={[styles.fill, { backgroundColor: c.edge }]} />
             </Pressable>
           );
         })}
+        <Pressable
+          onPress={() => ok && setWheel((w) => !w)}
+          disabled={!ok}
+          style={[styles.swatch, (custom || wheel) && styles.swatchOn, !ok && styles.locked]}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: wheel, disabled: !ok, selected: custom }}
+          accessibilityLabel={`Any colour for ${forName}`}
+          {...({ dataSet: { swatch: 'wheel' } } as object)}
+        >
+          <View style={[styles.fill, custom && current ? { backgroundColor: current.edge } : styles.rainbow]} />
+        </Pressable>
       </View>
+      {current && !LABEL_COLORS.some((c) => c.key === value) && !custom ? <Text style={styles.note}>Now: {current.name} (a 2.26 colour, kept as it is).</Text> : null}
+      {wheel && ok && (
+        <ColorWheel
+          value={custom ? value : undefined}
+          labels={labels}
+          exceptKey={exceptKey}
+          forName={forName}
+          onPick={(hex) => {
+            setWheel(false);
+            onPick(hex);
+          }}
+        />
+      )}
       <Pressable
         onPress={() => setNewColorsOk(!ok)}
         style={styles.tickRow}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: ok }}
-        accessibilityLabel="Every computer runs Belific 2.26 or later"
+        accessibilityLabel={NEW_COLORS_TICK}
       >
         <View style={[styles.tick, ok && styles.tickOn]}>{ok && <Ionicons name="checkmark" size={11} color="#FFFFFF" />}</View>
-        <Text style={styles.tickText}>Every computer runs Belific 2.26 or later</Text>
+        <Text style={styles.tickText}>{NEW_COLORS_TICK}</Text>
       </Pressable>
-      {!ok && <Text style={styles.note}>The last 12 colours need it: an older Belific changes them back to one of the first 8.</Text>}
+      {!ok && <Text style={styles.note}>The last 12 colours and the colour wheel need it: an older Belific changes them back to one of the first 8.</Text>}
     </View>
   );
 }
@@ -53,7 +101,8 @@ const styles = StyleSheet.create({
   swatch: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
   swatchOn: { borderColor: Colors.textPrimary },
   locked: { opacity: 0.3 },
-  fill: { width: 16, height: 16, borderRadius: 8 },
+  fill: { width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  rainbow: { backgroundImage: 'conic-gradient(#E23B3B, #F07A1A, #BF9100, #1F9E4E, #0B97CF, #4F46C8, #CC36B4, #E23B3B)' } as object,
   tickRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 },
   tick: { width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: Colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
   tickOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },

@@ -95,11 +95,13 @@ export async function restoreSelectedList(): Promise<void> {
   }
 }
 
-// ---- the 2.26.0 label colours (labelColors.ts) ----
-// Locked until the person says every computer runs 2.26 or later, because an
-// older desktop changes a label with a new colour back to one of the original
-// eight. Stored on this computer only (kv), never synced.
-export const NEW_COLORS_KEY = 'belific_desktop_new_label_colors_ok';
+// ---- the 2.27.0 label colours (labelColors.ts) ----
+// Locked until the person says every computer runs 2.27 or later, because a
+// desktop before 2.26 changes a label with a new colour back to one of the
+// original eight, and 2.26 draws one it does not know neutral. Stored on this
+// computer only (kv), never synced. A new key: the 2.26 tick (the old key) said
+// nothing about 2.27, so it is not carried over.
+export const NEW_COLORS_KEY = 'belific_desktop_label_colors_227_ok';
 let newColorsOk = false;
 const colorListeners = new Set<() => void>();
 export const useNewColorsOk = () =>

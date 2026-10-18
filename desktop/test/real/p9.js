@@ -290,12 +290,13 @@ async function run() {
   await openLabelMenu();
   check('the label menu offers New label and Edit labels, keeping Suggested', (await I.exists(I.byLabel('New label'))) && (await I.exists(I.byLabel('Edit labels'))) && (await I.js(`/suggested/i.test(document.body.innerText)`)));
   await I.click(I.byLabel('New label'), 300);
-  check('New label opens a form with a name, an emoji and the 20 colours', (await I.exists(`document.querySelector('[data-new-label-form]')`)) && (await I.js(`document.querySelectorAll('[data-new-label-form] [data-swatch]').length`)) === 20);
-  check('the 12 new colours are locked until every computer runs 2.26', (await I.js(`document.querySelectorAll('[data-new-label-form] [data-swatch][aria-disabled="true"]').length`)) === 12 && (await I.js(`document.body.innerText.includes('an older Belific changes them back')`)));
+  // 2.27.0: the 20 colours are the original eight and twelve vibrant ones, plus the colour wheel.
+  check('New label opens a form with a name, an emoji, the 20 colours and the colour wheel', (await I.exists(`document.querySelector('[data-new-label-form]')`)) && (await I.js(`document.querySelectorAll('[data-new-label-form] [data-swatch]:not([data-swatch="wheel"])').length`)) === 20 && (await I.exists(`document.querySelector('[data-new-label-form] [data-swatch="wheel"]')`)));
+  check('the 12 new colours and the wheel are locked until every computer runs 2.27', (await I.js(`document.querySelectorAll('[data-new-label-form] [data-swatch][aria-disabled="true"]').length`)) === 13 && (await I.js(`document.body.innerText.includes('an older Belific changes them back')`)));
   await I.click(I.byLabel('Teal colour for the new label'), 200);
-  check('a locked colour cannot be picked', !(await I.js(`document.querySelector('[data-swatch="teal"]').getAttribute('aria-selected') === 'true'`)));
-  await I.click(I.byLabel('Every computer runs Belific 2.26 or later'), 300);
-  check('ticking "Every computer runs Belific 2.26 or later" unlocks them (and it is kept on this computer)', (await I.js(`document.querySelectorAll('[data-new-label-form] [data-swatch][aria-disabled="true"]').length`)) === 0);
+  check('a locked colour cannot be picked', !(await I.js(`document.querySelector('[data-swatch="aqua"]').getAttribute('aria-selected') === 'true'`)));
+  await I.click(I.byLabel('Every computer runs Belific 2.27 or later'), 300);
+  check('ticking "Every computer runs Belific 2.27 or later" unlocks them (and it is kept on this computer)', (await I.js(`document.querySelectorAll('[data-new-label-form] [data-swatch][aria-disabled="true"]').length`)) === 0);
   await I.click(I.byLabel('Teal colour for the new label'), 200);
   await I.click(I.byLabel('New label name'), 100);
   await I.type('Garden');
@@ -305,13 +306,15 @@ async function run() {
   await I.click(I.byLabel('Create the new label'), 500);
   await C.waitFor(() => !!labelNamed('Garden'), 6000).catch(() => {});
   const g = labelNamed('Garden');
-  check('Create saves the label with its emoji and the new colour', !!g && g.colorKey === 'teal' && g.emoji === '🌱', JSON.stringify(g));
+  check('Create saves the label with its emoji and the new colour', !!g && g.colorKey === 'aqua' && g.emoji === '🌱', JSON.stringify(g));
   await C.waitFor(() => byId('t1').projectKey === (g && g.key), 4000).catch(() => {});
   check('and puts it on the task', !!g && byId('t1').projectKey === g.key, JSON.stringify(byId('t1')));
   await C.sleep(400);
   const tint = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); return c ? getComputedStyle(c).backgroundColor : ''; })()`);
-  check('the card takes the teal tint', tint === 'rgb(233, 242, 241)', tint);
-  check('the unlock is stored locally only', readKv(dataDir)('belific_desktop_new_label_colors_ok') === 1 || readKv(dataDir)('belific_desktop_new_label_colors_ok') === '1');
+  check('the card takes the teal tint', tint === 'rgb(210, 246, 241)', tint);
+  const edge = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); return c ? getComputedStyle(c).borderLeftColor : ''; })()`);
+  check('and the strong teal as its left edge', edge === 'rgb(15, 158, 142)', edge);
+  check('the unlock is stored locally only', readKv(dataDir)('belific_desktop_label_colors_227_ok') === 1 || readKv(dataDir)('belific_desktop_label_colors_227_ok') === '1');
   await openLabelMenu();
   check('Remove label is offered for a task with a label', await I.exists(I.byLabel('Remove label')));
   await I.click(I.byLabel('Edit labels'), 500);

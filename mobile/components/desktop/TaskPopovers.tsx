@@ -39,7 +39,7 @@ import { isTimerRunning } from '../../lib/taskTimer';
 import type { Project, Task, WeekDay } from '../../lib/types';
 import EmojiField from './EmojiField';
 import HoverPressable from './HoverPressable';
-import { notifyChanged, openDetail, openOverlay } from './uiStore';
+import { notifyChanged, openDetail, openOverlay, useNewColorsOk } from './uiStore';
 import { toggleTimer, useNow } from './timerUi';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
@@ -403,6 +403,8 @@ export function LabelBody({ task, ops, done }: BodyProps) {
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
   const [note, setNote] = useState<{ text: string; warn?: boolean } | null>(null);
   const [form, setForm] = useState<{ name: string; emoji?: string; colorKey: string } | null>(null);
+  // The 2.27 colours are picked automatically only once every computer runs 2.27.
+  const newColorsOk = useNewColorsOk();
 
   const reload = () => loadLabels().then(setLabels);
 
@@ -438,7 +440,7 @@ export function LabelBody({ task, ops, done }: BodyProps) {
   // Creates a label (typed or suggested) and selects it; a name that exists
   // already selects the existing label instead of making a duplicate.
   async function createNamed(name: string) {
-    const result = await createLabel(name);
+    const result = await createLabel(name, undefined, undefined, newColorsOk);
     if (!result) return;
     await choose(result.label.key);
   }
@@ -630,7 +632,7 @@ export function LabelBody({ task, ops, done }: BodyProps) {
           label="New label"
           leading={<Ionicons name="add" size={16} color={Colors.accentText} />}
           onPress={() => {
-            setForm({ name: text.trim(), colorKey: nextColorKey(labels) });
+            setForm({ name: text.trim(), colorKey: nextColorKey(labels, newColorsOk) });
             setEditingKey(null);
             setNote(null);
           }}

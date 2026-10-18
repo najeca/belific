@@ -40,8 +40,9 @@ export async function setLabelEmoji(key: string, emojiText: string | undefined):
 
 // Creates a label, or returns the existing one with the same name (trimmed,
 // case insensitive) so a name never exists twice. A new label takes the next
-// unused palette colour unless one is chosen (2.26.0, the New label form).
-export async function createLabel(name: string, emojiText?: string, colorKey?: string): Promise<{ label: Project; created: boolean } | null> {
+// unused palette colour unless one is chosen (2.26.0, the New label form); the
+// 2.27 colours only when `allowNew` (every computer runs 2.27).
+export async function createLabel(name: string, emojiText?: string, colorKey?: string, allowNew = false): Promise<{ label: Project; created: boolean } | null> {
   const trimmed = name.trim();
   if (!trimmed) return null;
   const labels = await loadLabels();
@@ -53,7 +54,7 @@ export async function createLabel(name: string, emojiText?: string, colorKey?: s
     name: trimmed,
     createdAt: now,
     updatedAt: now,
-    colorKey: colorKey ?? nextColorKey(labels),
+    colorKey: colorKey ?? nextColorKey(labels, allowNew),
   };
   const emoji = firstEmoji(emojiText);
   if (emoji) label.emoji = emoji;

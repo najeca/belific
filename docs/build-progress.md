@@ -374,4 +374,23 @@ Asked for by Jethro after using 2.26.0: ten items, one commit each, the version 
 5. **Opening a legacy phone Brain Dump item converts it to a task** (opening is its first edit; until 2.26 that happened on the first change).
 6. **The Timebox block menu is gone**: blocks open the same modal as cards. The modal gained Remove time so nothing the menu did is lost.
 7. **The left list's Add a task box has no time field**: a time belongs to a Day, and the list holds tasks without one. Day boxes have it.
-8. **The Tasks strip retries the jump to today** for up to 20 frames when it lands short (found while testing: it could open on October 2021).
+8. **The Tasks strip retries the jump to today** while it is still stuck at the start (found while testing: it could open on October 2021, in a window behind another one).
+9. **The twelve 2.26 colours are replaced in the picker, not deleted**: a label that has one keeps it and draws as before, so nothing changes behind Jethro's back.
+10. **Cards gained a 3 px left edge in the label's colour.** The tints must stay light for AA text (Belific's secondary grey needs a luminance of about 0.85), so tints alone cannot be told apart well; the edge carries the strong colour. Say if you would rather keep cards edge-free.
+11. **The colour tick is a new local key** for 2.27 ("Every computer runs Belific 2.27 or later"); a 2.26 tick is not carried over, because 2.26 draws the new colours neutral.
+12. **The wheel is a hue slider, a shade slider and a hex field** (no new library); shade runs from light to dark at a vivid saturation.
+
+## Paused (2026-10-18): where the fix batch stands
+
+Stopped at Jethro's request. Not pushed. Version is still 2.26.0 (the bump to 2.27.0 belongs to the last item).
+
+- **Item 1 (card, add box, modal): done**, commit `a25927a`. Typecheck, unit tests, security scan; real checks p2, p3, p5, p7, p9 (steps 1 to 4), p10 section 1, cp7, cp8b to cp8h, cp9 and cp11 pass.
+- **Item 2 (label colours and the colour wheel): committed as a checkpoint, not fully checked.** Typecheck, unit tests (734) and the web build pass. Real checks not finished: p9 step 5, cp9 and p10 section 2 were updated but not yet run green (p10 failed on a hover timing step, fixed in the check but not rerun).
+- **Item 3 (no two labels with the same colour): started.** The pure rules (`colorClash`, `sharedColorGroups`, `CLASH_DISTANCE`) and their tests are in `labelColors.ts` (item 2 commit). The UI (taken swatches dimmed, wheel refusal, `setLabelColor` refusal, the Labels page notice) is written but not in the repo yet.
+- **Item 4 (lists keep scheduled tasks): started.** `thoughts.ts`/`lists.ts` changes and tests written, not in the repo yet; the pane change and the docs decision are not written.
+- **Item 5 (weekday): investigated.** The weekday maths is local time and correct (18 Oct 2026 is a Sunday). Bug found: the Timebox and Calendar keep the day they opened on, so after midnight in the tray they still show yesterday. Fix (`followToday`) and fixed-date test written, not in the repo yet.
+- **Items 6, 7, 8 and 10: pure logic and tests written** (`missed.ts`, `lateTasks.ts`, `awayDays.ts`, `dayShift.ts`), plus a draft Missed panel; none in the repo yet, no UI wired.
+- **Item 9 (Must do): partly done.** `mustDo.ts` and the card's "Must do" marker are in item 1; the toggle in the modal and the ⋮ menu is not built.
+- Left for the end: version 2.27.0 and `easConfig.test.ts`, CURRENT_TRUTH, the full gates (every real check, iOS export and marker gate).
+
+The unfinished work is kept outside the repo, in the session's scratchpad (`parked/`), so it is not lost but also not committed.

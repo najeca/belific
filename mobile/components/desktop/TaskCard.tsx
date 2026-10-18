@@ -245,6 +245,9 @@ export default function TaskCard({
       style={[
         styles.card,
         { backgroundColor: color?.tint ?? CARD_PLAIN },
+        // 2.27.0: the label's strong colour as a left edge, so labels are easy to
+        // tell apart (the tints stay light for readable text).
+        color && { borderLeftWidth: 3, borderLeftColor: color.edge, paddingLeft: 9 },
         task.completed && styles.done,
         dragging && styles.dragging,
         projected && styles.projected,

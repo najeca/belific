@@ -38,6 +38,11 @@ to know the current version and recent history.
 - **Labels that already share a colour are left alone.** The Labels page shows a notice naming them ("Work and Home share a colour. Change one of them to tell them apart"), until one is changed.
 - Real check: p10 section 3.
 
+### 4. Lists never look empty
+- **A named list keeps every task in it.** A task given a day (or a time) stays in its list and shows its day ("Tomorrow", "Wed 21 Oct") and, when placed, its time; it is on its day on the board as well. Unscheduled tasks come first, then the scheduled ones, earliest first; a repeating task shows once. The count beside the list's name counts them too.
+- **Brain Dump keeps its rule**: a task with a day leaves it (it is the inbox of tasks with no day).
+- Decision written in `docs/build-progress.md` (fix batch decision 13). Real check: p10 section 4.
+
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 
 **Desktop redesign after Jethro's review, with the Ellie planner as the reference for layout, behaviour and feel only (no copied icons, text or visuals). No schema change, no sync change: every stored value (priority included) is untouched and still syncs. Built and committed step by step; this entry grows with each step.**

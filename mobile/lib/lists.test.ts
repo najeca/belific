@@ -44,7 +44,7 @@ test('a list holds its own tasks; Brain Dump holds the rest; deleted tasks are i
   assert.deepEqual(tasksInList(tasks, 'a', lists).map((t) => t.id), ['2']);
 });
 
-test('counts: incomplete tasks with no Day, per list; Brain Dump under the empty key', () => {
+test('counts: incomplete tasks per list (2.27.0: a named list counts its scheduled tasks too); Brain Dump, under the empty key, only those with no Day', () => {
   const lists = [list('a', 'Reading')];
   const tasks = [
     task('1'),
@@ -57,7 +57,8 @@ test('counts: incomplete tasks with no Day, per list; Brain Dump under the empty
   ];
   const c = listCounts(tasks, lists);
   assert.equal(c.get(''), 2);
-  assert.equal(c.get('a'), 2);
+  assert.equal(c.get('a'), 3, 'task 5 has a Day and stays in its list');
+  assert.equal(listCounts([task('8', { dueDate: '2026-10-20' })], lists).get(''), 0, 'a Day still takes a task off Brain Dump');
 });
 
 test('titles and the remembered selection', () => {

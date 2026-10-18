@@ -86,6 +86,8 @@ export default function BrainDumpPane({
         tasksInList(tasks, selected, lists).filter((t) => matchesLabels(t, filter)),
         selected === undefined ? dumpItems.filter((i) => matchesLabels({}, filter)) : [],
         todayKey,
+        // A named list keeps its scheduled tasks, with their day and time (2.27.0).
+        { includeDated: selected !== undefined },
       ),
     [tasks, dumpItems, todayKey, filter, selected, lists],
   );
@@ -145,6 +147,7 @@ export default function BrainDumpPane({
                 color={labelColor(proj?.colorKey)}
                 variant="row"
                 todayKey={todayKey}
+                showDay
                 // A legacy phone item becomes a task on its first edit; opening it is that edit.
                 onOpen={row.kind === 'dump' ? (focus) => editDumpItem(row.item, {}).then((t) => (onChanged(), openDetail(t.id, focus))) : undefined}
                 onChanged={onChanged}

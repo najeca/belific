@@ -9,6 +9,7 @@
 // list itself: it is derived.
 import type { BrainDumpItem, Task } from './types.ts';
 import { dateKey, isDateKey } from './kanban.ts';
+import { rootTaskId } from './recurrence.ts';
 
 export type ThoughtRow =
   | { kind: 'task'; task: Task; createdAt: string }
@@ -30,15 +31,25 @@ export function rowTitle(row: ThoughtRow): string {
   return row.kind === 'task' ? row.task.title : row.item.title;
 }
 
-export function splitThoughts(tasks: Task[], dumpItems: BrainDumpItem[], todayKey: string): ThoughtLists {
+// `includeDated` (2.27.0, item 4): a named list keeps showing its tasks once they
+// have a Day (they show their day and time); they come after the tasks with no
+// Day, earliest day and time first. A repeating task shows once, on its earliest
+// open day. Brain Dump (no list) keeps its rule: a Day takes a task off it.
+export function splitThoughts(tasks: Task[], dumpItems: BrainDumpItem[], todayKey: string, opts: { includeDated?: boolean } = {}): ThoughtLists {
   const rows: ThoughtRow[] = [];
   const doneToday: Task[] = [];
+  const dated: Task[] = [];
 
   for (const task of tasks) {
     if (task.deletedAt) continue;
     // A Day takes a task off this list (it is on the week board). A malformed
     // Day counts as no Day.
-    if (isDateKey(task.dueDate)) continue;
+    if (isDateKey(task.dueDate)) {
+      if (!opts.includeDated) continue;
+      if (!task.completed) dated.push(task);
+      else if (task.completedAt && dateKey(new Date(task.completedAt)) === todayKey) doneToday.push(task);
+      continue;
+    }
     if (!task.completed) {
       rows.push({ kind: 'task', task, createdAt: task.createdAt });
     } else if (task.completedAt && dateKey(new Date(task.completedAt)) === todayKey) {
@@ -51,6 +62,18 @@ export function splitThoughts(tasks: Task[], dumpItems: BrainDumpItem[], todayKe
   }
 
   rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || rowId(a).localeCompare(rowId(b)));
+  if (dated.length > 0) {
+    dated.sort((a, b) => (a.dueDate as string).localeCompare(b.dueDate as string) || (a.startTime ?? '').localeCompare(b.startTime ?? '') || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    const seenRoot = new Set<string>();
+    for (const t of dated) {
+      if (t.recurrence || t.id.includes(':')) {
+        const root = rootTaskId(t.id);
+        if (seenRoot.has(root)) continue;
+        seenRoot.add(root);
+      }
+      rows.push({ kind: 'task', task: t, createdAt: t.createdAt });
+    }
+  }
   doneToday.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
   return { rows, doneToday };
 }

@@ -53,8 +53,10 @@ export function tasksInList<T extends Pick<Task, 'listKey' | 'deletedAt'>>(tasks
   return tasks.filter((t) => !t.deletedAt && effectiveListKey(t, lists) === listKey);
 }
 
-// How many tasks wait in each list (incomplete, no Day), keyed by list key;
-// Brain Dump under the empty string. Shown beside the names in the switcher.
+// How many tasks wait in each list, keyed by list key; Brain Dump under the
+// empty string. Shown beside the names in the switcher. Brain Dump counts the
+// incomplete tasks with no Day; a named list (2.27.0, item 4) counts every
+// incomplete task in it, scheduled ones included, as its list shows them.
 export function listCounts(
   tasks: Array<Pick<Task, 'listKey' | 'deletedAt' | 'completed' | 'dueDate'>>,
   lists: Array<Pick<TaskList, 'key' | 'deletedAt'>>,
@@ -62,8 +64,9 @@ export function listCounts(
   const counts = new Map<string, number>([['', 0]]);
   for (const l of lists) if (!l.deletedAt) counts.set(l.key, 0);
   for (const t of tasks) {
-    if (t.deletedAt || t.completed || isDateKey(t.dueDate)) continue;
+    if (t.deletedAt || t.completed) continue;
     const k = effectiveListKey(t, lists) ?? '';
+    if (k === '' && isDateKey(t.dueDate)) continue;
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   return counts;

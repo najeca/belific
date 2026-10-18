@@ -177,3 +177,21 @@ test('the week board has no Unscheduled column: Day-less tasks are not on it', (
   assert.deepEqual(cols.days['2026-10-06'].map((i) => i.task.id), ['b']);
   assert.equal(Object.values(cols.days).flat().length, 1);
 });
+
+test('2.27.0: a named list keeps its scheduled tasks, after the unscheduled ones, earliest day and time first', () => {
+  const rows = [
+    task('free', { createdAt: '2026-10-02T09:00:00.000Z' }),
+    task('late', { dueDate: '2026-10-09', startTime: '15:00' }),
+    task('early', { dueDate: '2026-10-09', startTime: '08:00' }),
+    task('soon', { dueDate: '2026-10-06' }),
+    task('done', { dueDate: '2026-10-06', completed: true, completedAt: '2026-09-01T09:00:00.000Z' }),
+    task('gym', { dueDate: '2026-10-07', recurrence: 'daily' }),
+    task('gym:2026-10-08', { dueDate: '2026-10-08', recurrence: 'daily' }),
+  ];
+  const { rows: shown } = splitThoughts(rows, [], TODAY, { includeDated: true });
+  assert.deepEqual(shown.map(rowId), ['free', 'soon', 'gym', 'early', 'late'], 'a repeating task once, on its earliest open day');
+  // A list with only scheduled tasks never reads as empty.
+  assert.equal(splitThoughts([task('only', { dueDate: '2026-10-20' })], [], TODAY, { includeDated: true }).rows.length, 1);
+  // Brain Dump (no option) keeps the old rule: a Day takes a task off it.
+  assert.deepEqual(splitThoughts(rows, [], TODAY).rows.map(rowId), ['free']);
+});

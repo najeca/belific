@@ -42,6 +42,8 @@ async function run() {
       T('later', 'Later task', { dueDate: day(2) }),
       T('gym', 'Gym', { dueDate: day(-6), recurrence: 'daily' }),
       T('bd', 'Brain one'),
+      T('ls1', 'Buy stamps', { listKey: 'le', dueDate: day(3), startTime: '14:00', durationMinutes: 15 }),
+      T('ls2', 'Call bank', { listKey: 'le' }),
     ]),
   );
   fs.writeFileSync(
@@ -52,6 +54,8 @@ async function run() {
       { key: 'ph', name: 'Home', colorKey: 'sage', createdAt: stamp, updatedAt: stamp },
     ]),
   );
+
+  fs.writeFileSync(path.join(dataDir, 'belific_lists.kv'), JSON.stringify([{ key: 'le', name: 'Errands', sortOrder: 0, createdAt: stamp, updatedAt: stamp }]));
 
   const read = readKv(dataDir);
   const tasks = () => read('belific_tasks') || [];
@@ -234,6 +238,23 @@ async function run() {
   await I.shot('p10-03-taken');
   await I.key('Escape');
   await C.sleep(300);
+
+  // ======== 4. A list keeps its scheduled tasks ========
+  await I.click(I.byLabel('List: Brain Dump. Change list'), 400);
+  const errandsRow = await I.js(`document.querySelector('[aria-label="Show list Errands"]')?.innerText ?? ''`);
+  check('4: the list count includes the scheduled task', /\b2\b/.test(errandsRow), errandsRow);
+  await I.click(I.byLabel('Show list Errands'), 500);
+  const leftCard = `document.querySelector('[aria-label="Task Buy stamps"]:not([data-day-col="${day(3)}"] *)')`;
+  await C.waitFor(() => I.exists(leftCard), 4000).catch(() => {});
+  const leftText = await I.js(`(() => { const c = ${leftCard}; return c && !c.closest('[data-day-col]') ? c.innerText : ''; })()`);
+  const dayName = await I.js(`(() => { const [y, m, d] = '${day(3)}'.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); })()`);
+  check('4: a scheduled task stays in its list, showing its day and time', leftText.includes('14:00') && leftText.includes(dayName), JSON.stringify([leftText, dayName]));
+  check('4: the unscheduled task is in the list too, and comes first', await I.js(`(() => { const a = [...document.querySelectorAll('[aria-label^="Task "]')].filter((c) => !c.closest('[data-day-col]')).map((c) => c.getAttribute('aria-label')); return a.indexOf('Task Call bank') >= 0 && a.indexOf('Task Call bank') < a.indexOf('Task Buy stamps'); })()`));
+  check('4: it is still on its day on the board', await I.exists(card(day(3), 'Buy stamps')));
+  await I.shot('p10-04-list');
+  await I.click(I.byLabel('List: Errands. Change list'), 400);
+  await I.click(I.byLabel('Show Brain Dump'), 500);
+  check('4: Brain Dump keeps its rule: a task with a day leaves it', !(await I.js(`[...document.querySelectorAll('[aria-label="Task Buy stamps"]')].some((c) => !c.closest('[data-day-col]'))`)));
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

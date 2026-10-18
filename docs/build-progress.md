@@ -379,6 +379,7 @@ Asked for by Jethro after using 2.26.0: ten items, one commit each, the version 
 10. **Cards gained a 3 px left edge in the label's colour.** The tints must stay light for AA text (Belific's secondary grey needs a luminance of about 0.85), so tints alone cannot be told apart well; the edge carries the strong colour. Say if you would rather keep cards edge-free.
 11. **The colour tick is a new local key** for 2.27 ("Every computer runs Belific 2.27 or later"); a 2.26 tick is not carried over, because 2.26 draws the new colours neutral.
 12. **The wheel is a hue slider, a shade slider and a hex field** (no new library); shade runs from light to dark at a vivid saturation.
+13. **Lists must not look empty (item 4): a named list keeps every task in it.** Before 2.27 a day took a task off its list, so a list of planned errands emptied as it was planned. Now a task stays in its named list whatever its day or time, shows the day and time on its card, and is on the board on its day as well (the same task, not a copy; ticking it in either place ticks it). Unscheduled tasks first, then scheduled ones earliest first; a repeating task once. The count beside the name counts them. **Brain Dump is unchanged**: it is the inbox of tasks with no day, so a day still takes a task off it (otherwise every task ever planned would sit there). The iPhone shows only Brain Dump (its inbox keeps the old rule), so nothing changes there.
 
 ## Paused (2026-10-18): where the fix batch stands
 

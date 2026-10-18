@@ -365,7 +365,9 @@ async function run() {
   // ================================================== 7. edit on a projected card applies to every day
   await openNth('Daily walk', 4);
   check('the details of a projected card say "Repeating: changes apply to every day"', (await js(`${q(modal)}.innerText`)).includes('Repeating: changes apply to every day'));
-  await click(q(`${modal} [aria-label="45 min"]`));
+  // 2.27.1: the estimate is the time drop-down.
+  await click(q(`${modal} [data-duration-select="Estimated time"]`));
+  await click(q('[data-popover] [aria-label="Estimated time 45 min"]'));
   await C.waitFor(() => rowById('rt').durationMinutes === 45, 8000).catch(() => {});
   const total = await countCards('Daily walk');
   // 2.27.0: a placed card shows its start time; the estimate is in the details.
@@ -386,7 +388,7 @@ async function run() {
   await waitCards('Daily stroll', total);
   check('renaming a projected card renames the routine on every open day', (await countCards('Daily stroll')) === total && (await countCards('Daily walk')) === 0, `${await countCards('Daily stroll')} stroll, ${await countCards('Daily walk')} walk`);
   await openNth('Daily stroll', 1);
-  check('a duration change on one projected card shows on every day (another day\'s details read 0:45)', (await js(`(${q(modal)}.querySelector('[data-detail-row="Estimated time"]') || {}).innerText || ''`)).includes('0:45'));
+  check('a duration change on one projected card shows on every day (another day\'s details read 45 min)', (await js(`(${q(modal)}.querySelector('[data-detail-row="Estimated time"]') || {}).innerText || ''`)).includes('45 min'));
   await closeModal();
   check('the ticked day is still completed after the rename', rowById(`rt:${tickedKey}`).completed === true);
 

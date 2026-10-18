@@ -175,13 +175,17 @@ export default function Popover({
     };
   }, [open, measure, anchor]);
 
-  // Focus moves inside: the search or first field, else the first option.
+  // Focus moves inside: an option the contents marked (data-popover-focus, the
+  // current value of a drop-down), else the search or first field, else the
+  // first option.
   useEffect(() => {
     if (!open || !place) return;
     const el = box.current;
     if (!el || el.contains(document.activeElement)) return;
-    const first = el.querySelector<HTMLElement>('input, textarea') ?? el.querySelector<HTMLElement>(FOCUSABLE);
+    const marked = el.querySelector<HTMLElement>('[data-popover-focus] [role="button"]');
+    const first = marked ?? el.querySelector<HTMLElement>('input, textarea') ?? el.querySelector<HTMLElement>(FOCUSABLE);
     first?.focus({ preventScroll: true });
+    if (marked) marked.scrollIntoView({ block: 'center' });
     // Once per opening, when it has been placed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, place === null]);

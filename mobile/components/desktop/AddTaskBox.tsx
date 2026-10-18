@@ -6,15 +6,16 @@ import { labelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import Popover, { closePopover, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { LabelBody } from './TaskPopovers';
+import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import type { TaskOps } from './taskOps';
 
 // The "Add a task" box (2.27.0), the same on a day column and in the left list:
-// the title, an optional time (on a day only, since a time belongs to a Day) and
-// the Label button, which is always there and never pushed out of the box.
-// Everything else is set in the details modal. Enter adds and keeps the box
-// ready for the next one; the chosen label and time are kept for it too, until
-// cleared.
+// the title, an optional time (on a day only, since a time belongs to a Day), an
+// optional estimate (2.27.1, the shared time drop-down) and the Label button,
+// which is always there and never pushed out of the box. Everything else is set
+// in the details modal. Enter adds and keeps the box ready for the next one; the
+// chosen label is kept for it, the time and the estimate start empty again.
 export default function AddTaskBox({
   id,
   a11y,
@@ -35,10 +36,11 @@ export default function AddTaskBox({
   inputRef?: React.RefObject<TextInput | null>;
   // A quiet line under the box (an away day, item 8).
   warning?: string | null;
-  onAdd: (title: string, extra: { startTime?: string; projectKey?: string }) => Promise<void>;
+  onAdd: (title: string, extra: { startTime?: string; projectKey?: string; durationMinutes?: number }) => Promise<void>;
 }) {
   const [text, setText] = useState('');
   const [time, setTime] = useState('');
+  const [estimate, setEstimate] = useState<number | undefined>(undefined);
   const [projectKey, setProjectKey] = useState<string | undefined>(undefined);
   const [label, setLabel] = useState<Project | undefined>(undefined);
   const anchor = usePopoverAnchor();
@@ -54,8 +56,9 @@ export default function AddTaskBox({
     if (!text.trim()) return;
     const t = text;
     setText('');
-    await onAdd(t, { startTime: withTime && time ? time : undefined, projectKey });
+    await onAdd(t, { startTime: withTime && time ? time : undefined, projectKey, durationMinutes: estimate });
     setTime('');
+    setEstimate(undefined);
   }
 
   // The label menu edits the box's choice, not a stored task.
@@ -92,7 +95,8 @@ export default function AddTaskBox({
         {withTime && (typing || time) ? (
           <input type="time" step={300} value={time} aria-label="Time for the new task" onChange={(e) => setTime(e.target.value)} style={timeStyle} />
         ) : null}
-        {!typing && !time ? trailing : null}
+        {typing || estimate !== undefined ? <DurationSelect id={`add:${id}`} label="Estimated time for the new task" value={estimate} onChange={setEstimate} placeholder="⏳" compact /> : null}
+        {!typing && !time && estimate === undefined ? trailing : null}
         <Pressable
           ref={anchor.ref as never}
           onPress={() => togglePopover(popId, anchor.get)}

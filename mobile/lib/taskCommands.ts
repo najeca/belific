@@ -23,7 +23,7 @@ export async function duplicateTaskById(id: string): Promise<Task | null> {
 // optionally a label and, on a Day, a time. Returns null for blank text.
 export async function createTaskIn(
   title: string,
-  where: { listKey?: string; dueDate?: string; startTime?: string; projectKey?: string } = {},
+  where: { listKey?: string; dueDate?: string; startTime?: string; projectKey?: string; durationMinutes?: number } = {},
 ): Promise<Task | null> {
   const base = newThought(generateId(), title, new Date().toISOString());
   if (!base) return null;
@@ -32,6 +32,7 @@ export async function createTaskIn(
   if (where.dueDate) task.dueDate = where.dueDate;
   if (where.dueDate && where.startTime && /^\d\d:\d\d$/.test(where.startTime)) task.startTime = where.startTime;
   if (where.projectKey) task.projectKey = where.projectKey;
+  if (where.durationMinutes && where.durationMinutes > 0) task.durationMinutes = Math.round(where.durationMinutes);
   await addTask(task);
   return task;
 }

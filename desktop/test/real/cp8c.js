@@ -149,7 +149,7 @@ next lin` && !(await modalOpen()), JSON.stringify(taskNamed('Alpha').notes));
   await openModal('Alpha');
   await click(inModal('[aria-label^="Add subtask to"]'));
   await type('second subtask here');
-  check('Add subtask: spaces typed, details still open', (await activeValue()) === 'second subtask here' && (await modalOpen()));
+  check('Add subtask: spaces typed, details still open', (await activeValue()) === 'second subtask here' && (await modalOpen()), `${JSON.stringify(await activeValue())} ${await js('document.activeElement && document.activeElement.getAttribute("aria-label")')}`);
   await press('Return');
   await C.waitFor(() => (taskNamed('Alpha').subtasks || []).length === 2, 6000).catch(() => {});
   check('Add subtask: Enter adds it and keeps the field ready', (taskNamed('Alpha').subtasks || []).map((s) => s.title).join('|') === 'first sub|second subtask here' && (await activeValue()) === '' && (await modalOpen()));
@@ -175,7 +175,9 @@ next lin` && !(await modalOpen()), JSON.stringify(taskNamed('Alpha').notes));
   check('the details are still open after the rename', await modalOpen());
 
   // ---- Duration field in the details ----
-  await click(inModal('[aria-label="Custom estimate"]'));
+  // 2.27.1: the estimate is the time drop-down; Custom takes typed text.
+  await click(`document.querySelector('${modal} [data-duration-select="Estimated time"]')`);
+  await click(`document.querySelector('[data-popover] [aria-label="Custom estimated time"]')`);
   await type('1h 30m');
   check('Estimate field: spaces typed, value exact, details still open', (await activeValue()) === '1h 30m' && (await modalOpen()), String(await activeValue()));
   await press('Return');

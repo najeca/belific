@@ -122,7 +122,7 @@ export default function BrainDumpPane({
               ) : null
             }
             onAdd={async (title, extra) => {
-              await createTaskIn(title, { listKey: selected, projectKey: extra.projectKey });
+              await createTaskIn(title, { listKey: selected, projectKey: extra.projectKey, durationMinutes: extra.durationMinutes });
               onChanged();
             }}
           />

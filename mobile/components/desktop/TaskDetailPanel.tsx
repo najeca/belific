@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { DURATION_PRESETS, formatClock, parseDuration, presetLabel } from '../../lib/duration';
 import { isDateKey } from '../../lib/kanban';
 import { isTimerRunning } from '../../lib/taskTimer';
 import { formatTaskTime } from '../../lib/taskTotals';
@@ -19,6 +18,7 @@ import { isTextEntryTarget } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { isMustDo, mustDoPatch } from '../../lib/mustDo';
 import EmojiField from './EmojiField';
+import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
@@ -123,10 +123,6 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
   };
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? '');
-  const [custom, setCustom] = useState('');
-  const [customBad, setCustomBad] = useState(false);
-  const [actualText, setActualText] = useState('');
-  const [actualBad, setActualBad] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const feats = useFeatures();
   const [tplOpen, setTplOpen] = useState(false);
@@ -142,16 +138,21 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
   useEffect(() => setNotes(task.notes ?? ''), [task.notes]);
   const subRef = useRef<TextInput>(null);
   const notesRef = useRef<TextInput>(null);
-  const customRef = useRef<TextInput>(null);
-  const actualRef = useRef<TextInput>(null);
   const [newSub, setNewSub] = useState('');
   const [editingSub, setEditingSub] = useState<string | null>(null);
   const [editSubText, setEditSubText] = useState('');
   // The keyboard goes where the card's key asked (2.27.0), else the title.
   useEffect(() => {
     const focus = getDetailFocus();
-    const target = { subtask: subRef, notes: notesRef, estimate: customRef, actual: actualRef, title: titleRef }[focus ?? 'title'] ?? titleRef;
-    const t = setTimeout(() => (target.current ?? titleRef.current)?.focus(), 30);
+    // Estimate and actual (Ctrl+E, Ctrl+B) open their time drop-down.
+    const dropDown = focus === 'estimate' ? 'Estimated time' : focus === 'actual' ? 'Actual time' : null;
+    const refs: Record<string, React.RefObject<TextInput | null>> = { subtask: subRef, notes: notesRef, title: titleRef };
+    const target = refs[focus ?? 'title'] ?? titleRef;
+    const t = setTimeout(() => {
+      const btn = dropDown ? document.querySelector<HTMLElement>(`[data-detail-panel] [data-duration-select="${dropDown}"]`) : null;
+      if (btn) btn.click();
+      else (target.current ?? titleRef.current)?.focus();
+    }, 30);
     return () => clearTimeout(t);
   }, []);
   const addStep = async () => {
@@ -175,24 +176,6 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
   const saveNotes = () => {
     const n = notes.trim();
     if (n !== (task.notes ?? '')) patch({ notes: n.length > 0 ? n : undefined });
-  };
-  const applyCustom = () => {
-    const m = parseDuration(custom);
-    if (m === null) {
-      setCustomBad(true);
-      return;
-    }
-    setCustom('');
-    patch({ durationMinutes: m });
-  };
-  const applyActual = async () => {
-    const m = parseDuration(actualText);
-    if (m === null || !(await setActualFor(task.id, m))) {
-      setActualBad(true);
-      return;
-    }
-    setActualText('');
-    onSaved();
   };
   const saveTemplate = async () => {
     const t = await saveTemplateFromTask(task, tplName);
@@ -277,64 +260,40 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
         </DetailRow>
 
         <DetailRow glyph="⏳" label="Estimated time">
-          <View style={styles.chips}>
-            <Chip label="None" on={task.durationMinutes === undefined} onPress={() => patch({ durationMinutes: undefined })} />
-            {DURATION_PRESETS.map((m) => (
-              <Chip key={m} label={presetLabel(m)} on={task.durationMinutes === m} onPress={() => patch({ durationMinutes: m })} />
-            ))}
-          </View>
-          <View style={styles.row}>
-            <TextInput
-              ref={customRef}
-              style={[styles.input, customBad && styles.inputBad]}
-              value={custom}
-              onChangeText={(t) => {
-                setCustom(t);
-                setCustomBad(false);
-              }}
-              onSubmitEditing={applyCustom}
-              placeholder="Custom: 45m, 1h 30m, 130"
-              placeholderTextColor={Colors.textSecondary}
-              accessibilityLabel="Custom estimate"
-            />
-          </View>
-          {customBad && <Text style={styles.bad}>Not a time. Try 45m, 1h 30m or 130.</Text>}
+          <DurationSelect id={`${task.id}:estimate`} label="Estimated time" value={task.durationMinutes} onChange={(m) => patch({ durationMinutes: m })} />
         </DetailRow>
 
         <DetailRow glyph="⏱️" label="Actual time">
           <View style={styles.row}>
-            <Text style={styles.valueText} {...({ dataSet: { mono: '1' } } as object)}>
-              {formatTaskTime(task, now)}
-            </Text>
+            <DurationSelect
+              id={`${task.id}:actual`}
+              label="Actual time"
+              value={(task.actualMinutes ?? 0) > 0 ? task.actualMinutes : undefined}
+              onChange={async (m) => {
+                if (m === undefined) {
+                  await patch({ actualMinutes: undefined });
+                  return true;
+                }
+                // setActualFor reads the latest task and validates the number.
+                const ok = await setActualFor(task.id, m);
+                if (ok) onSaved();
+                return ok;
+              }}
+            />
+            {running && (
+              <Text style={styles.valueText} {...({ dataSet: { mono: '1' } } as object)}>
+                {formatTaskTime(task, now)}
+              </Text>
+            )}
             <Pressable
               onPress={() => toggleTimer(task)}
-              style={[styles.bigBtn, running && styles.bigBtnOn]}
+              style={styles.quiet}
               accessibilityRole="button"
               accessibilityLabel={running ? 'Stop the timer' : 'Start the timer'}
             >
-              <Ionicons name={running ? 'pause' : 'play'} size={14} color={running ? Colors.onAccent : Colors.accentText} />
-              <Text style={[styles.bigBtnText, running && styles.bigBtnTextOn]}>{running ? 'Stop' : 'Start'}</Text>
+              <Text style={running ? styles.timerOn : styles.quietSub}>{running ? '■ Stop timer' : '(Start timer)'}</Text>
             </Pressable>
-            <TextInput
-              ref={actualRef}
-              style={[styles.input, actualBad && styles.inputBad]}
-              value={actualText}
-              onChangeText={(t) => {
-                setActualText(t);
-                setActualBad(false);
-              }}
-              onSubmitEditing={applyActual}
-              placeholder="Set the time: 45m, 1h 30m"
-              placeholderTextColor={Colors.textSecondary}
-              accessibilityLabel="Set the actual time"
-            />
-            {(task.actualMinutes ?? 0) > 0 ? (
-              <Pressable onPress={() => patch({ actualMinutes: undefined })} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Clear the actual time">
-                <Text style={styles.quietText}>Clear</Text>
-              </Pressable>
-            ) : null}
           </View>
-          {actualBad && <Text style={styles.bad}>Not a time. Try 45m, 1h 30m or 130.</Text>}
         </DetailRow>
 
         <DetailRow glyph="🏷️" label="Label">
@@ -568,12 +527,12 @@ function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved
       <Pressable
         ref={ref as never}
         onPress={() => togglePopover(id, get)}
-        style={[styles.quiet, open && styles.chipOn, { alignSelf: 'flex-start' }]}
+        style={[styles.quiet, open && styles.openBg, { alignSelf: 'flex-start' }]}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`Repeat: ${task.recurrence ? shortRepeat(task, dateKey(new Date())) ?? 'repeats' : 'Does not repeat'}`}
       >
-        <Text style={[styles.quietText, open && styles.chipTextOn]}>{task.recurrence ? shortRepeat(task, dateKey(new Date())) ?? 'Repeats' : 'Does not repeat'}</Text>
+        <Text style={styles.quietText}>{task.recurrence ? shortRepeat(task, dateKey(new Date())) ?? 'Repeats' : 'Does not repeat'}</Text>
       </Pressable>
       <Popover id={id} anchor={get} width={300}>
         <RepeatBody task={task} ops={wrapped} done={() => closePopover(true)} />
@@ -594,12 +553,12 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
       <Pressable
         ref={ref as never}
         onPress={() => togglePopover(id, get)}
-        style={[styles.quiet, open && styles.chipOn, { alignSelf: 'flex-start' }]}
+        style={[styles.quiet, open && styles.openBg, { alignSelf: 'flex-start' }]}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`Reminder: ${reminderLabel(task.reminderMinutes)}`}
       >
-        <Text style={[styles.quietText, open && styles.chipTextOn]}>{reminderLabel(task.reminderMinutes)}</Text>
+        <Text style={styles.quietText}>{reminderLabel(task.reminderMinutes)}</Text>
       </Pressable>
       <Popover id={id} anchor={get} width={240}>
         <ReminderBody task={task} ops={wrapped} done={() => closePopover(true)} />
@@ -618,21 +577,6 @@ function DetailRow({ glyph, label, children }: { glyph: string; label: string; c
       </Text>
       <View style={styles.rowBody}>{children}</View>
     </View>
-  );
-}
-
-function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.chip, on && styles.chipOn]}
-      accessibilityRole="button"
-      accessibilityState={{ selected: on }}
-      accessibilityLabel={label}
-      {...({ 'aria-pressed': on } as object)}
-    >
-      <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -687,10 +631,6 @@ const styles = StyleSheet.create({
   switchOn: { backgroundColor: Colors.accent },
   knob: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFFFFF' },
   knobOn: { alignSelf: 'flex-end' },
-  chip: { paddingHorizontal: 9, height: 26, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
-  chipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  chipText: { fontSize: 13, color: Colors.textPrimary },
-  chipTextOn: { color: Colors.onAccent, fontWeight: '600' },
   input: { flex: 1, minWidth: 120, height: 28, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   inputBad: { borderColor: Colors.danger },
   bad: { fontSize: 12, color: Colors.danger },
@@ -703,6 +643,8 @@ const styles = StyleSheet.create({
   quiet: { paddingHorizontal: 6, height: 28, borderRadius: 8, justifyContent: 'center' },
   quietText: { fontSize: 13, color: Colors.textPrimary },
   quietSub: { fontSize: 12, color: Colors.textSecondary },
+  openBg: { backgroundColor: Colors.background },
+  timerOn: { fontSize: 12, fontWeight: '600', color: Colors.accentText },
   xBtn: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 28 },
   subText: { flex: 1, fontSize: 14, color: Colors.textPrimary },

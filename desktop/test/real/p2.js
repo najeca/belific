@@ -175,7 +175,7 @@ async function run() {
   await blur();
   await key('q');
   // Phase 2: Q went to the pane's capture box. Phase 3 made it the quick capture box. Either is a box ready to type in.
-  check('Q goes to a capture box', ['Capture a thought', 'Quick capture task'].includes(await activeLabel()), String(await activeLabel()));
+  check('Q goes to a capture box', ['Capture a thought', 'Quick capture task'].includes(await activeLabel()), `${await activeLabel()} ${await js(`JSON.stringify({ pop: !!document.querySelector('[data-popover]'), modal: [...document.querySelectorAll('[aria-modal="true"]')].map((e) => e.getAttribute('aria-label')), help: document.body.innerText.includes('Open the details (notes and subtasks)') })`)}`);
   await type('Keyboard task');
   await enter();
   await C.waitFor(() => byTitle('Keyboard task').length === 1, 8000);
@@ -185,11 +185,14 @@ async function run() {
   await focusCard('Keyboard task');
   const id = () => byTitle('Keyboard task')[0].id;
 
-  // 2.27.0: Ctrl+E and Ctrl+B open the details modal at the estimate or actual field.
+  // 2.27.0: Ctrl+E and Ctrl+B open the details modal at the estimate or actual
+  // field; 2.27.1: that is the time drop-down, opened, worked with the keys.
   await key('E', ['control']);
-  await C.waitFor(async () => (await activeLabel()) === 'Custom estimate', 4000).catch(() => {});
-  check('Ctrl+E opens the details at the estimate box', (await exists(dialog('Task details'))) && (await activeLabel()) === 'Custom estimate', String(await activeLabel()));
-  await type('45m');
+  await C.waitFor(() => exists(dialog('Estimated time')), 4000).catch(() => {});
+  await C.sleep(200);
+  check('Ctrl+E opens the details with the estimate drop-down open', (await exists(dialog('Task details'))) && (await exists(dialog('Estimated time'))) && (await activeLabel()) === 'Estimated time 5 min', String(await activeLabel()));
+  for (let i = 0; i < 5; i++) await key('Down', [], 120);
+  check('Down moves through the list (to 45 min)', (await activeLabel()) === 'Estimated time 45 min', String(await activeLabel()));
   await enter(500);
   await key('Escape');
   await C.sleep(300);
@@ -219,8 +222,9 @@ async function run() {
 
   await focusCard('Keyboard task');
   await key('B', ['control']);
-  await C.waitFor(async () => (await activeLabel()) === 'Set the actual time', 4000).catch(() => {});
-  check('Ctrl+B opens the details at the actual time box', (await exists(dialog('Task details'))) && (await activeLabel()) === 'Set the actual time', String(await activeLabel()));
+  await C.waitFor(() => exists(dialog('Actual time')), 4000).catch(() => {});
+  check('Ctrl+B opens the details with the actual time drop-down open', (await exists(dialog('Task details'))) && (await exists(dialog('Actual time'))));
+  await click(`document.querySelector('[data-popover] [aria-label="Custom actual time"]')`, 300);
   await type('20m');
   await enter(500);
   await key('Escape');
@@ -249,7 +253,9 @@ async function run() {
   await C.waitFor(async () => exists(byLabel('Task details')), 8000);
   check('O opens the details panel', await exists(byLabel('Task details')));
   await shot('p2-05-details');
-  await click(`document.querySelector('[aria-label="Task details"] [aria-label="1h"]')`);
+  // 2.27.1: the estimate is the time drop-down.
+  await click(`document.querySelector('[aria-label="Task details"] [data-duration-select="Estimated time"]')`);
+  await click(`document.querySelector('[data-popover] [aria-label="Estimated time 1 h"]')`);
   await C.waitFor(() => tasks().some((t) => t.title === 'Seed task' && t.durationMinutes === 60), 8000);
   check('the panel set a 1h estimate', tasks().some((t) => t.title === 'Seed task' && t.durationMinutes === 60));
   // 2.26.0: Priority was removed from the interface.

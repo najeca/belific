@@ -130,7 +130,9 @@ async function run() {
   await I.key('o');
   await C.waitFor(async () => I.exists(I.byLabel('Task details')), 8000);
   check('no Priority field in the details', !(await I.exists(`document.querySelector('[aria-label="Task details"] [aria-label="High"]')`)));
-  await I.click(`document.querySelector('[aria-label="Task details"] [aria-label="1h"]')`);
+  // 2.27.1: the estimate is the time drop-down.
+  await I.click(`document.querySelector('[aria-label="Task details"] [data-duration-select="Estimated time"]')`);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Estimated time 1 h"]')`);
   await C.waitFor(() => byId('a1').durationMinutes === 60, 6000).catch(() => {});
   check('editing the task keeps its stored priority (Alpha is still high)', byId('a1').durationMinutes === 60 && byId('a1').priority === 'high', JSON.stringify(byId('a1')));
   await I.key('Escape');

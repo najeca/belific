@@ -20,6 +20,8 @@ import { minutesOfDay, nowLineTop } from '../../lib/calendarView';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
+import DurationSelect from './DurationSelect';
+import { isPopoverOpen } from './Popover';
 import { closeOverlay, notifyChanged } from './uiStore';
 
 // Daily Planning (4 steps) and Daily Shutdown (2 steps), build plan phase 5,
@@ -30,8 +32,8 @@ import { closeOverlay, notifyChanged } from './uiStore';
 //
 // EVERYTHING here is a draft (lib/planningDraft.ts) held in this component:
 // ticking a missed task as done, pulling a task onto today, adding one, moving
-// one to tomorrow or next week, giving one a time. Nothing is written until
-// Finish (lib/planningActions.ts). Cancel, Escape or closing throws the draft
+// one to tomorrow or next week, giving one a time or an estimate. Nothing is
+// written until Finish (lib/planningActions.ts). Cancel, Escape or closing throws the draft
 // away, so every task is exactly as it was. Finish in Planning also rolls the
 // unfinished tasks of earlier days onto today (not repeating tasks, a placed
 // task keeps its time); Finish in Shutdown moves the chosen unfinished tasks of
@@ -67,6 +69,8 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     // included): caught first, so nothing else treats it as its own.
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      // An open drop-down (the estimate, 2.27.1) takes its own Escape first.
+      if (isPopoverOpen()) return;
       e.preventDefault();
       e.stopPropagation();
       closeOverlay();
@@ -171,7 +175,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
             <Text style={styles.muted}>Nothing yet. Pull tasks across from the list, or add one above.</Text>
           ) : (
             targetList.map((t) => (
-              <Row key={t.id} task={t} label={labelOf(t)} sub={rollingIn.includes(t) ? `from ${formatShortDate(t.dueDate as string)}` : undefined} actions={[{ text: 'Not now', a11y: `Take ${t.title} off`, onPress: () => (draft.added.some((a) => a.id === t.id) ? setDraft((d) => ({ ...d, added: d.added.filter((a) => a.id !== t.id) })) : edit(t.id, { dueDate: undefined })) }]} />
+              <Row key={t.id} task={t} label={labelOf(t)} onEstimate={(m) => edit(t.id, { durationMinutes: m })} sub={rollingIn.includes(t) ? `from ${formatShortDate(t.dueDate as string)}` : undefined} actions={[{ text: 'Not now', a11y: `Take ${t.title} off`, onPress: () => (draft.added.some((a) => a.id === t.id) ? setDraft((d) => ({ ...d, added: d.added.filter((a) => a.id !== t.id) })) : edit(t.id, { dueDate: undefined })) }]} />
             ))
           )}
         </Column>
@@ -190,7 +194,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         <Column title="Today" emoji="📅">
           <LabelBar tasks={todayList} labels={labels} />
           {todayList.map((t) => (
-            <Row key={t.id} task={t} label={labelOf(t)} actions={[{ text: '→ Tomorrow', a11y: `Move ${t.title} to tomorrow`, onPress: () => move(t, tomorrow) }, { text: '→ Next week', a11y: `Move ${t.title} to next week`, onPress: () => move(t, nextWeek) }]} />
+            <Row key={t.id} task={t} label={labelOf(t)} onEstimate={(m) => edit(t.id, { durationMinutes: m })} actions={[{ text: '→ Tomorrow', a11y: `Move ${t.title} to tomorrow`, onPress: () => move(t, tomorrow) }, { text: '→ Next week', a11y: `Move ${t.title} to next week`, onPress: () => move(t, nextWeek) }]} />
           ))}
         </Column>
         <Column title="Tomorrow" emoji="🌅" hint={awayDays.has(tomorrow) ? '✈️ Tomorrow is an away day' : 'Add tasks that can wait'}>
@@ -215,7 +219,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         <Column title="Today" emoji="📅" hint="Give a task a time, or leave it untimed.">
           {todayList.map((t) => (
             <View key={t.id} style={styles.timeRow}>
-              <Row task={t} label={labelOf(t)} />
+              <Row task={t} label={labelOf(t)} onEstimate={(m) => edit(t.id, { durationMinutes: m })} />
               <select
                 value={t.startTime ?? ''}
                 aria-label={`Time for ${t.title}`}
@@ -383,6 +387,7 @@ function Row({
   onTick,
   check,
   actions,
+  onEstimate,
 }: {
   task: Task;
   label?: Project;
@@ -391,6 +396,8 @@ function Row({
   onTick?: () => void;
   check?: { on: boolean; a11y: string; onPress: () => void };
   actions?: Array<{ text: string; a11y: string; onPress: () => void }>;
+  // The estimate, as the shared time drop-down (2.27.1); a draft edit.
+  onEstimate?: (minutes: number | undefined) => void;
 }) {
   const color = labelColor(label?.colorKey);
   return (
@@ -414,6 +421,7 @@ function Row({
           {[sub, label ? `${label.emoji ? `${label.emoji} ` : ''}${label.name}` : undefined, task.startTime, formatTotals(totalsOf([task], Date.now())) || undefined].filter(Boolean).join(' · ')}
         </Text>
       </View>
+      {onEstimate && <DurationSelect id={`flow:${task.id}`} label={`Estimated time for ${task.title}`} value={task.durationMinutes} onChange={onEstimate} placeholder="⏳ Estimate" compact />}
       {actions?.map((a) => (
         <Pressable key={a.text} onPress={a.onPress} style={styles.action} accessibilityRole="button" accessibilityLabel={a.a11y}>
           <Text style={styles.actionText}>{a.text}</Text>

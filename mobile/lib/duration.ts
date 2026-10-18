@@ -35,6 +35,26 @@ export function formatClock(minutes?: number): string {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
 
+// The time drop-down's list (2.27.1), in order: 5 to 45 minutes, then 1 hour to
+// 4 hours in 15 minute steps, then 5, 6 and 8 hours. "Custom" and "Clear" follow
+// it in the drop-down. Anything else stored before still loads and displays.
+export const TIME_CHOICES: readonly number[] = [
+  5, 10, 15, 20, 30, 45,
+  ...Array.from({ length: 13 }, (_, i) => 60 + i * 15),
+  300, 360, 480,
+];
+
+// The drop-down's short text: 45 -> "45 min", 60 -> "1 h", 90 -> "1 h 30",
+// 65 -> "1 h 05"; none -> undefined.
+export function shortDuration(minutes?: number): string | undefined {
+  const m = wholeMinutes(minutes);
+  if (m === undefined) return undefined;
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest === 0 ? `${h} h` : `${h} h ${String(rest).padStart(2, '0')}`;
+}
+
 // "45 min", "1h", "1h 30m": the preset list's labels.
 export function presetLabel(minutes: number): string {
   return minutes < 60 ? `${minutes} min` : (formatDuration(minutes) as string);

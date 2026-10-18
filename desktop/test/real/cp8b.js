@@ -214,7 +214,9 @@ async function run() {
   // Alpha
   await openModal('Alpha');
   check('a click on the card opens the details', await modalOpen());
-  await click(inModal('[aria-label="1h"]'));
+  // 2.27.1: the estimate is the time drop-down.
+  await click(inModal('[data-duration-select="Estimated time"]'));
+  await click(`document.querySelector('[data-popover] [aria-label="Estimated time 1 h"]')`);
   await waitTask('Alpha', (t) => t.durationMinutes === 60);
   await click(inModal('[aria-label^="Reminder:"]'));
   await click(inPopover('[aria-label="None"]'));
@@ -238,7 +240,9 @@ async function run() {
   await click(inPopover('[aria-label="Home"]'));
   await waitTask('Bravo', (t) => t.projectKey === 'home');
   await openModal('Bravo');
-  await click(inModal('[aria-label="Custom estimate"]'));
+  // 2.27.1: the estimate is the time drop-down; Custom takes typed text.
+  await click(inModal('[data-duration-select="Estimated time"]'));
+  await click(q('[data-popover] [aria-label="Custom estimated time"]'));
   await typeText('1h 30m');
   await key('Return');
   await waitTask('Bravo', (t) => t.durationMinutes === 90);
@@ -256,7 +260,8 @@ async function run() {
   await waitTask('Charlie', (t) => !!t.projectKey);
   check('created a label from the search box and selected it', read('belific_projects').some((p) => p.name === 'Errands' && p.key === taskNamed('Charlie').projectKey));
   await openModal('Charlie');
-  await click(inModal('[aria-label="30 min"]'));
+  await click(inModal('[data-duration-select="Estimated time"]'));
+  await click(`document.querySelector('[data-popover] [aria-label="Estimated time 30 min"]')`);
   await waitTask('Charlie', (t) => t.durationMinutes === 30);
   await closeModal();
   check('no overlay is left after editing three cards in a row', await noNewOverlay());
@@ -305,7 +310,8 @@ async function run() {
   check('clicking a placed block opens its details', (await modalOpen()) && (await js(`${inModal('[aria-label="Title"]')}.value`)) === 'Placed one');
   await pickSelect('Label', 'work');
   await waitTask('Placed one', (t) => t.projectKey === 'work');
-  await click(inModal('[aria-label="2h"]'));
+  await click(inModal('[data-duration-select="Estimated time"]'));
+  await click(`document.querySelector('[data-popover] [aria-label="Estimated time 2 h"]')`);
   await waitTask('Placed one', (t) => t.durationMinutes === 120);
   check('edited a placed block label and duration in the details', taskNamed('Placed one').projectKey === 'work' && taskNamed('Placed one').durationMinutes === 120);
   await click(inModal('[aria-label="Remove time"]'));

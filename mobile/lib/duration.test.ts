@@ -8,6 +8,8 @@ import {
   formatDuration,
   parseDuration,
   presetLabel,
+  shortDuration,
+  TIME_CHOICES,
 } from './duration.ts';
 import { formatDuration as fromKanban } from './kanban.ts';
 import { COMPACT_BLOCK_PX, MIN_BLOCK_PX, PX_PER_HOUR, blockHeightPx, isCompactBlock, layoutItems, taskToItem } from './timebox.ts';
@@ -146,4 +148,28 @@ test('Timebox: a 20 hour block fits the 24 hour grid and a late start runs past 
 test('resize may pass midnight, up to the 24 hour limit', () => {
   assert.equal(resizedDuration(21 * 60, 26 * 60), 300);
   assert.equal(resizedDuration(21 * 60, 21 * 60 + 40 * 60), 24 * 60);
+});
+
+// ---- the time drop-down (2.27.1) ----
+test('the drop-down lists 5 to 45 minutes, 1 to 4 hours in 15 minute steps, then 5, 6 and 8 hours', () => {
+  assert.deepEqual(TIME_CHOICES, [5, 10, 15, 20, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240, 300, 360, 480]);
+});
+
+test('the drop-down shows short text: 45 min, 1 h, 1 h 30', () => {
+  assert.equal(shortDuration(45), '45 min');
+  assert.equal(shortDuration(60), '1 h');
+  assert.equal(shortDuration(90), '1 h 30');
+  assert.equal(shortDuration(65), '1 h 05');
+  assert.equal(shortDuration(480), '8 h');
+  assert.equal(shortDuration(undefined), undefined);
+  assert.equal(shortDuration(0), undefined);
+  // An odd value stored before shows as it is.
+  assert.equal(shortDuration(7), '7 min');
+});
+
+test('every drop-down text types back as the same minutes (Custom accepts what it shows)', () => {
+  for (const m of TIME_CHOICES) assert.equal(parseDuration(shortDuration(m) as string), m);
+  assert.equal(parseDuration('90'), 90);
+  assert.equal(parseDuration('1:30'), 90);
+  assert.equal(parseDuration('2 h'), 120);
 });

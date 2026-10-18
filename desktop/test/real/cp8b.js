@@ -256,6 +256,10 @@ async function run() {
   await click(inCard('Charlie', '[aria-label="Select label"]'));
   await typeText('Errands');
   check('typing offers Create "Errands"', (await js(`!!${inPopover('[aria-label="Create label Errands"]')}`)));
+  // 2.27.1: Enter opens the one small form (name, emoji and colour); Enter there creates.
+  await key('Return');
+  await C.waitFor(() => js(`!!${inPopover('[data-new-label-form]')}`), 3000).catch(() => {});
+  check('Enter opens the new label form with the name and a colour', (await js(`${inPopover('[aria-label="New label name"]')}.value`)) === 'Errands' && (await js(`!!${inPopover('[data-new-label-form] [data-swatch][aria-pressed="true"]')}`)));
   await key('Return');
   await waitTask('Charlie', (t) => !!t.projectKey);
   check('created a label from the search box and selected it', read('belific_projects').some((p) => p.name === 'Errands' && p.key === taskNamed('Charlie').projectKey));
@@ -308,7 +312,9 @@ async function run() {
   await click(q('[data-block-id="p"]'));
   await C.waitFor(() => modalOpen(), 4000).catch(() => {});
   check('clicking a placed block opens its details', (await modalOpen()) && (await js(`${inModal('[aria-label="Title"]')}.value`)) === 'Placed one');
-  await pickSelect('Label', 'work');
+  // 2.27.1: the Label row opens the label menu.
+  await click(inModal('[aria-label^="Label:"]'));
+  await click(inPopover('[data-label-row="work"]'));
   await waitTask('Placed one', (t) => t.projectKey === 'work');
   await click(inModal('[data-duration-select="Estimated time"]'));
   await click(`document.querySelector('[data-popover] [aria-label="Estimated time 2 h"]')`);

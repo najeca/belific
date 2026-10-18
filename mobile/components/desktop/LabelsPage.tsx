@@ -2,20 +2,21 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { labelColor, sharedColorGroups } from '../../lib/labelColors';
+import { colorClash, freeColorKey, labelColor, sharedColorGroups } from '../../lib/labelColors';
 import { useNewColorsOk } from './uiStore';
 import { LabelColorPicker } from './LabelColorPicker';
 import { availableSuggestions, deletedLabelTarget, findLabelByName } from '../../lib/labelRules';
 import { openCountText, openTaskCounts } from '../../lib/labelUsage';
 import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor, setLabelEmoji } from '../../lib/labels';
 import EmojiField from './EmojiField';
+import LabelForm from './LabelForm';
 import { loadTasks } from '../../lib/storage';
 import type { Project, Task } from '../../lib/types';
-import Popover, { closePopover, Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
+import Popover, { closePopover, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 
 // The Labels page (checkpoint 9, decision 025): every label with its colour,
-// name and the number of open tasks using it. Rename inline, change the colour
-// from the 8 colour palette, delete with an inline confirm (the existing rule:
+// name and the number of open tasks using it. Its colour, emoji or name opens
+// one form with all three (2.27.1), delete with an inline confirm (the existing rule:
 // tasks move to a same named label, otherwise lose the label), add from the
 // suggestions or by typing. Duplicate names are refused as everywhere else.
 // No reordering. The trash button is always there (no hover only controls).
@@ -26,7 +27,10 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newEmoji, setNewEmoji] = useState<string | undefined>(undefined);
+  const [newColor, setNewColor] = useState<string | null>(null);
   const [addProblem, setAddProblem] = useState<string | null>(null);
+  const nameRef = useRef<TextInput>(null);
 
   const reload = useCallback(async () => {
     const [l, t] = await Promise.all([loadLabels(), loadTasks()]);
@@ -49,6 +53,9 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
   // 2.27.0: labels that already share a colour are left alone, with a notice.
   const shared = sharedColorGroups(labels);
 
+  // The colour shown for the next label: the person's pick, else the next free one.
+  const addColor = newColor && !colorClash(labels, newColor) ? newColor : freeColorKey(labels, newColorsOk);
+
   async function add(name: string) {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -56,9 +63,20 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
       setAddProblem('A label with that name already exists');
       return;
     }
+    if (!addColor) {
+      setAddProblem('Pick a colour first.');
+      return;
+    }
+    const clash = colorClash(labels, addColor);
+    if (clash) {
+      setAddProblem(`"${clash.name}" already has that colour. Pick another.`);
+      return;
+    }
     setAddProblem(null);
-    await createLabel(trimmed, undefined, undefined, newColorsOk);
+    await createLabel(trimmed, newEmoji, addColor, newColorsOk);
     setNewName('');
+    setNewEmoji(undefined);
+    setNewColor(null);
     await changed();
   }
 
@@ -88,8 +106,10 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Add a label</Text>
-          <View style={styles.addRow}>
+          {/* 2.27.1: a new label always shows its name, emoji and colour together. */}
+          <View style={styles.addRow} {...({ dataSet: { newLabelForm: 'page' } } as object)}>
             <TextInput
+              ref={nameRef}
               style={styles.input}
               value={newName}
               onChangeText={(v) => {
@@ -112,13 +132,28 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
               <Text style={styles.btnPrimaryText}>Add</Text>
             </Pressable>
           </View>
+          <View style={styles.addParts}>
+            <EmojiField label="New label emoji" value={newEmoji} onChange={setNewEmoji} />
+            <LabelColorPicker value={addColor} forName="the new label" labels={labels} onPick={setNewColor} />
+          </View>
           {addProblem && <Text style={styles.problem}>{addProblem}</Text>}
           {suggestions.length > 0 && (
             <>
               <Text style={styles.hint}>Suggested</Text>
               <View style={styles.chips}>
                 {suggestions.map((s) => (
-                  <Pressable key={s} onPress={() => add(s)} accessibilityRole="button" accessibilityLabel={`Add suggested label ${s}`} style={styles.chip}>
+                  <Pressable
+                    key={s}
+                    // Fills the form (its colour and emoji are chosen there), never adds blind.
+                    onPress={() => {
+                      setNewName(s);
+                      setAddProblem(null);
+                      nameRef.current?.focus();
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add suggested label ${s}`}
+                    style={styles.chip}
+                  >
                     <Ionicons name="add" size={14} color={Colors.textSecondary} />
                     <Text style={styles.chipText}>{s}</Text>
                   </Pressable>
@@ -146,57 +181,14 @@ function LabelRow({
   first: boolean;
   onChanged: () => Promise<void>;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(label.name);
-  const [problem, setProblem] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  const cancelled = useRef(false);
-  const colorId = `label-color:${label.key}`;
+  const editId = `label-edit:${label.key}`;
   const { ref, get } = usePopoverAnchor();
-  const colorOpen = useIsOpen(colorId);
+  const editOpen = useIsOpen(editId);
   const color = labelColor(label.colorKey);
-
-  useEffect(() => {
-    if (!editing) {
-      setName(label.name);
-      // The box is gone, so a leftover "cancelled" must not swallow the next rename.
-      cancelled.current = false;
-    }
-  }, [label.name, editing]);
-
-  // Enter keeps the box open on a problem so the name can be fixed (the old
-  // name stays saved). Leaving the box (revertOnProblem) drops a bad change.
-  async function commit(revertOnProblem = false) {
-    if (cancelled.current) return;
-    const msg = await renameLabel(label.key, name);
-    if (msg && !revertOnProblem) {
-      setProblem(msg);
-      return;
-    }
-    setProblem(null);
-    setEditing(false);
-    if (!msg) await onChanged();
-  }
-
-  function cancel() {
-    cancelled.current = true;
-    setProblem(null);
-    setName(label.name);
-    setEditing(false);
-  }
-
-  async function pickColor(key: string) {
-    if (key === label.colorKey) return closePopover(true);
-    const msg = await setLabelColor(label.key, key);
-    if (msg) {
-      setProblem(msg);
-      return;
-    }
-    closePopover(true);
-    setProblem(null);
-    await onChanged();
-  }
+  // 2.27.1: the colour, the emoji and the name all open the same small form with
+  // name, emoji and colour together (any label, whatever version made it).
+  const edit = () => togglePopover(editId, get);
 
   async function confirmDelete() {
     await deleteLabel(label.key);
@@ -209,59 +201,25 @@ function LabelRow({
 
   return (
     <View style={[styles.rowWrap, !first && styles.rowDivider]} accessibilityLabel={`Label ${label.name}`}>
-      <View style={styles.row}>
+      <View style={styles.row} ref={ref as never}>
         <Pressable
-          ref={ref as never}
-          onPress={() => togglePopover(colorId, get)}
+          onPress={edit}
           accessibilityRole="button"
-          accessibilityState={{ expanded: colorOpen }}
+          accessibilityState={{ expanded: editOpen }}
           accessibilityLabel={`Colour of ${label.name}`}
-          style={[styles.swatchBtn, colorOpen && styles.swatchBtnOpen]}
+          style={[styles.swatchBtn, editOpen && styles.swatchBtnOpen]}
         >
           <View style={[styles.swatch, { backgroundColor: color?.edge ?? Colors.border }]} />
         </Pressable>
-        <Pressable
-          onPress={() => setEmojiOpen((o) => !o)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: emojiOpen }}
-          accessibilityLabel={`Emoji of ${label.name}`}
-          style={[styles.swatchBtn, emojiOpen && styles.swatchBtnOpen]}
-        >
+        <Pressable onPress={edit} accessibilityRole="button" accessibilityLabel={`Emoji of ${label.name}`} style={styles.swatchBtn}>
           <Text style={styles.emoji}>{label.emoji ?? '🙂'}</Text>
         </Pressable>
         <View style={styles.nameWrap}>
-          {editing ? (
-            <TextInput
-              style={styles.nameInput}
-              value={name}
-              onChangeText={(v) => {
-                setName(v);
-                setProblem(null);
-              }}
-              onSubmitEditing={() => commit()}
-              // Enter must not blur the box: a refused name stays editable.
-              blurOnSubmit={false}
-              onBlur={() => {
-                // Leaving the box saves a valid change and reverts an invalid one.
-                if (!name.trim() || name.trim() === label.name) cancel();
-                else commit(true);
-              }}
-              onKeyPress={(e) => {
-                if ((e.nativeEvent as { key?: string }).key === 'Escape') cancel();
-              }}
-              autoFocus
-              selectTextOnFocus
-              maxLength={40}
-              accessibilityLabel={`Rename ${label.name}`}
-            />
-          ) : (
-            <Pressable onPress={() => setEditing(true)} accessibilityRole="button" accessibilityLabel={`Rename label ${label.name}`}>
-              <Text style={styles.name} numberOfLines={1}>
-                {label.name}
-              </Text>
-            </Pressable>
-          )}
-          {problem && <Text style={styles.problem}>{problem}</Text>}
+          <Pressable onPress={edit} accessibilityRole="button" accessibilityLabel={`Rename label ${label.name}`}>
+            <Text style={styles.name} numberOfLines={1}>
+              {label.name}
+            </Text>
+          </Pressable>
         </View>
         <Text style={styles.count}>{openCountText(open)}</Text>
         <Pressable
@@ -273,19 +231,6 @@ function LabelRow({
           <Ionicons name="trash-outline" size={18} color={Colors.textSecondary} />
         </Pressable>
       </View>
-      {emojiOpen && (
-        <View style={styles.confirm}>
-          <EmojiField
-            label={`Emoji for ${label.name}`}
-            value={label.emoji}
-            onChange={async (e) => {
-              if (e === label.emoji) return;
-              await setLabelEmoji(label.key, e);
-              await onChanged();
-            }}
-          />
-        </View>
-      )}
       {confirming && (
         <View style={styles.confirm}>
           <Text style={styles.body}>
@@ -305,10 +250,31 @@ function LabelRow({
           </View>
         </View>
       )}
-      <Popover id={colorId} anchor={get} width={268} label={`Colour for ${label.name}`}>
-        <View style={{ padding: 12 }}>
-          <LabelColorPicker value={label.colorKey} forName={label.name} onPick={pickColor} labels={labels} exceptKey={label.key} />
-        </View>
+      <Popover id={editId} anchor={get} width={300} maxHeight={560} label={`Edit ${label.name}`}>
+        <LabelForm
+          mode="edit"
+          initial={{ name: label.name, emoji: label.emoji, colorKey: label.colorKey ?? '' }}
+          labels={labels}
+          editKey={label.key}
+          forName={label.name}
+          onCancel={() => closePopover(true)}
+          onLiveChange={async (c) => {
+            if (c.colorKey !== undefined && c.colorKey !== label.colorKey) {
+              const problem = await setLabelColor(label.key, c.colorKey);
+              if (problem) return problem;
+            }
+            if ('emoji' in c && c.emoji !== label.emoji) await setLabelEmoji(label.key, c.emoji);
+            await onChanged();
+            return null;
+          }}
+          onSubmit={async (v) => {
+            const problem = await renameLabel(label.key, v.name);
+            if (problem) return problem;
+            closePopover(true);
+            await onChanged();
+            return null;
+          }}
+        />
       </Popover>
     </View>
   );
@@ -352,6 +318,7 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, color: Colors.textPrimary },
   hint: { marginTop: 10, fontSize: 12, color: Colors.textSecondary },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addParts: { gap: 8, marginTop: 8 },
   input: {
     flex: 1,
     height: 36,

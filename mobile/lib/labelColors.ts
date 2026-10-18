@@ -236,6 +236,15 @@ export function nextColorKey(projects: Pick<Project, 'key' | 'name' | 'colorKey'
   return best;
 }
 
+// The colour a new label's form starts with (2.27.1): the first free one, or ''
+// (nothing picked) when every allowed colour is taken, so a form never shows a
+// colour another label already has. Quick paths keep nextColorKey's fallback.
+export function freeColorKey(projects: Pick<Project, 'key' | 'name' | 'colorKey' | 'deletedAt'>[], allowNew = false): LabelColorKey | '' {
+  const key = nextColorKey(projects, allowNew);
+  const live = projects.map((p, i) => ({ ...p, key: p.key ?? `#${i}`, name: p.name ?? '' }));
+  return colorClash(live, key) ? '' : key;
+}
+
 // Gives every live label WITHOUT a colorKey one, in list order, each taking the
 // next free colour of the original eight. Labels that already have one (even
 // one this version does not know, so a newer palette is never overwritten),

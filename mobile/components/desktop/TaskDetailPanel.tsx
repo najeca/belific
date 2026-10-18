@@ -21,7 +21,8 @@ import EmojiField from './EmojiField';
 import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
-import { ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import { LabelBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import { labelColor } from '../../lib/labelColors';
 import StreakLine from './StreakLine';
 import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
@@ -297,15 +298,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
         </DetailRow>
 
         <DetailRow glyph="🏷️" label="Label">
-          <select value={task.projectKey ?? ''} aria-label="Label" onChange={(e) => patch({ projectKey: e.target.value || undefined })} style={domSelect}>
-            <option value="">No label</option>
-            {labels.map((l) => (
-              <option key={l.key} value={l.key}>
-                {l.emoji ? `${l.emoji} ` : ''}
-                {l.name}
-              </option>
-            ))}
-          </select>
+          <LabelField task={task} labels={labels} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
         {/* Must do (2.27.0): one switch over the stored priority (on = high, off = none). */}
@@ -541,6 +534,46 @@ function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved
   );
 }
 
+// The label menu of a card (TaskPopovers.LabelBody), opened from the modal
+// (2.27.1): the label shows as its colour dot, emoji and name; the menu creates a
+// label only through the form with name, emoji and colour.
+function LabelField({ task, labels, ops, onSaved }: { task: Task; labels: Project[]; ops: TaskOps; onSaved: () => void }) {
+  const { ref, get } = usePopoverAnchor();
+  const id = `detail:${task.id}:label`;
+  const open = useIsOpen(id);
+  const wrapped: TaskOps = { ...ops, patch: (f) => ops.patch(f).then(onSaved) };
+  const label = labels.find((l) => l.key === task.projectKey);
+  const color = labelColor(label?.colorKey);
+  return (
+    <>
+      <Pressable
+        ref={ref as never}
+        onPress={() => togglePopover(id, get)}
+        style={[styles.quiet, styles.labelBtn, open && styles.openBg]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={label ? `Label: ${label.name}` : 'Label: none'}
+        {...({ dataSet: { detailLabel: label?.key ?? '' } } as object)}
+      >
+        {label ? (
+          <>
+            <View style={[styles.labelDot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />
+            <Text style={styles.quietText} numberOfLines={1}>
+              {label.emoji ? `${label.emoji} ` : ''}
+              {label.name}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.quietSub}>Select a label</Text>
+        )}
+      </Pressable>
+      <Popover id={id} anchor={get} width={284} maxHeight={540} label="Task options">
+        <LabelBody task={task} ops={wrapped} done={() => closePopover(true)} />
+      </Popover>
+    </>
+  );
+}
+
 // The card's Reminder dropdown (TaskPopovers.ReminderBody), opened from the
 // modal (2.27.0: the bell left the card face).
 function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved: () => void }) {
@@ -644,6 +677,8 @@ const styles = StyleSheet.create({
   quietText: { fontSize: 13, color: Colors.textPrimary },
   quietSub: { fontSize: 12, color: Colors.textSecondary },
   openBg: { backgroundColor: Colors.background },
+  labelBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
+  labelDot: { width: 8, height: 8, borderRadius: 4 },
   timerOn: { fontSize: 12, fontWeight: '600', color: Colors.accentText },
   xBtn: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 28 },

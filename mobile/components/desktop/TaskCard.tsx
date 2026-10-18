@@ -348,7 +348,7 @@ export default function TaskCard({
             <View style={[styles.icons, { backgroundColor: color?.tint ?? CARD_PLAIN }, !iconsShown && styles.quiet]} {...({ dataSet: { cardControls: '1' } } as object)}>
               <IconControl id={`${id}:label`} ctl="label" a11y={label ? `Label: ${label.name}` : 'Select label'} shown={iconsShown} glyph="🏷️">
                 {(anchor) => (
-                  <Popover id={`${id}:label`} anchor={anchor} width={272}>
+                  <Popover id={`${id}:label`} anchor={anchor} width={284} maxHeight={540}>
                     <LabelBody task={task} ops={wrapped} done={() => closePopover(true)} />
                   </Popover>
                 )}

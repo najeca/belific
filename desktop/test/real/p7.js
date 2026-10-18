@@ -192,6 +192,9 @@ async function run() {
   check('a label can have an emoji: it is saved on the label', labelNamed('Work')?.emoji === '💼', JSON.stringify(labelNamed('Work')));
   check('the overlay shows it on the label row', (await I.textOf(I.dialog('Labels'))).includes('Work'));
   await I.js('document.activeElement && document.activeElement.blur()');
+  // 2.27.1: the emoji is set in the label's edit form (a popover): Escape closes it first.
+  await I.key('Escape');
+  await C.sleep(300);
   await I.key('Escape');
   await C.sleep(300);
   check('Escape closes the overlay and focus returns to the button that opened it', !(await I.exists(I.dialog('Labels'))) && (await I.activeLabel()) === 'Open Labels', String(await I.activeLabel()));

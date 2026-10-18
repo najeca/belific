@@ -407,16 +407,20 @@ async function run() {
 
   // Recolour from the palette.
   await click(byLabel('Colour of Household stuff'));
-  check('Colour: opens a small popover with the 20 palette colours and the wheel (12 and the wheel locked until every computer runs 2.27)', (await popoverOpen('Colour for Household stuff')) && (await js(`document.querySelectorAll('[data-swatch]:not([data-swatch="wheel"])').length`)) === 20 && (await js(`document.querySelectorAll('[data-swatch][data-locked][aria-disabled="true"]').length`)) === 13 && (await js(`[...document.querySelectorAll('[data-swatch][aria-disabled="true"]')].every((s) => s.hasAttribute('data-locked') || s.hasAttribute('data-taken'))`)));
+  // 2.27.1: the colour opens one small form with the name, the emoji and the colours.
+  check('Colour: opens a small popover with the name, the emoji, the 20 palette colours and the wheel (12 and the wheel locked until every computer runs 2.27)', (await popoverOpen('Edit Household stuff')) && (await exists(q('[data-popover] [aria-label="Rename Household stuff"]'))) && (await exists(q('[data-popover] [aria-label="Emoji for Household stuff"]'))) && (await js(`document.querySelectorAll('[data-popover] [data-swatch]:not([data-swatch="wheel"])').length`)) === 20 && (await js(`document.querySelectorAll('[data-popover] [data-swatch][data-locked][aria-disabled="true"]').length`)) === 13 && (await js(`[...document.querySelectorAll('[data-popover] [data-swatch][aria-disabled="true"]')].every((s) => s.hasAttribute('data-locked') || s.hasAttribute('data-taken'))`)));
   check('Colour: no full viewport overlay', await noNewOverlay());
   await click(byLabel('Plum colour for Household stuff'));
   await C.waitFor(() => labelNamed('Household stuff')?.colorKey === 'plum', 6000).catch(() => {});
   check('Colour: choosing Plum saves it', labelNamed('Household stuff')?.colorKey === 'plum', JSON.stringify(labelNamed('Household stuff')));
-  check('Colour: the popover closed', !(await popoverOpen('Colour for Household stuff')));
+  check('Colour: the form stays open for the name and emoji, and Escape closes it', (await popoverOpen('Edit Household stuff')) && (await press('Escape'), await C.sleep(200), !(await popoverOpen('Edit Household stuff'))));
 
   // Add from the suggestions, and by typing.
   check('Suggestions: Work and Errands are not offered (already used), Study is', !(await exists(byLabel('Add suggested label Work'))) && (await exists(byLabel('Add suggested label Study'))));
+  // 2.27.1: a suggestion fills the form (name, emoji, colour shown together); Add makes it.
   await click(byLabel('Add suggested label Study'));
+  check('Add: a suggestion fills the name and shows the colours, it does not add blind', (await js(`${byLabel('New label name')}.value`)) === 'Study' && !labelNamed('Study') && (await exists(q('[data-new-label-form="page"]'))) && (await js(`!!document.querySelector('[data-swatch][aria-pressed="true"]')`)));
+  await click(byLabel('Add label'));
   await C.waitFor(() => !!labelNamed('Study'), 6000).catch(() => {});
   check('Add: a suggested label is created with a colour', !!labelNamed('Study') && !!labelNamed('Study').colorKey);
   check('Add: it disappears from the suggestions', !(await exists(byLabel('Add suggested label Study'))));
@@ -434,6 +438,7 @@ async function run() {
   // The notification payload keeps updating while hidden: a change on this page re-sends it.
   const updatesBefore2 = notifyUpdates;
   await click(byLabel('Add suggested label Admin'));
+  await click(byLabel('Add label'));
   await C.waitFor(() => notifyUpdates > updatesBefore2, 8000).catch(() => {});
   check('a data change on this page re-sends the notification payload', notifyUpdates > updatesBefore2);
 

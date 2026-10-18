@@ -10,7 +10,8 @@ import { setNewColorsOk, useNewColorsOk } from './uiStore';
 export const NEW_COLORS_TICK = 'Every computer runs Belific 2.27 or later';
 
 // The label colours (2.27.0): the original eight, the twelve vibrant ones and a
-// colour wheel for any other colour. The new ones (and any wheel colour) stay
+// colour wheel for any other colour. 2.27.1: always shown, a lock and a reason on
+// each locked one, and a note when every colour that can be picked is taken. The new ones (and any wheel colour) stay
 // locked until "Every computer runs Belific 2.27 or later" is ticked: a desktop
 // before 2.26 changes such a label back to one of the eight on every device, and
 // 2.26 draws it neutral (see labelColors.ts).
@@ -36,6 +37,9 @@ export function LabelColorPicker({
   const [wheel, setWheel] = useState(false);
   const current = labelColor(value);
   const custom = isCustomColor(value);
+  // 2.27.1: say so when every colour that can be picked is taken (nine or more
+  // labels before the tick), instead of leaving every swatch dimmed in silence.
+  const noneFree = !ok && LABEL_COLORS.filter((c) => !c.since).every((c) => value !== c.key && !!colorClash(labels, c.key, exceptKey));
   return (
     <View style={styles.wrap} {...({ dataSet: { colorPicker: '1' } } as object)}>
       <View style={styles.grid}>
@@ -44,21 +48,29 @@ export function LabelColorPicker({
           const locked = isNewColor(c.key) && !ok;
           const takenBy = on ? undefined : colorClash(labels, c.key, exceptKey);
           const off = locked || !!takenBy;
+          // The tooltip sits on a plain element: react-native-web drops `title` on a Pressable.
+          const tip = takenBy ? `Used by ${takenBy.name}` : locked ? `${c.name}: locked until every computer runs Belific 2.27` : c.name;
           return (
+            <div key={c.key} title={tip} data-swatch-tip={c.key} style={{ display: 'flex' }}>
             <Pressable
-              key={c.key}
               onPress={() => !off && onPick(c.key)}
               disabled={off}
               style={[styles.swatch, on && styles.swatchOn, locked && styles.locked, takenBy && styles.taken]}
               accessibilityRole="button"
               accessibilityState={{ selected: on, disabled: off }}
               accessibilityLabel={`${c.name} colour for ${forName}${takenBy ? `, used by ${takenBy.name}` : ''}`}
-              {...({ dataSet: { swatch: c.key, ...(locked ? { locked: '1' } : {}), ...(takenBy ? { taken: takenBy.name } : {}) }, title: takenBy ? `Used by ${takenBy.name}` : c.name } as object)}
+              // aria-selected is not written on a button: aria-pressed says which one is on.
+              {...({ 'aria-pressed': on, dataSet: { swatch: c.key, ...(locked ? { locked: '1' } : {}), ...(takenBy ? { taken: takenBy.name } : {}) } } as object)}
             >
-              <View style={[styles.fill, { backgroundColor: c.edge }]}>{takenBy && <View style={styles.mark} />}</View>
+              <View style={[styles.fill, { backgroundColor: c.edge }]}>
+                {takenBy && <View style={styles.mark} />}
+                {locked && !takenBy && <Ionicons name="lock-closed" size={9} color="#FFFFFF" />}
+              </View>
             </Pressable>
+            </div>
           );
         })}
+        <div title={ok ? 'Any colour' : 'Any colour: locked until every computer runs Belific 2.27'} data-swatch-tip="wheel" style={{ display: 'flex' }}>
         <Pressable
           onPress={() => ok && setWheel((w) => !w)}
           disabled={!ok}
@@ -66,10 +78,11 @@ export function LabelColorPicker({
           accessibilityRole="button"
           accessibilityState={{ expanded: wheel, disabled: !ok, selected: custom }}
           accessibilityLabel={`Any colour for ${forName}`}
-          {...({ dataSet: { swatch: 'wheel', ...(!ok ? { locked: '1' } : {}) } } as object)}
+          {...({ 'aria-pressed': custom, dataSet: { swatch: 'wheel', ...(!ok ? { locked: '1' } : {}) } } as object)}
         >
-          <View style={[styles.fill, custom && current ? { backgroundColor: current.edge } : styles.rainbow]} />
+          <View style={[styles.fill, custom && current ? { backgroundColor: current.edge } : styles.rainbow]}>{!ok && <Ionicons name="lock-closed" size={9} color="#FFFFFF" />}</View>
         </Pressable>
+        </div>
       </View>
       {current && !LABEL_COLORS.some((c) => c.key === value) && !custom ? <Text style={styles.note}>Now: {current.name} (a 2.26 colour, kept as it is).</Text> : null}
       {wheel && ok && (
@@ -94,7 +107,12 @@ export function LabelColorPicker({
         <View style={[styles.tick, ok && styles.tickOn]}>{ok && <Ionicons name="checkmark" size={11} color="#FFFFFF" />}</View>
         <Text style={styles.tickText}>{NEW_COLORS_TICK}</Text>
       </Pressable>
-      {!ok && <Text style={styles.note}>The last 12 colours and the colour wheel need it: an older Belific changes them back to one of the first 8.</Text>}
+      {!ok && <Text style={styles.note}>🔒 The last 12 colours and the colour wheel need it: an older Belific changes them back to one of the first 8.</Text>}
+      {noneFree && (
+        <Text style={[styles.note, styles.noteStrong]} {...({ dataSet: { noFreeColour: '1' } } as object)}>
+          All 8 original colours are in use by other labels. Tick the box above once every computer runs 2.27 to use the other 12, or change another label's colour first.
+        </Text>
+      )}
     </View>
   );
 }
@@ -104,7 +122,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, maxWidth: 240 },
   swatch: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
   swatchOn: { borderColor: Colors.textPrimary },
-  locked: { opacity: 0.3 },
+  locked: { opacity: 0.45 },
   taken: { opacity: 0.35 },
   fill: { width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   mark: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: Colors.textPrimary },
@@ -114,4 +132,5 @@ const styles = StyleSheet.create({
   tickOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   tickText: { fontSize: 12, color: Colors.textPrimary },
   note: { fontSize: 11, color: Colors.textSecondary, lineHeight: 15 },
+  noteStrong: { color: Colors.textPrimary },
 });

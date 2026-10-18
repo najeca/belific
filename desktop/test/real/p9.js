@@ -294,7 +294,7 @@ async function run() {
   check('New label opens a form with a name, an emoji, the 20 colours and the colour wheel', (await I.exists(`document.querySelector('[data-new-label-form]')`)) && (await I.js(`document.querySelectorAll('[data-new-label-form] [data-swatch]:not([data-swatch="wheel"])').length`)) === 20 && (await I.exists(`document.querySelector('[data-new-label-form] [data-swatch="wheel"]')`)));
   check('the 12 new colours and the wheel are locked until every computer runs 2.27', (await I.js(`document.querySelectorAll('[data-new-label-form] [data-swatch][aria-disabled="true"]').length`)) === 13 && (await I.js(`document.body.innerText.includes('an older Belific changes them back')`)));
   await I.click(I.byLabel('Teal colour for the new label'), 200);
-  check('a locked colour cannot be picked', !(await I.js(`document.querySelector('[data-swatch="aqua"]').getAttribute('aria-selected') === 'true'`)));
+  check('a locked colour cannot be picked', !(await I.js(`document.querySelector('[data-swatch="aqua"]').getAttribute('aria-pressed') === 'true'`)));
   await I.click(I.byLabel('Every computer runs Belific 2.27 or later'), 300);
   check('ticking "Every computer runs Belific 2.27 or later" unlocks them (and it is kept on this computer)', (await I.js(`document.querySelectorAll('[data-new-label-form] [data-swatch][aria-disabled="true"]').length`)) === 0);
   await I.click(I.byLabel('Teal colour for the new label'), 200);

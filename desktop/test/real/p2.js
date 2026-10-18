@@ -203,6 +203,9 @@ async function run() {
   await key('L', ['control']);
   check('Ctrl+L opens the label box', await exists(dialog('Task options')));
   await type('Errands');
+  // 2.27.1: Enter opens the new label form (name, emoji, colour); Enter there creates it.
+  await enter(600);
+  check('Enter on a new name opens the label form with that name', await exists(`document.querySelector('[data-new-label-form]')`));
   await enter(600);
   await C.waitFor(() => byTitle('Keyboard task')[0].projectKey, 8000);
   const labels = read('belific_projects');

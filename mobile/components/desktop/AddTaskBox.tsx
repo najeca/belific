@@ -108,7 +108,7 @@ export default function AddTaskBox({
         >
           {label ? label.emoji ? <Text style={styles.glyph}>{label.emoji}</Text> : <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} /> : <Text style={styles.glyph}>🏷️</Text>}
         </Pressable>
-        <Popover id={popId} anchor={anchor.get} width={272}>
+        <Popover id={popId} anchor={anchor.get} width={284} maxHeight={540}>
           <LabelBody task={draft} ops={ops} done={() => closePopover(true)} />
         </Popover>
       </View>

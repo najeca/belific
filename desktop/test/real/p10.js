@@ -228,7 +228,7 @@ async function run() {
   const sageTaken = await I.js(`(() => { const s = ${sw('sage')}; return s ? [s.getAttribute('data-taken'), s.getAttribute('aria-disabled'), getComputedStyle(s).opacity, !!s.querySelector('div div')] : null; })()`);
   check('3: a taken colour is dimmed, marked and says which label has it', !!sageTaken && sageTaken[0] === 'Work' && sageTaken[1] === 'true' && Number(sageTaken[2]) < 0.5 && sageTaken[3], JSON.stringify(sageTaken));
   check('3: a free colour is not marked', (await I.js(`${sw('clay')}.getAttribute('data-taken')`)) === null);
-  const formColour = async () => I.js(`[...document.querySelectorAll('[data-new-label-form] [data-swatch]')].filter((s) => s.getAttribute('aria-selected') === 'true').map((s) => s.getAttribute('data-swatch')).join(',')`);
+  const formColour = async () => I.js(`[...document.querySelectorAll('[data-new-label-form] [data-swatch]')].filter((s) => s.getAttribute('aria-pressed') === 'true').map((s) => s.getAttribute('data-swatch')).join(',')`);
   const pickedBefore = await formColour();
   await I.click(sw('sage'), 300);
   check('3: a taken colour cannot be picked', (await formColour()) === pickedBefore && pickedBefore !== 'sage', pickedBefore);

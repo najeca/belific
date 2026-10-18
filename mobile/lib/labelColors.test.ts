@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  freeColorKey,
   CLASH_DISTANCE,
   CLASSIC_COLOR_KEYS,
   LABEL_COLORS,
@@ -159,4 +160,14 @@ test('older projects without the field load fine; a 2.26 colour is still drawn',
   assert.equal(labelColor(undefined), undefined);
   assert.deepEqual(assignMissingColors([]), { projects: [], changed: false });
   assert.equal(labelColor('teal')?.edge, '#5E8E8A');
+});
+
+test('a new label form starts with a free colour, or none when every allowed one is taken (2.27.1)', () => {
+  const mk = (keys: string[]) => keys.map((colorKey, i) => ({ key: `k${i}`, name: `L${i}`, colorKey }));
+  assert.equal(freeColorKey(mk(['sage']), false), 'clay');
+  const allClassic = mk(['sage', 'clay', 'sky', 'sand', 'plum', 'moss', 'rose', 'slate']);
+  assert.equal(freeColorKey(allClassic, false), '', 'nothing picked before the tick');
+  assert.equal(freeColorKey(allClassic, true), 'red', 'the first 2.27 colour once allowed');
+  // nextColorKey still falls back to a classic one for the quick paths.
+  assert.equal(nextColorKey(allClassic, false), 'sage');
 });

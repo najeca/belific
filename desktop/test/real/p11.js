@@ -260,6 +260,77 @@ async function run() {
   await closeModal();
   await I.shot('p11-03-list-emoji');
 
+  // ======== 4. Labels: the colour is always there ========
+  const lp = `document.querySelector('[data-popover]')`;
+  await openModal('Modal task');
+  const lbl = await I.js(`(() => { const b = ${panel}.querySelector('[data-detail-label]'); return b ? { text: b.textContent.trim(), dot: !!b.querySelector('div') } : null; })()`);
+  check('4: the details Label row shows the label with its colour dot, emoji and name', !!lbl && lbl.text === '💼 Work' && lbl.dot, JSON.stringify(lbl));
+  await I.click(`${panel}.querySelector('[data-detail-label]')`, 500);
+  check('4: it opens the label menu', await I.exists(`${lp}.querySelector('[aria-label="Search labels"]')`));
+  const workRow = await I.js(`(() => { const r = ${lp}.querySelector('[data-label-row="pw"]'); return r ? { dot: !!r.querySelector('[data-label-dot]'), text: r.textContent } : null; })()`);
+  check('4: each label shows its colour dot, emoji and name', !!workRow && workRow.dot && workRow.text.includes('💼') && workRow.text.includes('Work'), JSON.stringify(workRow));
+  check('4: the menu has New label, Edit labels and Remove label', (await I.exists(`${lp}.querySelector('[aria-label="New label"]')`)) && (await I.exists(`${lp}.querySelector('[aria-label="Edit labels"]')`)) && (await I.exists(`${lp}.querySelector('[aria-label="Remove label"]')`)));
+  await I.click(`${lp}.querySelector('[aria-label="New label"]')`, 500);
+  const form = await I.js(`(() => { const f = ${lp}.querySelector('[data-new-label-form]'); if (!f) return null; const r = f.getBoundingClientRect(); return { name: !!f.querySelector('[aria-label="New label name"]'), emoji: !!f.querySelector('[aria-label="New label emoji"]'), swatches: f.querySelectorAll('[data-swatch]').length, inView: r.top >= 0 && r.top < innerHeight - 100 }; })()`);
+  check('4: New label opens one small form with name, emoji and colour together, in view', !!form && form.name && form.emoji && form.swatches === 21 && form.inView, JSON.stringify(form));
+  const locks = await I.js(`(() => { const f = ${lp}.querySelector('[data-new-label-form]'); const locked = [...f.querySelectorAll('[data-swatch][data-locked]')]; return { n: locked.length, icons: locked.filter((s) => s.textContent.length > 0).length, title: locked[0] && locked[0].closest('[data-swatch-tip]').getAttribute('title'), note: f.textContent.includes('The last 12 colours and the colour wheel need it'), classicLocked: [...f.querySelectorAll('[data-swatch]')].slice(0, 8).some((s) => s.hasAttribute('data-locked')) }; })()`);
+  check('4: before the tick the 12 new colours and the wheel show locked, each with a lock and a reason', locks.n === 13 && locks.icons === 13 && /locked until every computer runs Belific 2\.27/.test(locks.title || '') && locks.note && !locks.classicLocked, JSON.stringify(locks));
+  check('4: the 8 original colours are never locked by the tick', !locks.classicLocked);
+  check('4: with every original colour taken, it says so (not silently dimmed)', (await I.exists(`${lp}.querySelector('[data-no-free-colour]')`)) && (await I.textOf(lp)).includes('All 8 original colours are in use'));
+  await I.type('Gaming');
+  await I.click(`${lp}.querySelector('[aria-label="Create the new label"]')`, 600);
+  check('4: no colour is pre-picked when none is free', (await I.js(`${lp}.querySelectorAll('[data-new-label-form] [data-swatch][aria-pressed="true"]').length`)) === 0);
+  check('4: two labels never share a colour: Create is refused while no colour is free', !labelNamed('Gaming') && /Pick a colour first/.test(await I.textOf(lp)), await I.textOf(lp));
+  await I.click(`${lp}.querySelector('[aria-label="Every computer runs Belific 2.27 or later"]')`, 300);
+  check('4: the tick unlocks the new colours', (await I.js(`${lp}.querySelectorAll('[data-new-label-form] [data-swatch][data-locked]').length`)) === 0);
+  await I.click(`${lp}.querySelector('[data-new-label-form] [data-swatch="orange"]')`, 300);
+  check('4: the chosen colour is marked', (await I.js(`${lp}.querySelector('[data-swatch="orange"]').getAttribute('aria-pressed')`)) === 'true');
+  await I.click(`${lp}.querySelector('[aria-label="Create the new label"]')`, 800);
+  await C.waitFor(() => !!labelNamed('Gaming'), 4000).catch(() => {});
+  check('4: Create makes it with that colour and puts it on the task', labelNamed('Gaming')?.colorKey === 'orange' && byId('t1').projectKey === labelNamed('Gaming')?.key, JSON.stringify(labelNamed('Gaming')));
+  await I.shot('p11-04-new-label');
+  // Edit an existing label from before this version (a 2.26 colour) from the menu.
+  await I.click(`${panel}.querySelector('[data-detail-label]')`, 500);
+  await I.click(`${lp}.querySelector('[aria-label="Edit label Old teal"]')`, 500);
+  const ef = await I.js(`(() => { const f = ${lp}.querySelector('[data-edit-label-form]'); return f ? { name: f.querySelector('[aria-label="Rename Old teal"]').value, emoji: !!f.querySelector('[aria-label="Emoji for Old teal"]'), swatches: f.querySelectorAll('[data-swatch]').length, note: f.textContent.includes('a 2.26 colour') } : null; })()`);
+  check('4: editing a label shows name, emoji and colour together', !!ef && ef.name === 'Old teal' && ef.emoji && ef.swatches === 21 && ef.note, JSON.stringify(ef));
+  await I.click(`${lp}.querySelector('[data-edit-label-form] [data-swatch="cyan"]')`, 700);
+  await C.waitFor(() => labelNamed('Old teal')?.colorKey === 'cyan', 4000).catch(() => {});
+  check('4: changing the colour of a label made before this version works', labelNamed('Old teal')?.colorKey === 'cyan', JSON.stringify(labelNamed('Old teal')));
+  await I.key('Escape');
+  await C.sleep(300);
+  await closeModal();
+  // The Add a task box: its label menu has the same form.
+  await I.click(`document.querySelector('[data-add-box="${today}"] [data-ctl="addLabel"]')`, 500);
+  await I.click(`${lp}.querySelector('[aria-label="New label"]')`, 400);
+  check('4: the Add a task box label menu opens the same form', (await I.exists(`${lp}.querySelector('[data-new-label-form] [aria-label="New label name"]')`)) && (await I.js(`${lp}.querySelectorAll('[data-new-label-form] [data-swatch]').length`)) === 21);
+  await I.key('Escape');
+  await C.sleep(300);
+  // Enter on a new name opens the form too (never a label made blind).
+  await I.click(`document.querySelector('[data-add-box="${today}"] [data-ctl="addLabel"]')`, 500);
+  await I.type('Reading');
+  await I.enter([], 500);
+  check('4: Enter on a new name opens the form with that name, nothing made yet', !labelNamed('Reading') && (await I.js(`(${lp}.querySelector('[aria-label="New label name"]') || {}).value`)) === 'Reading');
+  await I.key('Escape');
+  await C.sleep(300);
+  // The Labels page: the colour, emoji or name opens the same form; adding shows all three.
+  await I.click(`document.querySelector('[data-add-box="${today}"] [data-ctl="addLabel"]')`, 500);
+  await I.click(`${lp}.querySelector('[aria-label="Edit labels"]')`, 800);
+  await C.waitFor(() => I.exists(I.dialog('Labels')), 4000).catch(() => {});
+  check('4: the Labels page Add shows name, emoji and colour together', (await I.exists(`document.querySelector('[data-new-label-form="page"] [aria-label="New label name"]')`)) && (await I.exists(`${I.dialog('Labels')}.querySelector('[aria-label="New label emoji"]')`)) && (await I.js(`${I.dialog('Labels')}.querySelectorAll('[data-swatch]').length`)) === 21);
+  await I.click(I.byLabel('Colour of Home'), 500);
+  check('4: a label\'s colour on the Labels page opens name, emoji and colour together', (await I.exists(`${lp}.querySelector('[aria-label="Rename Home"]')`)) && (await I.exists(`${lp}.querySelector('[aria-label="Emoji for Home"]')`)) && (await I.js(`${lp}.querySelectorAll('[data-swatch]').length`)) === 21);
+  await I.click(`${lp}.querySelector('[data-swatch="blue"]')`, 700);
+  await C.waitFor(() => labelNamed('Home')?.colorKey === 'blue', 4000).catch(() => {});
+  check('4: and changing it there works', labelNamed('Home')?.colorKey === 'blue', JSON.stringify(labelNamed('Home')));
+  await I.click(`${lp}.querySelector('[data-swatch="orange"]')`, 500);
+  check('4: a colour another label has (Gaming, orange) cannot be picked', labelNamed('Home')?.colorKey === 'blue' && (await I.js(`${lp}.querySelector('[data-swatch="orange"]').getAttribute('data-taken')`)) === 'Gaming');
+  await I.shot('p11-04-labels-page');
+  await I.key('Escape');
+  await C.sleep(300);
+  await I.key('Escape');
+  await C.sleep(400);
+
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);
 }

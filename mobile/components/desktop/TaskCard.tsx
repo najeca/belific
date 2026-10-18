@@ -25,8 +25,8 @@ import StreakLine from './StreakLine';
 // face, not an editor: a click anywhere on it (except the tick box and the steps
 // ring) opens the task details modal, the same in every view; there is no
 // expanding in place and no row of controls. The face shows the tick, the emoji
-// and title, the time (or the estimate), the label's colour and emoji, the steps
-// ring when there are steps, and a small Must do marker (plus, on today's card
+// and title, the time (or the estimate), the list's emoji and the label as a
+// coloured chip (2.27.1), the steps ring when there are steps, and a small Must do marker (plus, on today's card
 // of a repeating task, decision 007's quiet run line). On hover (or with the
 // keyboard inside) at most three small icons show at the top right: Label, Move
 // to today and the ⋮ menu. Everything else is in the modal and the ⋮ menu.
@@ -46,6 +46,7 @@ export default function TaskCard({
   projected,
   onOpen,
   showDay,
+  listEmoji,
 }: {
   task: Task;
   ops: TaskOps;
@@ -65,6 +66,9 @@ export default function TaskCard({
   onOpen?: (focus?: DetailFocus) => void;
   // A list shows the day of a scheduled task on its card (2.27.0, item 4).
   showDay?: boolean;
+  // The emoji of the task's list (2.27.1), first on the meta line; none when the
+  // task has no list or its list has no emoji.
+  listEmoji?: string;
 }) {
   // Ctrl+Delete opens the ⋮ menu already asking "Delete? Yes / No".
   const [deleteArmed, setDeleteArmed] = useState(false);
@@ -232,7 +236,7 @@ export default function TaskCard({
   const labelOpen = useIsOpen(`${id}:label`);
   const moreOpen = useIsOpen(`${id}:more`);
   const dayText = showDay && task.dueDate ? dayLabel(task.dueDate, todayKey) : null;
-  const hasMeta = !!label || steps.total > 0 || mustDo || !!dayText;
+  const hasMeta = !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText;
 
   return (
     <HoverPressable
@@ -292,7 +296,21 @@ export default function TaskCard({
 
             {hasMeta && (
               <View style={styles.meta} accessible={false} {...({ dataSet: { cardMeta: '1' } } as object)}>
-                {label && (label.emoji ? <Text style={styles.labelEmoji}>{label.emoji}</Text> : <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />)}
+                {listEmoji ? (
+                  <Text style={styles.listEmoji} accessibilityLabel="List emoji" {...({ dataSet: { cardListEmoji: '1' } } as object)}>
+                    {listEmoji}
+                  </Text>
+                ) : null}
+                {label && (
+                  // The label as a coloured chip: its colour, its emoji and its name.
+                  <View style={styles.labelChip} {...({ dataSet: { cardLabel: label.key } } as object)}>
+                    <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />
+                    <Text style={styles.labelChipText} numberOfLines={1}>
+                      {label.emoji ? `${label.emoji} ` : ''}
+                      {label.name}
+                    </Text>
+                  </View>
+                )}
                 {dayText && (
                   <Text style={styles.metaDay} {...({ dataSet: { cardDay: '1' } } as object)}>
                     {dayText}
@@ -467,8 +485,10 @@ const styles = StyleSheet.create({
   chipTextMuted: { color: Colors.textSecondary },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20, paddingLeft: 26, overflow: 'hidden' },
   metaDay: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
-  labelEmoji: { fontSize: 12 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  listEmoji: { fontSize: 11, lineHeight: 16 },
+  labelChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 18, paddingHorizontal: 6, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.75)', maxWidth: 150, flexShrink: 1 },
+  labelChipText: { fontSize: 11, fontWeight: '500', color: Colors.textPrimary, flexShrink: 1 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
   ringBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingRight: 2 },
   counter: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
   counterDone: { color: Colors.accentText, fontWeight: '700' },

@@ -222,6 +222,44 @@ async function run() {
   await C.waitFor(() => byId('t2').durationMinutes === 45, 4000).catch(() => {});
   check('2: Finish stores it (45 minutes)', byId('t2').durationMinutes === 45);
 
+  // ======== 3. The list's emoji on the card ========
+  const metaOf = (expr) => I.js(`(() => { const m = (${expr}).querySelector('[data-card-meta]'); if (!m) return null; return { first: m.firstElementChild && m.firstElementChild.dataset.cardListEmoji ? m.firstElementChild.textContent : null, emoji: (m.querySelector('[data-card-list-emoji]') || {}).textContent || null, chip: (m.querySelector('[data-card-label]') || {}).textContent || null, order: [...m.children].map((c) => c.dataset.cardListEmoji ? 'list' : c.dataset.cardLabel ? 'label' : 'other') }; })()`);
+  const m1 = await metaOf(card(today, 'Modal task'));
+  check('3: a card in a list with an emoji shows it first on the meta line, before the label chip', !!m1 && m1.first === '🎲' && m1.order.indexOf('list') === 0 && m1.order.indexOf('label') === 1, JSON.stringify(m1));
+  check('3: the label is a coloured chip with its emoji and name', !!m1 && m1.chip === '💼 Work' && (await I.js(`getComputedStyle(${card(today, 'Modal task')}.querySelector('[data-card-label] div')).backgroundColor`)) === 'rgb(111, 143, 126)', JSON.stringify(m1));
+  const m4 = await metaOf(card(today, 'No emoji list'));
+  check('3: a list with no emoji shows nothing (not the default list emoji)', !!m4 && m4.emoji === null && m4.chip === 'Home', JSON.stringify(m4));
+  check('3: a task with no list shows nothing', !(await I.exists(`${card(today, 'Plain task')}.querySelector('[data-card-list-emoji]')`)));
+  const emojiSize = await I.js(`parseFloat(getComputedStyle(${card(today, 'Modal task')}.querySelector('[data-card-list-emoji]')).fontSize)`);
+  check('3: it is small', emojiSize <= 12, String(emojiSize));
+  // The left pane: the Games list.
+  await I.click(`document.querySelector('[aria-label^="List: "][aria-label$="Change list"]')`, 400);
+  await I.click(I.byLabel('Show list Games'), 600);
+  await C.waitFor(() => I.exists(`document.querySelector('[aria-label="Task Brain item"]')`), 4000).catch(() => {});
+  const mLeft = await metaOf(`document.querySelector('[aria-label="Task Brain item"]')`);
+  check('3: the left pane cards show it too', !!mLeft && mLeft.first === '🎲', JSON.stringify(mLeft));
+  await I.click(`document.querySelector('[aria-label^="List: "][aria-label$="Change list"]')`, 400);
+  await I.click(I.byLabel('Show Brain Dump'), 400);
+  // The Timebox block.
+  const tbEmoji = await I.js(`(() => { const b = document.querySelector('[data-block-id="t3"]'); const e = b && b.querySelector('[data-block-list-emoji]'); return e ? e.textContent.trim() : null; })()`);
+  check('3: a Timebox block tall enough shows it on its time line', tbEmoji === '🎲', String(tbEmoji));
+  // The Calendar block.
+  await I.click(I.byLabel('Show the Calendar'), 800);
+  await C.waitFor(() => I.exists(`document.querySelector('[data-cal-block$="t3"]')`), 4000).catch(() => {});
+  const calEmoji = await I.js(`(() => { const b = document.querySelector('[data-cal-block$="t3"]'); const e = b && b.querySelector('[data-block-list-emoji]'); return e ? e.textContent.trim() : null; })()`);
+  check('3: a Calendar block with room shows it', calEmoji === '🎲', String(calEmoji));
+  await I.click(I.byLabel('Show Tasks'), 800);
+  // The List row of the details.
+  await openModal('Modal task');
+  const listRow = await I.js(`(() => { const s = ${panel}.querySelector('select[aria-label="List"]'); return s.options[s.selectedIndex].text; })()`);
+  check('3: the details List row shows the list with its emoji', listRow === '🎲 Games', listRow);
+  await closeModal();
+  await openModal('No emoji list');
+  const listRow2 = await I.js(`(() => { const s = ${panel}.querySelector('select[aria-label="List"]'); return s.options[s.selectedIndex].text; })()`);
+  check('3: and a list with no emoji by its name only', listRow2 === 'Plain list', listRow2);
+  await closeModal();
+  await I.shot('p11-03-list-emoji');
+
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);
 }

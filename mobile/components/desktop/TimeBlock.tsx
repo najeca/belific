@@ -48,7 +48,10 @@ export default function TimeBlock({
   a11y,
   gridNode,
   onChanged,
+  listEmoji,
 }: {
+  // The emoji of the task's list (2.27.1), on the time line of a block tall enough for it.
+  listEmoji?: string;
   task: Task;
   label?: Project;
   color?: LabelColor;
@@ -207,6 +210,7 @@ export default function TimeBlock({
           ) : (
             !compact && (
               <Text style={styles.time} {...({ dataSet: { mono: '1' } } as object)}>
+                {listEmoji ? <Text {...({ dataSet: { blockListEmoji: '1' } } as object)}>{listEmoji} </Text> : null}
                 {formatTime(task.startTime ?? '')} {formatDuration(task.durationMinutes) ?? ''} {task.completed ? 'done' : ''}
               </Text>
             )

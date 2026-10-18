@@ -32,9 +32,10 @@ import { calendarTitle, minutesOfDay, monthGrid, nowLineTop, splitAllDay, stepAn
 import type { CalendarView } from '../../lib/paneState';
 import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
 import { labelColor } from '../../lib/labelColors';
+import { listEmojiOf } from '../../lib/lists';
 import { loadLabels } from '../../lib/labels';
-import { loadCustomCategories, loadCustomEvents, loadTasksRaw } from '../../lib/storage';
-import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task } from '../../lib/types';
+import { loadCustomCategories, loadCustomEvents, loadLists, loadTasksRaw } from '../../lib/storage';
+import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { useDayStart } from './useDayStart';
 import { openDetail } from './uiStore';
 import { useTick } from './timerUi';
@@ -108,6 +109,7 @@ export default function CalendarPane({
   const [events, setEvents] = useState<CustomEvent[]>([]);
   const [categories, setCategories] = useState<CustomCategory[]>([]);
   const [labels, setLabels] = useState<Project[]>([]);
+  const [lists, setLists] = useState<TaskList[]>([]);
   const [viewH, setViewH] = useState(0);
   const [viewW, setViewW] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -126,6 +128,7 @@ export default function CalendarPane({
     loadCustomEvents().then(setEvents);
     loadCustomCategories().then(setCategories);
     loadLabels().then(setLabels);
+    loadLists().then(setLists);
   }, []);
   useEffect(() => {
     reload();
@@ -658,6 +661,7 @@ export default function CalendarPane({
                       <TimeBlock
                         key={b.id}
                         task={t}
+                        listEmoji={listEmojiOf(t, lists)}
                         label={labelOf(t)}
                         color={labelColor(labelOf(t)?.colorKey)}
                         projected={source.projected}

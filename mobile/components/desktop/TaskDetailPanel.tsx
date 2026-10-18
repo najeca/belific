@@ -9,7 +9,7 @@ import { addSubtask, counterLabel, deleteSubtask, renameSubtask } from '../../li
 import { generateId } from '../../lib/data';
 import { idDate, projectOccurrences } from '../../lib/series';
 import { reminderLabel } from '../../lib/reminder';
-import { effectiveListKey, listTitle } from '../../lib/lists';
+import { effectiveListKey, listOptionText, listTitle } from '../../lib/lists';
 import { setActualFor } from '../../lib/timerActions';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
@@ -341,7 +341,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
             <option value="">{listTitle(undefined)}</option>
             {lists.map((l) => (
               <option key={l.key} value={l.key}>
-                {listTitle(l)}
+                {listOptionText(l)}
               </option>
             ))}
           </select>

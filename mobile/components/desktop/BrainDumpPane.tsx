@@ -5,7 +5,7 @@ import { Colors } from '../../lib/theme';
 import { dateKey } from '../../lib/kanban';
 import { splitThoughts, rowId } from '../../lib/thoughts';
 import { loadBrainDumpItems, loadLists, loadTasks } from '../../lib/storage';
-import { listCounts, resolveSelectedList, tasksInList } from '../../lib/lists';
+import { listCounts, listEmojiOf, resolveSelectedList, tasksInList } from '../../lib/lists';
 import { formatTotals, isOverEstimate, plannedText, totalsOf } from '../../lib/taskTotals';
 import { createTaskIn } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
@@ -147,6 +147,7 @@ export default function BrainDumpPane({
                 ops={row.kind === 'task' ? opsForTask(row.task) : opsForDump(row.item)}
                 label={proj}
                 color={labelColor(proj?.colorKey)}
+                listEmoji={listEmojiOf(task, lists)}
                 variant="row"
                 todayKey={todayKey}
                 showDay

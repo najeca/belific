@@ -72,6 +72,20 @@ export function listCounts(
   return counts;
 }
 
+// The emoji of the list a task is in (2.27.1, shown at the start of a card's
+// meta line): only a live named list that has one; Brain Dump, a deleted list or
+// a list with no emoji give nothing (never the default list emoji).
+export function listEmojiOf(task: Pick<Task, 'listKey'>, lists: Array<Pick<TaskList, 'key' | 'emoji' | 'deletedAt'>>): string | undefined {
+  if (!task.listKey) return undefined;
+  const list = lists.find((l) => l.key === task.listKey && !l.deletedAt);
+  return list?.emoji || undefined;
+}
+
+// A list's name with its emoji when it has one (the details' List row).
+export function listOptionText(list: Pick<TaskList, 'name' | 'emoji'>): string {
+  return list.emoji ? `${list.emoji} ${list.name}` : list.name;
+}
+
 export function listTitle(list: Pick<TaskList, 'name' | 'emoji'> | undefined): string {
   return list ? `${list.emoji ?? DEFAULT_LIST_EMOJI} ${list.name}` : `${BRAIN_DUMP_EMOJI} ${BRAIN_DUMP_NAME}`;
 }

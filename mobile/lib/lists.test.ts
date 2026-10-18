@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. Lists beside Brain Dump (phase 2).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { effectiveListKey, listCounts, listNameProblem, listTitle, liveLists, newList, nextSortOrder, resolveSelectedList, tasksInList } from './lists.ts';
+import { effectiveListKey, listCounts, listEmojiOf, listNameProblem, listOptionText, listTitle, liveLists, newList, nextSortOrder, resolveSelectedList, tasksInList } from './lists.ts';
 import type { Task, TaskList } from './types.ts';
 
 const NOW = '2026-10-16T10:00:00.000Z';
@@ -70,4 +70,15 @@ test('titles and the remembered selection', () => {
   assert.equal(resolveSelectedList('b', lists), undefined);
   assert.equal(resolveSelectedList(null, lists), undefined);
   assert.equal(resolveSelectedList('nope', lists), undefined);
+});
+
+test('list emoji on a card (2.27.1): only a live named list with an emoji', () => {
+  const lists = [list('g', 'Games', { emoji: '🎮' }), list('p', 'Plain'), list('d', 'Gone', { emoji: '🗑️', deletedAt: NOW })];
+  assert.equal(listEmojiOf(task('a', { listKey: 'g' }), lists), '🎮');
+  assert.equal(listEmojiOf(task('b', { listKey: 'p' }), lists), undefined, 'a list with no emoji shows nothing (not the default)');
+  assert.equal(listEmojiOf(task('c'), lists), undefined, 'Brain Dump shows nothing');
+  assert.equal(listEmojiOf(task('d', { listKey: 'd' }), lists), undefined, 'a deleted list shows nothing');
+  assert.equal(listEmojiOf(task('e', { listKey: 'missing' }), lists), undefined);
+  assert.equal(listOptionText(lists[0]), '🎮 Games');
+  assert.equal(listOptionText(lists[1]), 'Plain');
 });

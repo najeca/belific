@@ -38,14 +38,16 @@ import { useTick } from './timerUi';
 import { slotLabel, taskDuration, yToMinutes } from '../../lib/drag';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
+import { listEmojiOf } from '../../lib/lists';
 import {
   loadCustomCategories,
   loadCustomEvents,
+  loadLists,
   loadTasksRaw,
   updateCustomEvent,
   deleteCustomEvent,
 } from '../../lib/storage';
-import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task } from '../../lib/types';
+import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { openDetail } from './uiStore';
 
 // Desktop Timebox (decision 009): an hourly grid for one day, the whole 24
@@ -108,6 +110,7 @@ export default function TimeboxPane({
   const [categories, setCategories] = useState<CustomCategory[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [labels, setLabels] = useState<Project[]>([]);
+  const [lists, setLists] = useState<TaskList[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editing, setEditing] = useState<CustomEvent | null>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -139,6 +142,7 @@ export default function TimeboxPane({
     // Raw rows, tombstones included, so a skipped day blocks its projection.
     loadTasksRaw().then(setTasks);
     loadLabels().then(setLabels);
+    loadLists().then(setLists);
   }, []);
 
   useEffect(() => {
@@ -393,6 +397,7 @@ export default function TimeboxPane({
                   <TimeBlock
                     key={b.id}
                     task={t}
+                    listEmoji={listEmojiOf(t, lists)}
                     label={proj}
                     color={labelColor(proj?.colorKey)}
                     projected={!!source.projected}

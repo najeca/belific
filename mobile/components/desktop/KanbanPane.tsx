@@ -14,7 +14,8 @@ import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { taskDuration } from '../../lib/drag';
-import { loadTasksRaw } from '../../lib/storage';
+import { loadLists, loadTasksRaw } from '../../lib/storage';
+import { listEmojiOf } from '../../lib/lists';
 import { AWAY_ADD_WARNING } from '../../lib/awayDays';
 import DayMenu from './DayMenu';
 import { useAwayDays } from './awayStore';
@@ -25,7 +26,7 @@ import { useGoToday, useReveal } from './uiStore';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { pressStyle } from './pressStyle';
-import type { Project, Task } from '../../lib/types';
+import type { Project, Task, TaskList } from '../../lib/types';
 
 // The Tasks board (desktop): day columns in one continuous sideways strip
 // (2.26.0, lib/dayStrip.ts). It opens with today at the left edge and scrolls
@@ -104,6 +105,7 @@ export default function KanbanPane({
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [lists, setLists] = useState<TaskList[]>([]);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewW, setViewW] = useState(0);
@@ -119,6 +121,7 @@ export default function KanbanPane({
     // block its projection (lib/series.ts). The board never shows a tombstone.
     loadTasksRaw().then(setTasks);
     loadLabels().then(setProjects);
+    loadLists().then(setLists);
   }, []);
 
   useEffect(() => {
@@ -272,6 +275,7 @@ export default function KanbanPane({
                 projected={isProjected}
                 label={proj}
                 color={labelColor(proj?.colorKey)}
+                listEmoji={listEmojiOf(task, lists)}
                 variant="card"
                 todayKey={todayKey}
                 onChanged={onChanged}

@@ -72,6 +72,12 @@ to know the current version and recent history.
 - **An older Belific does not break:** 2.26 reads only the settings keys it knows (features, templates, panes, the calendar feed token) and keeps other rows as they are when it syncs; the iPhone does the same. They simply do not show away days.
 - Real check: p10 section 8.
 
+### 10. Shift a day
+- **The day header menu has "Shift unfinished to next day"** (that day's unfinished one off tasks to the day after) and **"Push rest of week by a week"** (every unfinished one off task from that day to the Sunday ending its week, each seven days on). Each says how many will move before you choose ("3 tasks will move"), and is greyed out when there is nothing to move.
+- **Each task keeps its time of day and its place among the others** (the board orders a day by its own fields, which do not change). **Done tasks and repeating days never move** (a repeating task's days belong to its rule).
+- **Undo straight after:** the undo bar ("Moved 3 tasks from Mon 19 Oct to Tue 20 Oct. Undo") puts every task back on its old day, if it is still where it was moved to.
+- Real check: p10 section 10.
+
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 
 **Desktop redesign after Jethro's review, with the Ellie planner as the reference for layout, behaviour and feel only (no copied icons, text or visuals). No schema change, no sync change: every stored value (priority included) is untouched and still syncs. Built and committed step by step; this entry grows with each step.**

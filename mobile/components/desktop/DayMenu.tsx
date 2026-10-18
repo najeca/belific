@@ -3,7 +3,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { formatShortDate, parseDateKey, WEEKDAYS } from '../../lib/kanban';
-import { canShift, freeDaysAfter, planAwayMoves, tasksWord, type DayMove } from '../../lib/dayShift';
+import { canShift, freeDaysAfter, planAwayMoves, planPushWeek, planShiftDay, tasksWord, weekEndOf, type DayMove } from '../../lib/dayShift';
 import { applyMoves, undoMoves } from '../../lib/dayShiftActions';
 import type { Task } from '../../lib/types';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
@@ -14,7 +14,9 @@ import { offerUndo } from './uiStore';
 // today and later days. Mark as away (item 8): a day with unfinished one off
 // tasks asks what to do with them first (move them all to the next free day,
 // spread them one per free day, or leave them). Moves can be undone straight
-// after; done tasks and repeating days never move.
+// after; done tasks and repeating days never move. Shift (item 10): "Shift
+// unfinished to next day" and "Push rest of week by a week", each saying how
+// many will move, keeping each task's time of day and order, with an undo.
 export const dayName = (day: string) => `${WEEKDAYS[parseDateKey(day).getDay()]} ${formatShortDate(day)}`;
 
 export async function moveWithUndo(moves: DayMove[], text: (n: number) => string, onChanged: () => void): Promise<number> {
@@ -45,6 +47,13 @@ export default function DayMenu({ dayKey, tasks, away, awayDays, onChanged }: { 
   }
 
   const nextFree = freeDaysAfter(dayKey, new Set([...awayDays, dayKey]), 1)[0];
+  const shiftDay = planShiftDay(tasks, dayKey);
+  const pushWeek = planPushWeek(tasks, dayKey);
+  const willMove = (n: number) => (n === 0 ? 'Nothing to move' : `${tasksWord(n)} will move`);
+  async function shift(moves: DayMove[], text: (n: number) => string) {
+    closePopover(true);
+    await moveWithUndo(moves, text, onChanged);
+  }
   return (
     <>
       <Pressable
@@ -90,6 +99,22 @@ export default function DayMenu({ dayKey, tasks, away, awayDays, onChanged }: { 
                   a11y={`Mark ${name} as away`}
                 />
               )}
+              <Row
+                label="Shift unfinished to next day"
+                sub={willMove(shiftDay.length)}
+                disabled={shiftDay.length === 0}
+                leading={<Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} />}
+                onPress={() => shift(shiftDay, (n) => `Moved ${tasksWord(n)} from ${name} to ${dayName(shiftDay[0].to)}.`)}
+                a11y={`Shift unfinished to next day, ${willMove(shiftDay.length)}`}
+              />
+              <Row
+                label="Push rest of week by a week"
+                sub={`${willMove(pushWeek.length)}, up to ${dayName(weekEndOf(dayKey))}`}
+                disabled={pushWeek.length === 0}
+                leading={<Ionicons name="play-forward" size={14} color={Colors.textSecondary} />}
+                onPress={() => shift(pushWeek, (n) => `Pushed ${tasksWord(n)} a week on.`)}
+                a11y={`Push rest of week by a week, ${willMove(pushWeek.length)}`}
+              />
             </>
           )}
         </Popover>

@@ -48,6 +48,9 @@ async function run() {
       T('a1', 'Trip prep', { dueDate: day(2) }),
       T('a2', 'Trip call', { dueDate: day(2), startTime: '15:00' }),
       T('a3', 'Trip done', { dueDate: day(2), completed: true, completedAt: stamp }),
+      T('s10a', 'Shift me', { dueDate: day(1) }),
+      T('s10b', 'Shift me too', { dueDate: day(1), startTime: '08:00', durationMinutes: 30 }),
+      T('s10done', 'Shift done', { dueDate: day(1), completed: true, completedAt: stamp }),
       T('om', 'Old must', { dueDate: day(-3), priority: 'high' }),
       T('o1', 'Old one', { dueDate: day(-2) }),
       T('o2', 'Old two', { dueDate: day(-1), startTime: '08:00' }),
@@ -405,6 +408,42 @@ async function run() {
   await I.click(`[...document.querySelectorAll('[role="button"]')].find((b) => (b.getAttribute('aria-label') || '').startsWith('Not away on'))`, 600);
   await C.waitFor(() => awayRow(day(1))?.value === '0', 4000).catch(() => {});
   check('8: Not away any more writes the row back to 0 (not a tombstone, so it can be marked again)', awayRow(day(1))?.value === '0' && !awayRow(day(1))?.deletedAt && (await I.js(`${col(day(1))}.getAttribute('data-away')`)) === null);
+
+  // ======== 10. Shift a day ========
+  const movableOn = (k) => tasks().filter((t) => !t.deletedAt && !t.completed && t.dueDate === k && !t.recurrence && !t.id.includes(':'));
+  const shiftRow = () => `[...document.querySelectorAll('[role="button"]')].find((b) => (b.getAttribute('aria-label') || '').startsWith('Shift unfinished to next day'))`;
+  const pushRow = () => `[...document.querySelectorAll('[role="button"]')].find((b) => (b.getAttribute('aria-label') || '').startsWith('Push rest of week by a week'))`;
+  const order = (k, ids) => I.js(`[...${col(k)}.querySelectorAll('[aria-label^="Task "]')].map((c) => c.getAttribute('aria-label').slice(5)).filter((t) => ${JSON.stringify(ids.map((id) => byId(id).title))}.includes(t))`);
+  const before10 = movableOn(day(1));
+  const before10Ids = before10.map((t) => t.id);
+  const orderBefore = await order(day(1), before10Ids);
+  await I.click(dayMenu(day(1)), 400);
+  const shiftLabel = await I.js(`${shiftRow()}?.getAttribute('aria-label') ?? ''`);
+  check('10: the day menu offers Shift unfinished to next day, with how many will move', before10.length > 0 && shiftLabel === `Shift unfinished to next day, ${before10.length === 1 ? '1 task' : `${before10.length} tasks`} will move`, JSON.stringify([shiftLabel, before10.length]));
+  await I.click(shiftRow(), 800);
+  await C.waitFor(() => before10Ids.every((id) => byId(id).dueDate === day(2)), 4000).catch(() => {});
+  check('10: the unfinished one off tasks move to the next day, each keeping its time', before10.every((t) => byId(t.id).dueDate === day(2) && byId(t.id).startTime === t.startTime), JSON.stringify(before10Ids.map(byId)));
+  check('10: a done task stays (and the repeating day is still shown there)', byId('s10done').dueDate === day(1) && byId('s10done').completed && (await I.exists(card(day(1), 'Gym'))));
+  await C.sleep(400);
+  check('10: their order is kept', JSON.stringify(await order(day(2), before10Ids)) === JSON.stringify(orderBefore), JSON.stringify([orderBefore, await order(day(2), before10Ids)]));
+  check('10: an undo is offered straight after', (await I.textOf(`document.querySelector('[data-undo-bar]')`)).includes(`Moved ${before10.length === 1 ? '1 task' : `${before10.length} tasks`}`));
+  await I.click(`document.querySelector('[data-undo-bar] [aria-label="Undo"]')`, 800);
+  await C.waitFor(() => before10Ids.every((id) => byId(id).dueDate === day(1)), 4000).catch(() => {});
+  check('10: Undo puts them back where they were', before10.every((t) => byId(t.id).dueDate === day(1) && byId(t.id).startTime === t.startTime));
+  // Push the rest of the week (from today to Sunday) by a week.
+  const weekEnd = await I.js(`(() => { const [y, m, d] = '${today}'.split('-').map(Number); const x = new Date(y, m - 1, d); const back = (x.getDay() + 6) % 7; x.setDate(x.getDate() - back + 6); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); })()`);
+  const inWeek = tasks().filter((t) => !t.deletedAt && !t.completed && t.dueDate && t.dueDate >= today && t.dueDate <= weekEnd && !t.recurrence && !t.id.includes(':'));
+  await I.click(dayMenu(today), 400);
+  const pushLabel = await I.js(`${pushRow()}?.getAttribute('aria-label') ?? ''`);
+  check('10: Push rest of week by a week says how many will move', pushLabel === `Push rest of week by a week, ${inWeek.length === 1 ? '1 task' : `${inWeek.length} tasks`} will move`, JSON.stringify([pushLabel, inWeek.length, weekEnd]));
+  await I.click(pushRow(), 1000);
+  const plus7 = (k) => { const [y, m, d] = k.split('-').map(Number); return dayKeyFrom(new Date(y, m - 1, d))(7); };
+  await C.waitFor(() => inWeek.every((t) => byId(t.id).dueDate === plus7(t.dueDate)), 5000).catch(() => {});
+  check('10: each moves seven days on, keeping its time; done tasks stay', inWeek.length > 0 && inWeek.every((t) => byId(t.id).dueDate === plus7(t.dueDate) && byId(t.id).startTime === t.startTime) && byId('nosteps').dueDate === today, JSON.stringify(inWeek.map((t) => [t.id, t.dueDate, byId(t.id).dueDate])));
+  await I.click(`document.querySelector('[data-undo-bar] [aria-label="Undo"]')`, 1000);
+  await C.waitFor(() => inWeek.every((t) => byId(t.id).dueDate === t.dueDate), 5000).catch(() => {});
+  check('10: and Undo brings the week back', inWeek.every((t) => byId(t.id).dueDate === t.dueDate && byId(t.id).startTime === t.startTime));
+  await I.shot('p10-10-shift');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

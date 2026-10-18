@@ -380,18 +380,34 @@ Asked for by Jethro after using 2.26.0: ten items, one commit each, the version 
 11. **The colour tick is a new local key** for 2.27 ("Every computer runs Belific 2.27 or later"); a 2.26 tick is not carried over, because 2.26 draws the new colours neutral.
 12. **The wheel is a hue slider, a shade slider and a hex field** (no new library); shade runs from light to dark at a vivid saturation.
 13. **Lists must not look empty (item 4): a named list keeps every task in it.** Before 2.27 a day took a task off its list, so a list of planned errands emptied as it was planned. Now a task stays in its named list whatever its day or time, shows the day and time on its card, and is on the board on its day as well (the same task, not a copy; ticking it in either place ticks it). Unscheduled tasks first, then scheduled ones earliest first; a repeating task once. The count beside the name counts them. **Brain Dump is unchanged**: it is the inbox of tasks with no day, so a day still takes a task off it (otherwise every task ever planned would sit there). The iPhone shows only Brain Dump (its inbox keeps the old rule), so nothing changes there.
+14. **Do it today (Missed, a repeating day) also skips that missed day.** The brief asked for a one off copy for today; on its own the missed day would stay in the list for a week and end the run. With the skip it leaves the list and the streak treats it as a skipped day (neutral). Ticking the copy does not count for the series. Say if the day should stay "not done" instead.
+15. **Missed repeating days look back 7 days** (`MISSED_LOOKBACK_DAYS`); older ones are history, not a to do. One off tasks have no limit.
+16. **The Missed button is always in the left pane** (beside the list name) and reads **🕓 Earlier**, with the badge only when something is waiting; it never opens by itself. Not "Missed": the board must never show loss wording or a zero (design identity; cp11 checks the board for "missed"), so the word is used only inside the panel and the flows. Say if you want another word.
+17. **Planning step 1 uses the Missed list**, and Shutdown step 1 shows it as "From earlier days" only when there is something. Both are draft edits written on Finish; a skip is held in the draft (`Draft.skips`), so Cancel still changes nothing.
+18. **A late block's action is a small pill on the block** ("→ 14:30" or "→ Tomorrow" at the bottom right of a tall block, a plain "→" on a narrow or short one, the full sentence in its label and tooltip; a press on a button never starts a drag, so the pill must not cover the top where a block is picked up: found by p9 in a narrow week column); a click elsewhere on the block still opens the details. Free time is counted around today's placed tasks (repeating days included) and Belific's own events, not calendars subscribed by link. A late task of an earlier day is late too (and also in Missed).
+19. **The day header menu (⋯) is new**, beside each day's name on the Tasks board, today and later only (earlier days have the Missed list). It holds Mark as away and the two shifts.
+20. **Away "next free days" means all of them to the next day that is not away; "spread" gives one a day**, in the order the board shows them, skipping away days.
+21. **Shift unfinished to next day goes to the very next day**, away or not (it is what the brief names); marking a day away is where away days are skipped.
+22. **The undo bar shows for 12 seconds** and undoes only tasks still on the day they were moved to (one changed in the meantime is left alone).
+23. **Away days are greyed by a background tint, not faded**, so text stays AA.
+24. **The Must do switch leaves a 'low' priority alone until it is used** (off writes no priority, the new task default).
+25. **Item 5's test runs a child process with `TZ=Europe/London`** so it checks the London day whatever the computer's zone.
 
-## Paused (2026-10-18): where the fix batch stands
+## Fix batch done (2026-10-18): 2.27.0
 
-Stopped at Jethro's request. Not pushed. Version is still 2.26.0 (the bump to 2.27.0 belongs to the last item).
+All ten items are in, one commit each (item 2 has a second commit that made its real checks green). Not pushed, not deployed, no schema change, no new table. Version 2.27.0 (`mobile/app.json`, `easConfig.test.ts`). What each item does: `docs/CHANGELOG.md` 2.27.0. Real check `desktop/test/real/p10.js` has one section per item except 5 (a fixed-date unit test, `lib/weekday.test.ts`, since a real check cannot move the clock past midnight).
 
-- **Item 1 (card, add box, modal): done**, commit `a25927a`. Typecheck, unit tests, security scan; real checks p2, p3, p5, p7, p9 (steps 1 to 4), p10 section 1, cp7, cp8b to cp8h, cp9 and cp11 pass.
-- **Item 2 (label colours and the colour wheel): committed as a checkpoint, not fully checked.** Typecheck, unit tests (734) and the web build pass. Real checks not finished: p9 step 5, cp9 and p10 section 2 were updated but not yet run green (p10 failed on a hover timing step, fixed in the check but not rerun).
-- **Item 3 (no two labels with the same colour): started.** The pure rules (`colorClash`, `sharedColorGroups`, `CLASH_DISTANCE`) and their tests are in `labelColors.ts` (item 2 commit). The UI (taken swatches dimmed, wheel refusal, `setLabelColor` refusal, the Labels page notice) is written but not in the repo yet.
-- **Item 4 (lists keep scheduled tasks): started.** `thoughts.ts`/`lists.ts` changes and tests written, not in the repo yet; the pane change and the docs decision are not written.
-- **Item 5 (weekday): investigated.** The weekday maths is local time and correct (18 Oct 2026 is a Sunday). Bug found: the Timebox and Calendar keep the day they opened on, so after midnight in the tray they still show yesterday. Fix (`followToday`) and fixed-date test written, not in the repo yet.
-- **Items 6, 7, 8 and 10: pure logic and tests written** (`missed.ts`, `lateTasks.ts`, `awayDays.ts`, `dayShift.ts`), plus a draft Missed panel; none in the repo yet, no UI wired.
-- **Item 9 (Must do): partly done.** `mustDo.ts` and the card's "Must do" marker are in item 1; the toggle in the modal and the ⋮ menu is not built.
-- Left for the end: version 2.27.0 and `easConfig.test.ts`, CURRENT_TRUTH, the full gates (every real check, iOS export and marker gate).
+**Gates (final run, 2026-10-18):** typecheck clean; 757 unit tests pass; security scan passed; iOS export plus marker gate: 20 markers, 0 hits; every real check passes (p2 to p10, cp6, cp7, cp8b to cp8h, cp9 to cp12). p6 failed two hover readout checks once in that run (the Analytics page, unchanged in this batch) and passed 39/39 on a rerun; it passed in the two full runs before. The full runs found three things, fixed in the last commit: the strip could still open five years back in a window behind another one; a late block's pill blocked dragging it in a narrow column; the left pane button read "Missed", which the board must never show (now "Earlier").
 
-The unfinished work is kept outside the repo, in the session's scratchpad (`parked/`), so it is not lost but also not committed.
+## Check by hand (fix batch, 2.27.0)
+
+1. Cards: a click anywhere but the tick and the steps ring opens the details, on Tasks, the left list, the Timebox and the Calendar. Hover shows at most Label, Move to today and ⋮. A new task typed in a day's box opens straight away.
+2. Label colours: tick "Every computer runs Belific 2.27 or later" only once every computer runs 2.27. Pick a vibrant colour and a wheel colour; both show on cards (left edge) and blocks.
+3. A colour another label has is dimmed with a white dot and "used by …"; the wheel refuses a near colour and names it. If two of your labels already share a colour, the Labels page says so.
+4. A named list keeps a task after you give it a day; Brain Dump does not.
+5. Leave Belific open in the tray over midnight: in the morning the Timebox and the Calendar show the new day (and the board says Today on it).
+6. Missed: the 🕓 Earlier button and its badge in the left pane; Today, Tomorrow, Pick a day, Drop, Move all to today; on a repeating day only Skip and Do it today. Open Daily Planning: the same list, and Cancel changes nothing.
+7. A placed task whose time has passed fades; its pill moves it to the next free half hour, or to tomorrow late in the evening.
+8. ⋯ on a day: Mark as away with tasks on it asks (next free day, spread, leave); the day is greyed on the board and the Calendar; adding there warns; Daily Planning says when today or tomorrow is away. On the other computer (after it has 2.27) the day shows away too.
+9. Must do: the switch in the details and the ⋮ row; the small marker on the card.
+10. ⋯ on a day: Shift unfinished to next day and Push rest of week by a week, each with its count, then Undo.

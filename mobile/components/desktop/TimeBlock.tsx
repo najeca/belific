@@ -150,6 +150,10 @@ export default function TimeBlock({
   // The panes redraw every 30 seconds, so a block turns late on its own.
   const late = isLate(task, new Date(), projected);
   const [move, setMove] = useState<{ label: string; short: string } | null>(null);
+  // A press on the pill is a click, never a drag (DragProvider), so it must not
+  // cover the block: on a narrow or short block it is a small arrow, and on a
+  // tall one it sits at the bottom, away from where a block is picked up.
+  const [blockW, setBlockW] = useState(0);
   useEffect(() => {
     if (!late) {
       setMove(null);
@@ -173,6 +177,7 @@ export default function TimeBlock({
       <View style={styles.base}>
         <Pressable
           ref={blockRef as never}
+          onLayout={(e) => setBlockW(e.nativeEvent.layout.width)}
           onPress={() => openDetail(task.id)}
           style={[
             styles.block,
@@ -206,6 +211,20 @@ export default function TimeBlock({
               </Text>
             )
           )}
+          {/* Inside the block, so a drag that starts on it still moves the block. */}
+          {late && move && resizing === undefined && (
+            <Pressable
+              onPress={() => moveLateTask(task.id).then((ok) => ok && onChanged())}
+              style={[styles.lateBtn, compact ? styles.lateTop : styles.lateBottom]}
+              accessibilityRole="button"
+              accessibilityLabel={`${move.label}: ${task.title}`}
+              {...({ dataSet: { lateMove: task.id }, title: move.label } as object)}
+            >
+              <Text style={styles.lateText} {...({ dataSet: { mono: '1' } } as object)}>
+                {compact || blockW < 130 ? '→' : move.short}
+              </Text>
+            </Pressable>
+          )}
         </Pressable>
         {continues && (
           <View pointerEvents="none" style={styles.continuesTag} accessibilityLabel="Continues after 24:00">
@@ -214,19 +233,6 @@ export default function TimeBlock({
           </View>
         )}
         <View ref={handleRef as never} style={styles.handle} accessibilityLabel={`Resize ${task.title}`} />
-        {late && move && resizing === undefined && (
-          <Pressable
-            onPress={() => moveLateTask(task.id).then((ok) => ok && onChanged())}
-            style={styles.lateBtn}
-            accessibilityRole="button"
-            accessibilityLabel={`${move.label}: ${task.title}`}
-            {...({ dataSet: { lateMove: task.id }, title: move.label } as object)}
-          >
-            <Text style={styles.lateText} {...({ dataSet: { mono: '1' } } as object)}>
-              {move.short}
-            </Text>
-          </Pressable>
-        )}
       </View>
     </View>
   );
@@ -252,7 +258,9 @@ const styles = StyleSheet.create({
   continues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   projected: { opacity: 0.82 },
   late: { opacity: 0.5 },
-  lateBtn: { position: 'absolute', top: 3, right: 4, height: 18, paddingHorizontal: 6, borderRadius: 6, justifyContent: 'center', backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
+  lateBtn: { position: 'absolute', right: 4, height: 18, minWidth: 18, paddingHorizontal: 5, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
+  lateTop: { top: 3 },
+  lateBottom: { bottom: 8 },
   lateText: { fontSize: 10.5, fontWeight: '700', color: Colors.accentText },
   active: { boxShadow: `inset 0 0 0 1px ${Colors.accent}` } as object,
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

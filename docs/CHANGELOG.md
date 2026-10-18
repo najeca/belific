@@ -10,7 +10,7 @@ to know the current version and recent history.
 
 ## 2.27.0 — 2026-10-18 (fix batch for the desktop redesign)
 
-**Ten fixes asked for by Jethro after using 2.26.0, one commit each; the version in `mobile/app.json` moves to 2.27.0 in the last commit (as asked). No schema change, no new table, no sync change. The Ellie screenshots were used for behaviour and layout only. This entry grows with each item.**
+**Ten fixes asked for by Jethro after using 2.26.0, one commit each; the version in `mobile/app.json` moves to 2.27.0 in the last commit (as asked). No schema change, no new table, no sync change. The Ellie screenshots were used for behaviour and layout only (no icon, logo, text or asset of theirs). Nothing here changes an iPhone screen.**
 
 ### 1. The card, the Add a task box and the details modal
 - **A click anywhere on a card opens the task details modal**, the same in every view: Tasks, the left list and every list, the Timebox, the Calendar (blocks, the all day row, month chips, "continues from yesterday" blocks). Only the tick box and the steps ring do something else. Enter on a focused card opens it too. A day of a repeating series that is only shown (not stored) opens as well: the modal edits the series and opening it writes nothing. A legacy phone Brain Dump item is converted to a task when opened (its first edit, as before).
@@ -50,7 +50,7 @@ to know the current version and recent history.
 
 ### 6. The Missed list
 - **What is missed:** a one off task with a day before today, not done and not deleted; and a day of a repeating task in the last 7 days that was due and is neither done nor skipped (stored or only ever shown). Worked out from the stored rows every time; nothing is stored for it and nothing moves by itself (no rollover on launch, as before).
-- **🕓 Missed in the left pane**, beside the list name, with a count badge; it opens the Missed panel. Missed tasks are never put in the day columns (a past task stays on its own past day, as before).
+- **🕓 Earlier in the left pane**, beside the list name, with a count badge (none when nothing is waiting); it opens the Missed panel. The button says "Earlier", not "Missed": the board never shows loss wording or a zero (the design identity rule that real check cp11 enforces), so the word stays inside the panel and the daily flows, which you open yourself. Missed tasks are never put in the day columns (a past task stays on its own past day, as before).
 - **One off tasks:** Today, Tomorrow, Pick a day (today or later), Drop (the day and its time are cleared; the task stays in its list), and "Move all to today" when there are two or more. A time of day is kept when a task moves. Must do first, then the oldest day.
 - **Repeating days are never moved:** Skip (the usual skip of that day, so the streak treats it as a skipped day: neutral) and Do it today (a one off task for today with the same name, emoji, label, estimate, notes and unticked steps, no repeat; that missed day is skipped at the same time, so it leaves the list).
 - **Streak:** a day you skip, or do as a one off today, is a skipped day for the streak (neutral: the run is neither broken nor lengthened by it). Ticking the one off copy does not count as the series being done. A missed day left alone stays a day not done and ends the run, as before.
@@ -59,7 +59,7 @@ to know the current version and recent history.
 
 ### 7. Late timed tasks
 - **A placed task whose time is over and that is not done is faded** (half opacity) in the Timebox and the Calendar, the same block in both. It turns late on its own (the panes redraw every 30 seconds); nothing moves by itself.
-- **A small action on the block** (`→ 14:30`) moves it to the next free half hour from now today where its estimate fits (30 minutes without one), around the tasks placed today (repeating days included) and your own events; when nothing fits before midnight it reads `→ Tomorrow` and moves it to tomorrow at the same time. Its full label says which ("Move to next free slot today (14:30)", "No free slot left today: move to tomorrow"). The slot is worked out again when pressed. Calendars subscribed by link are not counted as busy.
+- **A small action on the block** (`→ 14:30` at the bottom right of a tall block; a plain `→` on a narrow or short one, so the block can still be picked up and dragged by its top) moves it to the next free half hour from now today where its estimate fits (30 minutes without one), around the tasks placed today (repeating days included) and your own events; when nothing fits before midnight it reads `→ Tomorrow` and moves it to tomorrow at the same time. Its full label says which ("Move to next free slot today (14:30)", "No free slot left today: move to tomorrow"). The slot is worked out again when pressed. Calendars subscribed by link are not counted as busy.
 - **A repeating day is never late** (stored or only shown): its days are never moved. A late task of an earlier day is also in the Missed list.
 - Real check: p10 section 7 (skipped before 00:16, when the seeded block is not late yet).
 
@@ -84,6 +84,11 @@ to know the current version and recent history.
 - **Each task keeps its time of day and its place among the others** (the board orders a day by its own fields, which do not change). **Done tasks and repeating days never move** (a repeating task's days belong to its rule).
 - **Undo straight after:** the undo bar ("Moved 3 tasks from Mon 19 Oct to Tue 20 Oct. Undo") puts every task back on its old day, if it is still where it was moved to.
 - Real check: p10 section 10.
+
+### Found by the full gates
+- **The Tasks strip could still open five years back** in a window that opens behind another one: such a window gets no layout callbacks, so the board never learned its width and the jump to today (which waited for it) never ran. The jump no longer waits for the width and keeps trying, more slowly, for up to a minute (found by cp8c, cp8d and cp8e in a full run).
+- **A late block could not be dragged by its top in a narrow week column** (the move pill covered it; a press on a button is never a drag). The pill is now a small arrow on narrow or short blocks and sits at the bottom of tall ones (found by p9).
+- Checks: p9 expects the Must do row in the details; cp8c brings its window to the front at start, like p5 and p10 (in a window behind another one a click on a hover-only icon lands on the card).
 
 ## 2.26.0 — 2026-10-17 (desktop redesign)
 

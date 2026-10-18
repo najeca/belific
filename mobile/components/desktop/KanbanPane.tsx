@@ -145,18 +145,21 @@ export default function KanbanPane({
   // before that is clamped to 0 (five years back) and the scroll event then
   // reports 0, so the jump is tried again until it lands. Timers, not animation
   // frames: a window behind another one gets no frames but still runs timers.
+  // 2.27.0: it no longer waits for the width either. A window that opens behind
+  // another one gets no layout callbacks, so the width stayed 0, the jump never
+  // ran and the strip showed five years back (found by cp8c to cp8e in a full
+  // run); it keeps trying, more slowly, for up to a minute.
   useEffect(() => {
-    if (viewW === 0) return;
     opened.current = true;
     // Only while the strip is still at 0 (the clamped jump): once anything has
     // scrolled it elsewhere, the person is using it and it is left alone.
-    let tries = 20;
+    let tries = 240;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const want = offsetOfDay(strip, todayKey, STEP);
     const stuck = () => !!boardNode.current && boardNode.current.scrollLeft < 1 && want > 0;
     const attempt = () => {
       goTo(todayKey);
-      if (stuck() && --tries > 0) timer = setTimeout(attempt, 50);
+      if (stuck() && --tries > 0) timer = setTimeout(attempt, tries > 220 ? 50 : 250);
       // The scroll event of the clamped jump can arrive after it landed: check once more.
       else if (tries > 0) timer = setTimeout(() => stuck() && --tries > 0 && attempt(), 300);
     };
@@ -248,7 +251,7 @@ export default function KanbanPane({
           <Text style={[styles.date, head.when === 'past' && styles.past]}>{head.date}</Text>
           {head.when === 'today' && <Text style={styles.todayTag}>Today</Text>}
           {away && <Text style={styles.awayTag}>✈️ Away</Text>}
-          {head.when !== 'past' && !onlyToday && <DayMenu dayKey={day.key} tasks={tasks} away={away} awayDays={awayDays} onChanged={onChanged} />}
+          {head.when !== 'past' && <DayMenu dayKey={day.key} tasks={tasks} away={away} awayDays={awayDays} onChanged={onChanged} />}
         </View>
         {head.when === 'past' ? (
           <View style={styles.pastTotals}>

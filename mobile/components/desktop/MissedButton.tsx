@@ -9,7 +9,9 @@ import { pressStyle } from './pressStyle';
 import { openOverlay } from './uiStore';
 
 // The Missed button in the left pane (2.27.0, item 6): opens the Missed panel,
-// with how many are waiting. Worked out afresh on every change and every minute
+// with how many are waiting. It reads "Earlier": the board never shows loss
+// wording (no "missed", no zero; design identity, checked by cp11), so the word
+// stays inside the panel and the flows, which the person opens. Worked out afresh on every change and every minute
 // (so it updates at midnight); nothing is stored for it.
 export default function MissedButton({ refreshKey }: { refreshKey: number }) {
   const [count, setCount] = useState(0);
@@ -27,10 +29,10 @@ export default function MissedButton({ refreshKey }: { refreshKey: number }) {
       onPress={() => openOverlay({ kind: 'missed' })}
       style={pressStyle(({ hovered }) => [styles.btn, hovered && styles.hover])}
       accessibilityRole="button"
-      accessibilityLabel={count === 0 ? 'Missed: nothing missed' : `Missed: ${count} to look at`}
-      {...({ dataSet: { missedButton: String(count) }, title: 'Planned for an earlier day and not done' } as object)}
+      accessibilityLabel={count === 0 ? 'Earlier days: nothing waiting' : `Earlier days: ${count} to look at`}
+      {...({ dataSet: { missedButton: String(count) }, title: 'Planned for an earlier day and not done yet (the Missed list)' } as object)}
     >
-      <Text style={styles.text}>🕓 Missed</Text>
+      <Text style={styles.text}>🕓 Earlier</Text>
       {count > 0 && (
         <Text style={styles.badge} {...({ dataSet: { missedCount: '1' } } as object)}>
           {count}

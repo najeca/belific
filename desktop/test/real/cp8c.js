@@ -45,6 +45,11 @@ async function run() {
   require(C.MAIN);
   await app.whenReady();
   const win = await C.waitFor(() => C.firstWindow());
+  // In front, like p5 and p10: in a window behind another one ("hidden") a click on a
+  // hover-only card icon lands on the card instead (found in a full run, 2.27.0).
+  win.show();
+  win.focus();
+  win.webContents.focus();
   const js = (code) => win.webContents.executeJavaScript(code, true);
   await C.waitFor(async () => (await js('document.body.innerText')).includes('Alpha'), 20000);
 

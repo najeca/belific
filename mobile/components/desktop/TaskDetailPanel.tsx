@@ -264,19 +264,19 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
               />
             )}
             {task.startTime ? (
-              <Pressable onPress={() => patch({ startTime: undefined })} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Remove time">
-                <Text style={styles.quietText}>Remove time</Text>
+              <Pressable onPress={() => patch({ startTime: undefined })} style={styles.xBtn} accessibilityRole="button" accessibilityLabel="Remove time" {...({ title: 'Remove time' } as object)}>
+                <Ionicons name="close" size={13} color={Colors.textSecondary} />
               </Pressable>
             ) : null}
             {task.dueDate && !projected ? (
               <Pressable onPress={() => patch({ dueDate: undefined })} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Remove the day">
-                <Text style={styles.quietText}>Remove date</Text>
+                <Text style={styles.quietSub}>Remove date</Text>
               </Pressable>
             ) : null}
           </View>
         </DetailRow>
 
-        <DetailRow glyph="⏳" label="Estimated time" value={formatClock(task.durationMinutes)}>
+        <DetailRow glyph="⏳" label="Estimated time">
           <View style={styles.chips}>
             <Chip label="None" on={task.durationMinutes === undefined} onPress={() => patch({ durationMinutes: undefined })} />
             {DURATION_PRESETS.map((m) => (
@@ -301,8 +301,11 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           {customBad && <Text style={styles.bad}>Not a time. Try 45m, 1h 30m or 130.</Text>}
         </DetailRow>
 
-        <DetailRow glyph="⏱️" label="Actual time" value={formatTaskTime(task, now)}>
+        <DetailRow glyph="⏱️" label="Actual time">
           <View style={styles.row}>
+            <Text style={styles.valueText} {...({ dataSet: { mono: '1' } } as object)}>
+              {formatTaskTime(task, now)}
+            </Text>
             <Pressable
               onPress={() => toggleTimer(task)}
               style={[styles.bigBtn, running && styles.bigBtnOn]}
@@ -395,7 +398,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
             value={notes}
             onChangeText={setNotes}
             onBlur={saveNotes}
-            placeholder="Add notes"
+            placeholder="Add any notes to the task"
             placeholderTextColor={Colors.textSecondary}
             multiline
             accessibilityLabel="Notes"
@@ -605,21 +608,14 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
   );
 }
 
-// One row of the modal: the name on the left (with its value), the control on
-// the right.
-function DetailRow({ glyph, label, value, children }: { glyph: string; label: string; value?: string; children: React.ReactNode }) {
+// One row of the modal (2.27.1): one compact line, the name on the left and its
+// value on the right, no divider lines.
+function DetailRow({ glyph, label, children }: { glyph: string; label: string; children: React.ReactNode }) {
   return (
     <View style={styles.detailRow} {...({ dataSet: { detailRow: label } } as object)}>
-      <View style={styles.rowHead}>
-        <Text style={styles.rowLabel} accessibilityRole="header">
-          {glyph}  {label}
-        </Text>
-        {value ? (
-          <Text style={styles.rowValue} {...({ dataSet: { mono: '1' } } as object)}>
-            {value}
-          </Text>
-        ) : null}
-      </View>
+      <Text style={styles.rowLabel} numberOfLines={1} accessibilityRole="header">
+        {glyph}  {label}
+      </Text>
       <View style={styles.rowBody}>{children}</View>
     </View>
   );
@@ -640,16 +636,18 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
   );
 }
 
+// A value that reads as text until it is used (2.27.1, the compact rows).
 const domSelect: React.CSSProperties = {
-  height: 34,
-  padding: '0 8px',
-  borderRadius: 10,
-  border: `1px solid ${Colors.border}`,
-  background: Colors.background,
+  height: 28,
+  padding: '0 6px',
+  borderRadius: 8,
+  border: '1px solid transparent',
+  background: 'transparent',
   color: Colors.textPrimary,
-  fontSize: 14,
+  fontSize: 13,
   fontFamily: DESKTOP_FONT_FAMILY,
   outlineColor: Colors.accent,
+  cursor: 'pointer',
   minWidth: 0,
   maxWidth: '100%',
 };
@@ -666,7 +664,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     boxShadow: '0 16px 48px rgba(38,37,31,0.22)',
   } as never,
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
   tick: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: Colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
   tickOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   titleEmoji: { fontSize: 22 },
@@ -675,43 +673,45 @@ const styles = StyleSheet.create({
   iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
   iconBtnOn: { backgroundColor: Colors.background },
   scroll: { flexGrow: 0, flexShrink: 1 },
-  body: { paddingHorizontal: 20, paddingBottom: 20, gap: 4 },
-  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
-  rowHead: { width: 150, gap: 2, paddingTop: 7 },
-  rowLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  rowValue: { fontSize: 13, color: Colors.textPrimary, paddingLeft: 26 },
-  rowBody: { flex: 1, minWidth: 0, gap: 8 },
-  section: { gap: 8, paddingTop: 12 },
+  body: { paddingHorizontal: 20, paddingBottom: 16, gap: 2 },
+  // One line per row: the name on the left, the value on the right, no lines.
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 32 },
+  rowLabel: { width: 132, flexShrink: 0, fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
+  rowBody: { flex: 1, minWidth: 0, gap: 4 },
+  valueText: { fontSize: 13, color: Colors.textPrimary, paddingHorizontal: 6 },
+  section: { gap: 4, paddingTop: 10 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  switch: { width: 40, height: 24, borderRadius: 12, padding: 3, backgroundColor: Colors.border, justifyContent: 'center' },
+  switch: { width: 34, height: 20, borderRadius: 10, padding: 3, backgroundColor: Colors.border, justifyContent: 'center' },
   switchOn: { backgroundColor: Colors.accent },
-  knob: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#FFFFFF' },
+  knob: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFFFFF' },
   knobOn: { alignSelf: 'flex-end' },
-  chip: { paddingHorizontal: 10, height: 30, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
+  chip: { paddingHorizontal: 9, height: 26, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
   chipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   chipText: { fontSize: 13, color: Colors.textPrimary },
   chipTextOn: { color: Colors.onAccent, fontWeight: '600' },
-  input: { flex: 1, minWidth: 120, height: 34, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
+  input: { flex: 1, minWidth: 120, height: 28, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   inputBad: { borderColor: Colors.danger },
   bad: { fontSize: 12, color: Colors.danger },
-  notes: { minHeight: 88, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
+  notes: { minHeight: 44, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   muted: { fontSize: 12, color: Colors.textSecondary },
-  bigBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, height: 34, borderRadius: 12, borderWidth: 1, borderColor: Colors.accent, backgroundColor: Colors.background },
+  bigBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 26, borderRadius: 8, backgroundColor: Colors.background },
   bigBtnOn: { backgroundColor: Colors.accent },
   bigBtnText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
   bigBtnTextOn: { color: Colors.onAccent },
-  quiet: { paddingHorizontal: 12, height: 32, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
+  quiet: { paddingHorizontal: 6, height: 28, borderRadius: 8, justifyContent: 'center' },
   quietText: { fontSize: 13, color: Colors.textPrimary },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30 },
+  quietSub: { fontSize: 12, color: Colors.textSecondary },
+  xBtn: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 28 },
   subText: { flex: 1, fontSize: 14, color: Colors.textPrimary },
   subDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  subInput: { height: 30, minWidth: 0 },
+  subInput: { height: 26, minWidth: 0, borderColor: 'transparent', backgroundColor: 'transparent' },
   subDelete: { padding: 6 },
   confirm: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 8 },
   yes: { fontSize: 13, fontWeight: '700', color: Colors.danger },
   no: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  menuEmoji: { paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
+  menuEmoji: { paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
   menuLabel: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
 });

@@ -435,11 +435,13 @@ Asked for by Jethro: five items, one commit each, the version bump in the last c
 
 ## Small fix batch done (2026-10-19): 2.27.1
 
-**Paused (2026-10-19) by Jethro, before the final gates finished.** Done: all five items committed (plus the item 2 follow-up), version 2.27.1, typecheck clean, 767 unit tests pass, security scan passed, iOS export plus marker gate (22 markers, 0 hits), desktop `npm test`. Real checks in the final run:
-- **Passed:** p2 (44), p3 (59), p4 (29), p5 (34), p6 (39), p7 (55), p8 (44), p9 (68), p10 (87), p11 (79), cp6 (61), cp8c (23), cp8d (13), cp8e (17), cp8h (53), cp9 (106), cp10 (50), cp11 (52), cp12 (58).
-- **Failed, not looked at yet:** cp8g, 32/33: "the details are for the same task (its title, and the full 8 hour estimate)" (probably reads the old estimate text; item 2 shows "8 h" now).
-- **Not run:** cp7 (`node test/real/run-cp7.js`), cp8b (`node test/real/run-cp8b.js`) and cp8f (`node test/real/run-cp8f.js`). In earlier targeted runs during the batch cp8b passed 56/56 plus relaunch 2/2 and cp8f 23/23, but not in this final run.
-- **Still to do:** look at cp8g, run the checks not run, then write the final gates line here in place of this note.
+All five items are in, one commit each, plus: an item 2 follow-up (the calendar feed's vendored `duration.ts`), a cp8g check update, and one app fix found by the final gates. Not pushed, not deployed, no schema change, no new table. Version 2.27.1 (`mobile/app.json`, `easConfig.test.ts`).
+
+**Gates (final run on the final code, 2026-10-19):** typecheck clean; 767 unit tests pass; security scan passed; iOS export plus marker gate: 22 markers, 0 hits; desktop tests 93 pass. Real checks: p2 (44), p3 (59), p4 (29), p5 (34), p6 (39), p7 (55), p8 (44), p9 (68), p10 (87), p11 (79), cp6 (61), cp7 (19 + 2), cp8b (56 + 2), cp8c (23), cp8d (13), cp8e (17), cp8f (23), cp8g (33), cp8h (53), cp9 (106), cp10 (50), cp12 (58) all pass. cp11 stopped once with a harness error in that run (it could not find "Skip this day" in a card's ⋮ menu, a hover icon) and passed 52/52 on two reruns of the same build; it passed 52/52 in the two full runs before too, so it is flaky and nothing was changed for it.
+
+What the gates found, and what was done:
+- **cp8g** (32/33 in the paused run) read the old "8:00" estimate text; the app was right ("8 h" for 480 minutes since item 2). The check now reads the Estimated time drop-down and the stored 480 minutes.
+- **cp9** (104/106 in the first final run): a real app race, present since 2.27.0. The details move focus to the title 30 ms after opening, so a click in Notes in that time lost the keyboard to the title. Fixed in the app (`94ef1ff`): the opening focus leaves the keyboard where a click put it. cp9 then passed 106/106.
 
 ## Check by hand (small fix batch, 2.27.1)
 

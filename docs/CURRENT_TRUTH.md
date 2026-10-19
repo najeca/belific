@@ -2,7 +2,7 @@
 
 Update this at every session close. It replaces `current-state-audit.md` and `architecture.md` (both historical, July 2026) in the session protocol.
 
-Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 2.27.1; the 2.27.1 gates are paused part way, see `docs/build-progress.md`) against branch `v2-redesign`.
+Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 2.27.1; every gate passed on the final code, see `docs/build-progress.md`) against branch `v2-redesign`.
 
 **Since 2026-10-16 the work follows `docs/belific-build-plan.md` (phases 1 to 9) and `docs/build-progress.md` (checkpoint per phase, decisions, what is next).** Phases 1 to 8 are done (phase 8 in code: its Edge Function is not deployed and its grant 003 is not applied; Jethro does both); phase 9 has not started.
 

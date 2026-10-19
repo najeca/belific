@@ -34,6 +34,9 @@ to know the current version and recent history.
 - Data: **emojibase-data 17.0.0 (MIT)**, trimmed to Emoji 15.0 with no skin tones by `mobile/scripts/build-emoji-data.js` into `mobile/lib/emojiData.ts` (1,870 emoji, 94 KB source; the desktop bundle grows by about 117 KB, 36 KB gzipped). Bundled, no network calls, no dependency added.
 - New **`THIRD_PARTY_NOTICES.md`** (emojibase-data, Inter, Roboto Mono, Electron), shipped in the Windows app's resources folder.
 
+### Found by the final gates
+- The details move focus to the title just after opening; a click in Notes (or a subtask) in that moment lost the keyboard to the title. The opening focus now leaves it where a click put it (present since 2.27.0).
+
 Real check: new `desktop/test/real/p11.js` (one section per item, 79 checks). p2, p7, p9, p10, cp8b, cp8c, cp8f, cp8h and cp9 follow the new drop-down, label form and picker.
 
 ---

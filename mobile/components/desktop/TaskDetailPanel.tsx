@@ -150,6 +150,9 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
     const refs: Record<string, React.RefObject<TextInput | null>> = { subtask: subRef, notes: notesRef, title: titleRef };
     const target = refs[focus ?? 'title'] ?? titleRef;
     const t = setTimeout(() => {
+      // A click inside the modal in its first moments (Notes, a subtask) keeps the keyboard.
+      const active = document.activeElement;
+      if (active && active !== document.body && active.closest('[data-detail-panel]')) return;
       const btn = dropDown ? document.querySelector<HTMLElement>(`[data-detail-panel] [data-duration-select="${dropDown}"]`) : null;
       if (btn) btn.click();
       else (target.current ?? titleRef.current)?.focus();

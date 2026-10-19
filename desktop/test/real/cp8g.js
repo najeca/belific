@@ -210,7 +210,9 @@ async function run() {
   // 2.27.0: it opens the same task details as the block and the card.
   await C.waitFor(() => exists(q('[role="dialog"][aria-label="Task details"]')), 4000).catch(() => {});
   check('clicking the continuation opens the details of the same task', await exists(q('[role="dialog"][aria-label="Task details"]')));
-  check('the details are for the same task (its title, and the full 8 hour estimate)', (await js(`${q('[role="dialog"] [aria-label="Title"]')}.value`)) === 'Night shift' && (await js(`${q('[role="dialog"]')}.innerText`)).includes('8:00'));
+  // 2.27.1: the estimate is the time drop-down, which shows "8 h" for 480 minutes.
+  const estText = await js(`(${q('[role="dialog"] [data-duration-select="Estimated time"] [data-duration-value]')} || {}).textContent || ''`);
+  check('the details are for the same task (its title, and the full 8 hour estimate)', (await js(`${q('[role="dialog"] [aria-label="Title"]')}.value`)) === 'Night shift' && estText.trim() === '8 h' && read('belific_tasks').find((x) => x.id === 'night').durationMinutes === 480, estText);
   await press('Escape');
   await C.sleep(300);
   await click(q('[aria-label="Next day"]'));

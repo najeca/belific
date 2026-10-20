@@ -750,8 +750,9 @@ const styles = StyleSheet.create({
   projected: { opacity: 0.82 },
   // Imported, read only: a dashed outline on the plain background, never a label colour.
   imported: { backgroundColor: Colors.background, borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.textSecondary },
-  blockTitle: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary, overflowWrap: 'anywhere' } as object,
-  blockTime: { fontSize: 10, color: Colors.textSecondary },
+  // Lines break at spaces only (2.28.2): a word wider than its lane is clipped, never split.
+  blockTitle: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary, minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
+  blockTime: { fontSize: 10, color: Colors.textSecondary, minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
   chip: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginVertical: 1, backgroundColor: Colors.background, minHeight: 20, justifyContent: 'center' },
   chipText: { fontSize: 11, color: Colors.textPrimary },
   chipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },

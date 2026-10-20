@@ -472,3 +472,6 @@ Four phases, desktop display only, not committed (Jethro reviews the diff first)
 
 ### Display fix (2026-10-20): 2.28.1
 The ! mark now also shows on Calendar blocks and chips (all-day, month, every piece of a "continues" block) and Timebox cards of a top priority task. Choices: it sits after the title, beside the repeat icon, so it cannot cover the title; month and all-day chips got a small row wrapper for it (title still truncates, the mark never does). Check by hand: mark a task high priority, give it a time, then look at it on the Timebox, the Calendar (day, week, month) and as an all-day task; make one run past midnight and look at both pieces; hover for "High priority"; a task without it and any imported event show no mark.
+
+## Part B, P1 (2026-10-20): 2.28.2, words are never split
+Plan: `docs/PLAN_part_b.md` (approved with the five defaults). P1 sets `overflow-wrap`/`word-break` to normal on Calendar block titles, time lines and "continues" text (`TimeBlock.tsx`, `CalendarPane.tsx`). Choices: only the Calendar was changed (the Timebox keeps single line titles); the LabelColorPicker note keeps `anywhere` (prose in a fixed box, not a title). Check by hand: put three tasks over the same hour; their titles and times clip at the edge and never break inside a word; hover shows everything.

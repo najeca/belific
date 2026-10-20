@@ -8,6 +8,12 @@ to know the current version and recent history.
 
 ---
 
+## 2.28.2 — 2026-10-20 (Part B, P1: words are never split)
+
+**Desktop display only. No schema, sync or stored change.** On the Calendar's blocks the title, the time line and the "continues" text now break lines at spaces only (`overflow-wrap` and `word-break` normal). A word wider than its lane is clipped at the block's edge, never split ("Leep Tal ent On line", "10:0 / 0am"), and the hover tooltip holds the whole text. Real check `p13.js` (P1): a Range over every word finds none spread over two lines in a three lane overlap, and in Day view.
+
+---
+
 ## 2.28.1 — 2026-10-20 (display fix, Part A)
 
 **Desktop display only. No schema, sync or stored change. Not committed.** The red ! (U+2757, "High priority" tooltip and aria-label) now also shows on every Calendar block (day and week), the all-day chips, the month chips, every piece of a "continues" block, and every Timebox card of a top priority task. It sits small beside the repeat icon, after the title, and never over it (`PriorityMark.tsx`). No outline or colour change, and no change to sizes, widths or how overlapping tasks sit. Imported and custom events have no priority and no mark. Real check `p12.js` section A5 (now 37 checks).

@@ -313,9 +313,11 @@ test('002 gating: the new tables wait for the planner capability; old fields are
   assert.equal(tableReady('tasks', old), true);
   assert.equal(tableReady('routine_completions', old), true);
   assert.equal(tableReady('lists', { ...old, planner: true }), true);
-  assert.deepEqual(preserveFieldsFor('tasks', old), ['actualMinutes', 'timerStartedAt', 'listKey', 'emoji']);
+  // 2.30.0: the two migration 004 fields are kept locally as well until partB appears (partB.test.ts)
+  assert.deepEqual(preserveFieldsFor('tasks', old), ['actualMinutes', 'timerStartedAt', 'listKey', 'emoji', 'cutsBelow', 'reminders']);
   assert.deepEqual(preserveFieldsFor('projects', old), ['emoji']);
-  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true }), []);
+  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true }), ['cutsBelow', 'reminders']);
+  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true, partB: true }), []);
   assert.equal(hasPlannerValues('tasks', { actualMinutes: 0 }), true);
   assert.equal(hasPlannerValues('tasks', { title: 'x' }), false);
   assert.equal(hasPlannerValues('lists', { emoji: 'E' }), false);

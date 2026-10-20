@@ -59,7 +59,7 @@ test('the app client is created with the belific schema', () => {
 test('every data request of the sync server carries the belific profile header', async () => {
   const seen: Seen[] = [];
   const server = createSupabaseServer(client(seen, DB_SCHEMA), async () => 'u1');
-  const caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };
+  const caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true, partB: true };
 
   assert.deepEqual(await server.probe(), caps);
   for (const table of [...TIMESTAMPED_TABLES, 'routine_completions' as const]) {
@@ -115,5 +115,27 @@ test('before migration 002 the probe reads the missing tables as "not yet", neve
     global: { fetch: missing },
   });
   const server = createSupabaseServer(c, async () => 'u1');
-  assert.deepEqual(await server.probe(), { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: false });
+  assert.deepEqual(await server.probe(), { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: false, partB: true });
+});
+
+test('before migration 004 the probe reads the missing cuts_below and reminders columns as "not yet"; one of the two is not enough', async () => {
+  const probeWith = async (missingColumns: string[]) => {
+    const f = (async (input: unknown) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const table = url.pathname.replace('/rest/v1/', '');
+      const select = url.searchParams.get('select') ?? '';
+      if (missingColumns.includes(select)) {
+        return new Response(JSON.stringify({ code: '42703', message: `column ${table}.${select} does not exist` }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+      return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json', 'Content-Range': '*/0' } });
+    }) as typeof fetch;
+    const c = createClient(URL_, KEY, { db: { schema: DB_SCHEMA }, auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, global: { fetch: f } });
+    return createSupabaseServer(c, async () => 'u1').probe();
+  };
+  assert.equal((await probeWith(['cuts_below', 'reminders'])).partB, false);
+  assert.equal((await probeWith(['cuts_below'])).partB, false);
+  assert.equal((await probeWith(['reminders'])).partB, false);
+  assert.equal((await probeWith([])).partB, true);
+  // everything else is read as before
+  assert.deepEqual(await probeWith(['cuts_below', 'reminders']), { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true, partB: false });
 });

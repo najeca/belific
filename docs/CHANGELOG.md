@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 2.30.0 — 2026-10-20 (Part B, P3: sync for the cut switch and the reminder list; migration 004 written, NOT APPLIED)
+
+**No screen changes. Nothing live changed: `004_part_b.sql` is written and NOT APPLIED; Jethro applies it after a backup and his go (never `db push`).**
+- **New task fields:** `cutsBelow` (the task cuts the tasks it overlaps; absent = off) and `reminders` (minutes before the start, 0 to 1440, distinct, at most 5; an empty list = no reminder; absent = not set). Copied by a series projection, a next copy and Duplicate; editable on a series (`TEMPLATE_FIELDS`).
+- **Sync gate (`Caps.partB`):** the probe asks for both `tasks.cuts_below` and `tasks.reminders`. Until both exist the two values are never named in an upload, a pull keeps the local values (`preserveFieldsFor`), and every other field syncs as before. When the probe first sees them, tasks holding a value are queued once (`hasPartBValues`). Automatic, no switch to flip.
+- **Older builds (2.18.1 and before):** they never send the new columns, an upsert only changes the columns it names, so a newer desktop's values are not erased; a row they create has NULL (no cut, no list). Tested against the in process fake server, which now also refuses unknown columns while `partB` is absent.
+- **`004_part_b.sql`** (header "NOT APPLIED. DO NOT RUN", additive only: `cuts_below boolean`, `reminders jsonb`, nullable, no default; the rollback is a commented section) and a README row. A test keeps it additive and commented.
+- `kanban`-style vendored copies re-synced (`series.ts`, `recurrence.ts`, `types.ts`; local only, the feed function is not deployed).
+- Tests: `partB.test.ts` (8), three new `syncEngine` scenarios (columns absent, columns appear, older client), a probe test. The probe expectations in `schemaProfile.test.ts` now include `partB`.
+
+---
+
 ## 2.29.0 — 2026-10-20 (Part B, P2: top priority first)
 
 **Desktop display only. No schema, sync or stored change; the only stored value involved is the existing `priority = 'high'`.**

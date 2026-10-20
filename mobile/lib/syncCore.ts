@@ -171,6 +171,9 @@ export interface Caps {
   // timer, list and emoji columns, projects.emoji, and the lists and
   // user_settings tables. Optional for the same reason as taskExtras.
   planner?: boolean;
+  // Migration 004 (belific_schema/004_part_b.sql, NOT APPLIED until Jethro applies it):
+  // tasks.cuts_below and tasks.reminders. Optional for the same reason as the others.
+  partB?: boolean;
 }
 
 export const NO_CAPS: Caps = { serverUpdatedAt: false, taskPipeline: false };
@@ -190,6 +193,8 @@ export const TASK_EXTRA_FIELDS = ['subtasks', 'reminderMinutes'] as const;
 // Local fields that wait for migration 002.
 export const TASK_PLANNER_FIELDS = ['actualMinutes', 'timerStartedAt', 'listKey', 'emoji'] as const;
 export const PROJECT_PLANNER_FIELDS = ['emoji'] as const;
+// Local fields that wait for migration 004: never sent, and kept on pull, until the probe sees both columns.
+export const TASK_PARTB_FIELDS = ['cutsBelow', 'reminders'] as const;
 
 export function preserveFieldsFor(table: TimestampedTable, caps: Caps): string[] {
   if (table === 'tasks') {
@@ -197,6 +202,7 @@ export function preserveFieldsFor(table: TimestampedTable, caps: Caps): string[]
       ...(caps.taskPipeline ? [] : TASK_PIPELINE_FIELDS),
       ...(caps.taskExtras ? [] : TASK_EXTRA_FIELDS),
       ...(caps.planner ? [] : TASK_PLANNER_FIELDS),
+      ...(caps.partB ? [] : TASK_PARTB_FIELDS),
     ];
   }
   if (table === 'projects') {
@@ -218,6 +224,12 @@ export function hasPlannerValues(table: TimestampedTable, row: Record<string, un
   const fields: readonly string[] =
     table === 'tasks' ? TASK_PLANNER_FIELDS : table === 'projects' ? PROJECT_PLANNER_FIELDS : [];
   return fields.some((f) => row[f] !== undefined && row[f] !== null);
+}
+
+// A local task that carries values only migration 004 can store (queued again once it appears).
+export function hasPartBValues(table: TimestampedTable, row: Record<string, unknown>): boolean {
+  if (table !== 'tasks') return false;
+  return row.cutsBelow === true || Array.isArray(row.reminders);
 }
 
 // A local row that carries values the server could not store before
@@ -428,6 +440,20 @@ export function sanitizeReminder(v: unknown): number | null {
   return typeof v === 'number' && Number.isInteger(v) && v >= -1 && v <= 1440 ? v : null;
 }
 
+// Migration 004 values. A cut switch is on or absent; reminders are whole minutes
+// before the start (0 to a day), distinct, at most five, kept in ascending order.
+// An empty list is a real value (no reminder); anything unreadable is null.
+export const MAX_REMINDERS = 5;
+export function sanitizeCuts(v: unknown): boolean | null {
+  return v === true ? true : null;
+}
+export function sanitizeReminders(v: unknown): number[] | null {
+  if (!Array.isArray(v)) return null;
+  const out = new Set<number>();
+  for (const n of v) if (typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 1440) out.add(n);
+  return [...out].sort((a, b) => a - b).slice(0, MAX_REMINDERS);
+}
+
 // Migration 002 values. A year of minutes is far above any real total and
 // still keeps a corrupt number out of the column.
 export const MAX_ACTUAL_MINUTES = 525600;
@@ -578,6 +604,10 @@ export function taskToRemote(t: Task, caps: Caps): Remote {
     row.list_key = sanitizeKey(t.listKey);
     row.emoji = sanitizeEmoji(t.emoji);
   }
+  if (caps.partB) {
+    row.cuts_below = sanitizeCuts(t.cutsBelow);
+    row.reminders = sanitizeReminders(t.reminders);
+  }
   return withDeleted(row, t.deletedAt);
 }
 export function taskFromRemote(r: Remote): Task {
@@ -602,6 +632,8 @@ export function taskFromRemote(r: Remote): Task {
     timerStartedAt: sanitizeInstant(r.timer_started_at) ?? undefined,
     listKey: sanitizeKey(r.list_key) ?? undefined,
     emoji: sanitizeEmoji(r.emoji) ?? undefined,
+    cutsBelow: sanitizeCuts(r.cuts_below) ?? undefined,
+    reminders: sanitizeReminders(r.reminders) ?? undefined,
     origin: opt(r, 'origin'),
     updatedAt: String(r.updated_at),
     deletedAt: opt(r, 'deleted_at'),

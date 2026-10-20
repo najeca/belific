@@ -119,6 +119,8 @@ export function buildNextOccurrence(task: Task, todayKey: string, nowIso: string
     recurrenceMonthDay: task.recurrenceMonthDay,
     ...(subtasks ? { subtasks } : {}),
     ...(task.reminderMinutes !== undefined && task.reminderMinutes !== null ? { reminderMinutes: task.reminderMinutes } : {}),
+    ...(task.cutsBelow ? { cutsBelow: true } : {}),
+    ...(task.reminders ? { reminders: [...task.reminders] } : {}),
     completed: false,
     createdAt: nowIso,
     updatedAt: nowIso,

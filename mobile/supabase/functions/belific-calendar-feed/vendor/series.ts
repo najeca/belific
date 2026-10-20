@@ -207,6 +207,8 @@ export function occurrenceFromTemplate(template: Task, dayKey: string, nowIso: s
     recurrenceMonthDay: template.recurrenceMonthDay,
     ...(subtasks ? { subtasks } : {}),
     ...(template.reminderMinutes !== undefined && template.reminderMinutes !== null ? { reminderMinutes: template.reminderMinutes } : {}),
+    ...(template.cutsBelow ? { cutsBelow: true } : {}),
+    ...(template.reminders ? { reminders: [...template.reminders] } : {}),
     completed: false,
     createdAt: template.createdAt,
     updatedAt: nowIso,
@@ -261,6 +263,8 @@ export const TEMPLATE_FIELDS = [
   'recurrenceMonthDay',
   'subtasks',
   'reminderMinutes',
+  'cutsBelow',
+  'reminders',
 ] as const;
 
 // The template's own subtask list after an edit. A completed template keeps

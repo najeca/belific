@@ -30,6 +30,8 @@ export function duplicateTask(task: Task, newId: string, nowIso: string, newSubt
   if (task.dueDate) copy.dueDate = task.dueDate;
   if (task.durationMinutes) copy.durationMinutes = task.durationMinutes;
   if (task.reminderMinutes !== undefined && task.reminderMinutes !== null) copy.reminderMinutes = task.reminderMinutes;
+  if (task.cutsBelow) copy.cutsBelow = true;
+  if (task.reminders) copy.reminders = [...task.reminders];
   if (subtasks) copy.subtasks = subtasks;
   return copy;
 }

@@ -217,6 +217,14 @@ export interface Task {
   // grouped daily reminder for a planned task with no time), -1 = off, 0 or
   // more = minutes before the start time. Synced as reminder_minutes.
   reminderMinutes?: number | null;
+  // Part B (migration 004, NOT APPLIED until Jethro applies it): the task cuts the
+  // tasks it overlaps into pieces (a break). Absent means off. Synced as cuts_below;
+  // kept locally while the server lacks the column (lib/syncCore.ts, caps.partB).
+  cutsBelow?: boolean;
+  // Part B (migration 004): minutes before the start, each one a reminder (0 = at the
+  // start), at most 5. Absent = not set (the legacy reminderMinutes and then the
+  // Settings default apply); an empty list = no reminder. Synced as reminders (jsonb).
+  reminders?: number[];
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';

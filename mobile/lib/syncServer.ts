@@ -68,12 +68,15 @@ export function createSupabaseServer(
     // Which migrations the server has: both work before and after (see
     // docs/sessions/2026-10-06-cp5.md, "before and after the migrations").
     async probe(): Promise<Caps> {
-      const [serverUpdatedAt, taskCols, projectCols, subtasksCol, reminderCol, ...planner] = await Promise.all([
+      const [serverUpdatedAt, taskCols, projectCols, subtasksCol, reminderCol, cutsCol, remindersCol, ...planner] = await Promise.all([
         columnExists('tasks', 'server_updated_at'),
         columnExists('tasks', 'duration_minutes'),
         columnExists('projects', 'color_key'),
         columnExists('tasks', 'subtasks'),
         columnExists('tasks', 'reminder_minutes'),
+        // Migration 004 (NOT APPLIED until Jethro applies it): both columns or neither.
+        columnExists('tasks', 'cuts_below'),
+        columnExists('tasks', 'reminders'),
         // Migration 002 runs in one transaction; one probe per table it changes.
         columnExists('tasks', 'actual_minutes'),
         columnExists('projects', 'emoji'),
@@ -85,6 +88,7 @@ export function createSupabaseServer(
         taskPipeline: taskCols && projectCols,
         taskExtras: subtasksCol && reminderCol,
         planner: planner.every(Boolean),
+        partB: cutsCol && remindersCol,
       };
     },
     async selectPage(table: AnyTable, q: PageQuery): Promise<Record<string, unknown>[]> {

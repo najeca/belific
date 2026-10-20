@@ -20,9 +20,12 @@ import {
   scrollOffsetFor,
   taskToItem,
   toMinutes,
+  toTime,
   totalScheduledMinutes,
   type TimeboxItem,
 } from '../../lib/timebox';
+import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
+import { useCutMin } from './cutStore';
 import { openingMinutes } from '../../lib/dayStart';
 import { tasksForTimebox } from '../../lib/timeboxTasks';
 import { useDayStart } from './useDayStart';
@@ -73,7 +76,9 @@ type Source =
   // stored (decision 023); edits go to the series, ticking stores that day.
   | { kind: 'task'; task: Task; projected?: boolean }
   // The rest of yesterday's overnight task (derived, opens the same popover).
-  | { kind: 'continuation'; task: Task; projected?: boolean };
+  | { kind: 'continuation'; task: Task; projected?: boolean }
+  // One piece of a task that a break cuts (lib/cuts.ts); `cont`: the rest of yesterday's task.
+  | { kind: 'piece'; task: Task; projected?: boolean; piece: CutPiece; cont: boolean };
 
 const domTimeStyle: React.CSSProperties = {
   height: 36,
@@ -207,7 +212,8 @@ export default function TimeboxPane({
     return ref;
   };
 
-  const { sources, items } = useMemo(() => {
+  const cutMin = useCutMin();
+  const { sources, items, notes, badges } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: TimeboxItem[] = [];
     for (const e of getWeeklyEventsForDate(day)) {
@@ -231,6 +237,9 @@ export default function TimeboxPane({
     // lib/timeboxTasks.ts. The filter hides tasks (not events) from the Timebox too.
     projectedIds.current.clear();
     const { own, spill } = tasksForTimebox(tasks, key, todayKey);
+    // A task with "Cut tasks underneath" cuts the others it overlaps into pieces (lib/cuts.ts).
+    const entries: CutEntry[] = [];
+    const high = new Map<string, boolean>();
     for (const { task: t, projected } of own) {
       if (!taskVisible(t, filter)) continue;
       const item = taskToItem(t);
@@ -238,17 +247,32 @@ export default function TimeboxPane({
       map.set(`task:${t.id}`, { kind: 'task', task: t, projected });
       tasksById.current.set(t.id, t);
       if (projected) projectedIds.current.add(t.id);
-      list.push({ ...item, id: `task:${t.id}`, high: isMustDo(t) });
+      entries.push({ id: `task:${t.id}`, startMin: item.startMin, endMin: item.endMin, breaks: !!t.cutsBelow });
+      high.set(`task:${t.id}`, isMustDo(t));
     }
     for (const { task: t, projected } of spill) {
       if (!taskVisible(t, filter)) continue;
       const rest = continuationOf(t);
       if (!rest) continue;
       map.set(rest.id, { kind: 'continuation', task: t, projected });
-      list.push({ ...rest, high: isMustDo(t) });
+      entries.push({ id: rest.id, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow });
+      high.set(rest.id, isMustDo(t));
     }
-    return { sources: map, items: list };
-  }, [day, key, todayKey, events, categories, tasks, filter]);
+    const plan = planCuts(entries, cutMin, (id) => {
+      const s = map.get(id);
+      return s && (s.kind === 'task' || s.kind === 'continuation') ? s.task.title : id;
+    });
+    for (const it of plan.items) {
+      if (it.piece) {
+        const host = map.get(it.piece.hostId);
+        if (host && (host.kind === 'task' || host.kind === 'continuation')) {
+          map.set(it.id, { kind: 'piece', task: host.task, projected: host.projected, piece: it.piece, cont: host.kind === 'continuation' });
+        }
+      }
+      list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
+    }
+    return { sources: map, items: list, notes: plan.notes, badges: plan.badges };
+  }, [day, key, todayKey, events, categories, tasks, filter, cutMin]);
 
   const layout = useMemo(() => layoutItems(items), [items]);
   const total = totalScheduledMinutes(items);
@@ -259,7 +283,7 @@ export default function TimeboxPane({
   }
 
   function openSource(source: Source) {
-    if (source.kind === 'task' || source.kind === 'continuation') openDetail(source.task.id);
+    if (source.kind === 'task' || source.kind === 'continuation' || source.kind === 'piece') openDetail(source.task.id);
     else if (source.custom) setEditing(source.custom);
   }
 
@@ -363,8 +387,10 @@ export default function TimeboxPane({
                 width: `${100 / b.cols}%` as const,
                 ...(b.high ? { zIndex: 2 } : {}),
               };
-              if (source.kind === 'continuation') {
+              if (source.kind === 'continuation' || (source.kind === 'piece' && source.cont)) {
                 const t = source.task;
+                const pc = source.kind === 'piece' ? source.piece : undefined;
+                const timeText = pc && !pc.head ? pieceTimeText(formatTime(toTime(pc.startMin)), undefined, formatDuration(pc.leftMin), false) : 'Continues from yesterday';
                 const color = labelColor(labels.find((p) => p.key === t.projectKey)?.colorKey);
                 return (
                   <View key={b.id} style={[styles.blockWrap, positioned]}>
@@ -379,22 +405,22 @@ export default function TimeboxPane({
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={`Continues from yesterday: ${t.title}`}
-                        {...({ dataSet: { blockId: t.id, continuation: '1' } } as object)}
+                        {...({ dataSet: { blockId: pc && pc.index > 0 ? `${t.id}~${pc.index + 1}` : t.id, continuation: '1', ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
                       >
                         <View style={styles.blockTitleRow}>
                           <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone]} numberOfLines={1}>
                             {t.title}
                           </Text>
-                          {isCompactBlock(b.height) && <Text style={styles.blockTimeInline}>Continues from yesterday</Text>}
+                          {isCompactBlock(b.height) && <Text style={styles.blockTimeInline}>{timeText}</Text>}
                           {isMustDo(t) && <PriorityMark />}
                         </View>
-                        {!isCompactBlock(b.height) && <Text style={styles.blockTime}>Continues from yesterday</Text>}
+                        {!isCompactBlock(b.height) && <Text style={styles.blockTime}>{timeText}</Text>}
                       </Pressable>
                     </View>
                   </View>
                 );
               }
-              if (source.kind === 'task') {
+              if (source.kind === 'task' || source.kind === 'piece') {
                 const t = source.task;
                 const proj = labels.find((p) => p.key === t.projectKey);
                 return (
@@ -408,6 +434,9 @@ export default function TimeboxPane({
                     positioned={positioned}
                     height={b.height}
                     continues={b.continues}
+                    piece={source.kind === 'piece' ? source.piece : undefined}
+                    note={notes.get(b.id)}
+                    badge={badges.get(b.id)}
                     a11y={`Task ${t.title}`}
                     gridNode={() => gridNode.current}
                     onChanged={onChanged}

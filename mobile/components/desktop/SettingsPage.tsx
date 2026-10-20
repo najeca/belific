@@ -21,6 +21,8 @@ import TemplatesManager from './TemplatesManager';
 import { setFeature, useFeatures } from './featureStore';
 import { FEATURES } from '../../lib/features';
 import CalendarsSection from './CalendarsSection';
+import { setCutMin, useCutMin } from './cutStore';
+import { CUT_MIN_OPTIONS, parseCutMin } from '../../lib/cuts';
 import { displayKeys, shortcutGroups } from '../../lib/shortcuts';
 
 // The Settings page (checkpoint 9, decision 025): a view inside the app, not
@@ -45,6 +47,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   const [now, setNow] = useState(() => Date.now());
   const [exportNote, setExportNote] = useState<string | null>(null);
   const features = useFeatures();
+  const cutMin = useCutMin();
 
   const desktop = globalThis.belificDesktop;
   useEffect(() => {
@@ -223,6 +226,24 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               </Text>
               <ToggleRow label={STREAK_TEXT.settingLabel} value={prefs.showStreaks} onChange={(v) => setPref({ showStreaks: v })} />
               <Text style={styles.hint}>{STREAK_TEXT.settingHint}</Text>
+              <View style={styles.timeRow}>
+                <Text style={styles.body}>Smallest piece when a break cuts a task</Text>
+                <select
+                  value={String(cutMin)}
+                  onChange={(e) => setCutMin(parseCutMin(e.target.value))}
+                  style={domStyle}
+                  aria-label="Smallest piece when a break cuts a task"
+                >
+                  {CUT_MIN_OPTIONS.map((m) => (
+                    <option key={m} value={String(m)}>
+                      {m} minutes
+                    </option>
+                  ))}
+                </select>
+              </View>
+              <Text style={styles.hint}>
+                A task with "Cut tasks underneath" on (for example a break) cuts the tasks it overlaps into pieces. It only does so when every piece left is at least this long; otherwise the two sit side by side and the break says why. Nothing is changed on the tasks themselves.
+              </Text>
             </Section>
 
             <Section title="Notifications" emoji="🔔">

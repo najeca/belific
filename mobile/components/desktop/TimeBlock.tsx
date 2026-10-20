@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { formatTime } from '../../lib/data';
 import { formatDuration } from '../../lib/duration';
-import { isCompactBlock, toMinutes, blockHeightPx } from '../../lib/timebox';
+import { isCompactBlock, toMinutes, toTime, blockHeightPx } from '../../lib/timebox';
+import { pieceTimeText, type CutPiece } from '../../lib/cuts';
 import { nudgeBlock, slotLabel, taskDuration, yToMinutes, type BlockNudge } from '../../lib/drag';
 import { dateKey } from '../../lib/kanban';
 import { shortcutFor } from '../../lib/shortcuts';
@@ -39,6 +40,9 @@ const KEY_NUDGE: Partial<Record<string, BlockNudge>> = {
   blockLonger: 'longer',
 };
 
+// A break (a task with "Cut tasks underneath" on) with no label colour: a neutral grey, no new colour in the palette.
+const BREAK_TINT = '#E6E4DD';
+
 export default function TimeBlock({
   task,
   label,
@@ -53,7 +57,18 @@ export default function TimeBlock({
   onChanged,
   listEmoji,
   fullText,
+  piece,
+  note,
+  badge,
 }: {
+  // "Cut tasks underneath" (Part B): this block is one piece of a task that a break cuts. A press, a
+  // drag and the keys act on the whole task; only the last piece has the resize handle and the
+  // late button; a later piece shows its start and the time left instead of the full length.
+  piece?: CutPiece;
+  // Why a break could not cut: the whole sentence (lib/cuts.ts refusalNote, in the tooltip) and the
+  // short badge drawn on the block.
+  note?: string;
+  badge?: string;
   // The Calendar (2.28.0): the title wraps over as many lines as it needs, never an ellipsis;
   // a block too short for it clips at the bottom and the hover tooltip has all of it.
   fullText?: boolean;
@@ -76,6 +91,10 @@ export default function TimeBlock({
   const resizing = drag?.mode === 'resize' && drag.item.id === task.id && drag.item.scope === scope ? drag.resizeDuration : undefined;
   const lifted = drag?.mode === 'move' && drag.item.id === task.id;
   const startMin = toMinutes(task.startTime) ?? 0;
+  const lastPiece = !piece || piece.last;
+  const headPiece = !piece || piece.head;
+  // Pieces after the first get their own block key, so the first keeps the task's (tests and focus).
+  const blockKey = piece && piece.index > 0 ? `${task.id}~${piece.index + 1}` : task.id;
   const live = useRef({ task, projected });
   live.current = { task, projected };
 
@@ -101,8 +120,8 @@ export default function TimeBlock({
   const elRef = useRef<HTMLElement | null>(null);
   // The Calendar's hover tooltip holds the whole block, kept current as the task changes.
   useEffect(() => {
-    if (fullText) tipRef(blockTip(task))(elRef.current);
-  }, [fullText, task.title, task.emoji, task.startTime, task.durationMinutes, task.recurrence]);
+    if (fullText) tipRef(blockTip(task, piece, note))(elRef.current);
+  }, [fullText, task.title, task.emoji, task.startTime, task.durationMinutes, task.recurrence, piece, note]);
   const blockRef = useCallback(
     (instance: unknown) => {
       dragRef(instance);
@@ -110,7 +129,7 @@ export default function TimeBlock({
       keysCleanup.current = null;
       const el = domNode(instance);
       elRef.current = el;
-      if (fullText) tipRef(blockTip(live.current.task))(el);
+      if (fullText) tipRef(blockTip(live.current.task, piece, note))(el);
       if (!el) return;
       const onKey = (e: KeyboardEvent) => {
         if (e.target !== el || e.repeat) return;
@@ -185,9 +204,13 @@ export default function TimeBlock({
     };
   }, [late, task.id, task.startTime, task.durationMinutes, task.dueDate]);
 
-  const sized = resizing ? { ...positioned, height: blockHeightPx(resizing) } : positioned;
-  const compact = isCompactBlock(resizing ? blockHeightPx(resizing) : height);
-  const dataSet = scope ? { calBlock: `${scope}${task.id}`, blockTask: task.id } : { blockId: task.id, blockTask: task.id };
+  // Resizing a cut task: the last piece follows the handle (its length is the new end less its own start).
+  const resizedH = resizing === undefined ? undefined : piece ? blockHeightPx(Math.max(15, startMin + resizing - piece.startMin)) : blockHeightPx(resizing);
+  const sized = resizedH !== undefined && lastPiece ? { ...positioned, height: resizedH } : positioned;
+  const compact = isCompactBlock(resizedH !== undefined && lastPiece ? resizedH : height);
+  const pieceData = piece ? { piece: String(piece.index + 1), pieceCount: String(piece.count) } : {};
+  const baseData = scope ? { calBlock: `${scope}${blockKey}`, blockTask: task.id } : { blockId: blockKey, blockTask: task.id };
+  const dataSet = { ...baseData, ...pieceData, ...(task.cutsBelow ? { cuts: '1' } : {}) };
 
   return (
     <View style={[styles.wrap, sized, lifted && styles.lifted]}>
@@ -198,14 +221,14 @@ export default function TimeBlock({
           onPress={() => openDetail(task.id)}
           style={[
             styles.block,
-            { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent },
+            { backgroundColor: color?.tint ?? (task.cutsBelow ? BREAK_TINT : '#FFFFFF'), borderLeftColor: color?.edge ?? (task.cutsBelow ? Colors.textSecondary : Colors.accent) },
             continues && styles.continues,
             projected && styles.projected,
             late && styles.late,
             resizing !== undefined && styles.active,
           ]}
           accessibilityRole="button"
-          accessibilityLabel={a11y}
+          accessibilityLabel={piece ? `${a11y}, part ${piece.index + 1} of ${piece.count}` : a11y}
           {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
           <View style={[styles.titleRow, fullText && styles.titleRowTop]}>
@@ -214,7 +237,19 @@ export default function TimeBlock({
               {task.title}
             </Text>
             {/* A short block shows one line: title and its true duration ("10m"). */}
-            {compact && resizing === undefined && formatDuration(task.durationMinutes) && <Text style={styles.timeInline}>{formatDuration(task.durationMinutes)}</Text>}
+            {compact && resizing === undefined && (headPiece ? formatDuration(task.durationMinutes) : formatDuration(piece?.leftMin)) && (
+              <Text style={styles.timeInline}>
+                {/* A break and a later piece also say when they start: their block is one line. */}
+                {task.cutsBelow || (piece && !piece.head) ? `${formatTime(piece ? toTime(piece.startMin) : task.startTime ?? '')} ` : ''}
+                {headPiece ? formatDuration(task.durationMinutes) : `${formatDuration(piece?.leftMin)} left`}
+              </Text>
+            )}
+            {/* A refused cut on a short block (no room for the badge): a small info mark with the whole sentence. */}
+            {badge && compact && resizing === undefined && (
+              <Text ref={tipRef(note) as never} style={styles.cutInfo} accessibilityLabel={note} {...({ 'aria-label': note, dataSet: { cutNoteIcon: '1' } } as object)}>
+                {'ⓘ'}
+              </Text>
+            )}
             {isMustDo(task) && <PriorityMark />}
             {task.recurrence && (
               <View style={fullText ? styles.repeatTop : undefined}>
@@ -230,12 +265,20 @@ export default function TimeBlock({
             !compact && (
               <Text style={styles.time} {...({ dataSet: { mono: '1' } } as object)}>
                 {listEmoji ? <Text {...({ dataSet: { blockListEmoji: '1' } } as object)}>{listEmoji} </Text> : null}
-                {formatTime(task.startTime ?? '')} {formatDuration(task.durationMinutes) ?? ''} {task.completed ? 'done' : ''}
+                {piece && !piece.head
+                  ? pieceTimeText(formatTime(toTime(piece.startMin)), undefined, formatDuration(piece.leftMin), false)
+                  : `${formatTime(task.startTime ?? '')} ${formatDuration(task.durationMinutes) ?? ''}`}{' '}
+                {task.completed && lastPiece ? 'done' : ''}
               </Text>
             )
           )}
+          {badge && !compact && resizing === undefined && (
+            <Text style={styles.cutNote} {...({ dataSet: { cutNote: '1' } } as object)}>
+              {badge}
+            </Text>
+          )}
           {/* Inside the block, so a drag that starts on it still moves the block. */}
-          {late && move && resizing === undefined && (
+          {late && move && resizing === undefined && lastPiece && (
             <Pressable
               onPress={() => moveLateTask(task.id).then((ok) => ok && onChanged())}
               style={[styles.lateBtn, compact ? styles.lateTop : styles.lateBottom]}
@@ -255,16 +298,17 @@ export default function TimeBlock({
             <Ionicons name="arrow-down" size={10} color={Colors.textSecondary} />
           </View>
         )}
-        <View ref={handleRef as never} style={styles.handle} accessibilityLabel={`Resize ${task.title}`} />
+        {lastPiece && <View ref={handleRef as never} style={styles.handle} accessibilityLabel={`Resize ${task.title}`} />}
       </View>
     </View>
   );
 }
 
 // The whole block as one line of text, for the hover tooltip.
-function blockTip(task: Task): string {
+function blockTip(task: Task, piece?: CutPiece, note?: string): string {
   const dur = formatDuration(task.durationMinutes);
-  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, [formatTime(task.startTime ?? ''), dur].filter(Boolean).join(' '), task.recurrence ? 'Repeats' : ''].filter(Boolean).join(', ');
+  const when = piece && !piece.head ? `${formatTime(toTime(piece.startMin))} ${formatDuration(piece.leftMin)} left` : [formatTime(task.startTime ?? ''), dur].filter(Boolean).join(' ');
+  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, when, task.recurrence ? 'Repeats' : '', note ?? ''].filter(Boolean).join(', ');
 }
 
 // Where a drag would land on a time grid: a dashed outline at the snapped slot
@@ -294,6 +338,8 @@ const styles = StyleSheet.create({
   active: { boxShadow: `inset 0 0 0 1px ${Colors.accent}` } as object,
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   title: { flexShrink: 1, fontSize: 12, lineHeight: 16, fontWeight: '600', color: Colors.textPrimary },
+  cutInfo: { fontSize: 11, lineHeight: 16, color: Colors.textSecondary, flexShrink: 0 },
+  cutNote: { fontSize: 10, lineHeight: 13, fontStyle: 'italic', color: Colors.textSecondary, minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
   titleRowTop: { alignItems: 'flex-start' },
   titleWrap: { minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
   repeatTop: { marginTop: 2, flexShrink: 0 },

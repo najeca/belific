@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 2.31.0 — 2026-10-20 (Part B, P4: Cut tasks underneath)
+
+**Desktop only. No schema change here (the switch syncs through the P3 gate, `cuts_below`, once Jethro applies 004); the minimum piece length is a `user_settings` row (`planner.cut_min`), no new table.**
+- **The switch:** a task has "Cut tasks underneath" (details, after Repeats; off by default). A task with it on is a break: where it overlaps other timed tasks, those are drawn in pieces around it, **stacked at full width, never side by side** (Calendar Day, Week and the Timebox panel). Pieces: the first shows the title and "9:30am 7h"; the break is a full width box (grey with no label colour; its label colour otherwise); each later piece shows the same title, its start and "5h 10m left" (to the task's end). Heights and positions stay tied to real time.
+- **Rules (`lib/cuts.ts`, derived each time, nothing stored, the host row is never changed):** only a break cuts, never another break (two breaks overlapping stay side by side); a cut is allowed only if every piece it leaves is at least the minimum (Settings, Planning: 15, 30 or 60 minutes, default 30, synced); a refused cut (too small a leftover, or the break covers the whole task) falls back to side by side and the break says why ("Not cut: 20 min piece (min 30)" on the block, the whole sentence in its tooltip, an ⓘ mark on a block too short for the badge); several breaks are judged one by one, earliest first; a break running past the end cuts only inside; overnight tasks cut on both days (the last piece ends at the true end and keeps "continues"; the next day cuts its continuation); every occurrence of a repeating task and break is cut on its own day. Moving, resizing or deleting a break (or switching it off) recomputes at once.
+- **Pieces:** a press, a drag and the arrow keys act on the whole task; only the last piece has the resize handle and the late button; a short break or later piece also shows its start time on its one line.
+- **Words:** the P1 no-split rule applies to all pieces.
+- Desktop only names added to the iOS marker gate on purpose: `planCuts`, `refusalNote`, "Cut tasks underneath", "Smallest piece when a break cuts a task". The two synced fields are shared sync code, not markers.
+- Tests: `cuts.test.ts` (20), real check `p14.js` (39: the drawing in Calendar and Timebox, three breaks, a refused cut, overnight, a repeating pair, the switch, the setting).
+
+---
+
 ## 2.30.0 — 2026-10-20 (Part B, P3: sync for the cut switch and the reminder list; migration 004 written, NOT APPLIED)
 
 **No screen changes. Nothing live changed: `004_part_b.sql` is written and NOT APPLIED; Jethro applies it after a backup and his go (never `db push`).**

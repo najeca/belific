@@ -61,6 +61,13 @@ const MARKERS = [
   // 2.27.1: the emoji picker and its bundled emojibase data are desktop only.
   'searchEmoji',
   'Search emoji for',
+  // 2.31.0 (Part B, P4): cutting a task around a break is desktop only (lib/cuts.ts, the
+  // switch in the details and the Settings row). The phone shows no cut pieces; the two
+  // synced fields (cutsBelow, reminders) are shared sync code and are NOT markers.
+  'planCuts',
+  'refusalNote',
+  'Cut tasks underneath',
+  'Smallest piece when a break cuts a task',
 ];
 
 const ALLOWED = {

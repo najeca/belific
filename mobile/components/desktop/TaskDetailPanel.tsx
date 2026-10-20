@@ -327,6 +327,23 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           <RepeatField task={task} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
+        {/* Cut tasks underneath (Part B): a break cuts the timed tasks it overlaps into pieces. Off by default. */}
+        <DetailRow glyph="✂️" label="Cut tasks underneath">
+          <View style={styles.row}>
+            <Pressable
+              onPress={() => patch({ cutsBelow: task.cutsBelow ? undefined : true })}
+              style={[styles.switch, task.cutsBelow && styles.switchOn]}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: !!task.cutsBelow }}
+              accessibilityLabel="Cut tasks underneath"
+              {...({ 'aria-checked': !!task.cutsBelow, dataSet: { cutSwitch: task.cutsBelow ? '1' : '0' } } as object)}
+            >
+              <View style={[styles.knob, task.cutsBelow && styles.knobOn]} />
+            </Pressable>
+            <Text style={styles.quietText}>{task.cutsBelow ? 'For a break: tasks it overlaps are drawn in pieces around it' : 'Off'}</Text>
+          </View>
+        </DetailRow>
+
         {feats.dueDates && (
           <DetailRow glyph="🔔" label="Reminder">
             <ReminderField task={task} ops={ops} onSaved={onSaved} />

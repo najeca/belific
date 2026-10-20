@@ -127,6 +127,9 @@ async function run() {
   const popoverOpen = () => exists(`document.querySelector('[role="dialog"]')`);
   const blur = () => js('document.activeElement && document.activeElement.blur()');
 
+  // 2.28.0: the app opens on the Calendar; these checks start on the Tasks view.
+  await click(byLabel('Show Tasks'), 600);
+
   // ======== 1. The timer found again after a restart ========
   check('a timer left running is found on launch: the floating timer shows its task', await exists(byLabel('Timer running for Running task')));
   // 2.27.0: the card face carries no timer line; the floating timer is the one place.

@@ -74,6 +74,8 @@ async function run() {
   win.webContents.focus();
   const I = makeInput(win, process.env.BELIFIC_SHOTS || '');
   await I.waitBody('Beta', 20000);
+  // 2.28.0: the app opens on the Calendar; these checks start on the Tasks view.
+  await I.click(I.byLabel('Show Tasks'), 600);
   await C.sleep(800);
   const profileIcon = async () => ((await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in');
   const openFromMenu = async (label) => {

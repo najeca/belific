@@ -73,6 +73,12 @@ async function run() {
   win.webContents.focus();
   const body = () => js('document.body.innerText');
   await C.waitFor(async () => (await body()).includes('Daily walk'), 20000);
+  // 2.28.0: the app opens on the Calendar; this check starts on the Tasks view.
+  {
+    const pt = await win.webContents.executeJavaScript(`(() => { const e = document.querySelector('[aria-label="Show Tasks"]'); if (!e) return null; const b = e.getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }; })()`, true);
+    if (pt) for (const type of ['mouseMove', 'mouseDown', 'mouseUp']) win.webContents.sendInputEvent({ type, x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
+    await C.sleep(700);
+  }
 
   const rectOf = (expr) =>
     js(`(() => { const el = ${expr}; if (!el) return null; el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), w: r.width, h: r.height, top: r.top, bottom: r.bottom, left: r.left, right: r.right }; })()`);
@@ -116,7 +122,8 @@ async function run() {
     }
     await C.sleep(150);
   };
-  const q = (sel) => `document.querySelector(${JSON.stringify(sel)})`;
+  // 2.28.0: the Calendar is mounted (hidden) from launch and repeats some labels, so take the shown one.
+  const q = (sel) => `Array.from(document.querySelectorAll(${JSON.stringify(sel)})).find((e) => e.getBoundingClientRect().width > 0)`;
   const exists = (expr) => js(`!!${expr}`);
   const shot = async (name) => {
     if (!SHOTS) return;

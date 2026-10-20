@@ -84,6 +84,8 @@ async function run() {
   win.webContents.focus();
   const I = makeInput(win, process.env.BELIFIC_SHOTS || '');
   await I.waitBody('Today task', 20000);
+  // 2.28.0: the app opens on the Calendar; these checks start on the Tasks view.
+  await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 600);
   await C.sleep(1000);
 
   const col = (key) => `document.querySelector('[data-day-col="${key}"]')`;
@@ -411,7 +413,7 @@ async function run() {
   check('8: Not away any more writes the row back to 0 (not a tombstone, so it can be marked again)', awayRow(day(1))?.value === '0' && !awayRow(day(1))?.deletedAt && (await I.js(`${col(day(1))}.getAttribute('data-away')`)) === null);
 
   // ======== 9. Must do ========
-  const mustPill = async (k, title) => (await I.textOf(card(k, title))).includes('Must do');
+  const mustPill = async (k, title) => (await I.textOf(card(k, title))).includes('❗') // 2.28.0: the red ! mark;
   check('9: a task already stored as high counts as Must do (the marker on its card)', await mustPill(day(1), 'Already high'));
   await I.click(`${card(day(1), 'Already high')}.querySelector('[aria-label="Title Already high"]')`, 600);
   check('9: and the switch in the details is on', (await I.js(`document.querySelector('[data-must-do-switch]')?.getAttribute('aria-checked') ?? null`)) === 'true');
@@ -427,16 +429,16 @@ async function run() {
   await closeModal();
   await hoverIcons(card(day(1), 'Shift me too'));
   await I.click(`${card(day(1), 'Shift me too')}.querySelector('[data-ctl="more"]')`, 500);
-  await I.click(I.byLabel('Must do, off: turn it on'), 600);
+  await I.click(I.byLabel('High priority, off: turn it on'), 600);
   await C.waitFor(() => byId('s10b').priority === 'high', 4000).catch(() => {});
   await C.sleep(300);
   check('9: the ⋮ menu has the same toggle, and the card shows the marker', byId('s10b').priority === 'high' && (await mustPill(day(1), 'Shift me too')));
   await hoverIcons(card(day(1), 'Shift me too'));
   await I.click(`${card(day(1), 'Shift me too')}.querySelector('[data-ctl="more"]')`, 500);
-  await I.click(I.byLabel('Must do, on: turn it off'), 600);
+  await I.click(I.byLabel('High priority, on: turn it off'), 600);
   await C.waitFor(() => byId('s10b').priority === undefined, 4000).catch(() => {});
   check('9: and turns it off', byId('s10b').priority === undefined);
-  check('9: Must do is nowhere else on the card (no inline control)', !(await I.exists(`${card(day(1), 'Shift me')}.querySelector('[aria-label*="Must do"][role="button"]')`)));
+  check('9: Must do is nowhere else on the card (no inline control)', !(await I.exists(`${card(day(1), 'Shift me')}.querySelector('[aria-label*="High priority"][role="button"]')`)));
 
   // ======== 10. Shift a day ========
   const movableOn = (k) => tasks().filter((t) => !t.deletedAt && !t.completed && t.dueDate === k && !t.recurrence && !t.id.includes(':'));

@@ -72,6 +72,11 @@ export function resolvePaneState(settingRaw: string | null | undefined, localRaw
   return parsePaneState(settingRaw) ?? parsePaneState(localRaw) ?? DEFAULT_PANE_STATE;
 }
 
+// 2.28.0: every launch opens on the Calendar in Week mode, whatever was
+// remembered (and "show only today" off, which would turn Week into Day). The
+// pane widths stay remembered; the centre view and range are not.
+export const launchPaneState = (s: PaneState): PaneState => ({ ...s, center: 'calendar', calendar: 'week', onlyToday: false });
+
 // ---- changes (each returns a new state) ----
 export const toggleLeft = (s: PaneState): PaneState => ({ ...s, leftCollapsed: !s.leftCollapsed });
 export const toggleRight = (s: PaneState): PaneState => ({ ...s, rightCollapsed: !s.rightCollapsed });

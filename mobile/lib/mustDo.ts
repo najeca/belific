@@ -5,6 +5,12 @@
 // mustDo.test.ts. Sync is unchanged (the priority column, as before).
 import type { Task } from './types.ts';
 
+// How the top priority is shown (2.28.0): a red exclamation mark (U+2757) with the
+// words kept for screen readers and the hover tooltip. Display only; the stored
+// value stays 'high'.
+export const MUST_DO_MARK = '❗';
+export const MUST_DO_TIP = 'High priority';
+
 export function isMustDo(task: Pick<Task, 'priority'>): boolean {
   return task.priority === 'high';
 }

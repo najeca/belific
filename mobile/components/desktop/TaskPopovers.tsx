@@ -38,7 +38,7 @@ import { formatTaskTime } from '../../lib/taskTotals';
 import { isTimerRunning } from '../../lib/taskTimer';
 import type { Project, Task, WeekDay } from '../../lib/types';
 import HoverPressable from './HoverPressable';
-import { isMustDo, mustDoPatch } from '../../lib/mustDo';
+import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
 import { notifyChanged, openDetail, openOverlay, useNewColorsOk } from './uiStore';
 import { toggleTimer, useNow } from './timerUi';
 import { useFeatures } from './featureStore';
@@ -689,15 +689,15 @@ export function OverflowBody({
   const mustRow =
     task && (onOpen || !task.id.startsWith('dump:')) ? (
       <Row
-        label="Must do"
+        label={MUST_DO_MARK}
+        tip={MUST_DO_TIP}
         selected={isMustDo(task)}
-        leading={<Text>❗</Text>}
         onPress={async () => {
           await ops.patch(mustDoPatch(!isMustDo(task)));
           notifyChanged();
           done();
         }}
-        a11y={isMustDo(task) ? 'Must do, on: turn it off' : 'Must do, off: turn it on'}
+        a11y={isMustDo(task) ? `${MUST_DO_TIP}, on: turn it off` : `${MUST_DO_TIP}, off: turn it on`}
       />
     ) : null;
   // A repeating task (stored or projected): skip one day, or delete the series.

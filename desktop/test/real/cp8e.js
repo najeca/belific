@@ -48,6 +48,12 @@ async function run() {
   const win = await C.waitFor(() => C.firstWindow());
   const js = (code) => win.webContents.executeJavaScript(code, true);
   await C.waitFor(async () => (await js('document.body.innerText')).includes('Short'), 20000);
+  // 2.28.0: the app opens on the Calendar; this check starts on the Tasks view.
+  {
+    const pt = await win.webContents.executeJavaScript(`(() => { const e = document.querySelector('[aria-label="Show Tasks"]'); if (!e) return null; const b = e.getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }; })()`, true);
+    if (pt) for (const type of ['mouseMove', 'mouseDown', 'mouseUp']) win.webContents.sendInputEvent({ type, x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
+    await C.sleep(700);
+  }
 
   // Two small moves, as a real pointer sends, so the page sees it arrive.
   // Hover events only reach a window that has focus.

@@ -136,8 +136,11 @@ async function run() {
   };
 
   // ======== 1. The default layout ========
+  // 2.28.0: every launch opens on the Calendar in Week mode; the Tasks view is one click away.
+  check('2.28.0: it opens on the Calendar in Week mode', (await calView()) === 'week' && !(await kanbanShown()));
+  await click(byLabel('Show Tasks'), 500);
   check('all three panes are showing, Tasks (the board) in the centre', (await width('[data-pane="left"]')) > 100 && (await width('[data-pane="center"]')) > 100 && (await width('[data-pane="right"]')) > 100 && (await kanbanShown()));
-  check('no calendar yet', (await calView()) === null);
+  check('no calendar now', (await calView()) === null);
   await shot('p3-01-default');
   const centerWide0 = await width('[data-pane="center"]');
 
@@ -160,6 +163,8 @@ async function run() {
   await waitBody('Alpha today', 20000);
   await C.sleep(600);
   check('after a reload (a restart of the screen) both panes are still hidden', (await width('[data-pane="left"]')) <= 0 && (await width('[data-pane="right"]')) <= 0);
+  // 2.28.0: the reload opened on the Calendar again (the centre view is not remembered); go back to Tasks.
+  await click(byLabel('Show Tasks'), 500);
   await click(byLabel('Show sidebar'));
   await click(byLabel('Show Timebox'));
   check('the show buttons bring the panes back', (await width('[data-pane="left"]')) > 100 && (await width('[data-pane="right"]')) > 100);

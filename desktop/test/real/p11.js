@@ -81,6 +81,8 @@ async function run() {
   win.webContents.focus();
   const I = makeInput(win, process.env.BELIFIC_SHOTS || '');
   await I.waitBody('Modal task', 20000);
+  // 2.28.0: the app opens on the Calendar; these checks start on the Tasks view.
+  await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 600);
   await C.sleep(1000);
 
   const card = (key, title) => `document.querySelector('[data-day-col="${key}"] [aria-label^="Task ${title}"]')`;

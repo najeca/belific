@@ -29,6 +29,8 @@ import { useDayStart } from './useDayStart';
 import { followToday } from '../../lib/dayStrip';
 import { domNode, useDrag } from './DragProvider';
 import TimeBlock, { SlotPreview } from './TimeBlock';
+import PriorityMark from './PriorityMark';
+import { isMustDo } from '../../lib/mustDo';
 import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
 import usePaneScroll from './usePaneScroll';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -383,6 +385,7 @@ export default function TimeboxPane({
                             {t.title}
                           </Text>
                           {isCompactBlock(b.height) && <Text style={styles.blockTimeInline}>Continues from yesterday</Text>}
+                          {isMustDo(t) && <PriorityMark />}
                         </View>
                         {!isCompactBlock(b.height) && <Text style={styles.blockTime}>Continues from yesterday</Text>}
                       </Pressable>

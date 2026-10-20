@@ -8,6 +8,25 @@ to know the current version and recent history.
 
 ---
 
+## 2.28.1 — 2026-10-20 (display fix, Part A)
+
+**Desktop display only. No schema, sync or stored change. Not committed.** The red ! (U+2757, "High priority" tooltip and aria-label) now also shows on every Calendar block (day and week), the all-day chips, the month chips, every piece of a "continues" block, and every Timebox card of a top priority task. It sits small beside the repeat icon, after the title, and never over it (`PriorityMark.tsx`). No outline or colour change, and no change to sizes, widths or how overlapping tasks sit. Imported and custom events have no priority and no mark. Real check `p12.js` section A5 (now 37 checks).
+
+---
+
+## 2.28.0 — 2026-10-20 (display batch, Part A)
+
+**Four display changes, desktop only. No schema change, no new table, no sync change, no stored value changed. The phone is untouched. Not committed.**
+
+- **A1. Opens on the Calendar, Week mode, every launch.** `launchPaneState` (`lib/paneState.ts`) sets the centre view to Calendar, the range to Week and "Only today" off after the remembered layout loads; pane widths stay remembered. Changing view or range during the session works as before.
+- **A2. The top priority shows as a red exclamation mark (U+2757)** instead of "Must do" on cards, the Missed list, the details row and the ⋮ menu, with the aria-label and hover tooltip "High priority" (`MUST_DO_MARK`, `MUST_DO_TIP` in `lib/mustDo.ts`). The stored value stays `high`; the switch works as before.
+- **A3. Calendar blocks show the whole title**, wrapped over as many lines as needed, with the time, duration and repeat icon in full. A block too short for it clips at the bottom (never an ellipsis) and its hover tooltip holds the whole text. Block height and position are unchanged. The Timebox panel keeps its one line blocks.
+- **A4. The palette lock note.** The "Every computer runs Belific 2.27 or later" tick and its lock note show only until it is ticked; then one line, "Extra colours on". The notes wrap inside the picker and are never cut at the right edge.
+- Tooltips use `components/desktop/tip.ts` (react-native-web drops a `title` prop). - **Fixed on the way:** the Calendar now stays mounted from launch, so its Filter menu and the Tasks board's both opened when Filter was pressed on Tasks (a ghost copy at the top left, which a visit to the Calendar and back could always cause). `Popover` now draws nothing for an anchor in a hidden pane and a hidden copy can no longer close the shown one.
+- Older real checks (p2, p3, p4, p7, p9, p10, p11, cp8b to cp8h, cp9 to cp11) now start by pressing Show Tasks, since the app opens on the Calendar; p10 reads the ! mark and "High priority". Real check `p12.js` (25).
+
+---
+
 ## 2.27.1 — 2026-10-19 (small fix batch)
 
 **Five fixes asked for by Jethro, one commit each (plus a follow-up that resyncs the calendar feed's vendored `duration.ts`); the version moves to 2.27.1 in the last commit. No schema change, no new table, no sync change, nothing pushed or deployed. The Ellie screenshots were used for behaviour and layout only (no icon, logo, text or asset of theirs). Nothing here changes an iPhone screen.**

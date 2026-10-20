@@ -79,6 +79,12 @@ async function run() {
   win.webContents.focus();
   const body = () => js('document.body.innerText');
   await C.waitFor(async () => (await body()).includes('Alpha'), 20000);
+  // 2.28.0: the app opens on the Calendar; this check starts on the Tasks view.
+  {
+    const pt = await win.webContents.executeJavaScript(`(() => { const e = document.querySelector('[aria-label="Show Tasks"]'); if (!e) return null; const b = e.getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }; })()`, true);
+    if (pt) for (const type of ['mouseMove', 'mouseDown', 'mouseUp']) win.webContents.sendInputEvent({ type, x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
+    await C.sleep(700);
+  }
 
   // ---- real input helpers (same as cp9) ----
   const visible = (sel) => `Array.from(document.querySelectorAll(${JSON.stringify(sel)})).find((e) => e.getBoundingClientRect().width > 0)`;

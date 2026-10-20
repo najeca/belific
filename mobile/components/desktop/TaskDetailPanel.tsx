@@ -16,7 +16,8 @@ import { loadLabels } from '../../lib/labels';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
-import { isMustDo, mustDoPatch } from '../../lib/mustDo';
+import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
+import { tipRef } from './tip';
 import EmojiField from './EmojiField';
 import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -305,20 +306,20 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
         </DetailRow>
 
         {/* Must do (2.27.0): one switch over the stored priority (on = high, off = none). */}
-        <DetailRow glyph="❗" label="Must do">
+        <DetailRow glyph={MUST_DO_MARK} label="Must do" shown="" tip={MUST_DO_TIP}>
           <View style={styles.row}>
             <Pressable
               onPress={() => patch(mustDoPatch(!isMustDo(task)))}
               style={[styles.switch, isMustDo(task) && styles.switchOn]}
               accessibilityRole="switch"
               accessibilityState={{ checked: isMustDo(task) }}
-              accessibilityLabel="Must do"
+              accessibilityLabel={MUST_DO_TIP}
               // react-native-web leaves aria-checked off a switch: set it, so its state is read out.
               {...({ 'aria-checked': isMustDo(task), dataSet: { mustDoSwitch: isMustDo(task) ? '1' : '0' } } as object)}
             >
               <View style={[styles.knob, isMustDo(task) && styles.knobOn]} />
             </Pressable>
-            <Text style={styles.quietText}>{isMustDo(task) ? 'Shown first, with a Must do marker' : 'Off'}</Text>
+            <Text style={styles.quietText}>{isMustDo(task) ? 'Shown first, with a ❗ marker' : 'Off'}</Text>
           </View>
         </DetailRow>
 
@@ -605,11 +606,14 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
 
 // One row of the modal (2.27.1): one compact line, the name on the left and its
 // value on the right, no divider lines.
-function DetailRow({ glyph, label, children }: { glyph: string; label: string; children: React.ReactNode }) {
+// `label` keys the row; `shown` replaces the words on screen (the priority row shows
+// only its mark) and `tip` is then its hover tooltip and screen reader name.
+function DetailRow({ glyph, label, shown, tip, children }: { glyph: string; label: string; shown?: string; tip?: string; children: React.ReactNode }) {
+  const text = shown ?? label;
   return (
     <View style={styles.detailRow} {...({ dataSet: { detailRow: label } } as object)}>
-      <Text style={styles.rowLabel} numberOfLines={1} accessibilityRole="header">
-        {glyph}  {label}
+      <Text ref={tipRef(tip) as never} style={styles.rowLabel} numberOfLines={1} accessibilityRole="header" accessibilityLabel={tip}>
+        {text ? `${glyph}  ${text}` : glyph}
       </Text>
       <View style={styles.rowBody}>{children}</View>
     </View>

@@ -17,6 +17,9 @@ import { isPopoverOpen } from './Popover';
 import { openDetail } from './uiStore';
 import { isLate } from '../../lib/lateTasks';
 import { lateMoveFor, moveLateTask } from '../../lib/lateActions';
+import { tipRef } from './tip';
+import PriorityMark from './PriorityMark';
+import { isMustDo } from '../../lib/mustDo';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
 // day and week views draw the same block, so they behave the same. A press
@@ -49,7 +52,11 @@ export default function TimeBlock({
   gridNode,
   onChanged,
   listEmoji,
+  fullText,
 }: {
+  // The Calendar (2.28.0): the title wraps over as many lines as it needs, never an ellipsis;
+  // a block too short for it clips at the bottom and the hover tooltip has all of it.
+  fullText?: boolean;
   // The emoji of the task's list (2.27.1), on the time line of a block tall enough for it.
   listEmoji?: string;
   task: Task;
@@ -91,12 +98,19 @@ export default function TimeBlock({
 
   // The block's own keys: the arrows move it (never while a menu is open).
   const keysCleanup = useRef<(() => void) | null>(null);
+  const elRef = useRef<HTMLElement | null>(null);
+  // The Calendar's hover tooltip holds the whole block, kept current as the task changes.
+  useEffect(() => {
+    if (fullText) tipRef(blockTip(task))(elRef.current);
+  }, [fullText, task.title, task.emoji, task.startTime, task.durationMinutes, task.recurrence]);
   const blockRef = useCallback(
     (instance: unknown) => {
       dragRef(instance);
       keysCleanup.current?.();
       keysCleanup.current = null;
       const el = domNode(instance);
+      elRef.current = el;
+      if (fullText) tipRef(blockTip(live.current.task))(el);
       if (!el) return;
       const onKey = (e: KeyboardEvent) => {
         if (e.target !== el || e.repeat) return;
@@ -123,7 +137,7 @@ export default function TimeBlock({
       keysCleanup.current = () => el.removeEventListener('keydown', onKey);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dragRef, scope],
+    [dragRef, scope, fullText],
   );
 
   // The bottom edge: dragging it changes the estimate.
@@ -194,14 +208,19 @@ export default function TimeBlock({
           accessibilityLabel={a11y}
           {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
-          <View style={styles.titleRow}>
-            <Text style={[styles.title, task.completed && styles.titleDone]} numberOfLines={1}>
+          <View style={[styles.titleRow, fullText && styles.titleRowTop]}>
+            <Text style={[styles.title, fullText && styles.titleWrap, task.completed && styles.titleDone]} numberOfLines={fullText ? undefined : 1}>
               {task.emoji ? `${task.emoji} ` : ''}
               {task.title}
             </Text>
             {/* A short block shows one line: title and its true duration ("10m"). */}
             {compact && resizing === undefined && formatDuration(task.durationMinutes) && <Text style={styles.timeInline}>{formatDuration(task.durationMinutes)}</Text>}
-            {task.recurrence && <Ionicons name="repeat" size={12} color={Colors.textSecondary} accessibilityLabel="Repeats" />}
+            {isMustDo(task) && <PriorityMark />}
+            {task.recurrence && (
+              <View style={fullText ? styles.repeatTop : undefined}>
+                <Ionicons name="repeat" size={12} color={Colors.textSecondary} accessibilityLabel="Repeats" />
+              </View>
+            )}
           </View>
           {resizing !== undefined ? (
             <Text style={styles.snap} {...({ dataSet: { mono: '1' } } as object)}>
@@ -242,6 +261,12 @@ export default function TimeBlock({
   );
 }
 
+// The whole block as one line of text, for the hover tooltip.
+function blockTip(task: Task): string {
+  const dur = formatDuration(task.durationMinutes);
+  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, [formatTime(task.startTime ?? ''), dur].filter(Boolean).join(' '), task.recurrence ? 'Repeats' : ''].filter(Boolean).join(', ');
+}
+
 // Where a drag would land on a time grid: a dashed outline at the snapped slot
 // with its time, the same in the Timebox and the Calendar.
 export function SlotPreview({ startMin, duration, top }: { startMin: number; duration: number; top: number }) {
@@ -269,6 +294,9 @@ const styles = StyleSheet.create({
   active: { boxShadow: `inset 0 0 0 1px ${Colors.accent}` } as object,
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   title: { flexShrink: 1, fontSize: 12, lineHeight: 16, fontWeight: '600', color: Colors.textPrimary },
+  titleRowTop: { alignItems: 'flex-start' },
+  titleWrap: { minWidth: 0, overflowWrap: 'anywhere' } as object,
+  repeatTop: { marginTop: 2, flexShrink: 0 },
   titleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   time: { fontSize: 11, color: Colors.textSecondary },
   timeInline: { fontSize: 11, lineHeight: 16, color: Colors.textSecondary, flexShrink: 0 },

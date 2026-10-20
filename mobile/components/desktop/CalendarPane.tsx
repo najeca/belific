@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { domNode, useDrag } from './DragProvider';
 import TimeBlock, { SlotPreview } from './TimeBlock';
+import { tipRef } from './tip';
+import PriorityMark from './PriorityMark';
+import { isMustDo } from '../../lib/mustDo';
 import { taskDuration } from '../../lib/drag';
 import { dayAt, followToday, indexOfDay, leftDay, stripAround, visibleRange, weekRangeTitle } from '../../lib/dayStrip';
 import { useAwayDays } from './awayStore';
@@ -471,10 +474,13 @@ export default function CalendarPane({
                             accessibilityRole="button"
                             accessibilityLabel={`Calendar task ${t.title}`}
                           >
-                            <Text style={[styles.chipText, t.completed && styles.chipDone]} numberOfLines={1}>
-                              {t.emoji ? `${t.emoji} ` : ''}
-                              {t.title}
-                            </Text>
+                            <View style={styles.chipRow}>
+                              <Text style={[styles.chipText, styles.chipTextFlex, t.completed && styles.chipDone]} numberOfLines={1}>
+                                {t.emoji ? `${t.emoji} ` : ''}
+                                {t.title}
+                              </Text>
+                              {isMustDo(t) && <PriorityMark />}
+                            </View>
                           </Pressable>
                         );
                       })}
@@ -556,10 +562,13 @@ export default function CalendarPane({
                                 accessibilityLabel={`All day task ${t.title}`}
                                 {...({ dataSet: { calBlock: `${scope}${t.id}` } } as object)}
                               >
-                                <Text style={[styles.chipText, t.completed && styles.chipDone]} numberOfLines={1}>
-                                  {t.emoji ? `${t.emoji} ` : ''}
-                                  {t.title}
-                                </Text>
+                                <View style={styles.chipRow}>
+                                  <Text style={[styles.chipText, styles.chipTextFlex, t.completed && styles.chipDone]} numberOfLines={1}>
+                                    {t.emoji ? `${t.emoji} ` : ''}
+                                    {t.title}
+                                  </Text>
+                                  {isMustDo(t) && <PriorityMark />}
+                                </View>
                               </Pressable>
                             </View>
                           );
@@ -603,13 +612,14 @@ export default function CalendarPane({
                           <View
                             style={[styles.block, styles.imported]}
                             accessibilityLabel={`Imported event ${occ.title}, ${minuteLabel(startMin)} to ${minuteLabel(endMin)}, ${occ.calendarName}${continues ? ', continues from the day before' : ''}`}
+                            ref={tipRef(`${occ.title || 'Busy'}, ${minuteLabel(startMin)} to ${minuteLabel(endMin)}, ${occ.calendarName}`) as never}
                             {...({ dataSet: { extBlock: occ.id } } as object)}
                           >
-                            <Text style={styles.blockTitle} numberOfLines={1}>
+                            <Text style={styles.blockTitle}>
                               📅 {occ.title || 'Busy'}
                             </Text>
                             {!isCompactBlock(b.height) && (
-                              <Text style={styles.blockTime} numberOfLines={1}>
+                              <Text style={styles.blockTime}>
                                 {continues ? 'Continues' : minuteLabel(startMin)} to {minuteLabel(endMin)} · {occ.calendarName}
                               </Text>
                             )}
@@ -621,8 +631,8 @@ export default function CalendarPane({
                       const e = source.event;
                       return (
                         <View key={b.id} style={[styles.blockWrap, pos]}>
-                          <View style={[styles.block, { backgroundColor: `${e.color}26`, borderLeftColor: e.color, borderLeftWidth: 3 }]} accessibilityLabel={`Event ${e.title}`}>
-                            <Text style={styles.blockTitle} numberOfLines={1}>
+                          <View style={[styles.block, { backgroundColor: `${e.color}26`, borderLeftColor: e.color, borderLeftWidth: 3 }]} accessibilityLabel={`Event ${e.title}`} ref={tipRef(`${e.icon ? `${e.icon} ` : ''}${e.title}, ${formatTime(e.start)} to ${formatTime(e.end)}`) as never}>
+                            <Text style={styles.blockTitle}>
                               {e.icon ? `${e.icon} ` : ''}
                               {e.title}
                             </Text>
@@ -646,12 +656,16 @@ export default function CalendarPane({
                             style={[styles.block, styles.taskBlock, { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent }, styles.projected]}
                             accessibilityRole="button"
                             accessibilityLabel={`Calendar block, continues from yesterday: ${t.title}`}
+                            ref={tipRef(`${t.emoji ? `${t.emoji} ` : ''}${t.title}, continues from yesterday`) as never}
                             {...({ dataSet: { calBlock: `${scope}${t.id}` } } as object)}
                           >
-                            <Text style={[styles.blockTitle, t.completed && styles.chipDone]} numberOfLines={1}>
-                              {t.emoji ? `${t.emoji} ` : ''}
-                              {t.title}
-                            </Text>
+                            <View style={styles.chipRow}>
+                              <Text style={[styles.blockTitle, styles.chipTextFlex, t.completed && styles.chipDone]}>
+                                {t.emoji ? `${t.emoji} ` : ''}
+                                {t.title}
+                              </Text>
+                              {isMustDo(t) && <PriorityMark />}
+                            </View>
                             {!isCompactBlock(b.height) && <Text style={styles.blockTime}>Continues from yesterday</Text>}
                           </Pressable>
                         </View>
@@ -670,6 +684,7 @@ export default function CalendarPane({
                         continues={b.continues}
                         scope={scope}
                         a11y={`Calendar block ${t.title}`}
+                        fullText
                         gridNode={() => gridEl.current}
                         onChanged={onChanged}
                       />
@@ -735,10 +750,12 @@ const styles = StyleSheet.create({
   projected: { opacity: 0.82 },
   // Imported, read only: a dashed outline on the plain background, never a label colour.
   imported: { backgroundColor: Colors.background, borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.textSecondary },
-  blockTitle: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary },
+  blockTitle: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary, overflowWrap: 'anywhere' } as object,
   blockTime: { fontSize: 10, color: Colors.textSecondary },
   chip: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginVertical: 1, backgroundColor: Colors.background, minHeight: 20, justifyContent: 'center' },
   chipText: { fontSize: 11, color: Colors.textPrimary },
+  chipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
+  chipTextFlex: { flexShrink: 1, minWidth: 0 },
   chipDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   nowLine: { position: 'absolute', left: 0, right: 0, height: 2, backgroundColor: Colors.accentText },
   nowDot: { position: 'absolute', left: -4, top: -3, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.accentText },

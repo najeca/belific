@@ -3,6 +3,7 @@ import { kv } from '../../lib/kv';
 import { loadUserSetting, setUserSetting } from '../../lib/storage';
 import {
   DEFAULT_PANE_STATE,
+  launchPaneState,
   loadPaneState,
   savePaneState,
   type PaneState,
@@ -34,8 +35,9 @@ export function usePaneState(): [PaneState, (change: (s: PaneState) => PaneState
     loadPaneState(io).then((s) => {
       if (!alive) return;
       loadedRef.current = true;
-      latest.current = s;
-      setState(s);
+      const launch = launchPaneState(s);
+      latest.current = launch;
+      setState(launch);
       setLoaded(true);
     });
     return () => {

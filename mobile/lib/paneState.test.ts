@@ -5,6 +5,7 @@ import {
   DEFAULT_PANE_STATE,
   PANE_LOCAL_KEY,
   PANE_SETTING_KEY,
+  launchPaneState,
   loadPaneState,
   paneLayout,
   parsePaneState,
@@ -155,4 +156,10 @@ test('2.26.0 toggles: where a panel fits the choice is remembered; where it does
   assert.deepEqual(timeboxToggle(s, 1440, false), { state: { ...s, rightCollapsed: true }, overlayOpen: false });
   assert.deepEqual(timeboxToggle(s, 1000, false), { state: s, overlayOpen: true });
   assert.deepEqual(timeboxToggle({ ...s, center: 'calendar' }, 1440, false), { state: { ...s, center: 'calendar' }, overlayOpen: false });
+});
+
+test('every launch opens on the Calendar in Week mode, keeping the pane widths', () => {
+  const remembered: PaneState = { leftCollapsed: true, rightCollapsed: true, center: 'kanban', calendar: 'month', onlyToday: true };
+  assert.deepEqual(launchPaneState(remembered), { leftCollapsed: true, rightCollapsed: true, center: 'calendar', calendar: 'week', onlyToday: false });
+  assert.deepEqual(launchPaneState(DEFAULT_PANE_STATE), { ...DEFAULT_PANE_STATE, center: 'calendar', calendar: 'week' });
 });

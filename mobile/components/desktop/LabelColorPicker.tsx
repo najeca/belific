@@ -97,17 +97,27 @@ export function LabelColorPicker({
           }}
         />
       )}
-      <Pressable
-        onPress={() => setNewColorsOk(!ok)}
-        style={styles.tickRow}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: ok }}
-        accessibilityLabel={NEW_COLORS_TICK}
-      >
-        <View style={[styles.tick, ok && styles.tickOn]}>{ok && <Ionicons name="checkmark" size={11} color="#FFFFFF" />}</View>
-        <Text style={styles.tickText}>{NEW_COLORS_TICK}</Text>
-      </Pressable>
-      {!ok && <Text style={styles.note}>🔒 The last 12 colours and the colour wheel need it: an older Belific changes them back to one of the first 8.</Text>}
+      {/* 2.28.0: the tick and its lock note only while the extra colours are not yet confirmed;
+          afterwards one short line. The text wraps inside the picker, never cut at the edge. */}
+      {ok ? (
+        <Text style={styles.note} {...({ dataSet: { extraColoursOn: '1' } } as object)}>
+          Extra colours on
+        </Text>
+      ) : (
+        <>
+          <Pressable
+            onPress={() => setNewColorsOk(true)}
+            style={styles.tickRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: false }}
+            accessibilityLabel={NEW_COLORS_TICK}
+          >
+            <View style={styles.tick} />
+            <Text style={styles.tickText}>{NEW_COLORS_TICK}</Text>
+          </Pressable>
+          <Text style={styles.note}>🔒 The last 12 colours and the colour wheel need it: an older Belific changes them back to one of the first 8.</Text>
+        </>
+      )}
       {noneFree && (
         <Text style={[styles.note, styles.noteStrong]} {...({ dataSet: { noFreeColour: '1' } } as object)}>
           All 8 original colours are in use by other labels. Tick the box above once every computer runs 2.27 to use the other 12, or change another label's colour first.
@@ -118,7 +128,7 @@ export function LabelColorPicker({
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 6 },
+  wrap: { gap: 6, alignSelf: 'stretch', minWidth: 0 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, maxWidth: 240 },
   swatch: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
   swatchOn: { borderColor: Colors.textPrimary },
@@ -127,10 +137,9 @@ const styles = StyleSheet.create({
   fill: { width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   mark: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: Colors.textPrimary },
   rainbow: { backgroundImage: 'conic-gradient(#E23B3B, #F07A1A, #BF9100, #1F9E4E, #0B97CF, #4F46C8, #CC36B4, #E23B3B)' } as object,
-  tickRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 },
-  tick: { width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: Colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
-  tickOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  tickText: { fontSize: 12, color: Colors.textPrimary },
-  note: { fontSize: 11, color: Colors.textSecondary, lineHeight: 15 },
+  tickRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 2, alignSelf: 'stretch' },
+  tick: { width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: Colors.textSecondary, flexShrink: 0 },
+  tickText: { fontSize: 12, lineHeight: 16, color: Colors.textPrimary, flexShrink: 1, minWidth: 0, overflowWrap: 'anywhere' } as object,
+  note: { fontSize: 11, color: Colors.textSecondary, lineHeight: 15, alignSelf: 'stretch', minWidth: 0, overflowWrap: 'anywhere' } as object,
   noteStrong: { color: Colors.textPrimary },
 });

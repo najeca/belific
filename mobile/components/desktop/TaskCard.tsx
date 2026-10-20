@@ -5,7 +5,8 @@ import { Colors } from '../../lib/theme';
 import { formatClock } from '../../lib/duration';
 import { counter } from '../../lib/subtasks';
 import { dateKey } from '../../lib/kanban';
-import { isMustDo } from '../../lib/mustDo';
+import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
+import { tipRef } from './tip';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { isEditableTarget } from '../../lib/editable';
@@ -260,7 +261,7 @@ export default function TaskCard({
       // Not a button: RN web renders role button as a native <button>, and a
       // field inside a <button> turns a typed Space into a click on it.
       accessibilityLabel={`Task ${task.title}`}
-      accessibilityHint={[label ? `Label ${label.name}` : '', mustDo ? 'Must do' : ''].filter(Boolean).join(', ') || undefined}
+      accessibilityHint={[label ? `Label ${label.name}` : '', mustDo ? MUST_DO_TIP : ''].filter(Boolean).join(', ') || undefined}
       {...(task.id.startsWith('dump:') || projected ? {} : ({ dataSet: { taskCard: task.id } } as object))}
       {...(projected ? ({ dataSet: { projected: '1' } } as object) : {})}
     >
@@ -337,8 +338,13 @@ export default function TaskCard({
                   </Pressable>
                 )}
                 {mustDo && (
-                  <Text style={styles.mustDo} {...({ dataSet: { mustDo: '1' } } as object)}>
-                    Must do
+                  <Text
+                    ref={tipRef(MUST_DO_TIP) as never}
+                    style={styles.mustDo}
+                    accessibilityLabel={MUST_DO_TIP}
+                    {...({ dataSet: { mustDo: '1' }, 'aria-label': MUST_DO_TIP } as object)}
+                  >
+                    {MUST_DO_MARK}
                   </Text>
                 )}
               </View>
@@ -492,7 +498,7 @@ const styles = StyleSheet.create({
   ringBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingRight: 2 },
   counter: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
   counterDone: { color: Colors.accentText, fontWeight: '700' },
-  mustDo: { fontSize: 10.5, fontWeight: '700', color: Colors.accentText, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, borderWidth: 1, borderColor: Colors.accentText },
+  mustDo: { fontSize: 12, lineHeight: 16 },
   icons: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: 8, paddingLeft: 4 },
   quiet: { opacity: 0, pointerEvents: 'none' } as object,
   icon: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },

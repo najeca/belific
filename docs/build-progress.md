@@ -452,3 +452,23 @@ What the gates found, and what was done:
 5. **Emoji picker:** in the ⋮ menu, Emoji, type "game" and get 🎮. Check the recent row, the category tabs and Win+. pasting. Keyboard only: Down from the search box, the arrows, then Enter; Escape closes only the picker.
 6. **Emoji on other computers:** set a task, label or list emoji from a newer emoji (for example 🫠) and check it shows on the iPhone and on any other computer, which draw it with their own font.
 7. **Windows build:** after the next installer build, `THIRD_PARTY_NOTICES.md` is in the app's `resources` folder.
+
+## Display batch, Part A (2026-10-20): 2.28.0
+
+Four phases, desktop display only, not committed (Jethro reviews the diff first). See `docs/CHANGELOG.md` 2.28.0. Choices made without asking:
+1. A1 also turns "Only today" off at launch (it would turn Week into Day). The sidebar and Timebox collapsed states are still remembered.
+2. A1 resets the centre view and range only in memory at launch; the next pane change saves as before.
+3. A2 puts the mark on every place that showed "Must do"; the details row and the ⋮ menu row show only the mark, named "High priority" for screen readers and the tooltip. The switch's row key (`data-detail-row="Must do"`) is unchanged.
+4. A3 applies to the Calendar only (task blocks, imported events, custom events, "continues" blocks); the Timebox panel is unchanged. A block of 36 px or less keeps its one line layout (title, then the duration) and clips the rest; the tooltip has everything.
+5. A4: once ticked, the tick is gone, so it cannot be turned off again from the picker (before, it could be unticked). Say if you want a small "Turn off" there.
+6. Tooltips are written onto the DOM node (`tip.ts`), because react-native-web drops `title`.
+7. Found by the old real checks: with the Calendar mounted from launch, Filter on Tasks opened two menus (same popover id in both panes). Fixed in `Popover.tsx`: a copy whose anchor is hidden draws nothing and never closes the shown one. Existing checks that assumed Tasks at launch now press Show Tasks first (a deliberate test change).
+
+### Check by hand (display batch, 2.28.0)
+1. Quit and start Belific: it opens on the Calendar, Week. Switch to Tasks and Month, quit, start again: Calendar, Week again. Day, Week and Month still work.
+2. Mark a task as high priority: a red ! on its card, in the details and in the ⋮ menu; hover shows "High priority"; no "Must do" text.
+3. A long titled, long block on the Calendar shows the whole title over several lines with the time, duration and repeat icon. A 15 minute block clips at the bottom; hover shows everything.
+4. New label: before ticking, the tick and note show and the note fits; after ticking only "Extra colours on" remains.
+
+### Display fix (2026-10-20): 2.28.1
+The ! mark now also shows on Calendar blocks and chips (all-day, month, every piece of a "continues" block) and Timebox cards of a top priority task. Choices: it sits after the title, beside the repeat icon, so it cannot cover the title; month and all-day chips got a small row wrapper for it (title still truncates, the mark never does). Check by hand: mark a task high priority, give it a time, then look at it on the Timebox, the Calendar (day, week, month) and as an all-day task; make one run past midnight and look at both pieces; hover for "High priority"; a task without it and any imported event show no mark.

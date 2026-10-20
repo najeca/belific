@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { placePopover, MAX_POPOVER_HEIGHT, type Placement } from '../../lib/popover';
 import { ownsKeys } from '../../lib/editable';
+import { tipRef } from './tip';
 
 // The one popover every task control uses (checkpoint 8.2, decision 021).
 // Anchored to its trigger: opens below, flips above or sideways, and stays
@@ -99,7 +100,9 @@ export default function Popover({
   const measure = useCallback(() => {
     const a = anchor();
     const b = box.current;
-    if (!a || !b || !a.isConnected) {
+    // Not drawn (the copy in a hidden pane): nothing to place, and it never closes the shown one.
+    if (!b) return;
+    if (!a || !a.isConnected) {
       closePopover();
       return;
     }
@@ -158,8 +161,8 @@ export default function Popover({
     };
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node | null;
-      if (!t) return;
-      if (box.current && box.current.contains(t)) return;
+      if (!t || !box.current) return;
+      if (box.current.contains(t)) return;
       // The trigger toggles itself.
       const a = anchor();
       if (a && a.contains(t)) return;
@@ -193,7 +196,11 @@ export default function Popover({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, place === null]);
 
-  if (!open || typeof document === 'undefined') return null;
+  // The same menu can be mounted in a hidden pane too (the Calendar and the Tasks board both
+  // have a Filter button); the pane that is not shown must not draw a second copy.
+  const anchorEl = open ? anchor() : null;
+  const anchorHidden = !!anchorEl && anchorEl.getClientRects().length === 0;
+  if (!open || anchorHidden || typeof document === 'undefined') return null;
 
   return createPortal(
     <div
@@ -246,6 +253,7 @@ export function Row({
   disabled,
   danger,
   a11y,
+  tip,
 }: {
   label: string;
   sub?: string;
@@ -256,6 +264,8 @@ export function Row({
   disabled?: boolean;
   danger?: boolean;
   a11y?: string;
+  // Hover tooltip (desktop).
+  tip?: string;
 }) {
   return (
     <Pressable
@@ -268,6 +278,7 @@ export function Row({
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected, disabled: !!disabled }}
       accessibilityLabel={a11y ?? label}
+      ref={tipRef(tip) as never}
     >
       {leading}
       <View style={{ flex: 1, minWidth: 0 }}>

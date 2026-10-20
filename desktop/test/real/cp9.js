@@ -181,6 +181,9 @@ async function run() {
   const setNative = (selector, value) =>
     js(`(() => { const i = document.querySelector(${JSON.stringify(selector)}); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, ${JSON.stringify(value)}); i.dispatchEvent(new Event('input', { bubbles: true })); return i.value; })()`);
 
+  // 2.28.0: the app opens on the Calendar; these checks start on the Tasks view.
+  await click(byLabel('Show Tasks'), 600);
+
   // ======== A. The profile icon, signed out ========
   const iconOut = 'Profile, not signed in';
   check('a profile icon is at the top of the app', await exists(byLabel(iconOut)));

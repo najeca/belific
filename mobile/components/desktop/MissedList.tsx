@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
 import { formatShortDate, isDateKey } from '../../lib/kanban';
-import { isMustDo } from '../../lib/mustDo';
+import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
+import { tipRef } from './tip';
 import { labelColor } from '../../lib/labelColors';
 import type { MissedItem } from '../../lib/missed';
 import type { Project, Task } from '../../lib/types';
@@ -50,7 +51,11 @@ export default function MissedList({ items, labels, todayKey, actions, empty, ro
                 {t.emoji ? `${t.emoji} ` : ''}
                 {t.title}
               </Text>
-              {isMustDo(t) && <Text style={styles.must}>Must do</Text>}
+              {isMustDo(t) && (
+                <Text ref={tipRef(MUST_DO_TIP) as never} style={styles.must} accessibilityLabel={MUST_DO_TIP} {...({ 'aria-label': MUST_DO_TIP } as object)}>
+                  {MUST_DO_MARK}
+                </Text>
+              )}
               <Text style={styles.when}>
                 {m.kind === 'occurrence' ? '🔁 ' : ''}
                 {formatShortDate(m.day)}
@@ -121,7 +126,7 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   title: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   done: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  must: { fontSize: 10.5, fontWeight: '700', color: Colors.accentText, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, borderWidth: 1, borderColor: Colors.accentText },
+  must: { fontSize: 12, lineHeight: 16 },
   when: { fontSize: 12, color: Colors.textSecondary },
   actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingLeft: 2 },
   act: { paddingHorizontal: 10, height: 28, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },

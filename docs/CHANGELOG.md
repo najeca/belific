@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 2.34.0 — 2026-10-20 (the List row of a repeating task, list emoji on blocks, readable Vibrant text)
+
+**Display and logic only, desktop only. No schema change, no stored data changed, no new synced field.**
+- **Bug: the List row showed "Brain Dump" for a day of a repeating task.** Cause: the days of a repeating task that are only *shown* (and the occurrence stored when you tick one) are built from the template by `occurrenceFromTemplate`, which copied the label, notes, length and so on but not the list. The stored task itself was right (your Boot Camp task has the right list); only its projected days lost it, so their details said Brain Dump, and an occurrence stored by ticking a day would have landed in Brain Dump. Fixed in `lib/series.ts`: the list is carried onto every occurrence, and `listKey` is now an edit-able template field, so changing the List on any day of the series changes the series like the other fields. Two tests failed first (`series.test.ts`), then passed. Existing stored rows were not touched (none of your repeating tasks had lost a list in storage: only the Boot Camp one has a list).
+- **List emoji on blocks and cards:** on the time line, right after the duration ("9:30am 7h 🎓", and after "5h 10m left" on a later piece), on Calendar blocks (every piece of a split or continued block), all-day and month chips (after the title, there is no time line on a chip) and Timebox cards. A list with no emoji shows nothing; hover gives the list name; hidden on a block too short for its time line; never in a corner; sizes and positions unchanged; both normal and vibrant mode. Imported and custom events have no list and show nothing.
+- **Vibrant text easier to read:** the title stays bold white; the time, duration, "continues" and "left" lines are medium weight (500) in the regular proportional font (the fixed width font is dropped in this mode) with a little more letter spacing and line height; a very subtle dark text shadow (`0 1px 1px rgba(0,0,0,0.28)`, no outline); the contrast bar for white text is now 6:1 (was 4.5:1) for every colour: the 20 palette colours, the 12 legacy colours, all 7560 colour wheel colours and the slate break block (now `#536070`, 6.41:1), darkening only as far as needed with saturation raised to at least 0.85. The white chip behind the ❗ stays. Lowest ratio found: 6.05:1. List cards are unchanged.
+- Tests: `vibrant.test.ts` now enforces 6:1, `series.test.ts` +2, `lists.test.ts` +1, real check `p17.js` (32).
+
+---
+
 ## 2.33.0 — 2026-10-20 (Split wording, Vibrant task colours)
 
 **Display only, desktop only. No schema change, no new synced field, nothing for the phone.**

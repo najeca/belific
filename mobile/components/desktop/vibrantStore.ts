@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { LabelColor } from '../../lib/labelColors';
+import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { VIBRANT_NEUTRAL, VIBRANT_TEXT, vibrantColor, vibrantEdge } from '../../lib/vibrant';
 
 // "Vibrant task colours" (Settings, Appearance), as a small module store so every block, chip
@@ -64,6 +65,13 @@ export function vibrantLook(vibrant: boolean, color: LabelColor | undefined, isB
   return look;
 }
 
-// Bold white text, for the title, the time, the duration and the "continues" and "left" lines.
-export const vibrantText = { color: VIBRANT_TEXT, fontWeight: '700' } as const;
+// A very subtle dark shadow (not an outline): it only lifts the white off the colour.
+const SHADOW = { textShadow: '0 1px 1px rgba(0, 0, 0, 0.28)' } as object;
+
+// The title: bold white.
+export const vibrantText = { color: VIBRANT_TEXT, fontWeight: '700', ...SHADOW } as const;
+// The time, duration, "continues" and "left" lines (2.34.0): medium weight in the regular
+// proportional font (the fixed width one is dropped where the line is drawn), a little more
+// letter spacing and line height.
+export const vibrantMeta = { color: VIBRANT_TEXT, fontWeight: '500', letterSpacing: 0.25, lineHeight: 15, fontFamily: DESKTOP_FONT_FAMILY, ...SHADOW } as const;
 export const VIBRANT_WHITE = VIBRANT_TEXT;

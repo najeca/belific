@@ -1,5 +1,5 @@
 // Run with `npm test` from mobile/. "Vibrant task colours": every colour the app can draw
-// a block in keeps white text at 4.5:1 or better, and keeps its hue.
+// a block in keeps white text at 6:1 or better, and keeps its hue.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LABEL_COLORS, LEGACY_COLORS, contrast, hueShadeToHex, labelColor } from './labelColors.ts';
@@ -21,7 +21,7 @@ function saturation(hex: string): number {
   return max === min ? 0 : (max - min) / (1 - Math.abs(max + min - 1));
 }
 
-test('the base palette (20), the legacy 2.26 colours (12): white text keeps at least 4.5:1', () => {
+test('the base palette (20), the legacy 2.26 colours (12): white text keeps at least 6:1', () => {
   assert.equal(LABEL_COLORS.length, 20);
   assert.equal(LEGACY_COLORS.length, 12);
   let worst = Infinity;
@@ -34,7 +34,7 @@ test('the base palette (20), the legacy 2.26 colours (12): white text keeps at l
   console.log(`vibrant: palette (32 colours) lowest ratio ${worst.toFixed(2)}:1`);
 });
 
-test('every colour wheel colour (hue 0 to 359 at every shade step) keeps at least 4.5:1', () => {
+test('every colour wheel colour (hue 0 to 359 at every shade step) keeps at least 6:1', () => {
   let n = 0;
   let worst = Infinity;
   for (let h = 0; h < 360; h++) {
@@ -50,7 +50,7 @@ test('every colour wheel colour (hue 0 to 359 at every shade step) keeps at leas
   console.log(`vibrant: colour wheel (${n} colours) lowest ratio ${worst.toFixed(2)}:1`);
 });
 
-test('any custom colour a label can hold, including greys and the extremes, keeps at least 4.5:1', () => {
+test('any custom colour a label can hold, including greys and the extremes, keeps at least 6:1', () => {
   for (const edge of ['#000000', '#FFFFFF', '#808080', '#FFFF00', '#00FF00', '#00FFFF', '#FFA500', '#F0E68C', '#C0C0C0', '#101010']) {
     const bg = vibrantColor(edge);
     assert.ok(contrast(VIBRANT_TEXT, bg) >= MIN_CONTRAST, `${edge} -> ${bg}`);
@@ -71,9 +71,9 @@ test('the hue is kept (within a few degrees) and the result is more saturated, o
     if (saturation(c.edge) > 0.2) assert.ok(hueGap(hue(c.edge), hue(bg)) <= 6, `${c.key}: ${hue(c.edge)} -> ${hue(bg)}`);
     assert.ok(saturation(bg) >= Math.min(saturation(c.edge), 0.7) - 0.02, `${c.key} is not duller than before`);
   }
-  // a blue that already has the contrast is only saturated, not darkened below what it needs
+  // darkened only as far as the 6:1 rule needs: a blue ends just above it
   const blue = vibrantColor('#2F6FEB');
-  assert.ok(contrast(VIBRANT_TEXT, blue) < 5.2, 'blue is not darkened past the need');
+  assert.ok(contrast(VIBRANT_TEXT, blue) < 6.6, 'blue is not darkened past the need');
   // yellow had to be darkened a lot, to a dark gold
   assert.ok(contrast(VIBRANT_TEXT, vibrantColor('#BF9100')) >= MIN_CONTRAST);
 });

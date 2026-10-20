@@ -3,17 +3,17 @@
 //
 // With the setting on, a Calendar block or Timebox card is drawn in a vivid version of its
 // label colour with white text. Each colour keeps its hue, is made more saturated, and is
-// darkened only as far as needed for white text to keep a contrast ratio of at least 4.5:1
-// (WCAG AA for normal text). A label colour that is already dark enough is only saturated.
+// darkened only as far as needed for white text to keep a contrast ratio of at least 6:1
+// (WCAG AA for normal text); since 2.34.0 the bar is 6:1, a clear margin over AA. A label colour that is already dark enough is only saturated.
 import { contrast } from './labelColors.ts';
 
 export const VIBRANT_TEXT = '#FFFFFF';
-// The least ratio the white text may have on any vibrant background (WCAG AA).
-export const MIN_CONTRAST = 4.5;
+// The least ratio the white text may have on any vibrant background (2.33.0: 4.5, 2.34.0: 6).
+export const MIN_CONTRAST = 6;
 // Tested against this a little above the minimum, so rounding of the channels can never drop under it.
-const TARGET = 4.55;
+const TARGET = 6.05;
 // The neutral block (a break with no label colour): a mid slate grey.
-export const VIBRANT_NEUTRAL = '#5B6675';
+export const VIBRANT_NEUTRAL = '#536070';
 
 function channels(hex: string): [number, number, number] {
   return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
@@ -49,12 +49,12 @@ function hslToHex(h: number, s: number, l: number): string {
 }
 
 // The least saturation a vibrant colour has (a pale or greyish label colour is brought up to it).
-const MIN_SAT = 0.72;
+const MIN_SAT = 0.85;
 // A vibrant colour is never lighter than this before the contrast darkening (very light colours look washed out).
 const MAX_LIGHT = 0.52;
 
 // The vibrant version of a label colour (its solid `edge`): the same hue, more saturated,
-// then darkened step by step until white text on it has at least 4.5:1.
+// then darkened step by step until white text on it has at least 6:1.
 export function vibrantColor(edge: string): string {
   const { h, s, l } = hexToHsl(edge);
   const sat = Math.min(0.95, Math.max(s, MIN_SAT));

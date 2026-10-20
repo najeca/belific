@@ -7,7 +7,7 @@ import PriorityMark from './PriorityMark';
 import { isMustDo } from '../../lib/mustDo';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { useCutMin } from './cutStore';
-import { useVibrant, vibrantLook, vibrantText } from './vibrantStore';
+import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { taskDuration } from '../../lib/drag';
 import { dayAt, followToday, indexOfDay, leftDay, stripAround, visibleRange, weekRangeTitle } from '../../lib/dayStrip';
 import { useAwayDays } from './awayStore';
@@ -39,7 +39,8 @@ import { calendarTitle, minutesOfDay, monthGrid, nowLineTop, splitAllDay, stepAn
 import type { CalendarView } from '../../lib/paneState';
 import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
 import { labelColor } from '../../lib/labelColors';
-import { listEmojiOf } from '../../lib/lists';
+import { listEmojiOf, listNameOf } from '../../lib/lists';
+import ListEmoji from './ListEmoji';
 import { loadLabels } from '../../lib/labels';
 import { loadCustomCategories, loadCustomEvents, loadLists, loadTasksRaw } from '../../lib/storage';
 import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task, TaskList } from '../../lib/types';
@@ -515,6 +516,7 @@ export default function CalendarPane({
                                 {t.emoji ? `${t.emoji} ` : ''}
                                 {t.title}
                               </Text>
+                              <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
                               {isMustDo(t) && <PriorityMark chip={!!look} />}
                             </View>
                           </Pressable>
@@ -605,6 +607,7 @@ export default function CalendarPane({
                                     {t.emoji ? `${t.emoji} ` : ''}
                                     {t.title}
                                   </Text>
+                                  <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
                                   {isMustDo(t) && <PriorityMark chip={!!look} />}
                                 </View>
                               </Pressable>
@@ -709,7 +712,13 @@ export default function CalendarPane({
                               </Text>
                               {isMustDo(t) && <PriorityMark chip={!!look} />}
                             </View>
-                            {!isCompactBlock(b.height) && <Text style={[styles.blockTime, vt]}>{timeText}</Text>}
+                            {!isCompactBlock(b.height) && (
+                              <Text style={[styles.blockTime, look ? vibrantMeta : undefined]}>
+                                {timeText}
+                                {listEmojiOf(t, lists) ? ' ' : ''}
+                                <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
+                              </Text>
+                            )}
                           </Pressable>
                         </View>
                       );
@@ -719,6 +728,7 @@ export default function CalendarPane({
                         key={b.id}
                         task={t}
                         listEmoji={listEmojiOf(t, lists)}
+                        listName={listNameOf(t, lists)}
                         label={labelOf(t)}
                         color={labelColor(labelOf(t)?.colorKey)}
                         projected={source.projected}

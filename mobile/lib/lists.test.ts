@@ -82,3 +82,12 @@ test('list emoji on a card (2.27.1): only a live named list with an emoji', () =
   assert.equal(listOptionText(lists[0]), '🎮 Games');
   assert.equal(listOptionText(lists[1]), 'Plain');
 });
+
+test('listNameOf gives the name of a live list only (the tooltip of a block\'s list emoji)', async () => {
+  const { listNameOf } = await import('./lists.ts');
+  const lists = [{ key: 'g', name: 'Gaming', deletedAt: undefined }, { key: 'd', name: 'Gone', deletedAt: '2026-10-01T00:00:00.000Z' }];
+  assert.equal(listNameOf({ listKey: 'g' }, lists), 'Gaming');
+  assert.equal(listNameOf({}, lists), undefined, 'Brain Dump');
+  assert.equal(listNameOf({ listKey: 'd' }, lists), undefined, 'a deleted list');
+  assert.equal(listNameOf({ listKey: 'missing' }, lists), undefined);
+});

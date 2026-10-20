@@ -556,3 +556,21 @@ test('the tombstone of a skipped occurrence is kept while its day is today or la
   assert.equal(isUpcomingOccurrence('d:2026-10-06', TODAY), false); // a past day: the normal 90 day prune applies
   assert.equal(isUpcomingOccurrence('d', TODAY), false); // an ordinary task id
 });
+
+// ---- the list of a repeating task (it showed "Brain Dump" on every projected day) ----
+
+test('a projected day of a repeating task is in the same list as its template, and so is a stored occurrence', () => {
+  const template = row('boot', { dueDate: TODAY, startTime: '09:30', durationMinutes: 420, recurrence: 'weekly', listKey: 'camp' });
+  const out = projectOccurrences([template], keys(TODAY, 14), TODAY);
+  assert.ok(out.length >= 1);
+  for (const o of out) assert.equal(o.listKey, 'camp', `${o.dueDate} lost its list`);
+  assert.equal(occurrenceFromTemplate(template, '2026-10-14', NOW).listKey, 'camp');
+  // a template with no list gives an occurrence with no list key at all
+  assert.equal('listKey' in occurrenceFromTemplate(row('d', { dueDate: TODAY, recurrence: 'daily' }), '2026-10-09', NOW), false);
+});
+
+test('changing the list of a repeating task on a projected day changes the series (the list is a template field)', () => {
+  const template = row('boot', { dueDate: TODAY, recurrence: 'weekly', listKey: 'camp' });
+  assert.deepEqual(templatePatch(template, { listKey: 'other' }), { listKey: 'other' });
+  assert.deepEqual(templatePatch(template, { listKey: undefined }), { listKey: undefined }, 'Brain Dump is a clear');
+});

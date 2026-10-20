@@ -26,7 +26,7 @@ import {
 } from '../../lib/timebox';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { useCutMin } from './cutStore';
-import { useVibrant, vibrantLook, vibrantText } from './vibrantStore';
+import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { openingMinutes } from '../../lib/dayStart';
 import { tasksForTimebox } from '../../lib/timeboxTasks';
 import { useDayStart } from './useDayStart';
@@ -44,7 +44,8 @@ import { useTick } from './timerUi';
 import { slotLabel, taskDuration, yToMinutes } from '../../lib/drag';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
-import { listEmojiOf } from '../../lib/lists';
+import { listEmojiOf, listNameOf } from '../../lib/lists';
+import ListEmoji from './ListEmoji';
 import {
   loadCustomCategories,
   loadCustomEvents,
@@ -417,10 +418,16 @@ export default function TimeboxPane({
                           <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone, vt]} numberOfLines={1}>
                             {t.title}
                           </Text>
-                          {isCompactBlock(b.height) && <Text style={[styles.blockTimeInline, vt]}>{timeText}</Text>}
+                          {isCompactBlock(b.height) && <Text style={[styles.blockTimeInline, look ? vibrantMeta : undefined]}>{timeText}</Text>}
                           {isMustDo(t) && <PriorityMark chip={!!look} />}
                         </View>
-                        {!isCompactBlock(b.height) && <Text style={[styles.blockTime, vt]}>{timeText}</Text>}
+                        {!isCompactBlock(b.height) && (
+                          <Text style={[styles.blockTime, look ? vibrantMeta : undefined]}>
+                            {timeText}
+                            {listEmojiOf(t, lists) ? ' ' : ''}
+                            <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
+                          </Text>
+                        )}
                       </Pressable>
                     </View>
                   </View>
@@ -434,6 +441,7 @@ export default function TimeboxPane({
                     key={b.id}
                     task={t}
                     listEmoji={listEmojiOf(t, lists)}
+                    listName={listNameOf(t, lists)}
                     label={proj}
                     color={labelColor(proj?.colorKey)}
                     projected={!!source.projected}

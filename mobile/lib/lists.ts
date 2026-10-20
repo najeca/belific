@@ -81,6 +81,13 @@ export function listEmojiOf(task: Pick<Task, 'listKey'>, lists: Array<Pick<TaskL
   return list?.emoji || undefined;
 }
 
+// The name of the live list a task is in (the tooltip of a block's list emoji); Brain Dump, a
+// deleted list or a missing one give nothing.
+export function listNameOf(task: Pick<Task, 'listKey'>, lists: Array<Pick<TaskList, 'key' | 'name' | 'deletedAt'>>): string | undefined {
+  if (!task.listKey) return undefined;
+  return lists.find((l) => l.key === task.listKey && !l.deletedAt)?.name || undefined;
+}
+
 // A list's name with its emoji when it has one (the details' List row).
 export function listOptionText(list: Pick<TaskList, 'name' | 'emoji'>): string {
   return list.emoji ? `${list.emoji} ${list.name}` : list.name;

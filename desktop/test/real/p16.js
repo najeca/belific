@@ -96,7 +96,8 @@ async function run() {
   const geom = (x) => x && [x.l, x.t, x.w, x.h].join(',');
   const scrollTo = (hour) => I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); if (s) s.scrollTop = ${hour} * 56 - 20; })()`);
   const scrollBox = (hour) => I.js(`(() => { const g = document.querySelector('[data-timebox-grid]'); let p = g; while (p && p.scrollHeight <= p.clientHeight + 2) p = p.parentElement; if (p) p.scrollTop = ${hour} * 56 - 20; })()`);
-  const whiteBold = (x) => x && x.texts.length > 0 && x.texts.every((n) => n.color === 'rgb(255, 255, 255)' && Number(n.fw) >= 700);
+  // All text is white; the title (the first text) is bold, the lines under it medium weight (2.34.0).
+  const whiteBold = (x) => x && x.texts.length > 0 && x.texts.every((n) => n.color === 'rgb(255, 255, 255)') && Number(x.texts[0].fw) >= 700;
   const goSettings = async () => {
     const icon = (await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in';
     await I.click(I.byLabel(icon));
@@ -195,14 +196,14 @@ async function run() {
   const names = { p1: 'boot piece', brk: 'break', p2: 'second piece', red: 'red', yel: 'yellow' };
   for (const k of Object.keys(names)) {
     const x = onBox[k];
-    check(`ON Timebox: ${names[k]} is white bold text on a vibrant background with at least 4.5:1`, !!x && whiteBold(x) && ratio('rgb(255, 255, 255)', x.bg) >= 4.5, x && JSON.stringify([x.bg, x.texts.map((n) => [n.color, n.fw]), x.bg && ratio('rgb(255, 255, 255)', x.bg).toFixed(2)]));
+    check(`ON Timebox: ${names[k]} is white bold text on a vibrant background with at least 6:1`, !!x && whiteBold(x) && ratio('rgb(255, 255, 255)', x.bg) >= 6, x && JSON.stringify([x.bg, x.texts.map((n) => [n.color, n.fw]), x.bg && ratio('rgb(255, 255, 255)', x.bg).toFixed(2)]));
   }
-  check('ON Timebox: the break is a mid slate grey (91, 102, 117)', onBox.brk.bg === 'rgb(91, 102, 117)', onBox.brk.bg);
+  check('ON Timebox: the break is a mid slate grey (83, 96, 112)', onBox.brk.bg === 'rgb(83, 96, 112)', onBox.brk.bg);
   check('ON Timebox: the repeat icon is white', onBox.yel.repeatColor === 'rgb(255, 255, 255)', String(onBox.yel.repeatColor));
   check('ON Timebox: the ❗ sits on a small white rounded chip', onBox.red.markBg === 'rgb(255, 255, 255)', String(onBox.red.markBg));
   check('ON Timebox: the pieces of one task share one colour', onBox.p1.bg === onBox.p2.bg && onBox.p1.bg !== offBox.p1.bg, JSON.stringify([onBox.p1.bg, onBox.p2.bg]));
   check('ON Timebox: the later piece still says "left" in white', onBox.p2.texts.some((n) => n.t.includes('left') && n.color === 'rgb(255, 255, 255)'), JSON.stringify(onBox.p2.texts));
-  check('ON Timebox: the continuation card (the rest of yesterday) is vibrant too', !!onBox.cont && whiteBold(onBox.cont) && ratio('rgb(255, 255, 255)', onBox.cont.bg) >= 4.5, JSON.stringify(onBox.cont && [onBox.cont.bg, onBox.cont.texts]));
+  check('ON Timebox: the continuation card (the rest of yesterday) is vibrant too', !!onBox.cont && whiteBold(onBox.cont) && ratio('rgb(255, 255, 255)', onBox.cont.bg) >= 6, JSON.stringify(onBox.cont && [onBox.cont.bg, onBox.cont.texts]));
   const sameBox = Object.keys(offBox).every((k) => geom(offBox[k]) === geom(onBox[k]) && offBox[k].title === onBox[k].title && offBox[k].markTip === onBox[k].markTip);
   check('ON Timebox: sizes, positions and tooltips did not change', sameBox, JSON.stringify(Object.keys(offBox).filter((k) => geom(offBox[k]) !== geom(onBox[k])).map((k) => [k, geom(offBox[k]), geom(onBox[k])])));
   const onCard = await look(`document.querySelector('[data-task-card="plain"]')`);
@@ -218,14 +219,14 @@ async function run() {
   const wk = { p1: 'boot piece', brk: 'break', p2: 'second piece', red: 'red', yel: 'yellow' };
   for (const k of Object.keys(wk)) {
     const x = onWeek[k];
-    check(`ON Week: ${wk[k]} is white bold text on a vibrant background with at least 4.5:1`, !!x && whiteBold(x) && ratio('rgb(255, 255, 255)', x.bg) >= 4.5, x && JSON.stringify([x.bg, x.texts.map((n) => [n.color, n.fw])]));
+    check(`ON Week: ${wk[k]} is white bold text on a vibrant background with at least 6:1`, !!x && whiteBold(x) && ratio('rgb(255, 255, 255)', x.bg) >= 6, x && JSON.stringify([x.bg, x.texts.map((n) => [n.color, n.fw])]));
   }
-  check('ON Week: the break is the mid slate grey', onWeek.brk.bg === 'rgb(91, 102, 117)', onWeek.brk.bg);
+  check('ON Week: the break is the mid slate grey', onWeek.brk.bg === 'rgb(83, 96, 112)', onWeek.brk.bg);
   check('ON Week: the unlabelled task keeps its plain block (white text would not show on it)', onWeek.plain.bg === offWeek.plain.bg && !whiteBold(onWeek.plain), onWeek.plain.bg);
-  check('ON Week: the all-day chip is vibrant with white bold text', whiteBold(onWeek.chip) && ratio('rgb(255, 255, 255)', onWeek.chip.bg) >= 4.5 && onWeek.chip.bg !== offWeek.chip.bg, JSON.stringify([onWeek.chip.bg, onWeek.chip.texts]));
+  check('ON Week: the all-day chip is vibrant with white bold text', whiteBold(onWeek.chip) && ratio('rgb(255, 255, 255)', onWeek.chip.bg) >= 6 && onWeek.chip.bg !== offWeek.chip.bg, JSON.stringify([onWeek.chip.bg, onWeek.chip.texts]));
   check('ON Week: the ❗ is on a white chip (all-day chip and red block)', onWeek.chip.markBg === 'rgb(255, 255, 255)' && onWeek.red.markBg === 'rgb(255, 255, 255)', JSON.stringify([onWeek.chip.markBg, onWeek.red.markBg]));
   check('ON Week: the repeat icon is white', onWeek.yel.repeatColor === 'rgb(255, 255, 255)', String(onWeek.yel.repeatColor));
-  check('ON Week: the continued block (the rest of yesterday) is vibrant with white text', !!onWeek.cont && whiteBold(onWeek.cont) && ratio('rgb(255, 255, 255)', onWeek.cont.bg) >= 4.5, JSON.stringify(onWeek.cont && [onWeek.cont.bg, onWeek.cont.texts]));
+  check('ON Week: the continued block (the rest of yesterday) is vibrant with white text', !!onWeek.cont && whiteBold(onWeek.cont) && ratio('rgb(255, 255, 255)', onWeek.cont.bg) >= 6, JSON.stringify(onWeek.cont && [onWeek.cont.bg, onWeek.cont.texts]));
   const sameWeek = Object.keys(offWeek).every((k) => geom(offWeek[k]) === geom(onWeek[k]) && offWeek[k].title === onWeek[k].title && offWeek[k].markTip === onWeek[k].markTip);
   check('ON Week: sizes, positions and tooltips did not change', sameWeek, JSON.stringify(Object.keys(offWeek).filter((k) => geom(offWeek[k]) !== geom(onWeek[k])).map((k) => [k, geom(offWeek[k]), geom(onWeek[k])])));
   await I.shot('p16-WEEK-on');
@@ -236,14 +237,14 @@ async function run() {
   await C.sleep(400);
   const onDay = {};
   for (const id of ['boot', 'brk', 'boot~2']) onDay[id] = await look(cal(today, id));
-  check('ON Day: the split day (piece, break, piece) is vibrant, white and bold, same geometry as OFF', ['boot', 'brk', 'boot~2'].every((id) => whiteBold(onDay[id]) && ratio('rgb(255, 255, 255)', onDay[id].bg) >= 4.5 && geom(onDay[id]) === geom(offDay[id])), JSON.stringify(onDay));
+  check('ON Day: the split day (piece, break, piece) is vibrant, white and bold, same geometry as OFF', ['boot', 'brk', 'boot~2'].every((id) => whiteBold(onDay[id]) && ratio('rgb(255, 255, 255)', onDay[id].bg) >= 6 && geom(onDay[id]) === geom(offDay[id])), JSON.stringify(onDay));
   await I.shot('p16-DAY-on');
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 800);
 
   // Month chip.
   await I.click(`document.querySelector('[aria-label="Month view"]')`, 900);
   const onMonth = await look(`document.querySelector('[aria-label="Calendar task Red urgent"]')`);
-  check('ON Month: the chip is vibrant red with bold white text and the ❗ on a white chip', !!onMonth && whiteBold(onMonth) && ratio('rgb(255, 255, 255)', onMonth.bg) >= 4.5 && onMonth.bg !== offMonth.bg && onMonth.markBg === 'rgb(255, 255, 255)', JSON.stringify(onMonth && [onMonth.bg, onMonth.markBg]));
+  check('ON Month: the chip is vibrant red with bold white text and the ❗ on a white chip', !!onMonth && whiteBold(onMonth) && ratio('rgb(255, 255, 255)', onMonth.bg) >= 6 && onMonth.bg !== offMonth.bg && onMonth.markBg === 'rgb(255, 255, 255)', JSON.stringify(onMonth && [onMonth.bg, onMonth.markBg]));
   check('ON Month: the chip is the same size and place', geom(onMonth) === geom(offMonth), `${geom(offMonth)} vs ${geom(onMonth)}`);
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 800);
 

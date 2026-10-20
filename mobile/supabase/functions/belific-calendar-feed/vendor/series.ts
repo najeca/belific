@@ -199,6 +199,8 @@ export function occurrenceFromTemplate(template: Task, dayKey: string, nowIso: s
     dueDate: dayKey,
     priority: template.priority,
     projectKey: template.projectKey,
+    // The list too (it was missing: every projected day showed "Brain Dump" in the details).
+    ...(template.listKey ? { listKey: template.listKey } : {}),
     notes: template.notes,
     durationMinutes: template.durationMinutes,
     startTime: template.startTime,
@@ -255,6 +257,7 @@ export const TEMPLATE_FIELDS = [
   'title',
   'priority',
   'projectKey',
+  'listKey',
   'notes',
   'durationMinutes',
   'startTime',

@@ -20,8 +20,9 @@ import { isLate } from '../../lib/lateTasks';
 import { lateMoveFor, moveLateTask } from '../../lib/lateActions';
 import { tipRef } from './tip';
 import PriorityMark from './PriorityMark';
+import ListEmoji from './ListEmoji';
 import { isMustDo } from '../../lib/mustDo';
-import { useVibrant, vibrantLook, vibrantText, VIBRANT_WHITE } from './vibrantStore';
+import { useVibrant, vibrantLook, vibrantMeta, vibrantText, VIBRANT_WHITE } from './vibrantStore';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
 // day and week views draw the same block, so they behave the same. A press
@@ -57,6 +58,7 @@ export default function TimeBlock({
   gridNode,
   onChanged,
   listEmoji,
+  listName,
   fullText,
   piece,
   note,
@@ -75,6 +77,8 @@ export default function TimeBlock({
   fullText?: boolean;
   // The emoji of the task's list (2.27.1), on the time line of a block tall enough for it.
   listEmoji?: string;
+  // The list's name: the tooltip of its emoji.
+  listName?: string;
   task: Task;
   label?: Project;
   color?: LabelColor;
@@ -92,6 +96,7 @@ export default function TimeBlock({
   // "Vibrant task colours" (Settings): a saturated block with bold white text; null = as before.
   const look = vibrantLook(useVibrant(), color, !!task.cutsBelow);
   const vt = look ? vibrantText : undefined;
+  const vm = look ? vibrantMeta : undefined;
   const resizing = drag?.mode === 'resize' && drag.item.id === task.id && drag.item.scope === scope ? drag.resizeDuration : undefined;
   const lifted = drag?.mode === 'move' && drag.item.id === task.id;
   const startMin = toMinutes(task.startTime) ?? 0;
@@ -244,7 +249,7 @@ export default function TimeBlock({
             </Text>
             {/* A short block shows one line: title and its true duration ("10m"). */}
             {compact && resizing === undefined && (headPiece ? formatDuration(task.durationMinutes) : formatDuration(piece?.leftMin)) && (
-              <Text style={[styles.timeInline, vt]}>
+              <Text style={[styles.timeInline, vm]}>
                 {/* A break and a later piece also say when they start: their block is one line. */}
                 {task.cutsBelow || (piece && !piece.head) ? `${formatTime(piece ? toTime(piece.startMin) : task.startTime ?? '')} ` : ''}
                 {headPiece ? formatDuration(task.durationMinutes) : `${formatDuration(piece?.leftMin)} left`}
@@ -252,7 +257,7 @@ export default function TimeBlock({
             )}
             {/* A refused cut on a short block (no room for the badge): a small info mark with the whole sentence. */}
             {badge && compact && resizing === undefined && (
-              <Text ref={tipRef(note) as never} style={[styles.cutInfo, vt]} accessibilityLabel={note} {...({ 'aria-label': note, dataSet: { cutNoteIcon: '1' } } as object)}>
+              <Text ref={tipRef(note) as never} style={[styles.cutInfo, vm]} accessibilityLabel={note} {...({ 'aria-label': note, dataSet: { cutNoteIcon: '1' } } as object)}>
                 {'ⓘ'}
               </Text>
             )}
@@ -264,22 +269,23 @@ export default function TimeBlock({
             )}
           </View>
           {resizing !== undefined ? (
-            <Text style={[styles.snap, vt]} {...({ dataSet: { mono: '1' } } as object)}>
+            <Text style={[styles.snap, vm]} {...({ dataSet: look ? {} : { mono: '1' } } as object)}>
               {slotLabel(startMin, resizing)}
             </Text>
           ) : (
             !compact && (
-              <Text style={[styles.time, vt]} {...({ dataSet: { mono: '1' } } as object)}>
-                {listEmoji ? <Text {...({ dataSet: { blockListEmoji: '1' } } as object)}>{listEmoji} </Text> : null}
+              <Text style={[styles.time, vm]} {...({ dataSet: look ? {} : { mono: '1' } } as object)}>
                 {piece && !piece.head
                   ? pieceTimeText(formatTime(toTime(piece.startMin)), undefined, formatDuration(piece.leftMin), false)
-                  : `${formatTime(task.startTime ?? '')} ${formatDuration(task.durationMinutes) ?? ''}`}{' '}
+                  : `${formatTime(task.startTime ?? '')} ${formatDuration(task.durationMinutes) ?? ''}`}
+                {listEmoji ? ' ' : ''}
+                <ListEmoji emoji={listEmoji} name={listName} />{' '}
                 {task.completed && lastPiece ? 'done' : ''}
               </Text>
             )
           )}
           {badge && !compact && resizing === undefined && (
-            <Text style={[styles.cutNote, vt]} {...({ dataSet: { cutNote: '1' } } as object)}>
+            <Text style={[styles.cutNote, vm]} {...({ dataSet: { cutNote: '1' } } as object)}>
               {badge}
             </Text>
           )}
@@ -300,7 +306,7 @@ export default function TimeBlock({
         </Pressable>
         {continues && (
           <View pointerEvents="none" style={styles.continuesTag} accessibilityLabel="Continues after 24:00">
-            <Text style={[styles.continuesText, vt]}>continues</Text>
+            <Text style={[styles.continuesText, vm]}>continues</Text>
             <Ionicons name="arrow-down" size={10} color={look ? VIBRANT_WHITE : Colors.textSecondary} />
           </View>
         )}

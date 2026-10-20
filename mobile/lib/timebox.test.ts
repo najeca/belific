@@ -230,3 +230,16 @@ test('scrollOffsetFor puts a time at the top and never goes negative', () => {
   assert.equal(scrollOffsetFor(at(20)), 20 * PX_PER_HOUR);
   assert.equal(scrollOffsetFor(at(14, 30)), 14.5 * PX_PER_HOUR);
 });
+
+test('2.29.0: the lane holding a top priority block is the first of its cluster; others keep their order', () => {
+  const lay = (items: Parameters<typeof layoutItems>[0]) => Object.fromEntries(layoutItems(items).blocks.map((b) => [b.id, b.col]));
+  // Without a top priority block the lanes are as before.
+  assert.deepEqual(lay([{ id: 'a', startMin: 540, endMin: 660 }, { id: 'b', startMin: 570, endMin: 630 }]), { a: 0, b: 1 });
+  // With one, it takes lane 0 and the other moves over.
+  const high = layoutItems([{ id: 'a', startMin: 540, endMin: 660 }, { id: 'b', startMin: 570, endMin: 630, high: true }]).blocks;
+  assert.deepEqual(Object.fromEntries(high.map((b) => [b.id, [b.col, b.cols, b.high]])), { a: [1, 2, false], b: [0, 2, true] });
+  // Three lanes: only the lane of the top priority block moves to the front.
+  assert.deepEqual(lay([{ id: 'a', startMin: 540, endMin: 700 }, { id: 'b', startMin: 550, endMin: 700 }, { id: 'c', startMin: 560, endMin: 700, high: true }]), { a: 1, b: 2, c: 0 });
+  // A separate cluster is unaffected.
+  assert.deepEqual(lay([{ id: 'a', startMin: 540, endMin: 600 }, { id: 'z', startMin: 900, endMin: 960, high: true }]), { a: 0, z: 0 });
+});

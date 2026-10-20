@@ -41,6 +41,9 @@ async function run() {
       T('u1', 'Untimed alpha', { dueDate: today, createdAt: '2026-09-01T07:00:01.000Z' }),
       T('u2', 'Untimed beta', { dueDate: today, createdAt: '2026-09-01T07:00:02.000Z' }),
       T('u3', 'Untimed urgent', { dueDate: today, createdAt: '2026-09-01T07:00:03.000Z', priority: 'high' }),
+      // Undated tasks for the left pane: the top priority one is the oldest, so only the sort can put it first.
+      T('l1', 'Left plain', { createdAt: '2026-09-03T07:00:00.000Z' }),
+      T('l2', 'Left urgent', { createdAt: '2026-09-02T07:00:00.000Z', priority: 'high' }),
       // Overlap with a top priority block (P2): it must take the first lane and sit on top.
       T('p1', 'Low block', { dueDate: day(1), startTime: '09:00', durationMinutes: 120 }),
       T('p2', 'Urgent block', { dueDate: day(1), startTime: '09:30', durationMinutes: 60, priority: 'high' }),
@@ -90,6 +93,22 @@ async function run() {
   const splitDay = await words('[data-cal-block$=":o1"]');
   check('P1: in Day view nothing is split either', splitDay.length === 0, JSON.stringify(splitDay));
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 600);
+
+  // ======== P2. High priority first (display only) ========
+  const lanes = await I.js(`(() => { const get = (id) => { const e = document.querySelector('[data-cal-block$=":' + id + '"]'); return e ? Math.round(e.getBoundingClientRect().left) : null; }; const z = (id) => { let e = document.querySelector('[data-cal-block$=":' + id + '"]'); while (e && getComputedStyle(e).position !== 'absolute') e = e.parentElement; return e ? getComputedStyle(e).zIndex : null; }; return { urgent: get('p2'), low: get('p1'), zUrgent: z('p2'), zLow: z('p1') }; })()`);
+  check('P2: an overlapping top priority block takes the first (leftmost) lane', lanes.urgent !== null && lanes.low !== null && lanes.urgent < lanes.low, JSON.stringify(lanes));
+  check('P2: and is drawn on top of the others', lanes.zUrgent === '2' && lanes.zLow !== '2', JSON.stringify(lanes));
+  const chips = await I.js(`[...document.querySelectorAll('[aria-label^="All day task Untimed"]')].map((e) => e.getAttribute('aria-label'))`);
+  check('P2: in the Calendar all day row the top priority task is first', chips[0] === 'All day task Untimed urgent', JSON.stringify(chips));
+  await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 800);
+  const cards = await I.js(`[...document.querySelectorAll('[data-day-col="${today}"] [aria-label^="Task Untimed"]')].map((e) => e.getAttribute('aria-label').replace(/,.*/, ''))`);
+  check('P2: in the day column the top priority untimed task is first', cards[0] && cards[0].includes('Untimed urgent'), JSON.stringify(cards));
+  check('P2: the others keep oldest first', cards.length === 3 && cards[1].includes('Untimed alpha') && cards[2].includes('Untimed beta'), JSON.stringify(cards));
+  const pane = await I.js(`(() => { const all = [...document.querySelectorAll('[aria-label^="Task Left"]')].filter((e) => e.getBoundingClientRect().width > 0); return all.map((e) => e.getAttribute('aria-label')); })()`);
+  check('P2: in the left pane the top priority task is first although it is older', pane.length === 2 && pane[0].includes('Left urgent'), JSON.stringify(pane));
+  await I.shot('p13-P2-order');
+  const stored = JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_tasks.kv'), 'utf8'));
+  check('P2: nothing stored changed (priority and creation times as seeded)', stored.find((t) => t.id === 'u3').priority === 'high' && stored.find((t) => t.id === 'l2').createdAt === '2026-09-02T07:00:00.000Z' && stored.length === 10);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

@@ -319,7 +319,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
             >
               <View style={[styles.knob, isMustDo(task) && styles.knobOn]} />
             </Pressable>
-            <Text style={styles.quietText}>{isMustDo(task) ? 'Shown first, with a ❗ marker' : 'Off'}</Text>
+            <Text style={styles.quietText}>{isMustDo(task) ? 'Shown first in its day, with a ❗ marker' : 'Off'}</Text>
           </View>
         </DetailRow>
 

@@ -97,7 +97,7 @@ function startTimeOf(item: ColumnItem): string | null {
 }
 
 // Order inside a column (checkpoint 8.4): tasks without a start time first
-// (oldest created first; 2.26.0: priority no longer sorts), then tasks with
+// (top priority first since 2.29.0, then oldest created first), then tasks with
 // a start time, earliest first, then finished ones (most recently completed
 // first). Nothing can be reordered by hand.
 function compareItems(a: ColumnItem, b: ColumnItem): number {
@@ -109,6 +109,10 @@ function compareItems(a: ColumnItem, b: ColumnItem): number {
   const bTime = startTimeOf(b);
   if ((aTime !== null) !== (bTime !== null)) return aTime !== null ? 1 : -1;
   if (aTime !== null && bTime !== null && aTime !== bTime) return aTime.localeCompare(bTime);
+  // 2.29.0: among the untimed, top priority first (display only; nothing stored).
+  // (inline, not lib/mustDo.ts: this file is vendored into the calendar feed function, which imports nothing outside its folder)
+  const aTop = a.task.priority === 'high';
+  if (aTime === null && bTime === null && aTop !== (b.task.priority === 'high')) return aTop ? -1 : 1;
   return a.task.createdAt.localeCompare(b.task.createdAt);
 }
 

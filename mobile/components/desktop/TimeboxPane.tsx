@@ -238,14 +238,14 @@ export default function TimeboxPane({
       map.set(`task:${t.id}`, { kind: 'task', task: t, projected });
       tasksById.current.set(t.id, t);
       if (projected) projectedIds.current.add(t.id);
-      list.push({ ...item, id: `task:${t.id}` });
+      list.push({ ...item, id: `task:${t.id}`, high: isMustDo(t) });
     }
     for (const { task: t, projected } of spill) {
       if (!taskVisible(t, filter)) continue;
       const rest = continuationOf(t);
       if (!rest) continue;
       map.set(rest.id, { kind: 'continuation', task: t, projected });
-      list.push(rest);
+      list.push({ ...rest, high: isMustDo(t) });
     }
     return { sources: map, items: list };
   }, [day, key, todayKey, events, categories, tasks, filter]);
@@ -361,6 +361,7 @@ export default function TimeboxPane({
                 height: b.height,
                 left: `${(b.col * 100) / b.cols}%` as const,
                 width: `${100 / b.cols}%` as const,
+                ...(b.high ? { zIndex: 2 } : {}),
               };
               if (source.kind === 'continuation') {
                 const t = source.task;

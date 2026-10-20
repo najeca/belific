@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.29.0 — 2026-10-20 (Part B, P2: top priority first)
+
+**Desktop display only. No schema, sync or stored change; the only stored value involved is the existing `priority = 'high'`.**
+- **Order:** among a day's tasks without a time, the top priority one is first (then oldest created, as before); in the left pane, undated top priority tasks come before the rest (then newest first); in the Calendar's all-day row the top priority chip is first. Timed tasks stay in time order, finished ones last.
+- **Overlaps:** an overlapping block of a top priority task takes the first (leftmost) lane of its cluster and is drawn on top (`TimeboxItem.high`, `layoutItems`). Other lanes keep their order. Widths and heights are unchanged.
+- The details text "Shown first, with a ❗ marker" is now true ("Shown first in its day").
+- `kanban.ts` is vendored into the calendar feed function (not deployed), so its copy was re-synced (`node scripts/vendor-feed.js`, local only) and the priority check is inline there.
+- Two unit tests that said "a High priority task no longer sorts (2.26.0)" now say the opposite, on purpose. Real check `p13.js` section P2.
+
+---
+
 ## 2.28.2 — 2026-10-20 (Part B, P1: words are never split)
 
 **Desktop display only. No schema, sync or stored change.** On the Calendar's blocks the title, the time line and the "continues" text now break lines at spaces only (`overflow-wrap` and `word-break` normal). A word wider than its lane is clipped at the block's edge, never split ("Leep Tal ent On line", "10:0 / 0am"), and the hover tooltip holds the whole text. Real check `p13.js` (P1): a Range over every word finds none spread over two lines in a three lane overlap, and in Day view.

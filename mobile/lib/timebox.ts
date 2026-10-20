@@ -49,6 +49,8 @@ export interface TimeboxItem {
   id: string;
   startMin: number;
   endMin: number;
+  // A top priority task (2.29.0): its lane is the first one of its cluster and it is drawn on top.
+  high?: boolean;
 }
 
 export interface PlacedBlock {
@@ -61,6 +63,8 @@ export interface PlacedBlock {
   // Minutes after clamping to the visible grid.
   startMin: number;
   endMin: number;
+  // Top priority (2.29.0).
+  high: boolean;
   // The item runs past 24:00: drawn to the grid end with a "continues"
   // marker; the stored duration is unchanged and the rest shows at the top of
   // the next day (continuationOf).
@@ -113,7 +117,7 @@ export function continuationOf(task: Task): TimeboxItem | null {
 // drawn to the bottom and marked "continues". Items that overlap in time share
 // width side by side.
 export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
-  type Clamped = { id: string; startMin: number; endMin: number; continues: boolean };
+  type Clamped = { id: string; startMin: number; endMin: number; continues: boolean; high: boolean };
   const visible: Clamped[] = [];
 
   for (const item of items) {
@@ -122,7 +126,7 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
     const continues = item.endMin > GRID_END_MIN || item.endMin <= item.startMin;
     const clampedStart = Math.max(startMin, GRID_START_MIN);
     const clampedEnd = Math.min(endMin, GRID_END_MIN);
-    if (clampedEnd > clampedStart) visible.push({ id: item.id, startMin: clampedStart, endMin: clampedEnd, continues });
+    if (clampedEnd > clampedStart) visible.push({ id: item.id, startMin: clampedStart, endMin: clampedEnd, continues, high: item.high === true });
   }
 
   visible.sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin || a.id.localeCompare(b.id));
@@ -133,6 +137,11 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
   let columnEnds: number[] = [];
 
   const closeCluster = () => {
+    // 2.29.0: lanes holding a top priority block come first (leftmost); otherwise the order is kept.
+    const lanes = columnEnds.map((_, i) => i);
+    const laneHigh = lanes.map((i) => cluster.some((b) => b.col === i && b.high));
+    const order = [...lanes].sort((a, b) => Number(laneHigh[b]) - Number(laneHigh[a]) || a - b);
+    for (const b of cluster) b.col = order.indexOf(b.col);
     for (const b of cluster) b.cols = columnEnds.length;
     blocks.push(...cluster);
     cluster = [];
@@ -158,6 +167,7 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
       cols: 1,
       startMin: item.startMin,
       endMin: item.endMin,
+      high: item.high,
       continues: item.continues,
     });
   }

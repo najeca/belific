@@ -475,3 +475,6 @@ The ! mark now also shows on Calendar blocks and chips (all-day, month, every pi
 
 ## Part B, P1 (2026-10-20): 2.28.2, words are never split
 Plan: `docs/PLAN_part_b.md` (approved with the five defaults). P1 sets `overflow-wrap`/`word-break` to normal on Calendar block titles, time lines and "continues" text (`TimeBlock.tsx`, `CalendarPane.tsx`). Choices: only the Calendar was changed (the Timebox keeps single line titles); the LabelColorPicker note keeps `anywhere` (prose in a fixed box, not a title). Check by hand: put three tasks over the same hour; their titles and times clip at the edge and never break inside a word; hover shows everything.
+
+## Part B, P2 (2026-10-20): 2.29.0, top priority first (display only)
+Untimed tasks of a day, the left pane (undated tasks) and the Calendar all-day row put top priority first; overlapping blocks put it in the leftmost lane and on top. Choices: timed tasks stay in time order (default for question 5); dated tasks in the left pane stay chronological; the sort is stable so everything else keeps its order. Check by hand: make an old task top priority; it moves to the top of its day and of the left pane; in an overlap it is the left block.

@@ -10,6 +10,7 @@
 import type { BrainDumpItem, Task } from './types.ts';
 import { dateKey, isDateKey } from './kanban.ts';
 import { rootTaskId } from './recurrence.ts';
+import { isMustDo } from './mustDo.ts';
 
 export type ThoughtRow =
   | { kind: 'task'; task: Task; createdAt: string }
@@ -61,7 +62,9 @@ export function splitThoughts(tasks: Task[], dumpItems: BrainDumpItem[], todayKe
     rows.push({ kind: 'dump', item, createdAt: item.createdAt });
   }
 
-  rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || rowId(a).localeCompare(rowId(b)));
+  // 2.29.0: top priority tasks first (display only), then newest first as before.
+  const top = (r: (typeof rows)[number]) => (r.kind === 'task' && isMustDo(r.task) ? 0 : 1);
+  rows.sort((a, b) => top(a) - top(b) || b.createdAt.localeCompare(a.createdAt) || rowId(a).localeCompare(rowId(b)));
   if (dated.length > 0) {
     dated.sort((a, b) => (a.dueDate as string).localeCompare(b.dueDate as string) || (a.startTime ?? '').localeCompare(b.startTime ?? '') || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
     const seenRoot = new Set<string>();

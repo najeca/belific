@@ -212,7 +212,7 @@ test('bucketTasks: tombstones and malformed dates are not on the board', () => {
   assert.equal(Object.values(cols.days).flat().length, 0);
 });
 
-test('bucketTasks: oldest created first; a stored High priority no longer sorts (2.26.0)', () => {
+test('bucketTasks: oldest created first; a stored High priority task goes first among them (2.29.0, was unsorted in 2.26.0)', () => {
   const cols = bucketTasks(
     [
       task('1', { dueDate: '2026-10-06', createdAt: '2026-10-03T00:00:00.000Z' }),
@@ -222,7 +222,7 @@ test('bucketTasks: oldest created first; a stored High priority no longer sorts 
     days,
     TODAY,
   );
-  assert.deepEqual(cols.days['2026-10-06'].map((i) => i.task.id), ['2', '1', '3']);
+  assert.deepEqual(cols.days['2026-10-06'].map((i) => i.task.id), ['3', '2', '1']);
 });
 
 test('bucketTasks works across a month boundary', () => {
@@ -340,8 +340,8 @@ test('column order: tasks without a time first, then timed ones by start time, t
     days,
     TODAY,
   );
-  // untimed (oldest first; priority no longer sorts), timed ascending from 00:30 to 23:30, then the finished one
-  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['u1', 'u2', 't3', 't2', 't1', 't4', 'd1']);
+  // untimed (top priority first, then oldest first), timed ascending from 00:30 to 23:30, then the finished one (2.29.0)
+  assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['u2', 'u1', 't3', 't2', 't1', 't4', 'd1']);
 });
 
 test('column order: equal start times fall back to the oldest created', () => {
@@ -364,4 +364,20 @@ test('column order: a bad start time counts as no time', () => {
     TODAY,
   );
   assert.deepEqual(cols.days[TODAY].map((i) => i.task.id), ['bad', 'timed']);
+});
+
+test('2.29.0: among untimed tasks the top priority one is first; timed and done order is unchanged', () => {
+  const cols = bucketTasks(
+    [
+      task('1', { dueDate: '2026-10-06', createdAt: '2026-10-01T00:00:00.000Z' }),
+      task('2', { dueDate: '2026-10-06', createdAt: '2026-10-02T00:00:00.000Z' }),
+      task('3', { dueDate: '2026-10-06', createdAt: '2026-10-03T00:00:00.000Z', priority: 'high' }),
+      task('4', { dueDate: '2026-10-06', createdAt: '2026-10-01T00:00:00.000Z', startTime: '08:00', priority: 'high' }),
+      task('5', { dueDate: '2026-10-06', createdAt: '2026-10-01T00:00:00.000Z', startTime: '07:00' }),
+      task('6', { dueDate: '2026-10-06', createdAt: '2026-10-01T00:00:00.000Z', completed: true, completedAt: '2026-10-06T10:00:00.000Z', priority: 'high' }),
+    ],
+    [{ key: '2026-10-06' }] as never,
+    '2026-10-06',
+  );
+  assert.deepEqual(cols.days['2026-10-06'].map((i) => i.task.id), ['3', '1', '2', '5', '4', '6']);
 });

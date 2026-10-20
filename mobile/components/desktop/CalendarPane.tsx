@@ -196,14 +196,14 @@ export default function CalendarPane({
         const item = taskToItem(t);
         if (!item) continue;
         sources.set(`task:${t.id}`, { kind: 'task', task: t, projected });
-        items.push({ ...item, id: `task:${t.id}` });
+        items.push({ ...item, id: `task:${t.id}`, high: isMustDo(t) });
       }
       for (const { task: t, projected } of spill) {
         if (!taskVisible(t, filter)) continue;
         const rest = continuationOf(t);
         if (!rest) continue;
         sources.set(rest.id, { kind: 'continuation', task: t, projected });
-        items.push(rest);
+        items.push({ ...rest, high: isMustDo(t) });
       }
       const importedAllDay: ImportedSeg[] = [];
       for (const seg of segmentsForDay(imported, dayKey) as ImportedSeg[]) {
@@ -215,6 +215,8 @@ export default function CalendarPane({
         sources.set(id, { kind: 'imported', seg });
         items.push({ id, startMin: seg.startMin, endMin: seg.endMin });
       }
+      // 2.29.0: top priority first in the all day row (a stable sort; nothing stored).
+      allDay.sort((a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)));
       return { key: dayKey, allDay, importedAllDay, sources, blocks: layoutItems(items).blocks };
     });
   }, [effView, keys, tasks, events, categories, filter, todayKey, imported]);
@@ -604,7 +606,7 @@ export default function CalendarPane({
                   {d.blocks.map((b) => {
                     const source = d.sources.get(b.id);
                     if (!source) return null;
-                    const pos = { top: b.top, height: b.height, left: `${(b.col * 100) / b.cols}%` as const, width: `${100 / b.cols}%` as const };
+                    const pos = { top: b.top, height: b.height, left: `${(b.col * 100) / b.cols}%` as const, width: `${100 / b.cols}%` as const, ...(b.high ? { zIndex: 2 } : {}) };
                     if (source.kind === 'imported') {
                       const { occ, startMin, endMin, continues } = source.seg;
                       return (

@@ -22,6 +22,7 @@ import { setFeature, useFeatures } from './featureStore';
 import { FEATURES } from '../../lib/features';
 import CalendarsSection from './CalendarsSection';
 import { setCutMin, useCutMin } from './cutStore';
+import { setVibrant, useVibrant } from './vibrantStore';
 import { setDefaultReminders, useDefaultReminders } from './reminderStore';
 import { REMINDER_LEADS, leadLabel, toggleLead } from '../../lib/reminder';
 import { CUT_MIN_OPTIONS, parseCutMin } from '../../lib/cuts';
@@ -50,6 +51,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   const [exportNote, setExportNote] = useState<string | null>(null);
   const features = useFeatures();
   const cutMin = useCutMin();
+  const vibrant = useVibrant();
   const defaultReminders = useDefaultReminders();
 
   const desktop = globalThis.belificDesktop;
@@ -230,12 +232,12 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               <ToggleRow label={STREAK_TEXT.settingLabel} value={prefs.showStreaks} onChange={(v) => setPref({ showStreaks: v })} />
               <Text style={styles.hint}>{STREAK_TEXT.settingHint}</Text>
               <View style={styles.timeRow}>
-                <Text style={styles.body}>Smallest piece when a break cuts a task</Text>
+                <Text style={styles.body}>Smallest piece when a break splits a task</Text>
                 <select
                   value={String(cutMin)}
                   onChange={(e) => setCutMin(parseCutMin(e.target.value))}
                   style={domStyle}
-                  aria-label="Smallest piece when a break cuts a task"
+                  aria-label="Smallest piece when a break splits a task"
                 >
                   {CUT_MIN_OPTIONS.map((m) => (
                     <option key={m} value={String(m)}>
@@ -245,7 +247,16 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
                 </select>
               </View>
               <Text style={styles.hint}>
-                A task with "Cut tasks underneath" on (for example a break) cuts the tasks it overlaps into pieces. It only does so when every piece left is at least this long; otherwise the two sit side by side and the break says why. Nothing is changed on the tasks themselves.
+                A task with "Split" on (for example a break) splits the tasks it overlaps into pieces. It only does so when every piece left is at least this long; otherwise the two sit side by side and the break says why. Nothing is changed on the tasks themselves.
+              </Text>
+            </Section>
+
+            <Section title="Appearance" emoji="🎨">
+              <View {...({ dataSet: { vibrantSetting: '1' } } as object)}>
+                <ToggleRow label="Vibrant task colours" value={vibrant} onChange={(v) => setVibrant(v)} />
+              </View>
+              <Text style={styles.hint}>
+                Calendar blocks and Timebox cards use a stronger version of their label colour with bold white text. Colours that are too light for white text are darkened just enough to stay readable. The task cards in the list are not changed. This is kept on this computer only.
               </Text>
             </Section>
 

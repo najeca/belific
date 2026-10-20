@@ -24,12 +24,13 @@ const DEFAULTS = Object.freeze({
   defaultReminders: Object.freeze([0]),
   dayStart: '05:00', // where the Timebox opens (UI state, never synced)
   showStreaks: true, // the "N days in a row" line on repeating tasks (checkpoint 11, never synced)
+  vibrantColours: false, // "Vibrant task colours" on Calendar blocks and Timebox cards (per computer, never synced)
   closeToTray: true,
   startWithWindows: false, // opt in, off by default
   trayNoteShown: false,
 });
 
-const BOOLEANS = ['notifyEvents', 'notifyTasks', 'dailyReminder', 'closeToTray', 'startWithWindows', 'trayNoteShown', 'showStreaks'];
+const BOOLEANS = ['notifyEvents', 'notifyTasks', 'dailyReminder', 'closeToTray', 'startWithWindows', 'trayNoteShown', 'showStreaks', 'vibrantColours'];
 
 // Applies `partial` onto `current`, ignoring unknown keys and invalid values.
 function sanitize(partial, current = DEFAULTS) {

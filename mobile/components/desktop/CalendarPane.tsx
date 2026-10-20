@@ -7,6 +7,7 @@ import PriorityMark from './PriorityMark';
 import { isMustDo } from '../../lib/mustDo';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { useCutMin } from './cutStore';
+import { useVibrant, vibrantLook, vibrantText } from './vibrantStore';
 import { taskDuration } from '../../lib/drag';
 import { dayAt, followToday, indexOfDay, leftDay, stripAround, visibleRange, weekRangeTitle } from '../../lib/dayStrip';
 import { useAwayDays } from './awayStore';
@@ -133,6 +134,8 @@ export default function CalendarPane({
   // Away days (2.27.0) are greyed in every view.
   const awayDays = useAwayDays(refreshKey);
   const cutMin = useCutMin();
+  // "Vibrant task colours" (Settings): saturated chips and blocks with bold white text; off = as before.
+  const vibrant = useVibrant();
 
   const reload = useCallback(() => {
     // Raw rows, tombstones included: a skipped day of a series blocks its projection.
@@ -497,20 +500,22 @@ export default function CalendarPane({
                       <Text style={[styles.monthNum, cell.isToday && styles.monthNumToday]}>{parseDateKey(cell.key).getDate()}</Text>
                       {shown.map((t) => {
                         const color = labelColor(labelOf(t)?.colorKey);
+                        const look = vibrantLook(vibrant, color);
+                        const vt = look ? vibrantText : undefined;
                         return (
                           <Pressable
                             key={t.id + (t.dueDate ?? '')}
                             onPress={() => openDetail(t.id)}
-                            style={[styles.chip, color && { backgroundColor: color.tint, borderLeftColor: color.edge, borderLeftWidth: 3 }]}
+                            style={[styles.chip, color && { backgroundColor: look?.bg ?? color.tint, borderLeftColor: look?.edge ?? color.edge, borderLeftWidth: 3 }]}
                             accessibilityRole="button"
                             accessibilityLabel={`Calendar task ${t.title}`}
                           >
                             <View style={styles.chipRow}>
-                              <Text style={[styles.chipText, styles.chipTextFlex, t.completed && styles.chipDone]} numberOfLines={1}>
+                              <Text style={[styles.chipText, styles.chipTextFlex, t.completed && styles.chipDone, vt]} numberOfLines={1}>
                                 {t.emoji ? `${t.emoji} ` : ''}
                                 {t.title}
                               </Text>
-                              {isMustDo(t) && <PriorityMark />}
+                              {isMustDo(t) && <PriorityMark chip={!!look} />}
                             </View>
                           </Pressable>
                         );
@@ -583,22 +588,24 @@ export default function CalendarPane({
                         ))}
                         {d.allDay.map(({ task: t, projected }) => {
                           const color = labelColor(labelOf(t)?.colorKey);
+                          const look = vibrantLook(vibrant, color);
+                          const vt = look ? vibrantText : undefined;
                           return (
                             <View key={t.id + d.key}>
                               <Pressable
                                 ref={sourceRef(`calchip:${d.key}:${t.id}`, () => ({ kind: 'card', task: t, id: t.id, title: t.title, emoji: t.emoji, duration: taskDuration(t), projected })) as never}
                                 onPress={() => openDetail(t.id)}
-                                style={[styles.chip, { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent, borderLeftWidth: 3 }, projected && styles.projected]}
+                                style={[styles.chip, { backgroundColor: look?.bg ?? color?.tint ?? '#FFFFFF', borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent, borderLeftWidth: 3 }, projected && styles.projected]}
                                 accessibilityRole="button"
                                 accessibilityLabel={`All day task ${t.title}`}
                                 {...({ dataSet: { calBlock: `${scope}${t.id}` } } as object)}
                               >
                                 <View style={styles.chipRow}>
-                                  <Text style={[styles.chipText, styles.chipTextFlex, t.completed && styles.chipDone]} numberOfLines={1}>
+                                  <Text style={[styles.chipText, styles.chipTextFlex, t.completed && styles.chipDone, vt]} numberOfLines={1}>
                                     {t.emoji ? `${t.emoji} ` : ''}
                                     {t.title}
                                   </Text>
-                                  {isMustDo(t) && <PriorityMark />}
+                                  {isMustDo(t) && <PriorityMark chip={!!look} />}
                                 </View>
                               </Pressable>
                             </View>
@@ -680,6 +687,8 @@ export default function CalendarPane({
                     const scope = scopeOf(d.key);
                     if (source.kind === 'continuation' || (source.kind === 'piece' && source.cont)) {
                       const color = labelColor(labelOf(t)?.colorKey);
+                      const look = vibrantLook(vibrant, color, !!t.cutsBelow);
+                      const vt = look ? vibrantText : undefined;
                       const pc = source.kind === 'piece' ? source.piece : undefined;
                       const note = d.notes.get(b.id);
                       const timeText = pc && !pc.head ? pieceTimeText(formatTime(toTime(pc.startMin)), undefined, formatDuration(pc.leftMin), false) : 'Continues from yesterday';
@@ -687,20 +696,20 @@ export default function CalendarPane({
                         <View key={b.id} style={[styles.blockWrap, pos]}>
                           <Pressable
                             onPress={() => openDetail(t.id)}
-                            style={[styles.block, styles.taskBlock, { backgroundColor: color?.tint ?? '#FFFFFF', borderLeftColor: color?.edge ?? Colors.accent }, styles.projected]}
+                            style={[styles.block, styles.taskBlock, { backgroundColor: look?.bg ?? color?.tint ?? '#FFFFFF', borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent }, styles.projected]}
                             accessibilityRole="button"
                             accessibilityLabel={`Calendar block, continues from yesterday: ${t.title}`}
                             ref={tipRef(`${t.emoji ? `${t.emoji} ` : ''}${t.title}, ${timeText.toLowerCase()}${note ? `, ${note}` : ''}`) as never}
                             {...({ dataSet: { calBlock: `${scope}${pc && pc.index > 0 ? `${t.id}~${pc.index + 1}` : t.id}`, ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
                           >
                             <View style={styles.chipRow}>
-                              <Text style={[styles.blockTitle, styles.chipTextFlex, t.completed && styles.chipDone]}>
+                              <Text style={[styles.blockTitle, styles.chipTextFlex, t.completed && styles.chipDone, vt]}>
                                 {t.emoji ? `${t.emoji} ` : ''}
                                 {t.title}
                               </Text>
-                              {isMustDo(t) && <PriorityMark />}
+                              {isMustDo(t) && <PriorityMark chip={!!look} />}
                             </View>
-                            {!isCompactBlock(b.height) && <Text style={styles.blockTime}>{timeText}</Text>}
+                            {!isCompactBlock(b.height) && <Text style={[styles.blockTime, vt]}>{timeText}</Text>}
                           </Pressable>
                         </View>
                       );

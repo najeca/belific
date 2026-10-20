@@ -148,14 +148,14 @@ test('planCuts: the host is replaced by its pieces, the refused break gets a not
   assert.deepEqual(plan.items.map((i) => i.id), ['task:boot#0', 'task:boot#1', 'task:break', 'task:tiny', 'task:far']);
   assert.equal(plan.items[0].piece?.head, true);
   assert.equal(plan.items[3].piece, undefined);
-  assert.equal(plan.notes.get('task:break'), 'Not cutting Tiny: it would cover all of the task.');
-  assert.equal(plan.badges.get('task:break'), 'Not cut: it would cover a whole task');
+  assert.equal(plan.notes.get('task:break'), 'Not splitting Tiny: it would cover all of the task.');
+  assert.equal(plan.badges.get('task:break'), 'Not split: it would cover a whole task');
 });
 
 test('refusal notes say what happened and the minimum', () => {
-  assert.equal(refusalNote({ hostId: 'h', breakId: 'b', reason: 'short', pieceMin: 10 }, 'Boot camp', 30), 'Not cutting Boot camp: a piece would be 10 min (the minimum is 30 min).');
-  assert.equal(refusalNote({ hostId: 'h', breakId: 'b', reason: 'short', pieceMin: 45 }, 'X', 60), 'Not cutting X: a piece would be 45 min (the minimum is 1 h).');
-  assert.equal(refusalNote({ hostId: 'h', breakId: 'b', reason: 'covers' }, 'X', 30), 'Not cutting X: it would cover all of the task.');
+  assert.equal(refusalNote({ hostId: 'h', breakId: 'b', reason: 'short', pieceMin: 10 }, 'Boot camp', 30), 'Not splitting Boot camp: a piece would be 10 min (the minimum is 30 min).');
+  assert.equal(refusalNote({ hostId: 'h', breakId: 'b', reason: 'short', pieceMin: 45 }, 'X', 60), 'Not splitting X: a piece would be 45 min (the minimum is 1 h).');
+  assert.equal(refusalNote({ hostId: 'h', breakId: 'b', reason: 'covers' }, 'X', 30), 'Not splitting X: it would cover all of the task.');
 });
 
 test('moving the break recomputes the pieces; deleting it restores the whole host (derived, nothing stored)', () => {
@@ -168,6 +168,6 @@ test('moving the break recomputes the pieces; deleting it restores the whole hos
 });
 
 test('the short badge on the block', () => {
-  assert.equal(refusalBadge({ hostId: 'h', breakId: 'b', reason: 'short', pieceMin: 20 }, 30), 'Not cut: 20 min piece (min 30)');
-  assert.equal(refusalBadge({ hostId: 'h', breakId: 'b', reason: 'covers' }, 30), 'Not cut: it would cover a whole task');
+  assert.equal(refusalBadge({ hostId: 'h', breakId: 'b', reason: 'short', pieceMin: 20 }, 30), 'Not split: 20 min piece (min 30)');
+  assert.equal(refusalBadge({ hostId: 'h', breakId: 'b', reason: 'covers' }, 30), 'Not split: it would cover a whole task');
 });

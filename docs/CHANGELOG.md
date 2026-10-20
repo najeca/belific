@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 2.33.0 — 2026-10-20 (Split wording, Vibrant task colours)
+
+**Display only, desktop only. No schema change, no new synced field, nothing for the phone.**
+- **"Cut" is now "Split" everywhere you read it:** the details row is "Split" (tooltip and accessible name "Split") with the plain description "Splits the tasks it overlaps, so you still see them before and after it."; the note on a refused split reads "Not splitting …" and its badge "Not split: …"; Settings, Planning says "Smallest piece when a break splits a task". Internal names (`cutsBelow`, `planCuts`, `cuts.ts`, the column `cuts_below` in the unapplied `004_part_b.sql`) are unchanged. The old strings left the iOS marker list on purpose and the new visible strings joined it.
+- **New setting "Vibrant task colours" (Settings, Appearance, off by default, takes effect at once):** Calendar blocks (day, week, every piece of a split or continued block), all-day and month chips and the Timebox cards use a more saturated version of the label colour (same hue) with bold white text for the title, time, duration, "continues" and "left" lines and the repeat icon. A colour too light for white text (yellow, lime and so on) is darkened only as far as needed so the ratio stays at least 4.5:1; the grey break block is a mid slate (`#5B6675`). The red ❗ is drawn on a small white rounded chip in this mode. Tooltips, sizes, positions and layout do not change; the task cards in the list are not changed; an unlabelled task keeps its plain white block (white text would not show on it); imported and custom events are not label coloured so they are unchanged. **Stored per computer** in the desktop settings (`vibrantColours`, like "Show streaks"), never synced, so no schema or synced field was needed.
+- Tests: `vibrant.test.ts` (6: every one of the 20 palette colours, the 12 legacy colours, all 7560 colour wheel colours (hue 0 to 359 at 21 shades), the extremes and the break slate keep at least 4.5:1 with white; hue kept), settings tests, and the real check `p16.js` (45: wording, off by default and exactly as before, on in Timebox / Calendar week / day / month / all day / continued / priority chip / repeat icon, geometry and tooltips unchanged, off again identical).
+- Desktop only names added to the iOS marker gate on purpose: `vibrantColor`, "Vibrant task colours", "Splits the tasks it overlaps, so you still see them before and after it.", "Smallest piece when a break splits a task" (the old "Cut tasks underneath" and "Smallest piece when a break cuts a task" markers were retired with the wording).
+
+---
+
 ## 2.32.0 — 2026-10-20 (Part B, P5: several reminders per timed task)
 
 **Desktop only. Nothing new in the database beyond P3's `tasks.reminders` (written, NOT APPLIED; until Jethro applies migration 004 the lists stay on the computer and the first reminder still syncs through the older `reminder_minutes`). The phone gets no extra reminders until the iPhone catch-up release.**
@@ -21,15 +31,16 @@ to know the current version and recent history.
 
 ---
 
-## 2.31.0 — 2026-10-20 (Part B, P4: Cut tasks underneath)
+## 2.31.0 — 2026-10-20 (Part B, P4: Split)
 
 **Desktop only. No schema change here (the switch syncs through the P3 gate, `cuts_below`, once Jethro applies 004); the minimum piece length is a `user_settings` row (`planner.cut_min`), no new table.**
-- **The switch:** a task has "Cut tasks underneath" (details, after Repeats; off by default). A task with it on is a break: where it overlaps other timed tasks, those are drawn in pieces around it, **stacked at full width, never side by side** (Calendar Day, Week and the Timebox panel). Pieces: the first shows the title and "9:30am 7h"; the break is a full width box (grey with no label colour; its label colour otherwise); each later piece shows the same title, its start and "5h 10m left" (to the task's end). Heights and positions stay tied to real time.
-- **Rules (`lib/cuts.ts`, derived each time, nothing stored, the host row is never changed):** only a break cuts, never another break (two breaks overlapping stay side by side); a cut is allowed only if every piece it leaves is at least the minimum (Settings, Planning: 15, 30 or 60 minutes, default 30, synced); a refused cut (too small a leftover, or the break covers the whole task) falls back to side by side and the break says why ("Not cut: 20 min piece (min 30)" on the block, the whole sentence in its tooltip, an ⓘ mark on a block too short for the badge); several breaks are judged one by one, earliest first; a break running past the end cuts only inside; overnight tasks cut on both days (the last piece ends at the true end and keeps "continues"; the next day cuts its continuation); every occurrence of a repeating task and break is cut on its own day. Moving, resizing or deleting a break (or switching it off) recomputes at once.
+- **The switch:** a task has "Split" (details, after Repeats; off by default). A task with it on is a break: where it overlaps other timed tasks, those are drawn in pieces around it, **stacked at full width, never side by side** (Calendar Day, Week and the Timebox panel). Pieces: the first shows the title and "9:30am 7h"; the break is a full width box (grey with no label colour; its label colour otherwise); each later piece shows the same title, its start and "5h 10m left" (to the task's end). Heights and positions stay tied to real time.
+- **Rules (`lib/cuts.ts`, derived each time, nothing stored, the host row is never changed):** only a break splits, never another break (two breaks overlapping stay side by side); a split is allowed only if every piece it leaves is at least the minimum (Settings, Planning: 15, 30 or 60 minutes, default 30, synced); a refused split (too small a leftover, or the break covers the whole task) falls back to side by side and the break says why ("Not split: 20 min piece (min 30)" on the block, the whole sentence in its tooltip, an ⓘ mark on a block too short for the badge); several breaks are judged one by one, earliest first; a break running past the end cuts only inside; overnight tasks cut on both days (the last piece ends at the true end and keeps "continues"; the next day cuts its continuation); every occurrence of a repeating task and break is cut on its own day. Moving, resizing or deleting a break (or switching it off) recomputes at once.
 - **Pieces:** a press, a drag and the arrow keys act on the whole task; only the last piece has the resize handle and the late button; a short break or later piece also shows its start time on its one line.
 - **Words:** the P1 no-split rule applies to all pieces.
-- Desktop only names added to the iOS marker gate on purpose: `planCuts`, `refusalNote`, "Cut tasks underneath", "Smallest piece when a break cuts a task". The two synced fields are shared sync code, not markers.
-- Tests: `cuts.test.ts` (20), real check `p14.js` (39: the drawing in Calendar and Timebox, three breaks, a refused cut, overnight, a repeating pair, the switch, the setting).
+- Desktop only names added to the iOS marker gate on purpose: `planCuts`, `refusalNote`, "Split", "Smallest piece when a break splits a task". The two synced fields are shared sync code, not markers.
+- Tests: `cuts.test.ts` (20), real check `p14.js` (39: the drawing in Calendar and Timebox, three breaks, a refused split, overnight, a repeating pair, the switch, the setting).
+- *(Wording renamed from "Cut" to "Split" in 2.33.0; internal names such as `cutsBelow`, `planCuts` and the column `cuts_below` are unchanged.)*
 
 ---
 

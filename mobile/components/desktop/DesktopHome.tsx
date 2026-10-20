@@ -35,6 +35,7 @@ import { usePaneState } from './usePaneState';
 import { refreshFeatures, useFeatures } from './featureStore';
 import { refreshCutMin } from './cutStore';
 import { refreshDefaultReminders } from './reminderStore';
+import { refreshVibrant } from './vibrantStore';
 import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
 import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
@@ -220,6 +221,7 @@ export default function DesktopHome() {
     refreshFeatures();
     refreshCutMin();
     refreshDefaultReminders();
+    refreshVibrant();
   }, [refreshKey]);
   useEffect(() => {
     restorePomodoro();

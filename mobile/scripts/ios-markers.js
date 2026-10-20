@@ -61,13 +61,14 @@ const MARKERS = [
   // 2.27.1: the emoji picker and its bundled emojibase data are desktop only.
   'searchEmoji',
   'Search emoji for',
-  // 2.31.0 (Part B, P4): cutting a task around a break is desktop only (lib/cuts.ts, the
-  // switch in the details and the Settings row). The phone shows no cut pieces; the two
+  // 2.31.0 (Part B, P4): splitting a task around a break is desktop only (lib/cuts.ts, the
+  // Split switch in the details and the Settings row; the visible strings say "split" since 2.33.0,
+  // the old "Cut tasks underneath" / "cuts a task" markers were retired with the wording). The phone shows no pieces; the two
   // synced fields (cutsBelow, reminders) are shared sync code and are NOT markers.
   'planCuts',
   'refusalNote',
-  'Cut tasks underneath',
-  'Smallest piece when a break cuts a task',
+  'Splits the tasks it overlaps, so you still see them before and after it.',
+  'Smallest piece when a break splits a task',
   // 2.32.0 (Part B, P5): several reminders per task and the desktop's default list are desktop only
   // (lib/reminder.ts, reminderStore, Settings, Notifications). The phone notifies nothing until the
   // iPhone catch-up release; the synced field `reminders` is shared sync code and is NOT a marker.
@@ -75,6 +76,9 @@ const MARKERS = [
   'setDefaultReminders',
   'Reminders for a timed task',
   'Turn on Start with Windows',
+  // 2.33.0: "Vibrant task colours" (a desktop look setting; lib/vibrant.ts, vibrantStore, Settings, Appearance).
+  'vibrantColor',
+  'Vibrant task colours',
 ];
 
 const ALLOWED = {

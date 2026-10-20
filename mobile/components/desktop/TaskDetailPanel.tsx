@@ -328,20 +328,20 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           <RepeatField task={task} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
-        {/* Cut tasks underneath (Part B): a break cuts the timed tasks it overlaps into pieces. Off by default. */}
-        <DetailRow glyph="✂️" label="Cut tasks underneath" shown="Cut below" tip="Cut tasks underneath">
+        {/* Split (Part B; field cutsBelow): a break splits the timed tasks it overlaps into pieces. Off by default. */}
+        <DetailRow glyph="✂️" label="Split" shown="Split" tip="Split">
           <View style={styles.row}>
             <Pressable
               onPress={() => patch({ cutsBelow: task.cutsBelow ? undefined : true })}
               style={[styles.switch, task.cutsBelow && styles.switchOn]}
               accessibilityRole="switch"
               accessibilityState={{ checked: !!task.cutsBelow }}
-              accessibilityLabel="Cut tasks underneath"
+              accessibilityLabel="Split"
               {...({ 'aria-checked': !!task.cutsBelow, dataSet: { cutSwitch: task.cutsBelow ? '1' : '0' } } as object)}
             >
               <View style={[styles.knob, task.cutsBelow && styles.knobOn]} />
             </Pressable>
-            <Text style={styles.quietText}>{task.cutsBelow ? 'For a break: tasks it overlaps are drawn in pieces around it' : 'Off'}</Text>
+            <Text style={styles.quietText}>Splits the tasks it overlaps, so you still see them before and after it.</Text>
           </View>
         </DetailRow>
 

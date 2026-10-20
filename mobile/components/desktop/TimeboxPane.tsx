@@ -26,6 +26,7 @@ import {
 } from '../../lib/timebox';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { useCutMin } from './cutStore';
+import { useVibrant, vibrantLook, vibrantText } from './vibrantStore';
 import { openingMinutes } from '../../lib/dayStart';
 import { tasksForTimebox } from '../../lib/timeboxTasks';
 import { useDayStart } from './useDayStart';
@@ -213,6 +214,8 @@ export default function TimeboxPane({
   };
 
   const cutMin = useCutMin();
+  // "Vibrant task colours" (Settings): saturated cards with bold white text; off = as before.
+  const vibrant = useVibrant();
   const { sources, items, notes, badges } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: TimeboxItem[] = [];
@@ -392,6 +395,8 @@ export default function TimeboxPane({
                 const pc = source.kind === 'piece' ? source.piece : undefined;
                 const timeText = pc && !pc.head ? pieceTimeText(formatTime(toTime(pc.startMin)), undefined, formatDuration(pc.leftMin), false) : 'Continues from yesterday';
                 const color = labelColor(labels.find((p) => p.key === t.projectKey)?.colorKey);
+                const look = vibrantLook(vibrant, color, !!t.cutsBelow);
+                const vt = look ? vibrantText : undefined;
                 return (
                   <View key={b.id} style={[styles.blockWrap, positioned]}>
                     <View style={styles.blockBase}>
@@ -401,20 +406,21 @@ export default function TimeboxPane({
                           styles.block,
                           styles.taskBlock,
                           styles.continuationBlock,
-                          color && [styles.taskBlockLabelled, { backgroundColor: color.tint, borderLeftColor: color.edge }],
+                          color && [styles.taskBlockLabelled, { backgroundColor: look?.bg ?? color.tint, borderLeftColor: look?.edge ?? color.edge }],
+                          !color && look && [styles.taskBlockLabelled, { backgroundColor: look.bg, borderLeftColor: look.edge }],
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={`Continues from yesterday: ${t.title}`}
                         {...({ dataSet: { blockId: pc && pc.index > 0 ? `${t.id}~${pc.index + 1}` : t.id, continuation: '1', ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
                       >
                         <View style={styles.blockTitleRow}>
-                          <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone]} numberOfLines={1}>
+                          <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone, vt]} numberOfLines={1}>
                             {t.title}
                           </Text>
-                          {isCompactBlock(b.height) && <Text style={styles.blockTimeInline}>{timeText}</Text>}
-                          {isMustDo(t) && <PriorityMark />}
+                          {isCompactBlock(b.height) && <Text style={[styles.blockTimeInline, vt]}>{timeText}</Text>}
+                          {isMustDo(t) && <PriorityMark chip={!!look} />}
                         </View>
-                        {!isCompactBlock(b.height) && <Text style={styles.blockTime}>{timeText}</Text>}
+                        {!isCompactBlock(b.height) && <Text style={[styles.blockTime, vt]}>{timeText}</Text>}
                       </Pressable>
                     </View>
                   </View>

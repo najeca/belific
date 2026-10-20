@@ -21,6 +21,7 @@ import { lateMoveFor, moveLateTask } from '../../lib/lateActions';
 import { tipRef } from './tip';
 import PriorityMark from './PriorityMark';
 import { isMustDo } from '../../lib/mustDo';
+import { useVibrant, vibrantLook, vibrantText, VIBRANT_WHITE } from './vibrantStore';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
 // day and week views draw the same block, so they behave the same. A press
@@ -40,7 +41,7 @@ const KEY_NUDGE: Partial<Record<string, BlockNudge>> = {
   blockLonger: 'longer',
 };
 
-// A break (a task with "Cut tasks underneath" on) with no label colour: a neutral grey, no new colour in the palette.
+// A break (a task with "Split" on) with no label colour: a neutral grey, no new colour in the palette.
 const BREAK_TINT = '#E6E4DD';
 
 export default function TimeBlock({
@@ -88,6 +89,9 @@ export default function TimeBlock({
   onChanged: () => void;
 }) {
   const { drag, sourceRef, startResize } = useDrag();
+  // "Vibrant task colours" (Settings): a saturated block with bold white text; null = as before.
+  const look = vibrantLook(useVibrant(), color, !!task.cutsBelow);
+  const vt = look ? vibrantText : undefined;
   const resizing = drag?.mode === 'resize' && drag.item.id === task.id && drag.item.scope === scope ? drag.resizeDuration : undefined;
   const lifted = drag?.mode === 'move' && drag.item.id === task.id;
   const startMin = toMinutes(task.startTime) ?? 0;
@@ -221,7 +225,9 @@ export default function TimeBlock({
           onPress={() => openDetail(task.id)}
           style={[
             styles.block,
-            { backgroundColor: color?.tint ?? (task.cutsBelow ? BREAK_TINT : '#FFFFFF'), borderLeftColor: color?.edge ?? (task.cutsBelow ? Colors.textSecondary : Colors.accent) },
+            look
+              ? { backgroundColor: look.bg, borderLeftColor: look.edge }
+              : { backgroundColor: color?.tint ?? (task.cutsBelow ? BREAK_TINT : '#FFFFFF'), borderLeftColor: color?.edge ?? (task.cutsBelow ? Colors.textSecondary : Colors.accent) },
             continues && styles.continues,
             projected && styles.projected,
             late && styles.late,
@@ -232,13 +238,13 @@ export default function TimeBlock({
           {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
           <View style={[styles.titleRow, fullText && styles.titleRowTop]}>
-            <Text style={[styles.title, fullText && styles.titleWrap, task.completed && styles.titleDone]} numberOfLines={fullText ? undefined : 1}>
+            <Text style={[styles.title, fullText && styles.titleWrap, task.completed && styles.titleDone, vt]} numberOfLines={fullText ? undefined : 1}>
               {task.emoji ? `${task.emoji} ` : ''}
               {task.title}
             </Text>
             {/* A short block shows one line: title and its true duration ("10m"). */}
             {compact && resizing === undefined && (headPiece ? formatDuration(task.durationMinutes) : formatDuration(piece?.leftMin)) && (
-              <Text style={styles.timeInline}>
+              <Text style={[styles.timeInline, vt]}>
                 {/* A break and a later piece also say when they start: their block is one line. */}
                 {task.cutsBelow || (piece && !piece.head) ? `${formatTime(piece ? toTime(piece.startMin) : task.startTime ?? '')} ` : ''}
                 {headPiece ? formatDuration(task.durationMinutes) : `${formatDuration(piece?.leftMin)} left`}
@@ -246,24 +252,24 @@ export default function TimeBlock({
             )}
             {/* A refused cut on a short block (no room for the badge): a small info mark with the whole sentence. */}
             {badge && compact && resizing === undefined && (
-              <Text ref={tipRef(note) as never} style={styles.cutInfo} accessibilityLabel={note} {...({ 'aria-label': note, dataSet: { cutNoteIcon: '1' } } as object)}>
+              <Text ref={tipRef(note) as never} style={[styles.cutInfo, vt]} accessibilityLabel={note} {...({ 'aria-label': note, dataSet: { cutNoteIcon: '1' } } as object)}>
                 {'ⓘ'}
               </Text>
             )}
-            {isMustDo(task) && <PriorityMark />}
+            {isMustDo(task) && <PriorityMark chip={!!look} />}
             {task.recurrence && (
               <View style={fullText ? styles.repeatTop : undefined}>
-                <Ionicons name="repeat" size={12} color={Colors.textSecondary} accessibilityLabel="Repeats" />
+                <Ionicons name="repeat" size={12} color={look ? VIBRANT_WHITE : Colors.textSecondary} accessibilityLabel="Repeats" />
               </View>
             )}
           </View>
           {resizing !== undefined ? (
-            <Text style={styles.snap} {...({ dataSet: { mono: '1' } } as object)}>
+            <Text style={[styles.snap, vt]} {...({ dataSet: { mono: '1' } } as object)}>
               {slotLabel(startMin, resizing)}
             </Text>
           ) : (
             !compact && (
-              <Text style={styles.time} {...({ dataSet: { mono: '1' } } as object)}>
+              <Text style={[styles.time, vt]} {...({ dataSet: { mono: '1' } } as object)}>
                 {listEmoji ? <Text {...({ dataSet: { blockListEmoji: '1' } } as object)}>{listEmoji} </Text> : null}
                 {piece && !piece.head
                   ? pieceTimeText(formatTime(toTime(piece.startMin)), undefined, formatDuration(piece.leftMin), false)
@@ -273,7 +279,7 @@ export default function TimeBlock({
             )
           )}
           {badge && !compact && resizing === undefined && (
-            <Text style={styles.cutNote} {...({ dataSet: { cutNote: '1' } } as object)}>
+            <Text style={[styles.cutNote, vt]} {...({ dataSet: { cutNote: '1' } } as object)}>
               {badge}
             </Text>
           )}
@@ -294,8 +300,8 @@ export default function TimeBlock({
         </Pressable>
         {continues && (
           <View pointerEvents="none" style={styles.continuesTag} accessibilityLabel="Continues after 24:00">
-            <Text style={styles.continuesText}>continues</Text>
-            <Ionicons name="arrow-down" size={10} color={Colors.textSecondary} />
+            <Text style={[styles.continuesText, vt]}>continues</Text>
+            <Ionicons name="arrow-down" size={10} color={look ? VIBRANT_WHITE : Colors.textSecondary} />
           </View>
         )}
         {lastPiece && <View ref={handleRef as never} style={styles.handle} accessibilityLabel={`Resize ${task.title}`} />}

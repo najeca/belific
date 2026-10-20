@@ -39,3 +39,12 @@ test('showStreaks defaults to on, is a boolean, and ignores anything else (check
   for (const bad of ['no', 0, null, undefined, {}]) assert.equal(sanitize({ showStreaks: bad }, off).showStreaks, false, JSON.stringify(bad));
   assert.equal(sanitize({ dailyTime: '08:00' }, off).showStreaks, false);
 });
+
+test('vibrantColours defaults to off, is a boolean, and ignores anything else (Vibrant task colours)', () => {
+  assert.equal(DEFAULTS.vibrantColours, false);
+  assert.equal(sanitize({}).vibrantColours, false);
+  assert.equal(sanitize({ vibrantColours: true }).vibrantColours, true);
+  const on = sanitize({ vibrantColours: true });
+  for (const bad of ['yes', 1, null, undefined, {}]) assert.equal(sanitize({ vibrantColours: bad }, on).vibrantColours, true, JSON.stringify(bad));
+  assert.equal(sanitize({ dailyTime: '08:00' }, on).vibrantColours, true);
+});

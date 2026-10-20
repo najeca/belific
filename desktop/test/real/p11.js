@@ -102,7 +102,8 @@ async function run() {
   await openModal('Modal task');
   const rows = await I.js(`[...${panel}.querySelectorAll('[data-detail-row]')].map((r) => { const s = getComputedStyle(r); const b = r.getBoundingClientRect(); return { name: r.dataset.detailRow, h: Math.round(b.height), lines: parseFloat(s.borderTopWidth) + parseFloat(s.borderBottomWidth) }; })`);
   check('1: the rows keep their order', rows.slice(0, 6).map((r) => r.name).join('|') === 'Task date|Estimated time|Actual time|Label|Must do|Repeats', JSON.stringify(rows.map((r) => r.name)));
-  check('1: every row is one compact line (at most 36 px)', rows.length >= 7 && rows.every((r) => r.h <= 36), JSON.stringify(rows));
+  // The Split row (2.33.0) carries a plain sentence that wraps to two lines (at most 46 px); every other row stays one line.
+  check('1: every row is one compact line (at most 36 px; the Split row, with its sentence, at most 46)', rows.length >= 7 && rows.every((r) => r.h <= (r.name === 'Split' ? 46 : 36)), JSON.stringify(rows));
   check('1: no row has a divider line', rows.every((r) => r.lines === 0), JSON.stringify(rows));
   const lined = await I.js(`[...${panel}.querySelectorAll('*')].filter((e) => { if (e.tagName === 'INPUT' || e.tagName === 'SELECT' || e.tagName === 'TEXTAREA') return false; const s = getComputedStyle(e); const r = e.getBoundingClientRect(); return r.width > 120 && ((parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none' && s.borderTopColor !== 'rgba(0, 0, 0, 0)') || (parseFloat(s.borderBottomWidth) > 0 && s.borderBottomStyle !== 'none' && s.borderBottomColor !== 'rgba(0, 0, 0, 0)')); }).length`);
   check('1: nothing wide in the modal draws a line', lined === 0, String(lined));

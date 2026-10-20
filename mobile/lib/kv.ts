@@ -26,6 +26,8 @@ export interface DesktopSettings {
   dayStart: string;
   // The "N days in a row" line on repeating tasks (checkpoint 11). Desktop only, never synced.
   showStreaks: boolean;
+  // "Vibrant task colours": saturated blocks with white text on the Calendar and the Timebox. Per computer, never synced.
+  vibrantColours: boolean;
   closeToTray: boolean;
   startWithWindows: boolean;
   trayNoteShown: boolean;

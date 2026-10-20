@@ -1,4 +1,4 @@
-// "Cut tasks underneath" (Part B, build plan P4). Pure: NO runtime imports; see
+// "Split" (shown to the person as Split; field cutsBelow; Part B, build plan P4). Pure: NO runtime imports; see
 // cuts.test.ts. DESKTOP ONLY: nothing of this is in the phone's bundle (the iOS
 // marker gate lists `cutDay`, `planCuts` and `refusalNote`).
 //
@@ -185,14 +185,14 @@ function minutesText(m: number): string {
 
 // The small note on a break that could not cut (and in its tooltip).
 export function refusalNote(r: CutRefusal, hostTitle: string, minLen: number): string {
-  if (r.reason === 'covers') return `Not cutting ${hostTitle}: it would cover all of the task.`;
-  return `Not cutting ${hostTitle}: a piece would be ${minutesText(r.pieceMin ?? 0)} (the minimum is ${minutesText(minLen)}).`;
+  if (r.reason === 'covers') return `Not splitting ${hostTitle}: it would cover all of the task.`;
+  return `Not splitting ${hostTitle}: a piece would be ${minutesText(r.pieceMin ?? 0)} (the minimum is ${minutesText(minLen)}).`;
 }
 
-// The short form on the block itself ("Not cut: 20 min piece (min 30)"); the first refusal of the break.
+// The short form on the block itself ("Not split: 20 min piece (min 30)"); the first refusal of the break.
 export function refusalBadge(r: CutRefusal, minLen: number): string {
-  if (r.reason === 'covers') return 'Not cut: it would cover a whole task';
-  return `Not cut: ${r.pieceMin ?? 0} min piece (min ${minLen})`;
+  if (r.reason === 'covers') return 'Not split: it would cover a whole task';
+  return `Not split: ${r.pieceMin ?? 0} min piece (min ${minLen})`;
 }
 
 // The time line of a piece: the first shows the start and the full length, the

@@ -121,3 +121,22 @@ test('a projected occurrence whose reminder is off carries -1 so the daily count
   const p = buildNotifyPayload([], [series('d', { completed: true, reminderMinutes: -1 })], now);
   assert.ok(p.planned.length > 0 && p.planned.every((t) => t.reminderMinutes === -1));
 });
+
+test('P5 the payload carries the task\'s own list of reminders (an empty list too) and a repeat day carries its series list', () => {
+  const p = buildNotifyPayload(
+    [],
+    [
+      task('a', { dueDate: '2026-10-06', startTime: '10:00', reminders: [5, 0, 5, 9999] } as never),
+      task('b', { dueDate: '2026-10-06', startTime: '11:00', reminders: [] } as never),
+      task('c', { dueDate: '2026-10-06', startTime: '12:00' }),
+      task('d', { dueDate: '2026-10-06', reminders: [] } as never),
+    ],
+    now,
+  );
+  assert.deepEqual(p.placed.find((x) => x.id === 'a')!.reminders, [0, 5], 'cleaned: distinct, ascending, in range');
+  assert.deepEqual(p.placed.find((x) => x.id === 'b')!.reminders, [], 'an empty list means none, and is kept');
+  assert.equal('reminders' in p.placed.find((x) => x.id === 'c')!, false, 'not set: the defaults apply in the main process');
+  assert.deepEqual(p.planned.map((x) => x.reminders), [[]], 'an untimed task with none is passed so the daily reminder can leave it out');
+  const series = buildNotifyPayload([], [task('s', { dueDate: '2026-10-06', startTime: '23:00', recurrence: 'daily', reminders: [0, 5] } as never)], now);
+  assert.ok(series.placed.length >= 2 && series.placed.every((x) => JSON.stringify(x.reminders) === '[0,5]'), JSON.stringify(series.placed));
+});

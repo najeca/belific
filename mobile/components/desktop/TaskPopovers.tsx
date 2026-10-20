@@ -8,7 +8,8 @@ import { colorClash, freeColorKey, labelColor } from '../../lib/labelColors';
 import LabelForm from './LabelForm';
 import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
 import { availableSuggestions, findLabelByName, normalizeName } from '../../lib/labelRules';
-import { REMINDER_OPTIONS, NO_START_NOTE, optionEnabled, reminderState } from '../../lib/reminder';
+import { NO_START_NOTE, REMINDER_LEADS, MAX_TASK_REMINDERS, effectiveReminders, leadLabel, reminderPatch, reminderState, toggleLead } from '../../lib/reminder';
+import { useDefaultReminders } from './reminderStore';
 import {
   ANNUAL_CONFIRM,
   ANNUAL_WARNING,
@@ -206,36 +207,65 @@ export function ActualBody({ task, ops, done }: BodyProps) {
 }
 
 // ---------------------------------------------------------------- Reminder
+// Part B (P5): a task can have several reminders. "Default" uses the list from Settings,
+// "None" turns them off; each time below is switched on or off on its own and the menu
+// stays open for the next one. The first one is also written into the older single value.
 export function ReminderBody({ task, ops, done }: BodyProps) {
   const hasStart = !!task.dueDate && !!task.startTime;
-  const state = reminderState(task.reminderMinutes);
+  const defaults = useDefaultReminders();
+  const explicit = Array.isArray(task.reminders) || reminderState(task.reminderMinutes) !== 'default';
+  // Kept here too, so several switches in a row build on each other before the saved task comes back.
+  const [list, setList] = useState(() => effectiveReminders(task, defaults));
+  useEffect(() => {
+    setList(effectiveReminders(task, defaults));
+  }, [task.reminders, task.reminderMinutes, defaults]);
+  const full = list.length >= MAX_TASK_REMINDERS;
   return (
     <View style={styles.list}>
-      <PopoverHeading>Reminder</PopoverHeading>
+      <PopoverHeading>Reminders</PopoverHeading>
       <Row
         label="Default"
-        sub={hasStart ? 'At the start time' : 'Your daily reminder'}
-        selected={state === 'default'}
+        sub={hasStart ? leadsText(defaults) : 'Your daily reminder'}
+        selected={!explicit}
         onPress={() => {
-          ops.patch({ reminderMinutes: undefined });
+          ops.patch(reminderPatch('default'));
           done();
         }}
       />
-      {REMINDER_OPTIONS.map((o) => (
-        <Row
-          key={o.key}
-          label={o.label}
-          selected={state !== 'default' && task.reminderMinutes === o.value}
-          disabled={!optionEnabled(o, hasStart)}
-          onPress={() => {
-            ops.patch({ reminderMinutes: o.value });
-            done();
-          }}
-        />
-      ))}
+      <Row
+        label="None"
+        selected={explicit && list.length === 0}
+        onPress={() => {
+          setList([]);
+          ops.patch(reminderPatch([]));
+          done();
+        }}
+      />
+      {REMINDER_LEADS.map((lead) => {
+        const on = explicit && list.includes(lead);
+        return (
+          <Row
+            key={lead}
+            label={leadLabel(lead)}
+            selected={on}
+            disabled={!hasStart || (full && !on)}
+            a11y={`${leadLabel(lead)}${on ? ', on' : ', off'}`}
+            onPress={() => {
+              const next = toggleLead(explicit ? list : effectiveReminders(task, defaults), lead);
+              setList(next);
+              ops.patch(reminderPatch(next));
+            }}
+          />
+        );
+      })}
       {!hasStart && <Text style={popoverStyles.note}>{NO_START_NOTE}</Text>}
+      {hasStart && full && <Text style={popoverStyles.note}>At most {MAX_TASK_REMINDERS} reminders.</Text>}
     </View>
   );
+}
+
+function leadsText(list: number[]): string {
+  return list.length === 0 ? 'None' : list.map(leadLabel).join(', ');
 }
 
 // ---------------------------------------------------------------- Move to day

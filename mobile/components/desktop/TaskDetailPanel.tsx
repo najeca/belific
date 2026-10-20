@@ -8,7 +8,8 @@ import { formatTaskTime } from '../../lib/taskTotals';
 import { addSubtask, counterLabel, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { generateId } from '../../lib/data';
 import { idDate, projectOccurrences } from '../../lib/series';
-import { reminderLabel } from '../../lib/reminder';
+import { taskRemindersLabel } from '../../lib/reminder';
+import { useDefaultReminders } from './reminderStore';
 import { effectiveListKey, listOptionText, listTitle } from '../../lib/lists';
 import { setActualFor } from '../../lib/timerActions';
 import { duplicateTaskById } from '../../lib/taskCommands';
@@ -328,7 +329,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
         </DetailRow>
 
         {/* Cut tasks underneath (Part B): a break cuts the timed tasks it overlaps into pieces. Off by default. */}
-        <DetailRow glyph="✂️" label="Cut tasks underneath">
+        <DetailRow glyph="✂️" label="Cut tasks underneath" shown="Cut below" tip="Cut tasks underneath">
           <View style={styles.row}>
             <Pressable
               onPress={() => patch({ cutsBelow: task.cutsBelow ? undefined : true })}
@@ -602,6 +603,8 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
   const id = `detail:${task.id}:reminder`;
   const open = useIsOpen(id);
   const wrapped: TaskOps = { ...ops, patch: (f) => ops.patch(f).then(onSaved) };
+  const defaults = useDefaultReminders();
+  const text = taskRemindersLabel(task, defaults);
   return (
     <>
       <Pressable
@@ -610,11 +613,13 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
         style={[styles.quiet, open && styles.openBg, { alignSelf: 'flex-start' }]}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={`Reminder: ${reminderLabel(task.reminderMinutes)}`}
+        accessibilityLabel={`Reminder: ${text}`}
       >
-        <Text style={styles.quietText}>{reminderLabel(task.reminderMinutes)}</Text>
+        <Text style={styles.quietText} numberOfLines={2}>
+          {text}
+        </Text>
       </Pressable>
-      <Popover id={id} anchor={get} width={240}>
+      <Popover id={id} anchor={get} width={260}>
         <ReminderBody task={task} ops={wrapped} done={() => closePopover(true)} />
       </Popover>
     </>

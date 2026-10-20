@@ -5,9 +5,14 @@
 //
 // The renderer sends a payload whenever data changes:
 //   { events:  [{ id, title, icon?, start }],        // CustomEvent starts, epoch ms (local wall time)
-//     placed:  [{ id, title, start, completed, reminderMinutes? }], // tasks with a Day AND a startTime
-//     planned: [{ dueDate, completed, startTime?, reminderMinutes? }] } // tasks planned for a day
-// reminderMinutes: undefined = default, -1 = off, n = minutes before the start.
+//     placed:  [{ id, title, start, completed, reminderMinutes?, reminders? }], // tasks with a Day AND a startTime
+//     planned: [{ dueDate, completed, startTime?, reminderMinutes?, reminders? }] } // tasks planned for a day
+// Which reminders a placed task gets (Part B, P5; mirrored in mobile/lib/reminder.ts):
+//   1. `reminders` when it is an array: whole minutes before the start, 0 = at the start
+//      (an empty array = none);
+//   2. else the older single `reminderMinutes`: -1 = off, n = minutes before the start;
+//   3. else the default list from the settings (`defaultReminders`, [0] = at the start).
+// Each lead is its own toast, at most five per task.
 // and main keeps one timer per notifiable item for the next 48 hours.
 // Only user set commitments notify (events and placed tasks), plus one
 // grouped daily reminder for planned tasks that have no time (decision 020).
@@ -61,15 +66,34 @@ const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isStr = (v) => typeof v === 'string';
 const clip = (s, n) => (s.length > n ? s.slice(0, n) : s);
 
-// Per task reminder (checkpoint 8.2): undefined/null/invalid = the default
-// (at the start time), -1 = off, 0 to 1440 = minutes before the start.
-function leadMinutes(v) {
-  if (v === undefined || v === null || !Number.isInteger(v) || v < -1 || v > 1440) return 0;
-  return v === -1 ? null : v;
+const MAX_LEADS = 5;
+// Whole minutes 0 to 1440, distinct, ascending, at most five.
+function normalizeLeads(list) {
+  if (!Array.isArray(list)) return [];
+  const out = new Set();
+  for (const n of list) if (Number.isInteger(n) && n >= 0 && n <= 1440) out.add(n);
+  return [...out].sort((a, b) => a - b).slice(0, MAX_LEADS);
+}
+
+// The leads (minutes before the start) a placed task gets.
+function leadsFor(t, defaults) {
+  if (Array.isArray(t.reminders)) return normalizeLeads(t.reminders);
+  const v = t.reminderMinutes;
+  if (Number.isInteger(v) && v >= -1 && v <= 1440) return v === -1 ? [] : [v];
+  return normalizeLeads(defaults);
+}
+
+// An untimed task is left out of the grouped daily reminder when it asked for none.
+function wantsReminder(t) {
+  if (Array.isArray(t.reminders)) return t.reminders.length > 0;
+  return t.reminderMinutes !== -1;
 }
 
 function leadText(min) {
-  return min === 60 ? '1 hour' : min % 60 === 0 && min > 60 ? `${min / 60} hours` : `${min} minutes`;
+  if (min === 1) return '1 minute';
+  if (min === 60) return '1 hour';
+  if (min === 1440) return '1 day';
+  return min % 60 === 0 && min > 60 ? `${min / 60} hours` : `${min} minutes`;
 }
 
 function dailyBody(count) {
@@ -95,11 +119,14 @@ function plan({ payload, settings, now, zone = localZone }) {
       if (!t || !isStr(t.id) || !isStr(t.title) || !isNum(t.start)) continue;
       if (t.completed === true) continue;
       if (t.start <= now) continue;
-      const lead = leadMinutes(t.reminderMinutes);
-      if (lead === null) continue; // this task's reminder is off
-      const at = t.start - lead * 60000;
-      if (at <= now || at > horizon) continue;
-      out.push({ key: `task:${clip(t.id, 120)}`, at, kind: 'task', title: clip(t.title, 200), body: lead > 0 ? `Starts in ${leadText(lead)}` : 'Starting now' });
+      for (const lead of leadsFor(t, settings.defaultReminders ?? [0])) {
+        const at = t.start - lead * 60000;
+        // A lead that has passed is skipped on its own; the later ones stay.
+        if (at <= now || at > horizon) continue;
+        // The at-the-start reminder keeps the key it always had.
+        const key = lead === 0 ? `task:${clip(t.id, 120)}` : `task:${clip(t.id, 120)}@${lead}`;
+        out.push({ key, at, kind: 'task', title: clip(t.title, 200), body: lead > 0 ? `Starts in ${leadText(lead)}` : 'Starting now' });
+      }
     }
   }
   if (settings.dailyReminder && HM.test(settings.dailyTime)) {
@@ -108,7 +135,7 @@ function plan({ payload, settings, now, zone = localZone }) {
       const day = zone.addDays(now, offset);
       const at = zone.at(day, settings.dailyTime);
       if (at <= now || at > horizon) continue;
-      const count = planned.filter((t) => t && t.dueDate === day && t.completed !== true && !t.startTime && t.reminderMinutes !== -1).length;
+      const count = planned.filter((t) => t && t.dueDate === day && t.completed !== true && !t.startTime && wantsReminder(t)).length;
       if (count === 0) continue;
       out.push({ key: `daily:${day}`, at, kind: 'daily', title: 'Belific', body: dailyBody(count) });
     }
@@ -140,8 +167,10 @@ class Scheduler {
     this.reschedule();
   }
 
-  // After the computer wakes: timers that should have fired fire now (if not
-  // too late), then everything is re-planned against the real clock.
+  // After the computer wakes (and now and then, in case the wake event never came): timers
+  // that should have fired fire now (if not too late), every other timer is RE-ARMED from the
+  // real clock (a timer does not count the time the computer slept, so it would fire late),
+  // then everything is re-planned.
   refresh() {
     const now = this.nowFn();
     for (const [key, t] of [...this.timers]) {
@@ -151,7 +180,18 @@ class Scheduler {
         this.fire(key, t, now);
       }
     }
+    for (const [key, entry] of this.timers) {
+      this.clearTimer(entry.handle);
+      entry.handle = this.arm(key, entry, now);
+    }
     this.reschedule();
+  }
+
+  arm(key, entry, now) {
+    return this.setTimer(() => {
+      this.timers.delete(key);
+      this.fire(key, entry, this.nowFn());
+    }, Math.max(0, entry.at - now));
   }
 
   reschedule() {
@@ -171,10 +211,7 @@ class Scheduler {
       if (this.timers.has(key)) continue;
       if (this.fired.has(w.sig)) continue;
       const entry = { sig: w.sig, at: w.at, item: w, handle: null };
-      entry.handle = this.setTimer(() => {
-        this.timers.delete(key);
-        this.fire(key, entry, this.nowFn());
-      }, Math.max(0, w.at - now));
+      entry.handle = this.arm(key, entry, now);
       this.timers.set(key, entry);
     }
     for (const [sig, at] of [...this.fired]) {
@@ -206,4 +243,4 @@ class Scheduler {
   }
 }
 
-module.exports = { Scheduler, plan, dailyBody, localZone, fixedZone, WINDOW_MS, MAX_LATE_MS, HM };
+module.exports = { Scheduler, plan, dailyBody, localZone, fixedZone, normalizeLeads, leadsFor, WINDOW_MS, MAX_LATE_MS, HM };

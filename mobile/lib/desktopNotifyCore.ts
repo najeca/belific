@@ -1,5 +1,6 @@
 import type { NotifyPayload } from './kv';
 import { projectOccurrences } from './series.ts';
+import { normalizeReminders } from './reminder.ts';
 import type { Task } from './types';
 
 // Pure part of the desktop notification payload (checkpoint 7), kept apart
@@ -27,12 +28,17 @@ interface TaskLike {
   dueDate?: string;
   startTime?: string;
   reminderMinutes?: number | null;
+  // Part B (P5): the task's own list of reminders (an empty list is none).
+  reminders?: number[];
   // Tombstones are passed in too: a skipped day blocks its projection.
   deletedAt?: string;
 }
 
-function reminderPart(t: TaskLike): { reminderMinutes?: number } {
-  return typeof t.reminderMinutes === 'number' ? { reminderMinutes: t.reminderMinutes } : {};
+function reminderPart(t: TaskLike): { reminderMinutes?: number; reminders?: number[] } {
+  return {
+    ...(typeof t.reminderMinutes === 'number' ? { reminderMinutes: t.reminderMinutes } : {}),
+    ...(Array.isArray(t.reminders) ? { reminders: normalizeReminders(t.reminders) } : {}),
+  };
 }
 
 // Pure: builds the payload for the 48 hours after `now` (plus a day of slack,

@@ -19,6 +19,9 @@ export interface DesktopSettings {
   notifyTasks: boolean;
   dailyReminder: boolean;
   dailyTime: string;
+  // Part B (P5): the reminders a timed task gets unless it has its own list, as whole minutes
+  // before the start (0 = at the start). Per computer, never synced.
+  defaultReminders: number[];
   // "My day starts at": where the Timebox opens, 'HH:mm' in 30 minute steps.
   dayStart: string;
   // The "N days in a row" line on repeating tasks (checkpoint 11). Desktop only, never synced.
@@ -31,8 +34,8 @@ export interface DesktopSettings {
 // The next 48 hours of notifiable items, sent to the main process.
 export interface NotifyPayload {
   events: Array<{ id: string; title: string; icon: string; start: number }>;
-  placed: Array<{ id: string; title: string; start: number; completed: boolean; reminderMinutes?: number }>;
-  planned: Array<{ dueDate: string; completed: boolean; startTime?: string; reminderMinutes?: number }>;
+  placed: Array<{ id: string; title: string; start: number; completed: boolean; reminderMinutes?: number; reminders?: number[] }>;
+  planned: Array<{ dueDate: string; completed: boolean; startTime?: string; reminderMinutes?: number; reminders?: number[] }>;
 }
 
 // What desktop/preload.js exposes (decisions 010, 012, 017). Everything but

@@ -44,6 +44,8 @@ const APP_USER_MODEL_ID = 'com.najeca.belific.desktop';
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
 const TRAY_ICON_PATH = path.join(__dirname, 'assets', 'tray.png');
 const HIDDEN_TICK_MS = 120 * 1000;
+// How often the scheduler checks its timers against the real clock (see Scheduler.refresh).
+const CLOCK_WATCH_MS = 30 * 1000;
 const SUPABASE_HOST = 'https://vlogfwnmaqorhialcqbr.supabase.co';
 const CSP = [
   "default-src 'self'",
@@ -77,6 +79,7 @@ let tray = null;
 let settings = { ...DEFAULTS };
 let scheduler = null;
 let hiddenTick = null;
+let clockWatch = null;
 let quitting = false;
 
 function paths() {
@@ -506,17 +509,21 @@ if (!app.requestSingleInstanceLock()) {
     hiddenTick = setInterval(() => {
       if (mainWindow && !mainWindow.isVisible()) mainWindow.webContents.send('notify:tick');
     }, HIDDEN_TICK_MS);
-    // After sleep, timers that should have fired are fired (or dropped if late).
+    // After sleep, timers that should have fired are fired (or dropped if late) and the
+    // rest are re-armed from the real clock (a timer does not count the time asleep).
     powerMonitor.on('resume', () => {
       scheduler.refresh();
       if (mainWindow) mainWindow.webContents.send('notify:tick');
     });
+    // The same, now and then: the wake event can be missed, and a clock change gives none.
+    clockWatch = setInterval(() => scheduler.refresh(), CLOCK_WATCH_MS);
   });
 
   app.on('before-quit', () => {
     quitting = true;
     if (scheduler) scheduler.stop();
     if (hiddenTick) clearInterval(hiddenTick);
+    if (clockWatch) clearInterval(clockWatch);
   });
 
   app.on('window-all-closed', () => {

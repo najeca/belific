@@ -22,6 +22,8 @@ import { setFeature, useFeatures } from './featureStore';
 import { FEATURES } from '../../lib/features';
 import CalendarsSection from './CalendarsSection';
 import { setCutMin, useCutMin } from './cutStore';
+import { setDefaultReminders, useDefaultReminders } from './reminderStore';
+import { REMINDER_LEADS, leadLabel, toggleLead } from '../../lib/reminder';
 import { CUT_MIN_OPTIONS, parseCutMin } from '../../lib/cuts';
 import { displayKeys, shortcutGroups } from '../../lib/shortcuts';
 
@@ -48,6 +50,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   const [exportNote, setExportNote] = useState<string | null>(null);
   const features = useFeatures();
   const cutMin = useCutMin();
+  const defaultReminders = useDefaultReminders();
 
   const desktop = globalThis.belificDesktop;
   useEffect(() => {
@@ -249,6 +252,46 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
             <Section title="Notifications" emoji="🔔">
               <ToggleRow label="Event starts" value={prefs.notifyEvents} onChange={(v) => setPref({ notifyEvents: v })} />
               <ToggleRow label="Tasks placed on the Timebox" value={prefs.notifyTasks} onChange={(v) => setPref({ notifyTasks: v })} />
+              {prefs.notifyTasks && (
+                <>
+                  <Text style={styles.body}>Reminders for a timed task</Text>
+                  <View style={styles.leadRow} {...({ dataSet: { defaultReminders: '1' } } as object)}>
+                    {REMINDER_LEADS.map((lead) => {
+                      const on = defaultReminders.includes(lead);
+                      return (
+                        <Pressable
+                          key={lead}
+                          onPress={() => setDefaultReminders(toggleLead(defaultReminders, lead))}
+                          style={[styles.leadChip, on && styles.leadChipOn]}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: on }}
+                          accessibilityLabel={`Default reminder: ${leadLabel(lead)}`}
+                          {...({ 'aria-checked': on, dataSet: { defaultLead: String(lead) } } as object)}
+                        >
+                          <Text style={[styles.leadChipText, on && styles.leadChipTextOn]}>{leadLabel(lead)}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.hint}>
+                    Every timed task gets these unless it has its own list (the Reminder row in its details). Up to five. A reminder that has already passed is skipped, and one missed while Belific was quit or the computer was asleep is not shown late.
+                  </Text>
+                  <Text style={styles.hint} {...({ dataSet: { reminderRunningNote: '1' } } as object)}>
+                    Reminders only work while Belific is running. Closing the window keeps it in the system tray, so they keep arriving; choosing Quit from the tray stops them until you start Belific again.
+                    {prefs.startWithWindows ? ' Start with Windows is on, so Belific is running after you sign in.' : ' To have it running after you sign in to Windows, turn on Start with Windows below.'}
+                  </Text>
+                  {!prefs.startWithWindows && (
+                    <Pressable
+                      onPress={() => setPref({ startWithWindows: true })}
+                      style={[styles.btn, { alignSelf: 'flex-start', marginTop: 6 }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Turn on Start with Windows"
+                    >
+                      <Text style={styles.btnText}>Turn on Start with Windows</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
               <ToggleRow label="Daily reminder of tasks planned for today" value={prefs.dailyReminder} onChange={(v) => setPref({ dailyReminder: v })} />
               {prefs.dailyReminder && (
                 <View style={styles.timeRow}>
@@ -414,6 +457,11 @@ const styles = StyleSheet.create({
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   body: { fontSize: 14, color: Colors.textPrimary },
   hint: { marginTop: 6, fontSize: 12, color: Colors.textSecondary },
+  leadRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  leadChip: { paddingHorizontal: 10, height: 30, borderRadius: 15, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
+  leadChipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  leadChipText: { fontSize: 12, color: Colors.textPrimary },
+  leadChipTextOn: { color: Colors.onAccent, fontWeight: '600' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   confirm: { marginTop: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
   btn: { paddingHorizontal: 14, height: 36, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },

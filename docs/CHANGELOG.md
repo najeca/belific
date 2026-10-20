@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.32.0 — 2026-10-20 (Part B, P5: several reminders per timed task)
+
+**Desktop only. Nothing new in the database beyond P3's `tasks.reminders` (written, NOT APPLIED; until Jethro applies migration 004 the lists stay on the computer and the first reminder still syncs through the older `reminder_minutes`). The phone gets no extra reminders until the iPhone catch-up release.**
+- **A list per task:** the Reminder row in the details (and its menu) now has switches for At start time, 5, 10, 15 and 30 minutes, 1 hour and 1 day before (up to five), plus **Default** and **None**; the menu stays open while you choose. Each time is its own toast ("Starts in 5 minutes", "Starts in 1 minute", "Starting now"). Choosing a list writes it into `reminders` and its first (smallest) time into the older `reminderMinutes` (-1 for none), so an older desktop still gets one reminder. Which list applies: the task's own list (empty = none), else the older single value, else the default list.
+- **Default list:** Settings, Notifications, "Reminders for a timed task" (per computer, never synced; at the start unless changed; `defaultReminders` in the desktop settings). A reminder whose time has already passed is skipped on its own; the later ones stay. The grouped daily reminder leaves out untimed tasks that asked for none.
+- **When Belific is closed (said plainly in Settings):** reminders only work while Belific is running. Closing the window keeps it in the system tray, so they keep arriving; Quit from the tray stops them until Belific starts again. Start with Windows already existed (opt in); Settings now offers a "Turn on Start with Windows" button next to that note and never turns it on by itself. A reminder missed while Belific was quit or the computer was asleep is not shown late (anything more than 5 minutes late is dropped).
+- **Re-arming after sleep (found and fixed):** a timer does not count the time a computer sleeps, so a reminder due after a sleep could fire late. The scheduler now re-arms every timer from the real clock on wake (`Scheduler.refresh`, called by the resume event) and also every 30 seconds in case the wake event is missed or the clock is changed. Tested with a fake clock and in the real app (the clock moved forward while the timers did not run).
+- **Wording:** "1 minute" (was "1 minutes"), "1 day".
+- iOS marker gate: `effectiveReminders`, `setDefaultReminders`, "Reminders for a timed task", "Turn on Start with Windows" (desktop only); `reminders` itself is shared sync code, not a marker.
+- Tests: 10 new scheduler tests, 4 reminder tests, 1 payload test; real check `p15.js` (31: scheduled times and wording, Settings, the details menu, toasts with the window in the tray, re-arming after a clock jump, Quit from the tray stopping everything).
+
+---
+
 ## 2.31.0 — 2026-10-20 (Part B, P4: Cut tasks underneath)
 
 **Desktop only. No schema change here (the switch syncs through the P3 gate, `cuts_below`, once Jethro applies 004); the minimum piece length is a `user_settings` row (`planner.cut_min`), no new table.**

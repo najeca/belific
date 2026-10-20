@@ -254,7 +254,7 @@ test('plan is pure: it never mutates its inputs', () => {
 // ----- settings -----
 
 test('settings: defaults, validation and persistence', async () => {
-  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', dayStart: '05:00', showStreaks: true, closeToTray: true, startWithWindows: false, trayNoteShown: false });
+  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', defaultReminders: [0], dayStart: '05:00', showStreaks: true, closeToTray: true, startWithWindows: false, trayNoteShown: false });
   const s = sanitize({ dailyTime: '25:00', closeToTray: 'yes', startWithWindows: true, evil: 1, dailyReminder: false });
   assert.equal(s.dailyTime, '09:00');
   assert.equal(s.closeToTray, true);
@@ -343,4 +343,182 @@ test('8.2 the 48 hour window applies to the notification time', () => {
   assert.equal(r.sched.pending().length, 1, 'start is outside, but 1 hour before is inside');
   r.sched.update({ placed: [{ id: 'far', title: 'Far', start: r.now + WINDOW_MS + 90 * M, completed: false, reminderMinutes: 5 }] });
   assert.equal(r.sched.pending().length, 0);
+});
+
+// ---- Part B, P5: several reminders per timed task ----
+
+const placed = (id, startMs, extra = {}) => ({ id, title: `Task ${id}`, start: startMs, completed: false, ...extra });
+const keysOf = (r) => r.sched.pending().map((p) => p.key);
+
+test('P5 a list of reminders schedules one toast each: at the start and 5 minutes before', () => {
+  const r = rig();
+  const t0 = r.now;
+  r.sched.update({ events: [], placed: [placed('a', t0 + 30 * M, { reminders: [0, 5] })], planned: [] });
+  const p = r.sched.pending();
+  assert.deepEqual(p.map((x) => x.at - t0), [25 * M, 30 * M]);
+  assert.deepEqual(p.map((x) => x.body), ['Starts in 5 minutes', 'Starting now']);
+  assert.deepEqual(keysOf(r), ['task:a@5', 'task:a'], 'the at-start one keeps the old key');
+  r.advance(25 * M);
+  assert.deepEqual(r.shown.map((n) => n.body), ['Starts in 5 minutes']);
+  r.advance(5 * M);
+  assert.deepEqual(r.shown.map((n) => n.body), ['Starts in 5 minutes', 'Starting now']);
+  r.advance(60 * M);
+  assert.equal(r.shown.length, 2, 'each fires once');
+});
+
+test('P5 which list applies: the task list (empty = none), then the older single value, then the default list', () => {
+  const r = rig({ settings: { ...S, defaultReminders: [0, 10] } });
+  const t0 = r.now;
+  r.sched.update({
+    events: [],
+    placed: [
+      placed('own', t0 + 60 * M, { reminders: [15] }),
+      placed('empty', t0 + 60 * M, { reminders: [] }),
+      placed('legacy', t0 + 60 * M, { reminderMinutes: 30 }),
+      placed('off', t0 + 60 * M, { reminderMinutes: -1 }),
+      placed('plain', t0 + 60 * M),
+      placed('both', t0 + 60 * M, { reminders: [5], reminderMinutes: 30 }),
+    ],
+    planned: [],
+  });
+  const at = (id) => r.sched.pending().filter((p) => p.key === `task:${id}` || p.key.startsWith(`task:${id}@`)).map((p) => (t0 + 60 * M - p.at) / M).sort((a, b) => a - b);
+  assert.deepEqual(at('own'), [15]);
+  assert.deepEqual(at('empty'), []);
+  assert.deepEqual(at('legacy'), [30]);
+  assert.deepEqual(at('off'), []);
+  assert.deepEqual(at('plain'), [0, 10], 'the default list from Settings');
+  assert.deepEqual(at('both'), [5], 'the list wins over the older value');
+});
+
+test('P5 the default list changes with the settings and re-plans at once', () => {
+  const r = rig();
+  const t0 = r.now;
+  r.sched.update({ events: [], placed: [placed('a', t0 + 60 * M)], planned: [] });
+  assert.equal(r.sched.pending().length, 1);
+  r.sched.setSettings({ ...S, defaultReminders: [0, 5, 15] });
+  assert.deepEqual(r.sched.pending().map((x) => (t0 + 60 * M - x.at) / M).sort((a, b) => a - b), [0, 5, 15]);
+  r.sched.setSettings({ ...S, defaultReminders: [] });
+  assert.equal(r.sched.pending().length, 0, 'no default reminders: nothing for a task that has no list of its own');
+});
+
+test('P5 a lead that has already passed is skipped on its own, the later ones stay; a past start schedules nothing', () => {
+  const r = rig();
+  const t0 = r.now;
+  r.sched.update({ events: [], placed: [placed('a', t0 + 3 * M, { reminders: [0, 5, 10] }), placed('past', t0 - M, { reminders: [0, 5] })], planned: [] });
+  assert.deepEqual(r.sched.pending().map((x) => x.body), ['Starting now']);
+  assert.deepEqual(keysOf(r), ['task:a']);
+});
+
+test('P5 editing the list cancels the old timers and keeps nothing stale', () => {
+  const r = rig();
+  const t0 = r.now;
+  r.sched.update({ events: [], placed: [placed('a', t0 + 30 * M, { reminders: [0, 5] })], planned: [] });
+  assert.equal(r.timers.size, 2);
+  r.sched.update({ events: [], placed: [placed('a', t0 + 30 * M, { reminders: [10] })], planned: [] });
+  assert.deepEqual(keysOf(r), ['task:a@10']);
+  assert.equal(r.timers.size, 1, 'the old timers are gone');
+  r.sched.update({ events: [], placed: [placed('a', t0 + 30 * M, { reminders: [] })], planned: [] });
+  assert.equal(r.timers.size, 0);
+});
+
+test('P5 wording: 1 minute, 5 minutes, 1 hour, 2 hours, 1 day', () => {
+  const r = rig();
+  const t0 = r.now;
+  r.sched.update({ events: [], placed: [placed('a', t0 + 30 * H, { reminders: [1, 5, 60, 120, 1440] })], planned: [] });
+  assert.deepEqual(
+    r.sched.pending().map((x) => x.body),
+    ['Starts in 1 day', 'Starts in 2 hours', 'Starts in 1 hour', 'Starts in 5 minutes', 'Starts in 1 minute'].map((s) => s),
+  );
+});
+
+test('P5 at most five reminders per task, distinct, in range', () => {
+  const r = rig();
+  const t0 = r.now;
+  r.sched.update({ events: [], placed: [placed('a', t0 + 5 * H, { reminders: [0, 1, 2, 3, 4, 5, 6, 7, 5, 99999, -4, 2.5] })], planned: [] });
+  assert.equal(r.sched.pending().length, 5);
+});
+
+test('P5 the grouped daily reminder leaves out untimed tasks with an empty list or the older -1', () => {
+  const r = rig();
+  const t0 = r.now;
+  const day = fixedZone(0).dateKey(t0 + 86400000);
+  r.sched.update({
+    events: [],
+    placed: [],
+    planned: [
+      { dueDate: day, completed: false },
+      { dueDate: day, completed: false, reminders: [] },
+      { dueDate: day, completed: false, reminderMinutes: -1 },
+      { dueDate: day, completed: false, reminders: [0, 5] },
+    ],
+  });
+  assert.deepEqual(r.sched.pending().filter((p) => p.kind === 'daily').map((p) => p.body), ['2 tasks planned for today']);
+});
+
+test('P5 sleep: timers that drift (the clock moved while they did not run) are re-armed on resume and fire on time', () => {
+  // A rig whose timers count only "awake" time, like a timer that does not run while the computer sleeps.
+  let now = Date.UTC(2026, 9, 6, 8, 0, 0);
+  const timers = new Map();
+  let id = 1;
+  const shown = [];
+  const sched = new Scheduler({
+    settings: S,
+    zone: fixedZone(0),
+    now: () => now,
+    setTimer: (fn, ms) => {
+      timers.set(id, { fn, remaining: ms });
+      return id++;
+    },
+    clearTimer: (h) => timers.delete(h),
+    notify: (n) => shown.push(n),
+  });
+  const awake = (ms) => {
+    // time passes with the computer awake: timers count down and fire
+    const target = ms;
+    let left = target;
+    for (;;) {
+      const due = [...timers.entries()].filter(([, t]) => t.remaining <= left).sort((a, b) => a[1].remaining - b[1].remaining)[0];
+      if (!due) break;
+      left -= due[1].remaining;
+      for (const t of timers.values()) t.remaining -= due[1].remaining;
+      now += due[1].remaining;
+      timers.delete(due[0]);
+      due[1].fn();
+    }
+    for (const t of timers.values()) t.remaining -= left;
+    now += left;
+  };
+  const t0 = now;
+  sched.update({ events: [], placed: [{ id: 'a', title: 'A', start: t0 + 60 * M, completed: false }], planned: [] });
+  awake(10 * M);
+  // the computer sleeps for 40 minutes: the clock moves, the timer does not
+  now += 40 * M;
+  // Without re-arming, the timer would still wait 50 more awake minutes, 30 minutes after it was due.
+  assert.equal([...timers.values()][0].remaining, 50 * M);
+  sched.refresh(); // what the resume event does
+  assert.equal([...timers.values()][0].remaining, 10 * M, 're-armed from the real clock: the start is 10 minutes away');
+  awake(10 * M);
+  assert.deepEqual(shown.map((n) => n.title), ['A'], 'fired when it was due');
+});
+
+test('P5 sleep: what came due while asleep is shown if it is at most 5 minutes late, dropped if later', () => {
+  const r = rig();
+  const t0 = r.now;
+  r.sched.update({ events: [], placed: [placed('soon', t0 + 10 * M), placed('later', t0 + 20 * M, { reminders: [0, 5] })], planned: [] });
+  r.sleepThrough(24 * M); // asleep until 4 minutes after 'later' at 20 and 14 after 'soon'
+  r.sched.refresh();
+  // 'soon' (14 minutes late) and 'later' 5 minutes before (9 late) are dropped; 'later' at its start (4 late) is shown.
+  assert.deepEqual(r.shown.map((n) => [n.title, n.body]), [['Task later', 'Starting now']]);
+  assert.equal(r.sched.pending().length, 0);
+});
+
+test('P5 settings: the default list is validated; a bad or missing value is [0]', async () => {
+  assert.deepEqual(DEFAULTS.defaultReminders, [0]);
+  assert.deepEqual(sanitize({ defaultReminders: [10, 0, 10, 5] }).defaultReminders, [0, 5, 10]);
+  assert.deepEqual(sanitize({ defaultReminders: [] }).defaultReminders, [], 'none is a real choice');
+  assert.deepEqual(sanitize({ defaultReminders: [1, 2, 3, 4, 5, 6, 7] }).defaultReminders.length, 5);
+  assert.deepEqual(sanitize({ defaultReminders: [-1, 1441, 2.5, 'x', null] }).defaultReminders, []);
+  assert.deepEqual(sanitize({ defaultReminders: 'soon' }).defaultReminders, [0], 'not a list: unchanged');
+  assert.deepEqual(sanitize({}, { ...DEFAULTS, defaultReminders: [0, 5] }).defaultReminders, [0, 5], 'a partial keeps what was there');
+  assert.deepEqual(sanitize({}, { ...DEFAULTS, defaultReminders: 'broken' }).defaultReminders, [0], 'a stored bad value falls back');
 });

@@ -68,6 +68,13 @@ const MARKERS = [
   'refusalNote',
   'Cut tasks underneath',
   'Smallest piece when a break cuts a task',
+  // 2.32.0 (Part B, P5): several reminders per task and the desktop's default list are desktop only
+  // (lib/reminder.ts, reminderStore, Settings, Notifications). The phone notifies nothing until the
+  // iPhone catch-up release; the synced field `reminders` is shared sync code and is NOT a marker.
+  'effectiveReminders',
+  'setDefaultReminders',
+  'Reminders for a timed task',
+  'Turn on Start with Windows',
 ];
 
 const ALLOWED = {

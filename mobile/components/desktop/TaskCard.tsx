@@ -20,6 +20,7 @@ import { LabelBody, OverflowBody } from './TaskPopovers';
 import type { TaskOps } from './taskOps';
 import { notifyChanged, openDetail, type DetailFocus } from './uiStore';
 import { toggleTimer } from './timerUi';
+import { timesLabel } from '../../lib/times';
 import StreakLine from './StreakLine';
 
 // A task on the board, in the left list, or in any list (2.27.0). The card is a
@@ -87,6 +88,7 @@ export default function TaskCard({
   const wrapped: TaskOps = {
     patch: (fields) => run(() => ops.patch(fields)),
     setCompleted: (d) => run(() => ops.setCompleted(d)),
+    setTimeDone: (time, d) => run(() => ops.setTimeDone(time, d)),
     toggleSubtask: (sid) => run(() => ops.toggleSubtask(sid)),
     remove: () => run(() => ops.remove()),
     series: ops.series
@@ -283,11 +285,11 @@ export default function TaskCard({
               </Text>
               <Text
                 style={[styles.chipText, !placed && task.durationMinutes === undefined && styles.chipTextMuted]}
-                accessibilityLabel={placed ? `Starts ${task.startTime}` : `Estimate ${formatClock(task.durationMinutes)}`}
+                accessibilityLabel={placed ? `Starts ${timesLabel(task).replace(/ ✓/g, ' (done)')}` : `Estimate ${formatClock(task.durationMinutes)}`}
                 {...MONO}
                 {...({ dataSet: { cardTime: '1', mono: '1' } } as object)}
               >
-                {placed ? task.startTime : formatClock(task.durationMinutes)}
+                {placed ? timesLabel(task) : formatClock(task.durationMinutes)}
               </Text>
             </View>
 
@@ -314,7 +316,7 @@ export default function TaskCard({
                 {dayText && (
                   <Text style={styles.metaDay} {...({ dataSet: { cardDay: '1' } } as object)}>
                     {dayText}
-                    {placed ? ` · ${task.startTime}` : ''}
+                    {placed ? ` · ${timesLabel(task)}` : ''}
                   </Text>
                 )}
                 {steps.total > 0 && (

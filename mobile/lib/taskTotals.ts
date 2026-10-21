@@ -8,6 +8,7 @@
 import type { Task } from './types.ts';
 import { formatClock } from './duration.ts';
 import { shownMinutes } from './taskTimer.ts';
+import { timesCount, timesLeft } from './times.ts';
 
 export interface Totals {
   count: number;
@@ -25,7 +26,10 @@ export function actualOf(task: Pick<Task, 'actualMinutes' | 'timerStartedAt'>, n
   return shownMinutes(task, nowMs);
 }
 
-type TotalsInput = Pick<Task, 'durationMinutes' | 'actualMinutes' | 'timerStartedAt' | 'completed' | 'deletedAt'>;
+// A task with several times a day (Part C) takes its length at every time: the estimate of the day
+// counts all of them, what is still to do counts the times not yet ticked.
+type TotalsInput = Pick<Task, 'durationMinutes' | 'actualMinutes' | 'timerStartedAt' | 'completed' | 'deletedAt'> &
+  Partial<Pick<Task, 'startTime' | 'extraTimes' | 'timesDone' | 'completedAt'>>;
 
 export function totalsOf(tasks: TotalsInput[], nowMs: number): Totals {
   const t: Totals = { count: 0, done: 0, estimate: 0, actual: 0 };
@@ -33,7 +37,7 @@ export function totalsOf(tasks: TotalsInput[], nowMs: number): Totals {
     if (task.deletedAt) continue;
     t.count += 1;
     if (task.completed) t.done += 1;
-    t.estimate += estimateOf(task);
+    t.estimate += estimateOf(task) * timesCount(task);
     t.actual += actualOf(task, nowMs);
   }
   return t;
@@ -62,7 +66,7 @@ export function isOverEstimate(t: Pick<Totals, 'estimate' | 'actual'>): boolean 
 // is none. Finished tasks do not count; a missing estimate is 0.
 export function plannedText(tasks: TotalsInput[]): string {
   let minutes = 0;
-  for (const t of tasks) if (!t.deletedAt && !t.completed) minutes += estimateOf(t);
+  for (const t of tasks) if (!t.deletedAt && !t.completed) minutes += estimateOf(t) * timesLeft(t);
   if (minutes <= 0) return '';
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

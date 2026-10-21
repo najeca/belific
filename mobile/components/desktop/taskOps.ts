@@ -1,10 +1,11 @@
-import { completeTaskById, editDumpItem, patchTask, toggleSubtaskById } from '../../lib/taskActions';
+import { completeTaskById, editDumpItem, patchTask, setTimeDoneById, toggleSubtaskById } from '../../lib/taskActions';
 import {
   completeProjected,
   deleteSeries,
   endSeries,
   patchSeries,
   skipOccurrence,
+  tickTimeProjected,
   toggleProjectedSubtask,
 } from '../../lib/seriesActions';
 import { deleteBrainDumpItem, deleteTask } from '../../lib/storage';
@@ -18,6 +19,8 @@ import type { BrainDumpItem, Task } from '../../lib/types';
 export interface TaskOps {
   patch(fields: Partial<Task>): Promise<void>;
   setCompleted(done: boolean): Promise<void>;
+  // One time of a task that happens several times a day (Part C).
+  setTimeDone(time: string, done: boolean): Promise<void>;
   toggleSubtask(subtaskId: string): Promise<void>;
   remove(): Promise<void>;
   // Repeating tasks only (decision 023): the actions of the overflow menu.
@@ -42,6 +45,7 @@ export function opsForTask(task: Task): TaskOps {
         ? endSeries(task, fields)
         : patchTask(task.id, fields),
     setCompleted: (done) => completeTaskById(task.id, done),
+    setTimeDone: (time, done) => setTimeDoneById(task.id, time, done),
     toggleSubtask: (sid) => toggleSubtaskById(task.id, sid),
     remove: () => deleteTask(task.id),
     ...(repeating
@@ -57,6 +61,7 @@ export function opsForProjected(task: Task): TaskOps {
   return {
     patch: (fields) => patchSeries(task, fields),
     setCompleted: (done) => completeProjected(task, done),
+    setTimeDone: (time, done) => tickTimeProjected(task, time, done),
     toggleSubtask: (sid) => toggleProjectedSubtask(task, sid),
     remove: () => skipOccurrence(task),
     series: { projected: true, skipDay: () => skipOccurrence(task), deleteSeries: () => deleteSeries(task) },
@@ -68,6 +73,7 @@ export function opsForDump(item: BrainDumpItem): TaskOps {
     patch: async (fields) => void (await editDumpItem(item, fields)),
     setCompleted: async (done) =>
       void (await editDumpItem(item, { completed: done, completedAt: done ? new Date().toISOString() : undefined })),
+    setTimeDone: async () => {},
     // A legacy item has no subtasks until its first edit converts it.
     toggleSubtask: async () => {},
     remove: () => deleteBrainDumpItem(item.id),

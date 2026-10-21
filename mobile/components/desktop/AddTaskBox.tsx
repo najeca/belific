@@ -68,6 +68,7 @@ export default function AddTaskBox({
       if ('projectKey' in f) setProjectKey(f.projectKey);
     },
     setCompleted: async () => {},
+    setTimeDone: async () => {},
     toggleSubtask: async () => {},
     remove: async () => {},
   };

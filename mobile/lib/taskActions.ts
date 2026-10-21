@@ -5,6 +5,7 @@ import { generateId } from './data';
 import { buildNextOccurrence, nextOccurrenceId, nextOccurrence } from './recurrence';
 import { dateKey, isDateKey } from './kanban';
 import { dumpItemToTask, newThought } from './thoughts';
+import { planTick, wholeTaskTimesDone } from './times';
 import type { BrainDumpItem, Task } from './types';
 
 // The ONE place a task is completed or un-completed (checkpoint 2b). Every
@@ -21,7 +22,8 @@ import type { BrainDumpItem, Task } from './types';
 // twice and write the same id twice.
 let chain: Promise<unknown> = Promise.resolve();
 
-export function setTaskCompleted(task: Task, completed: boolean): Promise<void> {
+// `keepTimes`: the caller already wrote the right timesDone (ticking one time of several).
+export function setTaskCompleted(task: Task, completed: boolean, keepTimes = false): Promise<void> {
   const run = chain.then(async () => {
     // Completing ticks every subtask; reopening leaves them as they are.
     const subtasks = completed ? withAllDone(task.subtasks) : task.subtasks;
@@ -30,6 +32,8 @@ export function setTaskCompleted(task: Task, completed: boolean): Promise<void> 
       completed,
       completedAt: completed ? new Date().toISOString() : undefined,
       ...(subtasks ? { subtasks } : {}),
+      // Part C: a whole-task tick ticks every time (a task with several), an untick clears them all.
+      ...(keepTimes ? {} : { timesDone: wholeTaskTimesDone(task, completed) }),
     };
     await updateTask(done);
     // The next occurrence copies the subtasks, all unticked (from the ticked or
@@ -124,6 +128,19 @@ export async function patchTask(id: string, fields: Partial<Task>): Promise<void
 export async function completeTaskById(id: string, done: boolean): Promise<void> {
   const t = await latest(id);
   if (t && t.completed !== done) await setTaskCompleted(t, done);
+}
+
+// Ticks or unticks ONE time of a task that happens several times a day (Part C). The last open time
+// completes the task (through setTaskCompleted, so the steps and the series behave as for any tick);
+// unticking one of a completed task reopens it with the other times still done.
+export async function setTimeDoneById(id: string, time: string, done: boolean): Promise<void> {
+  const t = await latest(id);
+  if (!t) return;
+  const plan = planTick(t, time, done, new Date().toISOString());
+  if (!plan) return;
+  const updated: Task = { ...t, timesDone: plan.timesDone };
+  await updateTask(updated);
+  if (plan.completed !== t.completed) await setTaskCompleted(updated, plan.completed, true);
 }
 
 export async function toggleSubtaskById(id: string, subtaskId: string): Promise<void> {

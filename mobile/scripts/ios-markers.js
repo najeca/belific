@@ -85,6 +85,11 @@ const MARKERS = [
   'startFromChoices',
   'StartFromRows',
   'Could not start the timer',
+  // 2.36.0 (Part C, P3): the control that adds a time to a task and the projected day tick are desktop only.
+  // lib/times.ts itself is NOT a marker: taskActions.ts (shared with the phone) imports it for the whole-task tick,
+  // so its names are in the phone bundle; the phone shows a task once, at its start time.
+  'Add another time',
+  'tickTimeProjected',
 ];
 
 const ALLOWED = {

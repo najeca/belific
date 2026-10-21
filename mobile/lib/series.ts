@@ -204,6 +204,8 @@ export function occurrenceFromTemplate(template: Task, dayKey: string, nowIso: s
     notes: template.notes,
     durationMinutes: template.durationMinutes,
     startTime: template.startTime,
+    // Part C: the other times of the day are a series field; what was ticked is not (a day starts undone).
+    ...(template.extraTimes ? { extraTimes: [...template.extraTimes] } : {}),
     recurrence: template.recurrence,
     recurrenceDays: template.recurrenceDays,
     recurrenceMonthDay: template.recurrenceMonthDay,
@@ -261,6 +263,7 @@ export const TEMPLATE_FIELDS = [
   'notes',
   'durationMinutes',
   'startTime',
+  'extraTimes',
   'recurrence',
   'recurrenceDays',
   'recurrenceMonthDay',

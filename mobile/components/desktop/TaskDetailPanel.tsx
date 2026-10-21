@@ -32,6 +32,7 @@ import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
 import { toggleTimer, useNow } from './timerUi';
 import { startFromChoices } from '../../lib/timerSession';
 import { formatTime } from '../../lib/data';
+import { MAX_TIMES, addTimeFields, isTimeDone, moveTimeFields, removeTimeFields, suggestNextTime, timesOf, type TimeEdit, type TimeRefusal } from '../../lib/times';
 import { closeDetail, getDetailFocus, notifyChanged, useDetailId } from './uiStore';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
@@ -135,6 +136,28 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
   const [tplNote, setTplNote] = useState<string | null>(null);
   const running = isTimerRunning(task);
   const now = useNow(running);
+  // Part C: a task that happens several times a day. A refused change says why, here, in the Time row.
+  const times = timesOf(task);
+  const multi = times.length > 1;
+  const [timeNote, setTimeNote] = useState<string | null>(null);
+  const applyTimes = async (res: TimeEdit | TimeRefusal) => {
+    if (!res.ok) {
+      setTimeNote(res.note);
+      return;
+    }
+    setTimeNote(null);
+    if (Object.keys(res.fields).length > 0) await patch(res.fields);
+  };
+  const addAnother = () => {
+    const next = suggestNextTime(task);
+    if (!next) setTimeNote('There is no room for another time today.');
+    else void applyTimes(addTimeFields(task, next));
+  };
+  const addLink = isDateKey(task.dueDate) && task.startTime && times.length < MAX_TIMES ? (
+    <Pressable onPress={addAnother} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Add another time" {...({ dataSet: { addTime: '1' } } as object)}>
+      <Text style={styles.quietSub}>+ Add another time</Text>
+    </Pressable>
+  ) : null;
   const titleRef = useRef<TextInput>(null);
   const more = usePopoverAnchor();
   const moreId = `detail:${task.id}:more`;
@@ -244,7 +267,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
               style={domSelect}
             />
             {/* A time of day belongs to a Day (patchTask clears it with the Day). */}
-            {isDateKey(task.dueDate) && (
+            {isDateKey(task.dueDate) && !multi && (
               <input
                 type="time"
                 step={300}
@@ -254,17 +277,64 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
                 style={domSelect}
               />
             )}
-            {task.startTime ? (
+            {task.startTime && !multi ? (
               <Pressable onPress={() => patch({ startTime: undefined })} style={styles.xBtn} accessibilityRole="button" accessibilityLabel="Remove time" {...({ title: 'Remove time' } as object)}>
                 <Ionicons name="close" size={13} color={Colors.textSecondary} />
               </Pressable>
             ) : null}
+            {!multi ? addLink : null}
             {task.dueDate && !projected ? (
               <Pressable onPress={() => patch({ dueDate: undefined })} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Remove the day">
                 <Text style={styles.quietSub}>Remove date</Text>
               </Pressable>
             ) : null}
           </View>
+          {multi ? (
+            <View style={styles.row} {...({ dataSet: { timesList: '1' } } as object)}>
+              {times.map((time, i) => {
+                const done = isTimeDone(task, time);
+                return (
+                  <View key={time} style={styles.row} {...({ dataSet: { timeItem: time } } as object)}>
+                    <Pressable
+                      onPress={() => ops.setTimeDone(time, !done).then(onSaved)}
+                      style={styles.xBtn}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: done }}
+                      accessibilityLabel={`Mark the ${formatTime(time)} time ${done ? 'not done' : 'done'}`}
+                      {...({ dataSet: { timeTick: time } } as object)}
+                    >
+                      <Ionicons name={done ? 'checkbox' : 'square-outline'} size={15} color={done ? Colors.accent : Colors.textSecondary} />
+                    </Pressable>
+                    <input
+                      type="time"
+                      step={300}
+                      value={time}
+                      aria-label={`Time ${i + 1}`}
+                      onChange={(e) => {
+                        if (/^\d\d:\d\d$/.test(e.target.value)) void applyTimes(moveTimeFields(task, time, e.target.value));
+                      }}
+                      style={domSelect}
+                    />
+                    <Pressable
+                      onPress={() => applyTimes(removeTimeFields(task, time))}
+                      style={styles.xBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove the ${formatTime(time)} time`}
+                      {...({ title: `Remove the ${formatTime(time)} time` } as object)}
+                    >
+                      <Ionicons name="close" size={13} color={Colors.textSecondary} />
+                    </Pressable>
+                  </View>
+                );
+              })}
+              {addLink}
+            </View>
+          ) : null}
+          {timeNote ? (
+            <Text style={styles.quietSub} accessibilityRole="alert" {...({ dataSet: { timeNote: '1' } } as object)}>
+              {timeNote}
+            </Text>
+          ) : null}
         </DetailRow>
 
         <DetailRow glyph="⏳" label="Estimated time">

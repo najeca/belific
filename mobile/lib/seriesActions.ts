@@ -1,5 +1,5 @@
 import { addTask, loadTasksRaw, updateTask } from './storage';
-import { completeTaskById, patchTask, toggleSubtaskById } from './taskActions';
+import { completeTaskById, patchTask, setTimeDoneById, toggleSubtaskById } from './taskActions';
 import { rootTaskId } from './recurrence';
 import {
   deleteSeriesRows,
@@ -56,6 +56,12 @@ export function materialise(projected: Task): Promise<Task | null> {
 export async function completeProjected(projected: Task, done: boolean): Promise<void> {
   const stored = await materialise(projected);
   if (stored) await completeTaskById(stored.id, done);
+}
+
+// Ticking one time of a projected card that happens several times a day: that day is stored first.
+export async function tickTimeProjected(projected: Task, time: string, done: boolean): Promise<void> {
+  const stored = await materialise(projected);
+  if (stored) await setTimeDoneById(stored.id, time, done);
 }
 
 // Ticking one of a projected card's subtasks (their ids are the same on the

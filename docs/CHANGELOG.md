@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.36.0 — 2026-10-21 (Part C, P3: one task at several times in a day)
+
+**Desktop only. The two new fields sync through the unapplied migration 004 (NOT APPLIED: until Jethro applies it they stay on the computer). The phone shows the task once, at its first time.**
+- **Details panel:** the Time row has a quiet "+ Add another time" link (one control, no wizard). It adds the end of the last time rounded up to the half hour (11:00 for 20 minutes gives 11:30), which you then change. With two or more times the row lists each one with a tick box, a time field and a small ×; removing the first time promotes the next; removing the last two leaves an ordinary task. A change that cannot work says why in a line under the row ("11:10am would start before the 11:00am one ends (20 min each)"): a task's own times may not overlap, there is a maximum of 7 times a day, and a time that is already there is refused.
+- **Completion per time:** ticking one time leaves the others; ticking the last open one completes the task; unticking any time of a completed task reopens it with the others still done. `completed` true always means every time is done, so a tick on the phone completes all of them. Ticking the card ticks every time (and unticking clears them all). Moving a time keeps its tick; removing one drops its tick (and completes the task when every remaining time is done); adding one to a completed task reopens it.
+- **Repeating tasks:** the other times are a series field (edited on any shown day, copied onto every shown day); what was ticked is not (every day starts undone). Ticking one time on a shown day stores only that day. Skipping a day skips all its times.
+- **Card and totals:** the card's time chip lists the times ("11:00, 15:00 ✓", the done one with a tick, and an accessible name "Starts 11:00, 15:00 (done)"); the day's planned time counts every time (20 min at two times is 0:40; the "still to plan" total counts only the times not ticked).
+- **Not yet in this release (P4):** the Calendar and Timebox still draw one block, at the first time.
+- Tests: `times.test.ts` (12), `series.test.ts` +2, real check `p19.js` (18). The calendar feed (not deployed) still lists the task once, at its first time.
+- Desktop only names added to the iOS marker gate on purpose: "Add another time", `tickTimeProjected`. `lib/times.ts` is not a marker (the shared `taskActions.ts` imports it).
+
+---
+
 ## 2.35.0 — 2026-10-21 (Part C, P2: sync safety for extra times)
 
 **Nothing visible. Data and sync only; desktop and shared sync code. The migration is amended but NOT APPLIED. No Supabase command was run, nothing deployed.**

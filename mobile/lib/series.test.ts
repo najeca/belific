@@ -574,3 +574,37 @@ test('changing the list of a repeating task on a projected day changes the serie
   assert.deepEqual(templatePatch(template, { listKey: 'other' }), { listKey: 'other' });
   assert.deepEqual(templatePatch(template, { listKey: undefined }), { listKey: undefined }, 'Brain Dump is a clear');
 });
+
+// ---- Part C: the other times of the day are a series field; ticks are not ----
+
+test('every shown day of a repeating task has its extra times, and starts with nothing ticked', () => {
+  const template = row('brk', {
+    dueDate: TODAY, startTime: '11:00', durationMinutes: 20, recurrence: 'daily', extraTimes: ['15:00'],
+    timesDone: ['11:00'], completed: true, completedAt: NOW,
+  });
+  const out = projectOccurrences([template], keys(TODAY, 4), TODAY);
+  assert.ok(out.length >= 3);
+  for (const o of out) {
+    assert.deepEqual(o.extraTimes, ['15:00'], `${o.dueDate} lost its extra time`);
+    assert.equal(o.startTime, '11:00');
+    assert.equal(o.completed, false);
+    assert.equal('timesDone' in o, false, 'a day starts undone');
+  }
+  const a = occurrenceFromTemplate(template, '2026-10-09', NOW);
+  assert.notEqual(a.extraTimes, template.extraTimes, 'a copy, not the same array');
+  assert.equal('extraTimes' in occurrenceFromTemplate(row('d', { dueDate: TODAY, recurrence: 'daily' }), '2026-10-09', NOW), false);
+});
+
+test('extra times are edited on the series (a template field); the ticks of a day are not', () => {
+  const template = row('brk', { dueDate: TODAY, startTime: '11:00', recurrence: 'daily' });
+  assert.deepEqual(templatePatch(template, { extraTimes: ['15:00'] }), { extraTimes: ['15:00'] });
+  assert.deepEqual(templatePatch(template, { startTime: '10:00', extraTimes: undefined }), { startTime: '10:00', extraTimes: undefined });
+  assert.deepEqual(templatePatch(template, { timesDone: ['11:00'] }), {}, 'a tick is that day only');
+  // skipping the template's day hands its extra times on to the next live row
+  const rows = [
+    row('brk', { dueDate: TODAY, startTime: '11:00', recurrence: 'daily', extraTimes: ['15:00'] }),
+    row('brk:2026-10-06', { dueDate: '2026-10-06', startTime: '11:00', recurrence: 'daily' }),
+  ];
+  const plan = planSkip(rows, TODAY, NOW);
+  assert.deepEqual(plan?.templatePatch?.fields.extraTimes, ['15:00']);
+});

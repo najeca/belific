@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 2.38.1 — 2026-10-21 (the on-block "move to the next free slot" button removed)
+
+**Desktop only. Display only. No schema change.**
+- **Removed:** the small button on a late block of the Calendar and the Timebox (a pill like "→ 14:30" at the bottom right of a tall block, a round "→" at the end of the time line of a short one). It sat on the block's time text and cut it off. It showed on every late block (placed, not done, its time passed), not only on hover. A late block still fades; sizes, positions and the split layout are unchanged.
+- **What is lost:** the one-press "move this late task to the next free slot today (or tomorrow)". It existed only as this button. Moving a late block is still done by dragging it, the arrow keys on it (30 minutes later, a day before or after), or the details; the Missed list and the day menu are unrelated and untouched. `lib/lateActions.ts` and `lib/lateTasks.ts` (`lateMove`) stay, now unused by the screen.
+- Real check `p10.js` section 7 now checks that a late block is faded and has no button on it, and that nothing moves by itself.
+
+---
+
 ## 2.38.0 — 2026-10-21 (Part C, P5: reminders at every time of a task)
 
 **Desktop only. No schema change. The phone gets no reminders for these times before its catch-up release (it only shows the task once, at its first time).**

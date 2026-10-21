@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
@@ -18,7 +18,6 @@ import { domNode, useDrag } from './DragProvider';
 import { isPopoverOpen } from './Popover';
 import { openDetail } from './uiStore';
 import { isLate } from '../../lib/lateTasks';
-import { lateMoveFor, moveLateTask } from '../../lib/lateActions';
 import { tipRef } from './tip';
 import PriorityMark from './PriorityMark';
 import ListEmoji from './ListEmoji';
@@ -210,29 +209,10 @@ export default function TimeBlock({
     [startResize, scope],
   );
 
-  // Late (2.27.0): placed, not done, its end has passed. The block fades and
-  // offers one move: the next free slot today, or tomorrow when there is none.
+  // Late (2.27.0): placed, not done, its end has passed. The block fades. (The on-block "move to the next free
+  // slot" button was removed: nothing sits on top of a block's text.)
   // The panes redraw every 30 seconds, so a block turns late on its own.
   const late = isLate(task, new Date(), projected);
-  const [move, setMove] = useState<{ label: string; short: string } | null>(null);
-  // A press on the pill is a click, never a drag (DragProvider), so it must not
-  // cover the block: on a narrow or short block it is a small arrow, and on a
-  // tall one it sits at the bottom, away from where a block is picked up.
-  const [blockW, setBlockW] = useState(0);
-  useEffect(() => {
-    // A block of several times offers no late move: "the next free slot" has no single time to move.
-    if (!late || time) {
-      setMove(null);
-      return;
-    }
-    let live = true;
-    lateMoveFor(task.id).then((m) => {
-      if (live) setMove(m ? { label: m.label, short: m.patch.dueDate === dateKey(new Date()) ? `→ ${m.patch.startTime}` : '→ Tomorrow' } : null);
-    });
-    return () => {
-      live = false;
-    };
-  }, [late, task.id, task.startTime, task.durationMinutes, task.dueDate]);
 
   // Resizing a cut task: the last piece follows the handle (its length is the new end less its own start).
   const resizedH = resizing === undefined ? undefined : piece ? blockHeightPx(Math.max(15, startMin + resizing - piece.startMin)) : blockHeightPx(resizing);
@@ -247,7 +227,6 @@ export default function TimeBlock({
       <View style={styles.base}>
         <Pressable
           ref={blockRef as never}
-          onLayout={(e) => setBlockW(e.nativeEvent.layout.width)}
           onPress={() => openDetail(task.id)}
           style={[
             styles.block,
@@ -310,20 +289,6 @@ export default function TimeBlock({
               {badge}
             </Text>
           )}
-          {/* Inside the block, so a drag that starts on it still moves the block. */}
-          {late && move && resizing === undefined && lastPiece && (
-            <Pressable
-              onPress={() => moveLateTask(task.id).then((ok) => ok && onChanged())}
-              style={[styles.lateBtn, compact ? styles.lateTop : styles.lateBottom]}
-              accessibilityRole="button"
-              accessibilityLabel={`${move.label}: ${task.title}`}
-              {...({ dataSet: { lateMove: task.id }, title: move.label } as object)}
-            >
-              <Text style={styles.lateText} {...({ dataSet: { mono: '1' } } as object)}>
-                {compact || blockW < 130 ? '→' : move.short}
-              </Text>
-            </Pressable>
-          )}
         </Pressable>
         {continues && (
           <View pointerEvents="none" style={styles.continuesTag} accessibilityLabel="Continues after 24:00">
@@ -364,10 +329,6 @@ const styles = StyleSheet.create({
   continues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   projected: { opacity: 0.82 },
   late: { opacity: 0.5 },
-  lateBtn: { position: 'absolute', right: 4, height: 18, minWidth: 18, paddingHorizontal: 5, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
-  lateTop: { top: 3 },
-  lateBottom: { bottom: 8 },
-  lateText: { fontSize: 10.5, fontWeight: '700', color: Colors.accentText },
   active: { boxShadow: `inset 0 0 0 1px ${Colors.accent}` } as object,
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   title: { flexShrink: 1, fontSize: 12, lineHeight: 16, fontWeight: '600', color: Colors.textPrimary },

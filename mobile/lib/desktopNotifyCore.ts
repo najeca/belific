@@ -1,6 +1,7 @@
 import type { NotifyPayload } from './kv';
 import { projectOccurrences } from './series.ts';
 import { normalizeReminders } from './reminder.ts';
+import { doneTimesOf, timesOf } from './times.ts';
 import type { Task } from './types';
 
 // Pure part of the desktop notification payload (checkpoint 7), kept apart
@@ -30,6 +31,10 @@ interface TaskLike {
   reminderMinutes?: number | null;
   // Part B (P5): the task's own list of reminders (an empty list is none).
   reminders?: number[];
+  // Part C (P5): a task with several times a day reminds at each of them that is not done.
+  extraTimes?: string[];
+  timesDone?: string[];
+  completedAt?: string;
   // Tombstones are passed in too: a skipped day blocks its projection.
   deletedAt?: string;
 }
@@ -64,9 +69,16 @@ export function buildNotifyPayload(events: EventLike[], tasks: TaskLike[], now: 
   const add = (t: TaskLike) => {
     if (t.completed || t.deletedAt || !t.dueDate) return;
     if (t.startTime) {
-      const start = localMs(t.dueDate, t.startTime);
-      if (start === null || start <= now || start > horizon) return;
-      payload.placed.push({ id: t.id, title: t.title, start, completed: false, ...reminderPart(t) });
+      // One entry per time that is still to do (the first has no `slot`, so its reminders keep their keys).
+      const times = timesOf(t);
+      const done = new Set(doneTimesOf(t));
+      times.forEach((time, i) => {
+        if (done.has(time)) return;
+        const start = localMs(t.dueDate as string, time);
+        if (start === null || start <= now || start > horizon) return;
+        payload.placed.push({ id: t.id, title: t.title, start, completed: false, ...(i > 0 ? { slot: time } : {}), ...reminderPart(t) });
+      });
+      return;
     } else if (windowDays.has(t.dueDate)) {
       payload.planned.push({ dueDate: t.dueDate, completed: false, ...reminderPart(t) });
     }

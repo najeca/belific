@@ -140,3 +140,37 @@ test('P5 the payload carries the task\'s own list of reminders (an empty list to
   const series = buildNotifyPayload([], [task('s', { dueDate: '2026-10-06', startTime: '23:00', recurrence: 'daily', reminders: [0, 5] } as never)], now);
   assert.ok(series.placed.length >= 2 && series.placed.every((x) => JSON.stringify(x.reminders) === '[0,5]'), JSON.stringify(series.placed));
 });
+
+// ---- Part C, P5: a task with several times a day: one entry per time still to do ----
+
+test('a task with several times sends an entry per time that is not done, the first without a slot', () => {
+  const p = buildNotifyPayload(
+    [],
+    [task('brk', { dueDate: '2026-10-06', startTime: '09:00', extraTimes: ['15:00', '12:00'], reminders: [0, 5] })],
+    now,
+  );
+  assert.deepEqual(p.placed.map((t) => [t.id, t.slot]), [['brk', undefined], ['brk', '12:00'], ['brk', '15:00']]);
+  assert.deepEqual(p.placed.map((t) => t.start), [new Date(2026, 9, 6, 9, 0).getTime(), new Date(2026, 9, 6, 12, 0).getTime(), new Date(2026, 9, 6, 15, 0).getTime()]);
+  for (const t of p.placed) assert.deepEqual(t.reminders, [0, 5], 'every time gets the task\'s list');
+  assert.ok(!('slot' in p.placed[0]));
+});
+
+test('a time that is done, or has passed, sends nothing; a completed task sends nothing', () => {
+  const day = { dueDate: '2026-10-06', startTime: '07:00', extraTimes: ['09:00', '15:00'] };
+  const p = buildNotifyPayload([], [task('a', { ...day, timesDone: ['09:00'] })], now);
+  assert.deepEqual(p.placed.map((t) => t.slot), ['15:00'], '07:00 has passed and 09:00 is done: only 15:00 is left');
+  assert.deepEqual(buildNotifyPayload([], [task('a', { ...day, completed: true })], now).placed, []);
+});
+
+test('a shown day of a repeating task sends every time too', () => {
+  const p = buildNotifyPayload([], [task('walk', { dueDate: '2026-10-06', startTime: '06:00', recurrence: 'daily', extraTimes: ['17:30'] })], now);
+  const tomorrow = p.placed.filter((t) => t.id === 'walk:2026-10-07');
+  assert.deepEqual(tomorrow.map((t) => t.slot), [undefined, '17:30']);
+  assert.ok(p.placed.some((t) => t.id === 'walk:2026-10-08'));
+});
+
+test('a task with one time sends exactly what it always did', () => {
+  const p = buildNotifyPayload([], [task('one', { dueDate: '2026-10-06', startTime: '10:00' })], now);
+  assert.equal(p.placed.length, 1);
+  assert.ok(!('slot' in p.placed[0]));
+});

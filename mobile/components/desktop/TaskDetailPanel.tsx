@@ -32,7 +32,7 @@ import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
 import { toggleTimer, useNow } from './timerUi';
 import { startFromChoices } from '../../lib/timerSession';
 import { formatTime } from '../../lib/data';
-import { MAX_TIMES, addTimeFields, isTimeDone, moveTimeFields, removeTimeFields, suggestNextTime, timesOf, type TimeEdit, type TimeRefusal } from '../../lib/times';
+import { isMultiTime, MAX_TIMES, addTimeFields, isTimeDone, moveTimeFields, removeTimeFields, suggestNextTime, timesOf, type TimeEdit, type TimeRefusal } from '../../lib/times';
 import { closeDetail, getDetailFocus, notifyChanged, useDetailId } from './uiStore';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
@@ -688,7 +688,8 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
   const open = useIsOpen(id);
   const wrapped: TaskOps = { ...ops, patch: (f) => ops.patch(f).then(onSaved) };
   const defaults = useDefaultReminders();
-  const text = taskRemindersLabel(task, defaults);
+  // Part C: with several times a day the list applies to each of them.
+  const text = `${taskRemindersLabel(task, defaults)}${isMultiTime(task) ? ', for each time' : ''}`;
   return (
     <>
       <Pressable

@@ -36,7 +36,8 @@ export interface DesktopSettings {
 // The next 48 hours of notifiable items, sent to the main process.
 export interface NotifyPayload {
   events: Array<{ id: string; title: string; icon: string; start: number }>;
-  placed: Array<{ id: string; title: string; start: number; completed: boolean; reminderMinutes?: number; reminders?: number[] }>;
+  // `slot`: the time ('HH:mm') of every time of a task after its first (Part C), so each has its own timers.
+  placed: Array<{ id: string; title: string; start: number; completed: boolean; slot?: string; reminderMinutes?: number; reminders?: number[] }>;
   planned: Array<{ dueDate: string; completed: boolean; startTime?: string; reminderMinutes?: number; reminders?: number[] }>;
 }
 

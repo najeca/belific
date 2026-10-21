@@ -20,6 +20,9 @@ import { DEFAULT_BLOCK_MINUTES } from './lateTasks.ts';
 
 export const MAX_TIMES = MAX_EXTRA_TIMES + 1;
 
+// The line in the Reminder menu of a task with several times a day.
+export const EACH_TIME_NOTE = 'For each time: every time of the day that is not done gets these reminders.';
+
 type TimeFields = Pick<Task, 'startTime' | 'extraTimes'>;
 type DoneFields = TimeFields & Pick<Task, 'completed' | 'completedAt' | 'timesDone'>;
 

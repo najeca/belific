@@ -522,3 +522,45 @@ test('P5 settings: the default list is validated; a bad or missing value is [0]'
   assert.deepEqual(sanitize({}, { ...DEFAULTS, defaultReminders: [0, 5] }).defaultReminders, [0, 5], 'a partial keeps what was there');
   assert.deepEqual(sanitize({}, { ...DEFAULTS, defaultReminders: 'broken' }).defaultReminders, [0], 'a stored bad value falls back');
 });
+
+// ---- Part C, P5: a task with several times a day reminds at each time ----
+
+test('Part C: each time of a task has its own timers and keys; the first keeps the old key', () => {
+  const r = rig();
+  const t0 = r.now;
+  r.sched.update({
+    events: [],
+    placed: [
+      placed('brk', t0 + 30 * M, { reminders: [0, 5] }),
+      placed('brk', t0 + 6 * H, { reminders: [0, 5], slot: '14:00' }),
+    ],
+    planned: [],
+  });
+  assert.deepEqual(keysOf(r).sort(), ['task:brk', 'task:brk#14:00', 'task:brk#14:00@5', 'task:brk@5']);
+  r.advance(30 * M);
+  assert.deepEqual(r.shown.map((n) => n.body), ['Starts in 5 minutes', 'Starting now'], 'the first time: its two toasts');
+  r.advance(6 * H - 30 * M);
+  assert.equal(r.shown.length, 4, 'then the second time\'s two');
+  assert.deepEqual(r.shown.slice(2).map((n) => n.body), ['Starts in 5 minutes', 'Starting now']);
+  r.advance(24 * H);
+  assert.equal(r.shown.length, 4, 'each fires once');
+});
+
+test('Part C: re-sending the same payload keeps one timer per time, and a time that moved is re-planned alone', () => {
+  const r = rig();
+  const t0 = r.now;
+  const first = placed('brk', t0 + 30 * M);
+  const second = placed('brk', t0 + 5 * H, { slot: '13:00' });
+  r.sched.update({ events: [], placed: [first, second], planned: [] });
+  r.sched.update({ events: [], placed: [first, second], planned: [] });
+  assert.equal(r.sched.pending().length, 2);
+  r.sched.update({ events: [], placed: [first, { ...second, start: t0 + 7 * H, slot: '15:00' }], planned: [] });
+  assert.deepEqual(r.sched.pending().map((p) => p.at - t0).sort((a, b) => a - b), [30 * M, 7 * H]);
+  assert.deepEqual(keysOf(r).sort(), ['task:brk', 'task:brk#15:00']);
+});
+
+test('Part C: a junk slot is ignored (the key is the first time\'s), so it can never collide or inject', () => {
+  const r = rig();
+  r.sched.update({ events: [], placed: [placed('a', r.now + 30 * M, { slot: 'x:y' })], planned: [] });
+  assert.deepEqual(keysOf(r), ['task:a']);
+});

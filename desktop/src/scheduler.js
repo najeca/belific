@@ -5,7 +5,8 @@
 //
 // The renderer sends a payload whenever data changes:
 //   { events:  [{ id, title, icon?, start }],        // CustomEvent starts, epoch ms (local wall time)
-//     placed:  [{ id, title, start, completed, reminderMinutes?, reminders? }], // tasks with a Day AND a startTime
+//     placed:  [{ id, title, start, completed, slot?, reminderMinutes?, reminders? }], // tasks with a Day AND a startTime
+//                                                                                      // (one entry per time of a task with several: `slot` is 'HH:mm' for every time after the first)
 //     planned: [{ dueDate, completed, startTime?, reminderMinutes?, reminders? }] } // tasks planned for a day
 // Which reminders a placed task gets (Part B, P5; mirrored in mobile/lib/reminder.ts):
 //   1. `reminders` when it is an array: whole minutes before the start, 0 = at the start
@@ -123,8 +124,9 @@ function plan({ payload, settings, now, zone = localZone }) {
         const at = t.start - lead * 60000;
         // A lead that has passed is skipped on its own; the later ones stay.
         if (at <= now || at > horizon) continue;
-        // The at-the-start reminder keeps the key it always had.
-        const key = lead === 0 ? `task:${clip(t.id, 120)}` : `task:${clip(t.id, 120)}@${lead}`;
+        // The at-the-start reminder keeps the key it always had; a time after the first adds its slot (Part C).
+        const base = `task:${clip(t.id, 120)}${isStr(t.slot) && HM.test(t.slot) ? `#${t.slot}` : ''}`;
+        const key = lead === 0 ? base : `${base}@${lead}`;
         out.push({ key, at, kind: 'task', title: clip(t.title, 200), body: lead > 0 ? `Starts in ${leadText(lead)}` : 'Starting now' });
       }
     }

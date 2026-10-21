@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 2.38.0 — 2026-10-21 (Part C, P5: reminders at every time of a task)
+
+**Desktop only. No schema change. The phone gets no reminders for these times before its catch-up release (it only shows the task once, at its first time).**
+- **A reminder list applies to each time:** a task with several times a day sends one entry per time that is still to do, so each time has its own toasts (a list of "At start time" and "5 minutes before" gives four toasts for two times). A time that is already ticked, or has passed, sends none; a completed task sends none. The first time keeps the timer keys it always had; later times add their time to the key (`task:id#14:00`, `task:id#14:00@5`) so they never collide and a re-send never repeats a toast. Shown days of a repeating task send every time too.
+- **Wording:** the Reminder row in the details says "…, for each time" when the task has several times, and its menu has a line "For each time: every time of the day that is not done gets these reminders." One list per task, not one per time.
+- Tests: scheduler +3 (a fake clock: each time its own timers and keys, a re-send and a moved time, a junk slot), payload +4, real check `p21.js` (9, real timers: one toast at each time, none for a ticked one, one for a task with one time).
+- Not changed: reminders still only work while Belific is running (the tray keeps it running when the window is closed); a reminder missed while it was quit is not shown late. Not added to the iOS marker gate: the wording lives in the shared `lib/times.ts`.
+
+---
+
 ## 2.37.0 — 2026-10-21 (Part C, P4: a block for every time on the Calendar and the Timebox)
 
 **Desktop only. No schema change in this release (the fields sync through the unapplied migration 004).**

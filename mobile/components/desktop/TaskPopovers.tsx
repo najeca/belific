@@ -43,6 +43,7 @@ import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/must
 import { notifyChanged, openDetail, openOverlay, useNewColorsOk } from './uiStore';
 import { toggleTimer, useNow } from './timerUi';
 import { startFromChoices } from '../../lib/timerSession';
+import { EACH_TIME_NOTE, isMultiTime } from '../../lib/times';
 import { formatTime } from '../../lib/data';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
@@ -263,6 +264,8 @@ export function ReminderBody({ task, ops, done }: BodyProps) {
       })}
       {!hasStart && <Text style={popoverStyles.note}>{NO_START_NOTE}</Text>}
       {hasStart && full && <Text style={popoverStyles.note}>At most {MAX_TASK_REMINDERS} reminders.</Text>}
+      {/* Part C: a task with several times a day reminds at each of them that is not done. */}
+      {hasStart && isMultiTime(task) && <Text style={popoverStyles.note} {...({ dataSet: { reminderEachTime: '1' } } as object)}>{EACH_TIME_NOTE}</Text>}
     </View>
   );
 }

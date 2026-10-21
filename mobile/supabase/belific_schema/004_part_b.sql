@@ -2,10 +2,10 @@
 -- switch and the reminder list of a task (Part B), and the extra times and the
 -- ticked times of a task (Part C).
 --
--- *** NOT APPLIED. DO NOT RUN. ***
--- Written for Jethro's review. It is applied only by Jethro, after a backup
--- and his explicit go, through the Supabase migration tool or the SQL editor of
--- the shared project, AFTER 001, 002 and 003. Never `supabase db push`.
+-- *** APPLIED on 2026-10-21 to the shared project, as the migration
+-- "belific_part_b_c_tasks_columns". DO NOT RUN AGAIN. ***
+-- Applied with no backup (Jethro's decision: the change is additive). Kept as the
+-- record of what was applied. Never run it again and never `supabase db push`.
 --
 -- Additive only: four nullable columns on belific.tasks. No default, no NOT NULL,
 -- no CHECK, no backfill, nothing rewritten, nothing outside the belific schema.

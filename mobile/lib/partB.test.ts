@@ -82,10 +82,10 @@ test('hasPartBValues: a task holding a true switch or a reminder list (even an e
   assert.equal(hasPartBValues('projects', { cutsBelow: true }), false);
 });
 
-test('004_part_b.sql says NOT APPLIED, is additive only and keeps the rollback commented out', () => {
+test('004_part_b.sql says APPLIED (do not run again), is additive only and keeps the rollback commented out', () => {
   const file = path.join(import.meta.dirname, '..', 'supabase', 'belific_schema', '004_part_b.sql');
   const sql = fs.readFileSync(file, 'utf8');
-  assert.match(sql.split('\n').slice(0, 8).join('\n'), /NOT APPLIED\. DO NOT RUN/);
+  assert.match(sql.split('\n').slice(0, 8).join('\n'), /APPLIED on 2026-10-21[\s\S]*DO NOT RUN AGAIN/);
   const code = sql
     .split('\n')
     .map((l) => l.replace(/--.*$/, ''))
@@ -100,7 +100,7 @@ test('004_part_b.sql says NOT APPLIED, is additive only and keeps the rollback c
   assert.match(sql, /^-- {3}drop column if exists extra_times,/m);
   assert.ok(!/^drop /im.test(code));
   const readme = fs.readFileSync(path.join(path.dirname(file), 'README.md'), 'utf8');
-  assert.match(readme, /004_part_b\.sql.*NOT APPLIED/);
+  assert.match(readme, /004_part_b\.sql.*APPLIED 2026-10-21/);
 });
 
 test('a duplicate carries the switch and the reminder list (a copy of the array, not the same one)', () => {

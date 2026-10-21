@@ -84,10 +84,10 @@ test('hasPartCValues: a task holding extra times or ticked times is queued when 
   assert.equal(hasPartCValues('projects', { extraTimes: ['15:00'] }), false);
 });
 
-test('004_part_b.sql carries the Part C columns: nullable jsonb, no default, still NOT APPLIED and additive, rollback listed', () => {
+test('004_part_b.sql carries the Part C columns: nullable jsonb, no default, APPLIED and additive, rollback listed', () => {
   const dir = path.join(import.meta.dirname, '..', 'supabase', 'belific_schema');
   const sql = fs.readFileSync(path.join(dir, '004_part_b.sql'), 'utf8');
-  assert.match(sql.split('\n').slice(0, 8).join('\n'), /NOT APPLIED\. DO NOT RUN/, 'the header keeps its warning');
+  assert.match(sql.split('\n').slice(0, 8).join('\n'), /APPLIED on 2026-10-21[\s\S]*DO NOT RUN AGAIN/, 'the header keeps its warning');
   const code = sql
     .split('\n')
     .map((l) => l.replace(/--.*$/, ''))
@@ -98,6 +98,6 @@ test('004_part_b.sql carries the Part C columns: nullable jsonb, no default, sti
   assert.ok(!/\b(drop|delete|update|truncate|grant|revoke|default|not null|check)\b/i.test(code), 'nothing destructive, no default, no constraint');
   for (const c of ['extra_times', 'times_done']) assert.match(sql, new RegExp(`^-- {3}drop column if exists ${c},`, 'm'), `${c} is in the commented rollback`);
   const readme = fs.readFileSync(path.join(dir, 'README.md'), 'utf8');
-  assert.match(readme, /004_part_b\.sql.*NOT APPLIED/);
+  assert.match(readme, /004_part_b\.sql.*APPLIED 2026-10-21/);
   assert.match(readme, /extra_times/);
 });

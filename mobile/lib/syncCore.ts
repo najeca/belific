@@ -174,6 +174,9 @@ export interface Caps {
   // Migration 004 (belific_schema/004_part_b.sql, NOT APPLIED until Jethro applies it):
   // tasks.cuts_below and tasks.reminders. Optional for the same reason as the others.
   partB?: boolean;
+  // Migration 004, Part C half (the same unapplied file): tasks.extra_times and tasks.times_done.
+  // Checked on its own so Part B's and Part C's sync switch on independently.
+  partC?: boolean;
 }
 
 export const NO_CAPS: Caps = { serverUpdatedAt: false, taskPipeline: false };
@@ -196,6 +199,9 @@ export const PROJECT_PLANNER_FIELDS = ['emoji'] as const;
 // Local fields that wait for migration 004: never sent, and kept on pull, until the probe sees both columns.
 export const TASK_PARTB_FIELDS = ['cutsBelow', 'reminders'] as const;
 
+// Local fields that wait for the Part C columns of migration 004: never sent, and kept on pull, until the probe sees both.
+export const TASK_PARTC_FIELDS = ['extraTimes', 'timesDone'] as const;
+
 export function preserveFieldsFor(table: TimestampedTable, caps: Caps): string[] {
   if (table === 'tasks') {
     return [
@@ -203,6 +209,7 @@ export function preserveFieldsFor(table: TimestampedTable, caps: Caps): string[]
       ...(caps.taskExtras ? [] : TASK_EXTRA_FIELDS),
       ...(caps.planner ? [] : TASK_PLANNER_FIELDS),
       ...(caps.partB ? [] : TASK_PARTB_FIELDS),
+      ...(caps.partC ? [] : TASK_PARTC_FIELDS),
     ];
   }
   if (table === 'projects') {
@@ -230,6 +237,12 @@ export function hasPlannerValues(table: TimestampedTable, row: Record<string, un
 export function hasPartBValues(table: TimestampedTable, row: Record<string, unknown>): boolean {
   if (table !== 'tasks') return false;
   return row.cutsBelow === true || Array.isArray(row.reminders);
+}
+
+// A local task that carries values only the Part C columns can store (queued again once they appear).
+export function hasPartCValues(table: TimestampedTable, row: Record<string, unknown>): boolean {
+  if (table !== 'tasks') return false;
+  return Array.isArray(row.extraTimes) || Array.isArray(row.timesDone);
 }
 
 // A local row that carries values the server could not store before
@@ -454,6 +467,28 @@ export function sanitizeReminders(v: unknown): number[] | null {
   return [...out].sort((a, b) => a - b).slice(0, MAX_REMINDERS);
 }
 
+// Migration 004, Part C values. Times of day ('HH:mm'), distinct, ascending, at most 6 extra (a
+// task has its own start time besides) and at most 7 ticked (every time of the task). An empty
+// or unreadable list is no value (NULL = one time / nothing ticked).
+export const MAX_EXTRA_TIMES = 6;
+export const MAX_TIMES_DONE = MAX_EXTRA_TIMES + 1;
+function sanitizeTimeList(v: unknown, max: number): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const out = new Set<string>();
+  for (const t of v) {
+    const ok = sanitizeTime(t);
+    if (ok) out.add(ok);
+  }
+  const list = [...out].sort().slice(0, max);
+  return list.length > 0 ? list : null;
+}
+export function sanitizeExtraTimes(v: unknown): string[] | null {
+  return sanitizeTimeList(v, MAX_EXTRA_TIMES);
+}
+export function sanitizeTimesDone(v: unknown): string[] | null {
+  return sanitizeTimeList(v, MAX_TIMES_DONE);
+}
+
 // Migration 002 values. A year of minutes is far above any real total and
 // still keeps a corrupt number out of the column.
 export const MAX_ACTUAL_MINUTES = 525600;
@@ -608,6 +643,10 @@ export function taskToRemote(t: Task, caps: Caps): Remote {
     row.cuts_below = sanitizeCuts(t.cutsBelow);
     row.reminders = sanitizeReminders(t.reminders);
   }
+  if (caps.partC) {
+    row.extra_times = sanitizeExtraTimes(t.extraTimes);
+    row.times_done = sanitizeTimesDone(t.timesDone);
+  }
   return withDeleted(row, t.deletedAt);
 }
 export function taskFromRemote(r: Remote): Task {
@@ -634,6 +673,8 @@ export function taskFromRemote(r: Remote): Task {
     emoji: sanitizeEmoji(r.emoji) ?? undefined,
     cutsBelow: sanitizeCuts(r.cuts_below) ?? undefined,
     reminders: sanitizeReminders(r.reminders) ?? undefined,
+    extraTimes: sanitizeExtraTimes(r.extra_times) ?? undefined,
+    timesDone: sanitizeTimesDone(r.times_done) ?? undefined,
     origin: opt(r, 'origin'),
     updatedAt: String(r.updated_at),
     deletedAt: opt(r, 'deleted_at'),

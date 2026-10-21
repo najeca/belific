@@ -92,9 +92,12 @@ test('004_part_b.sql says NOT APPLIED, is additive only and keeps the rollback c
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim();
-  assert.match(code, /^begin; alter table belific\.tasks add column cuts_below boolean, add column reminders jsonb ?; commit;$/);
+  // Part B's two columns, and since 2026-10-21 (still unapplied) Part C's two.
+  assert.match(code, /^begin; alter table belific\.tasks add column cuts_below boolean, add column reminders jsonb, add column extra_times jsonb, add column times_done jsonb ?; commit;$/);
   assert.ok(!/\b(drop|delete|update|truncate|grant|revoke|default|not null|check)\b/i.test(code), 'nothing destructive, no default, no constraint');
   assert.match(sql, /^-- {3}drop column if exists reminders,/m, 'the rollback is there, as comments');
+  assert.match(sql, /^-- {3}drop column if exists times_done,/m, 'and it drops the Part C columns too');
+  assert.match(sql, /^-- {3}drop column if exists extra_times,/m);
   assert.ok(!/^drop /im.test(code));
   const readme = fs.readFileSync(path.join(path.dirname(file), 'README.md'), 'utf8');
   assert.match(readme, /004_part_b\.sql.*NOT APPLIED/);

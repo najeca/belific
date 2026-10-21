@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.35.0 — 2026-10-21 (Part C, P2: sync safety for extra times)
+
+**Nothing visible. Data and sync only; desktop and shared sync code. The migration is amended but NOT APPLIED. No Supabase command was run, nothing deployed.**
+- **`004_part_b.sql` amended (it was still unapplied):** two more nullable columns on `belific.tasks`: `extra_times jsonb` (the other times of the day a task happens, `HH:mm`, at most 6) and `times_done jsonb` (the times ticked on that row's day). Additive only: no default, no backfill, no constraint. The header still says NOT APPLIED. DO NOT RUN; the commented rollback now drops all four columns; the README row and post-apply checks are updated. One file means one review, one backup and one apply for Jethro.
+- **Two new task fields** `extraTimes` and `timesDone` (types, sanitisers, mappers). `startTime` stays the earliest time; the extras are valid `HH:mm`, distinct, ascending, at most 6 (7 ticked); an empty or unreadable list is NULL.
+- **Independent switch:** the probe checks the two Part C columns on their own (`Caps.partC`), so Part B and Part C switch on independently, in either order. Until the columns exist nothing sends them and a pull keeps the local values; when they first appear every task holding values is queued once.
+- **Older clients (iPhone 2.18.1, desktops before this):** they never name the new columns, so an upsert from them leaves the values alone; a row they create simply has none (one time, nothing ticked); a tick on the phone completes the task (`completed` true means every time is done).
+- Tests: `partC.test.ts` (7), schema probe +1, sync engine +4 against the in process fake server that rejects unknown columns (columns absent, columns appear, an older client editing the same rows, B and C in either order); the `syncCore`/`partB`/`schemaProfile` expectations extended on purpose. The vendored `types.ts` of the (undeployed) calendar feed function was re-copied by `node scripts/vendor-feed.js`.
+
+---
+
 ## 2.34.1 — 2026-10-21 (Part C, P1: the timer can be started on any task at any time)
 
 **Desktop only. No schema change, no new synced field, nothing for the phone.**

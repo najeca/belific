@@ -21,6 +21,7 @@ import {
   hasPipelineValues,
   hasPlannerValues,
   hasPartBValues,
+  hasPartCValues,
   maxServerTime,
   mergeCompletions,
   mergeRows,
@@ -163,7 +164,8 @@ export function createSyncEngine(deps: {
     const extrasAppeared = !!next.taskExtras && !!prev && !prev.taskExtras;
     const plannerAppeared = !!next.planner && !!prev && !prev.planner;
     const partBAppeared = !!next.partB && !!prev && !prev.partB;
-    if (pipelineAppeared || extrasAppeared || plannerAppeared || partBAppeared) {
+    const partCAppeared = !!next.partC && !!prev && !prev.partC;
+    if (pipelineAppeared || extrasAppeared || plannerAppeared || partBAppeared || partCAppeared) {
       await local.withLock(async () => {
         const items: Array<{ table: TimestampedTable; key: string; op: 'upsert'; row: Record<string, unknown> }> = [];
         for (const table of ['tasks', 'projects'] as const) {
@@ -173,7 +175,8 @@ export function createSyncEngine(deps: {
               (pipelineAppeared && hasPipelineValues(table, row)) ||
               (extrasAppeared && hasExtrasValues(table, row)) ||
               (plannerAppeared && hasPlannerValues(table, row)) ||
-              (partBAppeared && hasPartBValues(table, row))
+              (partBAppeared && hasPartBValues(table, row)) ||
+              (partCAppeared && hasPartCValues(table, row))
             ) {
               items.push({ table, key: spec.keyOf(row), op: 'upsert', row });
             }

@@ -225,6 +225,15 @@ export interface Task {
   // start), at most 5. Absent = not set (the legacy reminderMinutes and then the
   // Settings default apply); an empty list = no reminder. Synced as reminders (jsonb).
   reminders?: number[];
+  // Part C (migration 004, NOT APPLIED until Jethro applies it): the other times of the day this
+  // task happens, all with the same length. `startTime` stays the earliest; this holds the rest
+  // ('HH:mm', ascending, distinct, at most 6). Absent = one time. Synced as extra_times (jsonb);
+  // kept locally while the server lacks the column (lib/syncCore.ts, caps.partC).
+  extraTimes?: string[];
+  // Part C: the times ('HH:mm', among startTime and extraTimes) ticked on this row's day. Absent =
+  // none ticked. `completed` true always means every time is done, whatever this holds.
+  // Synced as times_done (jsonb); never copied to another day of a series.
+  timesDone?: string[];
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';

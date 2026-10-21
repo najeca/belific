@@ -15,6 +15,7 @@ const REQUIRED_PROFILE = 'belific';
 const EXTRA_COLUMNS = ['subtasks', 'reminder_minutes'];
 const PLANNER_COLUMNS = ['actual_minutes', 'timer_started_at', 'list_key', 'emoji'];
 const PARTB_COLUMNS = ['cuts_below', 'reminders'];
+const PARTC_COLUMNS = ['extra_times', 'times_done'];
 const PLANNER_TABLES: AnyTable[] = ['lists', 'user_settings'];
 const PIPELINE_COLUMNS = ['duration_minutes', 'start_time', 'recurrence', 'recurrence_days', 'recurrence_month_day', 'color_key'];
 
@@ -106,6 +107,10 @@ class FakeServer {
         // Migration 004 not applied (strict, like PostgREST): naming a column that is not there fails the request.
         if (!this.caps.partB && t === 'tasks') {
           for (const r of rows) for (const c of PARTB_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
+        }
+        // The Part C half of 004 (probed on its own): the same strictness.
+        if (!this.caps.partC && t === 'tasks') {
+          for (const r of rows) for (const c of PARTC_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
         }
         for (const r of rows) {
           const key = this.pk(t, r);
@@ -836,4 +841,122 @@ test('004 applied: an older client (2.18.1 and before) never erases the values, 
   assert.equal(server.get('tasks', 'old1')?.title, 'From the phone');
   assert.equal(server.get('tasks', 'old1')?.cuts_below, true);
   assert.deepEqual(server.get('tasks', 'old1')?.reminders, [5]);
+});
+
+// ---- Part C, migration 004 (extra_times, times_done): NOT APPLIED until Jethro applies it ----
+
+const MULTI = { dueDate: '2026-10-21', startTime: '11:00', durationMinutes: 20, extraTimes: ['15:00'], timesDone: ['11:00'] };
+
+test('004 Part C columns absent: extra_times and times_done are never sent, everything else syncs, and both are kept locally through pulls', async () => {
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true, partB: true }; // partC absent
+  const desk = makeDevice(server);
+  await desk.put('tasks', task('t1', 'Short break', { ...MULTI, cutsBelow: true }));
+  await desk.put('tasks', task('t2', 'Plain', { dueDate: '2026-10-21' }));
+  await desk.engine.sync();
+  assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
+  const st = server.get('tasks', 't1')!;
+  assert.equal(st.start_time, '11:00');
+  assert.equal(st.cuts_below, true, 'Part B (probed on its own) still syncs');
+  for (const c of PARTC_COLUMNS) assert.ok(!(c in st), `${c} not sent`);
+  assert.equal(desk.data.outbox.entries.length, 0, 'nothing is stuck in the outbox');
+  // the strict fake refuses a client that did name them
+  await assert.rejects(server.adapter('u1').upsert('tasks', [{ user_id: 'u1', id: 'x', extra_times: ['15:00'] }]), /extra_times/);
+  // another client renames the task on the server: the local values survive the pull
+  server.legacyUpsert('tasks', { ...server.get('tasks', 't1'), title: 'Short break (renamed)', updated_at: new Date(Date.now() + 1000).toISOString() });
+  await desk.engine.sync();
+  const t = desk.row('tasks', 't1')!;
+  assert.equal(t.title, 'Short break (renamed)');
+  assert.deepEqual(t.extraTimes, ['15:00']);
+  assert.deepEqual(t.timesDone, ['11:00']);
+  // editing again still syncs without them
+  await desk.put('tasks', { ...t, title: 'Short break (again)' });
+  await desk.engine.sync();
+  assert.equal(server.get('tasks', 't1')?.title, 'Short break (again)');
+  for (const c of PARTC_COLUMNS) assert.ok(!(c in server.get('tasks', 't1')!), `${c} still not sent`);
+  assert.deepEqual(desk.row('tasks', 't1')?.extraTimes, ['15:00']);
+});
+
+test('004 Part C columns appear later: rows holding the values are queued once, other computers then see them, and clearing them reaches everyone', async () => {
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true, partB: true };
+  const desk = makeDevice(server);
+  await desk.put('tasks', task('t1', 'Short break', MULTI));
+  await desk.put('tasks', task('t2', 'Plain', { dueDate: '2026-10-21' }));
+  await desk.engine.sync();
+  assert.equal(server.get('tasks', 't1')?.extra_times, undefined);
+  // the Part C half of migration 004 applied
+  server.caps = { ...server.caps, partC: true };
+  await desk.engine.sync();
+  assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
+  assert.equal(desk.data.outbox.entries.length, 0);
+  assert.deepEqual(server.get('tasks', 't1')?.extra_times, ['15:00']);
+  assert.deepEqual(server.get('tasks', 't1')?.times_done, ['11:00']);
+  const other = makeDevice(server);
+  await other.engine.sync();
+  assert.deepEqual(other.row('tasks', 't1')?.extraTimes, ['15:00']);
+  assert.deepEqual(other.row('tasks', 't1')?.timesDone, ['11:00']);
+  assert.equal(other.row('tasks', 't2')?.extraTimes, undefined);
+  // removing the extra time and the tick reaches the other computer
+  await desk.put('tasks', { ...desk.row('tasks', 't1')!, extraTimes: undefined, timesDone: undefined });
+  await desk.engine.sync();
+  assert.equal(server.get('tasks', 't1')?.extra_times, null);
+  await other.engine.sync();
+  assert.equal(other.row('tasks', 't1')?.extraTimes, undefined);
+  assert.equal(other.row('tasks', 't1')?.timesDone, undefined);
+});
+
+test('004 Part C applied: an older client (2.18.1 and before) never erases the values, and rows it creates simply lack them', async () => {
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true, partB: true, partC: true };
+  const desk = makeDevice(server);
+  await desk.put('tasks', task('t1', 'Short break', MULTI));
+  await desk.engine.sync();
+  // the older client edits (and ticks) that row: it names only the columns it knows
+  server.legacyUpsert('tasks', { user_id: 'u1', id: 't1', title: 'Short break, ticked on the phone', completed: true, completed_at: '2026-10-21T11:30:00.000Z', updated_at: new Date(Date.now() + 2000).toISOString() });
+  assert.deepEqual(server.get('tasks', 't1')?.extra_times, ['15:00'], 'the older client leaves the columns alone');
+  assert.deepEqual(server.get('tasks', 't1')?.times_done, ['11:00']);
+  await desk.engine.sync();
+  const t = desk.row('tasks', 't1')!;
+  assert.equal(t.title, 'Short break, ticked on the phone');
+  assert.equal(t.completed, true, 'a phone tick completes the task');
+  assert.deepEqual(t.extraTimes, ['15:00']);
+  assert.deepEqual(t.timesDone, ['11:00'], 'timesDone is untouched; completed true still means every time is done');
+  // a row the older client creates has no values: one time, nothing ticked
+  server.legacyUpsert('tasks', { user_id: 'u1', id: 'old1', title: 'From the phone', completed: false, created_at: '2026-10-02T09:00:00.000Z', updated_at: new Date(Date.now() + 3000).toISOString() });
+  await desk.engine.sync();
+  assert.equal(desk.row('tasks', 'old1')?.extraTimes, undefined);
+  assert.equal(desk.row('tasks', 'old1')?.timesDone, undefined);
+  // and the desktop can then add a time to it without disturbing what the phone wrote
+  await desk.put('tasks', { ...desk.row('tasks', 'old1')!, startTime: '09:00', extraTimes: ['13:00'] });
+  await desk.engine.sync();
+  assert.equal(server.get('tasks', 'old1')?.title, 'From the phone');
+  assert.deepEqual(server.get('tasks', 'old1')?.extra_times, ['13:00']);
+});
+
+test('004 Part B and Part C switch on independently, in either order', async () => {
+  for (const [first, second] of [['partB', 'partC'], ['partC', 'partB']] as const) {
+    const server = new FakeServer();
+    server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };
+    const desk = makeDevice(server);
+    await desk.put('tasks', task('t1', 'Break', { ...MULTI, cutsBelow: true, reminders: [0, 5] }));
+    await desk.engine.sync();
+    server.caps = { ...server.caps, [first]: true };
+    await desk.engine.sync();
+    assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
+    const row = server.get('tasks', 't1')!;
+    const bThere = 'cuts_below' in row;
+    const cThere = 'extra_times' in row;
+    assert.equal(bThere, first === 'partB', `${first} only: Part B columns ${bThere}`);
+    assert.equal(cThere, first === 'partC', `${first} only: Part C columns ${cThere}`);
+    // the other half arrives later and its values then go up, without touching what is already there
+    server.caps = { ...server.caps, [second]: true };
+    await desk.engine.sync();
+    assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
+    assert.equal(server.get('tasks', 't1')?.cuts_below, true);
+    assert.deepEqual(server.get('tasks', 't1')?.reminders, [0, 5]);
+    assert.deepEqual(server.get('tasks', 't1')?.extra_times, ['15:00']);
+    assert.deepEqual(server.get('tasks', 't1')?.times_done, ['11:00']);
+    assert.equal(desk.data.outbox.entries.length, 0);
+  }
 });

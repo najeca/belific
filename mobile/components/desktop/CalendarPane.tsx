@@ -575,8 +575,8 @@ export default function CalendarPane({
           data-cal-scroller={effView}
         >
           <div style={{ position: 'relative', width: contentW, minHeight: '100%' }}>
-            <div style={{ position: 'sticky', top: 0, zIndex: 6, height: HEAD_H + ALLDAY_H, background: Colors.surface }}>
-              <div style={{ position: 'sticky', left: 0, width: GUTTER, height: HEAD_H + ALLDAY_H, background: Colors.surface, zIndex: 7, display: 'flex', alignItems: 'flex-end' }}>
+            <div style={{ position: 'sticky', top: 0, zIndex: 6, height: HEAD_H + ALLDAY_H, background: Colors.pane }}>
+              <div style={{ position: 'sticky', left: 0, width: GUTTER, height: HEAD_H + ALLDAY_H, background: Colors.pane, zIndex: 7, display: 'flex', alignItems: 'flex-end' }}>
                 <Text style={styles.allDayLabel}>all day</Text>
               </div>
               {days.map((d) => {
@@ -647,7 +647,7 @@ export default function CalendarPane({
             </div>
 
             <div ref={setGrid} style={{ position: 'relative', height: GRID_HEIGHT_PX + 16, marginTop: 8 }} data-calendar-grid="1">
-              <div style={{ position: 'sticky', left: 0, width: GUTTER, height: '100%', background: Colors.surface, zIndex: 4 }}>
+              <div style={{ position: 'sticky', left: 0, width: GUTTER, height: '100%', background: Colors.pane, zIndex: 4 }}>
                 {hours.map((h) => (
                   <Text key={h} style={[styles.hourLabel, { top: (h - GRID_START_HOUR) * PX_PER_HOUR - 7 }]} {...({ dataSet: { mono: '1' } } as object)}>
                     {hourLabel(h)}
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
   hourLine: { position: 'absolute', height: StyleSheet.hairlineWidth, backgroundColor: Colors.border },
   halfLine: { position: 'absolute', height: StyleSheet.hairlineWidth, backgroundColor: Colors.border, opacity: 0.45 },
   blockWrap: { position: 'absolute', padding: 1 },
-  block: { flex: 1, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden', justifyContent: 'flex-start' },
+  block: { flex: 1, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden', justifyContent: 'flex-start' },
   taskBlock: { backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
   projected: { opacity: 0.82 },
   // Imported, read only: a dashed outline on the plain background, never a label colour.
@@ -837,13 +837,14 @@ const styles = StyleSheet.create({
   // Lines break at spaces only (2.28.2): a word wider than its lane is clipped, never split.
   blockTitle: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary, minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
   blockTime: { fontSize: 10, color: Colors.textSecondary, minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
-  chip: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginVertical: 1, backgroundColor: Colors.background, minHeight: 20, justifyContent: 'center' },
+  chip: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginVertical: 1, backgroundColor: Colors.background, minHeight: 20, justifyContent: 'center' },
   chipText: { fontSize: 11, color: Colors.textPrimary },
   chipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
   chipTextFlex: { flexShrink: 1, minWidth: 0 },
   chipDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  nowLine: { position: 'absolute', left: 0, right: 0, height: 2, backgroundColor: Colors.accentText },
-  nowDot: { position: 'absolute', left: -4, top: -3, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.accentText },
+  // The current time: a thin red line with a small red triangle at its start (red is only ever the time).
+  nowLine: { position: 'absolute', left: 0, right: 0, height: 1.5, backgroundColor: Colors.now },
+  nowDot: { position: 'absolute', left: -1, top: -4, width: 0, height: 0, borderTopWidth: 4, borderBottomWidth: 4, borderLeftWidth: 7, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: Colors.now },
   month: { flex: 1 },
   monthHead: { flexDirection: 'row', paddingVertical: 6 },
   monthHeadText: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700', color: Colors.textSecondary },

@@ -101,6 +101,17 @@ async function run() {
     await C.sleep(400);
     check(`${name}: the app opens on the Calendar Week`, await I.exists(`document.querySelector('[data-cal-scroller]')`));
     await I.shot(`p22-${name}-1-calendar-week`);
+    // Calendar details (step 6): hour labels, thin lines, the red now marker, small event blocks.
+    const calShape = await I.js(`(() => {
+      const px = (v) => parseFloat(v);
+      const blk = document.querySelector('[data-cal-block$=":w1"]');
+      const now = document.querySelector('[data-now-line]');
+      const hour = [...document.querySelectorAll('[data-cal-scroller] div,[data-cal-scroller] span')].find((e) => e.children.length === 0 && /^0?9:00$/.test(e.textContent.trim()));
+      return { blockRadius: blk ? px(getComputedStyle(blk).borderTopLeftRadius) : null, nowColor: now ? getComputedStyle(now).backgroundColor : null, nowH: now ? now.getBoundingClientRect().height : null, hourSize: hour ? getComputedStyle(hour).fontSize : null };
+    })()`);
+    check(`${name}: event blocks have small 4px corners`, calShape.blockRadius === 4, JSON.stringify(calShape));
+    check(`${name}: the current time is a thin red line`, calShape.nowColor === 'rgb(229, 72, 77)' && calShape.nowH <= 2, JSON.stringify([calShape.nowColor, calShape.nowH]));
+    check(`${name}: hour labels are tiny (10px)`, calShape.hourSize === '10px', String(calShape.hourSize));
     const blocks = ['w1', 'w2', 'w3', 'brk', 'plain'];
     for (const id of blocks) {
       const ratios = await contrastIn(`document.querySelector('[data-cal-block$=":${id}"]')`);

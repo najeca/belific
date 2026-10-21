@@ -427,7 +427,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
             >
               <View style={[styles.knob, task.cutsBelow && styles.knobOn]} />
             </Pressable>
-            <Text style={styles.quietText}>Splits the tasks it overlaps, so you still see them before and after it.</Text>
+            <Text style={styles.hintText}>Splits the tasks it overlaps, so you still see them before and after it.</Text>
           </View>
         </DetailRow>
 
@@ -756,19 +756,19 @@ function DetailRow({ glyph, icon, label, shown, tip, children }: { glyph?: strin
   const text = shown ?? label;
   return (
     <View style={styles.detailRow} {...({ dataSet: { detailRow: label } } as object)}>
-      <View style={styles.rowLabelBox}>
-        {icon ? <Ionicons name={icon} size={16} color={Colors.textSecondary} /> : null}
-        {text ? (
+      {text ? (
+        <View style={styles.rowLabelBox}>
+          {icon ? <Ionicons name={icon} size={16} color={Colors.textSecondary} /> : null}
           <Text ref={tipRef(tip) as never} style={styles.rowLabel} numberOfLines={1} accessibilityRole="header" accessibilityLabel={tip}>
             {text}
           </Text>
-        ) : glyph ? (
-          // The priority row shows only its mark: the mark carries the tooltip and the name.
-          <Text ref={tipRef(tip) as never} style={styles.rowGlyph} accessibilityRole="header" accessibilityLabel={tip}>
-            {glyph}
-          </Text>
-        ) : null}
-      </View>
+        </View>
+      ) : (
+        // The priority row shows only its mark: the mark itself carries the tooltip and the name.
+        <Text ref={tipRef(tip) as never} style={styles.rowGlyph} accessibilityRole="header" accessibilityLabel={tip}>
+          {glyph}
+        </Text>
+      )}
       <View style={styles.rowBody}>{children}</View>
     </View>
   );
@@ -817,10 +817,10 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: 35, paddingBottom: 30, gap: 2 },
   divider: { height: 1, backgroundColor: Colors.border, marginTop: 10 },
   // One line per row: the name on the left, the value on the right, no lines.
-  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 32 },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, minHeight: 32 },
   // An icon in front of a grey bold label.
-  rowLabelBox: { width: 140, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 32 },
-  rowGlyph: { fontSize: 14, width: 16, textAlign: 'center', color: Colors.textPrimary },
+  rowLabelBox: { width: 126, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 32 },
+  rowGlyph: { fontSize: 14, width: 126, minHeight: 32, lineHeight: 32, flexShrink: 0, color: Colors.textPrimary },
   rowLabel: { flexShrink: 1, fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   rowBody: { flex: 1, minWidth: 0, gap: 4 },
   valueText: { fontSize: 13, color: Colors.textPrimary, paddingHorizontal: 6 },
@@ -844,6 +844,8 @@ const styles = StyleSheet.create({
   bigBtnTextOn: { color: Colors.onAccent },
   quiet: { paddingHorizontal: 6, height: 28, borderRadius: 8, justifyContent: 'center' },
   quietText: { fontSize: 13, color: Colors.textPrimary },
+  // A hint: 11px, grey (the study's hint size).
+  hintText: { fontSize: 11, color: Colors.textSecondary },
   quietSub: { fontSize: 12, color: Colors.textSecondary },
   openBg: { backgroundColor: Colors.background },
   labelBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },

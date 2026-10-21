@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   } as object,
   addBtn: { height: 28, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
   addText: { fontSize: 12, fontWeight: '700', color: Colors.onAccent },
-  planned: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
+  planned: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surfaceRaised, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
   list: { flex: 1 },
   // 2.26.0: cards 10 px apart, with room for their shadow.
   listContent: { gap: 10, padding: 2, paddingBottom: 12 },

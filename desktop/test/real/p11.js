@@ -110,11 +110,13 @@ async function run() {
   const label = await I.js(`(() => { const r = ${panel}.querySelector('[data-detail-row="Label"]'); const n = r.firstElementChild.getBoundingClientRect(); const v = r.lastElementChild.getBoundingClientRect(); return { sameLine: Math.abs((n.top + n.height / 2) - (v.top + v.height / 2)) < 6, nameLeft: n.right <= v.left }; })()`);
   check('1: the name is on the left and the value on the right, on the same line', label.sameLine && label.nameLeft, JSON.stringify(label));
   const tall = await I.js(`Math.round(${panel}.getBoundingClientRect().height)`);
-  check('1: the whole modal is short (under 640 px with notes and two subtasks)', tall < 640, String(tall));
+  // 2.43.0 (the Ellie look, on purpose): the study's paddings (header 20px 35px 5px, body 0 35px 30px) and two dividers make the modal about 40 px taller: under 680 now.
+  check('1: the whole modal is short (under 680 px with notes and two subtasks)', tall < 680, String(tall));
   await I.shot('p11-01-modal');
   await closeModal();
   // A card has no line inside it (only the label's colour edge on the left).
-  const cardLines = await I.js(`(() => { const c = ${card(today, 'Modal task')}; const all = [c, ...c.querySelectorAll('*')]; return all.filter((e) => { const s = getComputedStyle(e); const r = e.getBoundingClientRect(); return r.width > 60 && ['Top', 'Bottom', 'Right'].some((k) => parseFloat(s['border' + k + 'Width']) > 0 && s['border' + k + 'Style'] !== 'none'); }).length; })()`);
+  const cardLines = await I.js(`(() => { const c = ${card(today, 'Modal task')}; const all = [...c.querySelectorAll('*')]; return all.filter((e) => { const s = getComputedStyle(e); const r = e.getBoundingClientRect(); return r.width > 60 && ['Top', 'Bottom', 'Right'].some((k) => parseFloat(s['border' + k + 'Width']) > 0 && s['border' + k + 'Style'] !== 'none'); }).length; })()`);
+  // 2.42.0 (the Ellie look, on purpose): the card itself has a 1px outline; nothing INSIDE it draws a line.
   check('1: a card has no lines separating its parts', cardLines === 0, String(cardLines));
   // A short window: nothing is cut off, the modal scrolls inside itself.
   win.setSize(1100, 480);

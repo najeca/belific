@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 2.44.0 — 2026-10-21 (Ellie Planner look, step 6 of 8: the Calendar and the Timebox)
+
+**Desktop only. Look only.**
+- **The current time** is a thin red line with a small red triangle at its start, on the Calendar, the Timebox and the Daily Planning preview (red is only ever used for the time).
+- **Event blocks** have small 4px corners (were 8) and a 1px inset outline instead of a shadow; all-day chips are 4px too. A label's colour still comes from the label and stays readable in both themes (`p22.js` checks every block).
+- **Hour labels** are tiny (10px, grey); the grid lines stay thin and low contrast; the sticky day headers and the hour gutter take the pane colour so the grid is one surface.
+- **Not done:** the study's mini checkbox on an event block. Belific has no tick on a block on purpose (2.37.0: a block shows its time's state; ticking is on the card and in the details).
+- Found by this step's re-run of the older real checks and fixed (deliberate changes of the earlier steps, none of them a regression): `p9.js` "its title is 23 px" now expects 20 px (the study's modal title); `p11.js` "the whole modal is short (under 640 px)" now under 680 (the study's paddings and the two dividers add about 40 px) and "a card has no lines separating its parts" now looks only INSIDE the card (the card itself has its 1px outline since 2.42.0). In the modal the priority row's mark is again the row's first element (it carries the tooltip, as `p12.js` expects) and the Split sentence is a 11px hint so it keeps its compact row.
+- `p22.js` +3 (4px blocks, the red time line, 10px hour labels). Re-run and passing: p9, p11, p12, p14, p16, p17, p20, cp8d, cp8h.
+
+---
+
 ## 2.43.0 — 2026-10-21 (Ellie Planner look, step 5 of 8: the task modal and the popovers)
 
 **Desktop only. Look and feel; one small control added (see the last bullet).**

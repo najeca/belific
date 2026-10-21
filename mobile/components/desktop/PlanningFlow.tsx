@@ -590,5 +590,5 @@ const styles = StyleSheet.create({
   hourText: { fontSize: 9, color: Colors.textSecondary },
   block: { position: 'absolute', left: 44, right: 4, borderRadius: 6, paddingHorizontal: 6, justifyContent: 'center', backgroundColor: Colors.background, borderLeftWidth: 3, borderLeftColor: Colors.border },
   blockText: { fontSize: 11, color: Colors.textPrimary },
-  now: { position: 'absolute', left: 40, right: 0, height: 2, backgroundColor: Colors.accentText },
+  now: { position: 'absolute', left: 40, right: 0, height: 1.5, backgroundColor: Colors.now },
 });

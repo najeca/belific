@@ -326,8 +326,9 @@ export function SlotPreview({ startMin, duration, top }: { startMin: number; dur
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', paddingRight: 2, paddingBottom: 1 },
   lifted: { opacity: 0.35 },
-  base: { flex: 1, borderRadius: 8, overflow: 'hidden', boxShadow: Colors.shadowSm } as object,
-  block: { flex: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', borderLeftWidth: 3 },
+  // Flat: a 1px inset outline (no layout change), small 4px corners.
+  base: { flex: 1, borderRadius: 4, overflow: 'hidden' } as object,
+  block: { flex: 1, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', borderLeftWidth: 3, boxShadow: `inset 0 0 0 1px ${Colors.border}` } as object,
   continues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   projected: { opacity: 0.82 },
   late: { opacity: 0.5 },
@@ -346,5 +347,5 @@ const styles = StyleSheet.create({
   continuesTag: { position: 'absolute', right: 6, bottom: 2, flexDirection: 'row', alignItems: 'center', gap: 2 },
   continuesText: { fontSize: 10, color: Colors.textSecondary },
   handle: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 6 },
-  preview: { position: 'absolute', left: 0, right: 2, borderRadius: 8, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: Colors.accentSoft, paddingHorizontal: 8, paddingVertical: 2, zIndex: 5 },
+  preview: { position: 'absolute', left: 0, right: 2, borderRadius: 4, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: Colors.accentSoft, paddingHorizontal: 8, paddingVertical: 2, zIndex: 5 },
 });

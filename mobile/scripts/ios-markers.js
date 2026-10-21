@@ -93,6 +93,12 @@ const MARKERS = [
   // 2.37.0 (Part C, P4): dragging or resizing one time of a task with several times is desktop only (lib/drag.ts).
   'multiDropPatch',
   'resizeRefusal',
+  // 2.45.0 (the Ellie Planner look): the Theme setting, its store and the desktop's dark theme are desktop only.
+  // lib/tokens.ts and lib/theme.ts ARE in the phone bundle (Colors comes from them, as the phone's own palette:
+  // nothing on the iPhone changes), so tokens, theme and dark tint names are NOT markers; these are.
+  'installTheme',
+  'setThemeMode',
+  'Match system',
 ];
 
 const ALLOWED = {

@@ -7,6 +7,10 @@ description: Belific design identity — palette, contrast constraints, and lock
 
 > This file extends the global "Quiet Function" design identity skill (spacing scale, radii, elevation/motion, Nunito/Hahmlet typography, nav pattern all inherited from there). This file contains ONLY Belific-specific palette details, contrast constraints, and locked-in product design principles (psychology rules) not covered globally.
 
+## Desktop (2.39.0 on): the Ellie Planner look supersedes the values below
+
+The Windows desktop app takes its colours, radii and fonts from `mobile/lib/tokens.ts` (light and dark themes, one token set, Inter plus Newsreader for the name and big titles); the rules are in `docs/DESIGN_SYSTEM.md` and the exported tokens in `design-tokens/`. The palette below is what the iPhone still ships with (it keeps it until its own catch-up release) and what the contrast reasoning came from; accent and accentText keep the same split on both.
+
 ## Color Palette
 Implemented in `mobile/lib/theme.ts` (v2 restructuring, Phase 1). All hexes below are final, not placeholders.
 - Primary accent (sage green): #5C7A6B — fills/icons/spinners only, see contrast note below

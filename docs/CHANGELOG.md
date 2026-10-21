@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 2.46.0 — 2026-10-21 (Ellie Planner look, step 8 of 8: the tokens, exported for Landis and Proload)
+
+**No app change. Files and documents only.**
+- **`design-tokens/`:** `tokens.json` (every token as data), `tokens.css` (the `--ds-*` variables: light by default, dark by `data-theme`, one accent per app by `data-accent`), `tailwind-preset.js` and a README. They are generated from `mobile/lib/tokens.ts` by `node scripts/export-tokens.mjs` (run in `mobile/`); `designTokens.test.ts` (5) fails if they are out of date and checks the preset loads and every app accent is readable (text on its fill and as text, 4.5:1; Proload's orange and Landis' dark indigo take near black text on the fill).
+- **`docs/DESIGN_SYSTEM.md`:** the rulebook (decisions, tokens, components, label colours on both themes, the rules, how Landis and Proload use it). Decision `033-ellie-planner-restyle.md` records the choices. The design-identity skill points to them (the palette it lists is what the iPhone keeps).
+- **iOS marker gate:** `installTheme`, `setThemeMode` and `Match system` added on purpose (the theme store and the setting are desktop only; the tokens and `Colors` are in the phone bundle as its own palette and are not markers).
+
+---
+
 ## 2.45.0 — 2026-10-21 (Ellie Planner look, step 7 of 8: Settings and every remaining screen)
 
 **Desktop only. Look only.**

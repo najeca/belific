@@ -41,7 +41,7 @@ to know the current version and recent history.
 - **Card and totals:** the card's time chip lists the times ("11:00, 15:00 ✓", the done one with a tick, and an accessible name "Starts 11:00, 15:00 (done)"); the day's planned time counts every time (20 min at two times is 0:40; the "still to plan" total counts only the times not ticked).
 - **Not yet in this release (P4):** the Calendar and Timebox still draw one block, at the first time.
 - Tests: `times.test.ts` (12), `series.test.ts` +2, real check `p19.js` (18). The calendar feed (not deployed) still lists the task once, at its first time.
-- Desktop only names added to the iOS marker gate on purpose: "Add another time", `tickTimeProjected`. `lib/times.ts` is not a marker (the shared `taskActions.ts` imports it).
+- Desktop only name added to the iOS marker gate on purpose: "Add another time". `lib/times.ts` and `tickTimeProjected` are not markers (the shared `taskActions.ts` and `seriesActions.ts` are in the phone bundle).
 
 ---
 

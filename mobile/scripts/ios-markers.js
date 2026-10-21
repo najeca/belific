@@ -85,11 +85,11 @@ const MARKERS = [
   'startFromChoices',
   'StartFromRows',
   'Could not start the timer',
-  // 2.36.0 (Part C, P3): the control that adds a time to a task and the projected day tick are desktop only.
-  // lib/times.ts itself is NOT a marker: taskActions.ts (shared with the phone) imports it for the whole-task tick,
-  // so its names are in the phone bundle; the phone shows a task once, at its start time.
+  // 2.36.0 (Part C, P3): the control that adds a time to a task is desktop only. lib/times.ts and
+  // tickTimeProjected are NOT markers: taskActions.ts and seriesActions.ts are shared with the phone (the
+  // whole-task tick, the quests), so those names ARE in the phone bundle (the gate found tickTimeProjected
+  // on 2026-10-21, and the comment that called it desktop only was wrong); the phone shows a task once, at its start time.
   'Add another time',
-  'tickTimeProjected',
   // 2.37.0 (Part C, P4): dragging or resizing one time of a task with several times is desktop only (lib/drag.ts).
   'multiDropPatch',
   'resizeRefusal',

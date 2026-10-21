@@ -42,6 +42,8 @@ import HoverPressable from './HoverPressable';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
 import { notifyChanged, openDetail, openOverlay, useNewColorsOk } from './uiStore';
 import { toggleTimer, useNow } from './timerUi';
+import { startFromChoices } from '../../lib/timerSession';
+import { formatTime } from '../../lib/data';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { PopoverHeading, Row, popoverStyles } from './Popover';
@@ -192,6 +194,7 @@ export function ActualBody({ task, ops, done }: BodyProps) {
         }}
         a11y={running ? 'Stop the timer' : 'Start the timer'}
       />
+      <StartFromRows task={task} done={done} />
       {(task.actualMinutes ?? 0) > 0 && (
         <Row
           label="Clear actual time"
@@ -658,6 +661,30 @@ export function SeriesNote() {
 
 // The ⋮ menu of a card (2.27.0): Open details first, then what is not on the
 // card face: the timer, a pomodoro, duplicate, and skip or delete.
+// "Start from 11:00am" rows (Part C, 2.34.1): count the timer from the scheduled start of a time
+// that has already begun today (less than 24 hours ago). Nothing when the timer runs or none has begun.
+export function StartFromRows({ task, done }: { task: Task; done: () => void }) {
+  if (isTimerRunning(task) || task.completed) return null;
+  const choices = startFromChoices(task, new Date());
+  return (
+    <>
+      {choices.map((c) => (
+        <Row
+          key={c.time}
+          label={`Start from ${formatTime(c.time)}`}
+          sub={`${c.minutesAgo} min ago`}
+          leading={<Text>⏱️</Text>}
+          onPress={async () => {
+            done();
+            await toggleTimer(task, c.startedAtMs);
+          }}
+          a11y={`Start the timer from ${formatTime(c.time)}, ${c.minutesAgo} minutes ago`}
+        />
+      ))}
+    </>
+  );
+}
+
 export function OverflowBody({
   task,
   ops,
@@ -691,7 +718,7 @@ export function OverflowBody({
     ) : null;
   const running = !!task && isTimerRunning(task);
   const timerRows =
-    task && !projected && !task.id.startsWith('dump:') ? (
+    task && !task.id.startsWith('dump:') ? (
       <>
         <Row
           label={running ? 'Stop the timer' : 'Start the timer'}
@@ -702,7 +729,8 @@ export function OverflowBody({
           }}
           a11y={running ? 'Stop the timer' : 'Start the timer'}
         />
-        {feats.pomodoro && !task.completed && (
+        <StartFromRows task={task} done={done} />
+        {feats.pomodoro && !projected && !task.completed && (
           <Row
             label="Start a pomodoro"
             leading={<Text>🍅</Text>}

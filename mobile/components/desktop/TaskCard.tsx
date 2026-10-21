@@ -142,7 +142,6 @@ export default function TaskCard({
       case 'selectLabel':
         return click('label');
       case 'toggleTimer':
-        if (proj) return false;
         toggleTimer(t);
         return true;
       case 'duplicateTask':

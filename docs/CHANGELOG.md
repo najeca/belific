@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.34.1 — 2026-10-21 (Part C, P1: the timer can be started on any task at any time)
+
+**Desktop only. No schema change, no new synced field, nothing for the phone.**
+- **Bug: the timer could not be started on a day of a repeating task that is only shown** (for example today's Boot Camp). Cause: those days are drawn from the series, not stored, and the timer looks for a stored task. The menus and the shortcut hid or refused it for those days, and the details panel's "(Start timer)" found no task, got "missing" and did nothing, with no message (`timerUi.ts` ignored the outcome). It was never about the start time having passed. Fixed: starting a timer on such a day stores it first (the same step that ticking it uses, so it is stored once with the series' title, time, length and repeat), then starts the timer. The card menu, the block menu, the ⋮ menu, the details and `Ctrl+Shift+Enter` all work on those days; "Start a pomodoro" stays for stored tasks only.
+- **A start that cannot happen now says so:** if the task is gone (deleted or skipped on another computer), a short note at the bottom of the screen reads "Could not start the timer: this task is no longer there (it may have been skipped or deleted)." and nothing is stored.
+- **New: "Start from 11:00am" (menus and details):** when a task is planned for today and its time has already begun (less than 24 hours ago), you can start the timer counted from that scheduled time, so the time so far shows at once. Offered for each of today's times that has begun, most recent first, and never while the timer is running. One timer at a time and the 24 hour stale rule are unchanged.
+- Tests: `timerSession.test.ts` +4 (start from a moment, the choices, other days, duplicates and the 24 hour cap), real check `p18.js` (17).
+- Desktop only names added to the iOS marker gate on purpose: `startFromChoices`, `StartFromRows`, "Could not start the timer".
+
+---
+
 ## 2.34.0 — 2026-10-20 (the List row of a repeating task, list emoji on blocks, readable Vibrant text)
 
 **Display and logic only, desktop only. No schema change, no stored data changed, no new synced field.**

@@ -64,3 +64,45 @@ test('stopped fields: total added, start cleared; stale asks; idle is not runnin
   assert.equal(stoppedFields(task('a', { timerStartedAt: iso(T0 - 2 * STALE_TIMER_MS) }), T0).kind, 'confirm');
   assert.equal(stoppedFields(task('a'), T0).kind, 'notRunning');
 });
+
+// ---- Part C, P1: "Start from" ----
+import { startFromChoices } from './timerSession.ts';
+
+test('starting from an earlier moment counts from it, and a later or equal moment is ignored', () => {
+  const from = T0 - 25 * MIN;
+  assert.deepEqual(planStart([task('a')], 'a', T0, from), { kind: 'ok', patches: [{ id: 'a', fields: { timerStartedAt: iso(from) } }] });
+  assert.deepEqual(planStart([task('a')], 'a', T0, T0 + 5 * MIN), { kind: 'ok', patches: [{ id: 'a', fields: { timerStartedAt: iso(T0) } }] });
+  // The other timer still stops at the real now, not at the earlier moment.
+  const plan = planStart([task('x', { timerStartedAt: iso(T0 - 10 * MIN) }), task('a')], 'a', T0, T0 - 25 * MIN);
+  assert.equal(plan.kind, 'ok');
+  if (plan.kind === 'ok') assert.deepEqual(plan.patches[0], { id: 'x', fields: { actualMinutes: 10, timerStartedAt: undefined } });
+});
+
+const at = (y: number, mo: number, d: number, h: number, mi: number) => new Date(y, mo - 1, d, h, mi, 0, 0);
+
+test('Start from lists today\'s times that have begun, most recent first, with the minutes ago', () => {
+  const now = at(2026, 10, 21, 11, 25);
+  const t = { dueDate: '2026-10-21', startTime: '11:00', extraTimes: ['15:00', '09:30'] };
+  assert.deepEqual(
+    startFromChoices(t, now).map((c) => [c.time, c.minutesAgo]),
+    [['11:00', 25], ['09:30', 115]],
+  );
+  assert.equal(startFromChoices(t, now)[0].startedAtMs, at(2026, 10, 21, 11, 0).getTime());
+});
+
+test('Start from offers nothing for another day, a time that has not begun, or no time', () => {
+  const now = at(2026, 10, 21, 11, 25);
+  assert.deepEqual(startFromChoices({ dueDate: '2026-10-22', startTime: '09:00' }, now), []);
+  assert.deepEqual(startFromChoices({ dueDate: '2026-10-20', startTime: '23:00' }, now), []); // yesterday's evening is not "today"
+  assert.deepEqual(startFromChoices({ dueDate: '2026-10-21', startTime: '15:00' }, now), []);
+  assert.deepEqual(startFromChoices({ dueDate: '2026-10-21', startTime: '11:25' }, now), []); // begins this minute: 0 minutes ago
+  assert.deepEqual(startFromChoices({ dueDate: '2026-10-21' }, now), []);
+  assert.deepEqual(startFromChoices({ startTime: '09:00' }, now), []);
+  assert.deepEqual(startFromChoices({ dueDate: '2026-10-21', startTime: 'nonsense' }, now), []);
+});
+
+test('Start from drops duplicates and caps at 24 hours', () => {
+  const now = at(2026, 10, 21, 23, 59);
+  const t = { dueDate: '2026-10-21', startTime: '00:00', extraTimes: ['00:00', '12:00'] };
+  assert.deepEqual(startFromChoices(t, now).map((c) => c.time), ['12:00', '00:00']);
+});

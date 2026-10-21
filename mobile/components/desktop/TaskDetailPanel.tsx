@@ -30,6 +30,8 @@ import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
 import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
 import { toggleTimer, useNow } from './timerUi';
+import { startFromChoices } from '../../lib/timerSession';
+import { formatTime } from '../../lib/data';
 import { closeDetail, getDetailFocus, notifyChanged, useDetailId } from './uiStore';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
@@ -299,6 +301,18 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
             >
               <Text style={running ? styles.timerOn : styles.quietSub}>{running ? '■ Stop timer' : '(Start timer)'}</Text>
             </Pressable>
+            {!running && !task.completed && startFromChoices(task, new Date()).map((c) => (
+              <Pressable
+                key={c.time}
+                onPress={() => toggleTimer(task, c.startedAtMs)}
+                style={styles.quiet}
+                accessibilityRole="button"
+                accessibilityLabel={`Start the timer from ${formatTime(c.time)}, ${c.minutesAgo} minutes ago`}
+                {...({ dataSet: { startFrom: c.time } } as object)}
+              >
+                <Text style={styles.quietSub}>{`(Start from ${formatTime(c.time)})`}</Text>
+              </Pressable>
+            ))}
           </View>
         </DetailRow>
 

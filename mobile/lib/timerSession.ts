@@ -11,7 +11,9 @@
 // devices. Then the most recently started one is the active one, and the
 // others stay listed so they can be stopped.
 import type { Task } from './types.ts';
-import { isTimerRunning, startTimer, stopTimer } from './taskTimer.ts';
+import { isTimerRunning, startTimer, stopTimer, STALE_TIMER_MS } from './taskTimer.ts';
+import { dateKey, isDateKey, parseDateKey } from './kanban.ts';
+import { toMinutes } from './timebox.ts';
 
 export function runningTasks(tasks: Task[]): Task[] {
   return tasks
@@ -46,7 +48,9 @@ export function stoppedFields(task: Task, nowMs: number): StopFields {
   return r;
 }
 
-export function planStart(tasks: Task[], id: string, nowMs: number): StartPlan {
+// `startedAtMs` counts the new timer from an earlier moment (Part C, "Start from": the
+// scheduled start of a time that has already begun). It never changes when the others stop.
+export function planStart(tasks: Task[], id: string, nowMs: number, startedAtMs?: number): StartPlan {
   const target = tasks.find((t) => t.id === id && !t.deletedAt);
   if (!target) return { kind: 'missing' };
   if (isTimerRunning(target)) return { kind: 'ok', patches: [] };
@@ -56,6 +60,40 @@ export function planStart(tasks: Task[], id: string, nowMs: number): StartPlan {
     if (stopped.kind === 'confirm') return { kind: 'confirm', taskId: other.id, elapsedMinutes: stopped.elapsedMinutes };
     if (stopped.kind === 'stopped') patches.push({ id: other.id, fields: stopped.fields });
   }
-  patches.push({ id, fields: { timerStartedAt: startTimer(target, nowMs).timerStartedAt } });
+  const from = startedAtMs !== undefined && startedAtMs < nowMs ? startedAtMs : nowMs;
+  patches.push({ id, fields: { timerStartedAt: startTimer(target, from).timerStartedAt } });
   return { kind: 'ok', patches };
+}
+
+// ---- "Start from" (Part C, P1) ----
+export interface StartFromChoice {
+  // 'HH:mm' of the scheduled time.
+  time: string;
+  startedAtMs: number;
+  minutesAgo: number;
+}
+
+// The scheduled times of a task's day that started less than 24 hours ago (any time today
+// that has begun, answer 4 of the Part C plan), most recent first. Empty when the task is
+// not planned for today or has no time. `extraTimes` is the Part C list; the first time is
+// always `startTime`.
+export function startFromChoices(
+  task: Pick<Task, 'dueDate' | 'startTime'> & { extraTimes?: string[] },
+  now: Date,
+): StartFromChoice[] {
+  if (!isDateKey(task.dueDate) || task.dueDate !== dateKey(now)) return [];
+  const day = parseDateKey(task.dueDate);
+  const times = [task.startTime, ...(task.extraTimes ?? [])].filter((t): t is string => typeof t === 'string');
+  const out: StartFromChoice[] = [];
+  const seen = new Set<string>();
+  for (const time of times) {
+    const m = toMinutes(time);
+    if (m === null || seen.has(time)) continue;
+    seen.add(time);
+    const startedAtMs = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, m).getTime();
+    const minutesAgo = Math.floor((now.getTime() - startedAtMs) / 60000);
+    if (minutesAgo < 1 || now.getTime() - startedAtMs >= STALE_TIMER_MS) continue;
+    out.push({ time, startedAtMs, minutesAgo });
+  }
+  return out.sort((a, b) => b.startedAtMs - a.startedAtMs);
 }

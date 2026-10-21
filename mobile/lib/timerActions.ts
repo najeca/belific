@@ -20,8 +20,8 @@ export type TimerOutcome =
   | { kind: 'missing' }
   | { kind: 'notRunning' };
 
-export async function startTimerFor(id: string, nowMs: number = Date.now()): Promise<TimerOutcome> {
-  const plan = planStart(await loadTasksRaw(), id, nowMs);
+export async function startTimerFor(id: string, nowMs: number = Date.now(), startedAtMs?: number): Promise<TimerOutcome> {
+  const plan = planStart(await loadTasksRaw(), id, nowMs, startedAtMs);
   if (plan.kind === 'missing') return { kind: 'missing' };
   if (plan.kind === 'confirm') return { kind: 'confirm', taskId: plan.taskId, elapsedMinutes: plan.elapsedMinutes };
   for (const p of plan.patches) await patchTask(p.id, p.fields);

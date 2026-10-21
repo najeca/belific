@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
-import { clearUndo, notifyChanged, useUndo } from './uiStore';
+import { clearNotice, clearUndo, notifyChanged, useNotice, useUndo } from './uiStore';
 
 // The undo bar (2.27.0): after moving a day's tasks, "Moved 3 tasks to Mon 19
 // Oct. Undo" at the bottom of the screen for 12 seconds. Undo writes the old
@@ -10,12 +10,30 @@ const SHOW_MS = 12000;
 
 export default function UndoBar() {
   const offer = useUndo();
+  const notice = useNotice();
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(clearNotice, SHOW_MS);
+    return () => clearTimeout(t);
+  }, [notice]);
   useEffect(() => {
     if (!offer) return;
     const t = setTimeout(clearUndo, SHOW_MS);
     return () => clearTimeout(t);
   }, [offer]);
+  if (!offer && notice) {
+    return (
+      <View style={styles.wrap} pointerEvents="box-none">
+        <View style={styles.bar} accessibilityRole="alert" {...({ dataSet: { noticeBar: '1' } } as object)}>
+          <Text style={styles.text}>{notice.text}</Text>
+          <Pressable onPress={clearNotice} style={styles.close} accessibilityRole="button" accessibilityLabel="Dismiss">
+            <Text style={styles.closeText}>×</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
   if (!offer) return null;
   return (
     <View style={styles.wrap} pointerEvents="box-none">

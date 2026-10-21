@@ -79,6 +79,12 @@ const MARKERS = [
   // 2.33.0: "Vibrant task colours" (a desktop look setting; lib/vibrant.ts, vibrantStore, Settings, Appearance).
   'vibrantColor',
   'Vibrant task colours',
+  // 2.34.1 (Part C, P1): "Start from" a scheduled time and the timer's "could not start" note are desktop
+  // only (lib/timerSession.ts startFromChoices, StartFromRows, the notice bar). The phone gets timers in its
+  // own adaptation step.
+  'startFromChoices',
+  'StartFromRows',
+  'Could not start the timer',
 ];
 
 const ALLOWED = {

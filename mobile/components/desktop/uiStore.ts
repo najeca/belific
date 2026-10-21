@@ -42,6 +42,13 @@ interface State {
   timerConfirm: TimerConfirm | null;
   goToday: number;
   undo: UndoOffer | null;
+  notice: Notice | null;
+}
+
+// A short plain message at the bottom of the screen (2.34.1: why a timer could not start).
+export interface Notice {
+  text: string;
+  nonce: number;
 }
 
 // One change that can be taken back straight after (2.27.0: moving a day's tasks).
@@ -51,7 +58,7 @@ export interface UndoOffer {
   nonce: number;
 }
 
-let state: State = { overlay: null, detailId: null, detailFocus: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0, undo: null };
+let state: State = { overlay: null, detailId: null, detailFocus: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0, undo: null, notice: null };
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const subscribe = (l: () => void) => {
@@ -73,6 +80,15 @@ export function offerUndo(text: string, run: () => Promise<unknown>): void {
 }
 export function clearUndo(): void {
   if (state.undo) set({ undo: null });
+}
+
+// ---- notice ----
+export const useNotice = () => use((s) => s.notice);
+export function showNotice(text: string): void {
+  set({ notice: { text, nonce: Date.now() } });
+}
+export function clearNotice(): void {
+  if (state.notice) set({ notice: null });
 }
 
 // ---- overlays ----

@@ -6,6 +6,7 @@ import { tipRef } from './tip';
 import PriorityMark from './PriorityMark';
 import { isMustDo } from '../../lib/mustDo';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
+import { timeViews } from '../../lib/times';
 import { useCutMin } from './cutStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { taskDuration } from '../../lib/drag';
@@ -84,10 +85,18 @@ type ImportedSeg = DaySegment & { occ: ImportedOccurrence };
 type Source =
   | { kind: 'event'; event: ScheduleEvent }
   | { kind: 'imported'; seg: ImportedSeg }
-  | { kind: 'task'; task: Task; projected: boolean }
-  | { kind: 'continuation'; task: Task; projected: boolean }
+  | ({ kind: 'task'; task: Task; projected: boolean } & TimeInfo)
+  | ({ kind: 'continuation'; task: Task; projected: boolean } & TimeInfo)
   // One piece of a task that a break cuts (lib/cuts.ts); `cont`: it is the rest of yesterday's task.
-  | { kind: 'piece'; task: Task; projected: boolean; piece: CutPiece; cont: boolean };
+  | ({ kind: 'piece'; task: Task; projected: boolean; piece: CutPiece; cont: boolean } & TimeInfo);
+
+// A task with several times a day is drawn once per time (Part C): `task` is the single-time copy that
+// block shows, `full` the real task (what a drag or a resize writes), `time` the time of this block.
+interface TimeInfo {
+  full?: Task;
+  time?: string;
+  suffix?: string;
+}
 
 interface DayData {
   key: string;
@@ -210,19 +219,25 @@ export default function CalendarPane({
       const entries: CutEntry[] = [];
       const high = new Map<string, boolean>();
       for (const { task: t, projected } of timed) {
-        const item = taskToItem(t);
-        if (!item) continue;
-        sources.set(`task:${t.id}`, { kind: 'task', task: t, projected });
-        entries.push({ id: `task:${t.id}`, startMin: item.startMin, endMin: item.endMin, breaks: !!t.cutsBelow });
-        high.set(`task:${t.id}`, isMustDo(t));
+        for (const v of timeViews(t)) {
+          const item = taskToItem(v.task);
+          if (!item) continue;
+          const bid = `task:${t.id}${v.suffix}`;
+          sources.set(bid, { kind: 'task', task: v.task, projected, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
+          entries.push({ id: bid, startMin: item.startMin, endMin: item.endMin, breaks: !!t.cutsBelow });
+          high.set(bid, isMustDo(t));
+        }
       }
       for (const { task: t, projected } of spill) {
         if (!taskVisible(t, filter)) continue;
-        const rest = continuationOf(t);
-        if (!rest) continue;
-        sources.set(rest.id, { kind: 'continuation', task: t, projected });
-        entries.push({ id: rest.id, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow });
-        high.set(rest.id, isMustDo(t));
+        for (const v of timeViews(t)) {
+          const rest = continuationOf(v.task);
+          if (!rest) continue;
+          const cid = `${rest.id}${v.suffix}`;
+          sources.set(cid, { kind: 'continuation', task: v.task, projected, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
+          entries.push({ id: cid, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow });
+          high.set(cid, isMustDo(t));
+        }
       }
       const titleOf = (id: string) => {
         const s = sources.get(id);
@@ -233,7 +248,7 @@ export default function CalendarPane({
         if (it.piece) {
           const host = sources.get(it.piece.hostId);
           if (host && (host.kind === 'task' || host.kind === 'continuation')) {
-            sources.set(it.id, { kind: 'piece', task: host.task, projected: host.projected, piece: it.piece, cont: host.kind === 'continuation' });
+            sources.set(it.id, { kind: 'piece', task: host.task, projected: host.projected, piece: it.piece, cont: host.kind === 'continuation', full: host.full, time: host.time, suffix: host.suffix });
           }
         }
         items.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
@@ -399,7 +414,14 @@ export default function CalendarPane({
       const inMonth = new Set(monthGrid(key, todayKey).flat().filter((c) => c.inMonth).map((c) => c.key));
       for (const [k, list] of monthTasks) if (inMonth.has(k)) shown.push(...list);
     } else {
-      for (const d of days) shown.push(...d.allDay.map((x) => x.task), ...[...d.sources.values()].flatMap((s) => (s.kind === 'task' || (s.kind === 'piece' && !s.cont && s.piece.index === 0) ? [s.task] : [])));
+      for (const d of days) {
+        // A task a break splits stays in `sources` as itself AND as its pieces: count it once (the first piece).
+        const cutHosts = new Set([...d.sources.values()].flatMap((s) => (s.kind === 'piece' ? [s.piece.hostId] : [])));
+        shown.push(
+          ...d.allDay.map((x) => x.task),
+          ...[...d.sources.entries()].flatMap(([id, s]) => ((s.kind === 'task' && !cutHosts.has(id)) || (s.kind === 'piece' && !s.cont && s.piece.index === 0) ? [s.task] : [])),
+        );
+      }
     }
     const t = totalsOf(shown, now);
     return { text: formatTotals(t), over: isOverEstimate(t) };
@@ -703,7 +725,7 @@ export default function CalendarPane({
                             accessibilityRole="button"
                             accessibilityLabel={`Calendar block, continues from yesterday: ${t.title}`}
                             ref={tipRef(`${t.emoji ? `${t.emoji} ` : ''}${t.title}, ${timeText.toLowerCase()}${note ? `, ${note}` : ''}`) as never}
-                            {...({ dataSet: { calBlock: `${scope}${pc && pc.index > 0 ? `${t.id}~${pc.index + 1}` : t.id}`, ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
+                            {...({ dataSet: { calBlock: `${scope}${t.id}${source.suffix ?? ''}${pc && pc.index > 0 ? `~${pc.index + 1}` : ''}`, ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
                           >
                             <View style={styles.chipRow}>
                               <Text style={[styles.blockTitle, styles.chipTextFlex, t.completed && styles.chipDone, vt]}>
@@ -738,6 +760,9 @@ export default function CalendarPane({
                         scope={scope}
                         a11y={`Calendar block ${t.title}`}
                         piece={source.kind === 'piece' ? source.piece : undefined}
+                        fullTask={source.full}
+                        time={source.time}
+                        blockSuffix={source.suffix}
                         note={d.notes.get(b.id)}
                         badge={d.badges.get(b.id)}
                         fullText

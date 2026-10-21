@@ -2,7 +2,7 @@
 
 Update this at every session close. It replaces `current-state-audit.md` and `architecture.md` (both historical, July 2026) in the session protocol.
 
-Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 2.36.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
+Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 2.37.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
 
 **Since 2026-10-16 the work follows `docs/belific-build-plan.md` (phases 1 to 9) and `docs/build-progress.md` (checkpoint per phase, decisions, what is next).** Phases 1 to 8 are done (phase 8 in code: its Edge Function is not deployed and its grant 003 is not applied; Jethro does both); phase 9 has not started.
 
@@ -26,6 +26,7 @@ Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its f
 - **2.34.1 (P1):** the timer can be started on any task, including a shown (not stored) day of a repeating task, which is stored first; a start that cannot happen shows a note; "Start from HH:mm" counts from a time that has begun today. Desktop only, no schema change.
 - **2.35.0 (P2):** `004_part_b.sql` (still NOT APPLIED) now also holds `tasks.extra_times` and `tasks.times_done` (nullable jsonb). `Caps.partC` probes them on their own; until they exist nothing sends them and the values are kept locally. Older clients never erase them.
 - **2.36.0 (P3):** a task can happen at several times in a day (`extraTimes`, up to 6 besides `startTime`, same length): "+ Add another time" in the details, a tick per time (`timesDone`; `completed` true means every time is done), the card lists the times, planned time counts every time, and a repeating task carries the extra times on every day. The Calendar and Timebox draw the extra times from P4. Phone: shows the task once, at its first time.
+- **2.37.0 (P4):** the Calendar and the Timebox draw a block per time (`brk`, `brk@15:00`), each time splits the tasks it overlaps on its own, a tick per time shows on its block, a drag moves one time (a clash is refused with a note), a resize changes every time's length, and a repeating task has its times on every day. Also fixed: the Calendar's planned total counted a split task twice.
 
 ## Shared with Landis and Proload
 Since the move, Belific, Landis and Proload use one Supabase project (`vlogfwnmaqorhialcqbr`). The data is separated by schema (`belific` here; the others use their own), but a lot is project wide. A change made for one app changes all three:

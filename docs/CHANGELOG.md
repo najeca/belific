@@ -8,6 +8,20 @@ to know the current version and recent history.
 
 ---
 
+## 2.37.0 — 2026-10-21 (Part C, P4: a block for every time on the Calendar and the Timebox)
+
+**Desktop only. No schema change in this release (the fields sync through the unapplied migration 004).**
+- **One block per time:** a task with several times is drawn at each of them on the Calendar (day, week) and the Timebox, same length, same colour. The first time keeps the task's own block id; the others add `@HH:mm` (for example `brk@15:00`). A time on a shown day of a repeating task appears on every day of the series, and each time of an overnight task that runs past midnight continues at the top of the next day on its own.
+- **Split per time:** a break with two times splits the task it overlaps twice, on its own at each time, into three full width pieces (the drawing in `docs/PLAN_part_b.md`, now twice in a day). Each time is judged alone: a refused one says why on its block and does not stop the other cutting.
+- **Ticks per time:** a block whose time is done is drawn done (title struck through; "done" on a block tall enough); the other times of the task are not. Ticking is in the details (P3) and on the card (every time).
+- **Drag one time:** dragging a block moves only its time and its tick, on its own day (30 minute steps as before); dropping it on a time that is already there, or too close, is refused with a note at the bottom of the screen and nothing changes. Dropping a block on another day moves the whole task there, every time by the same amount (refused if a time would leave the day); dropping it on a day card or the left list takes the task off the grid, all its times with it, as for a block of one time. On a shown day of a repeating task only the time changes, for the series. The arrow keys on a block move that time by 30 minutes; the day arrows move the task.
+- **Resize:** a block's bottom edge changes the length of every time (all blocks follow); refused with a note if two of the task's times would then overlap. A block of a task with several times offers no "move to the next free slot" (there is no single time to move); it still fades when its time has passed.
+- **Found and fixed on the way (since 2.31.0):** the Calendar's planned total (the "0:00 / 8:40" by the day or week) counted a task that a break splits twice (once as itself, once as its first piece). It now counts it once.
+- Tests: `timeBlocks.test.ts` (9), real check `p20.js` (17).
+- Desktop only names added to the iOS marker gate on purpose: `multiDropPatch`, `resizeRefusal`.
+
+---
+
 ## 2.36.0 — 2026-10-21 (Part C, P3: one task at several times in a day)
 
 **Desktop only. The two new fields sync through the unapplied migration 004 (NOT APPLIED: until Jethro applies it they stay on the computer). The phone shows the task once, at its first time.**

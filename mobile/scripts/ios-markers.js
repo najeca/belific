@@ -90,6 +90,9 @@ const MARKERS = [
   // so its names are in the phone bundle; the phone shows a task once, at its start time.
   'Add another time',
   'tickTimeProjected',
+  // 2.37.0 (Part C, P4): dragging or resizing one time of a task with several times is desktop only (lib/drag.ts).
+  'multiDropPatch',
+  'resizeRefusal',
 ];
 
 const ALLOWED = {

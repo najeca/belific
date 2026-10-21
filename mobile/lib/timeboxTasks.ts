@@ -14,6 +14,12 @@ import type { Task } from './types.ts';
 import { addDays, dateKey, parseDateKey } from './kanban.ts';
 import { projectOccurrences } from './series.ts';
 import { continuationOf } from './timebox.ts';
+import { timeViews } from './times.ts';
+
+// Yesterday's task runs past 24:00 at any one of its times (Part C: a task has several).
+function continues(t: Task): boolean {
+  return timeViews(t).some((v) => continuationOf(v.task) !== null);
+}
 
 export interface DayTask {
   task: Task;
@@ -27,12 +33,12 @@ export function tasksForTimebox(tasks: Task[], dayKey: string, todayKey: string)
   for (const t of tasks) {
     if (t.deletedAt) continue;
     if (t.dueDate === dayKey) own.push({ task: t, projected: false });
-    else if (t.dueDate === prevKey && continuationOf(t)) spill.push({ task: t, projected: false });
+    else if (t.dueDate === prevKey && continues(t)) spill.push({ task: t, projected: false });
   }
   const floor = dayKey === todayKey ? prevKey : todayKey;
   for (const t of projectOccurrences(tasks, [dayKey, prevKey], todayKey, { minKey: floor })) {
     if (t.dueDate === dayKey) own.push({ task: t, projected: true });
-    else if (continuationOf(t)) spill.push({ task: t, projected: true });
+    else if (continues(t)) spill.push({ task: t, projected: true });
   }
   return { own, spill };
 }

@@ -25,6 +25,7 @@ import {
   type TimeboxItem,
 } from '../../lib/timebox';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
+import { timeViews } from '../../lib/times';
 import { useCutMin } from './cutStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { openingMinutes } from '../../lib/dayStart';
@@ -76,11 +77,19 @@ type Source =
   | { kind: 'event'; event: ScheduleEvent; custom?: CustomEvent }
   // `projected`: an occurrence of a repeating series that is shown but not
   // stored (decision 023); edits go to the series, ticking stores that day.
-  | { kind: 'task'; task: Task; projected?: boolean }
+  | ({ kind: 'task'; task: Task; projected?: boolean } & TimeInfo)
   // The rest of yesterday's overnight task (derived, opens the same popover).
-  | { kind: 'continuation'; task: Task; projected?: boolean }
+  | ({ kind: 'continuation'; task: Task; projected?: boolean } & TimeInfo)
   // One piece of a task that a break cuts (lib/cuts.ts); `cont`: the rest of yesterday's task.
-  | { kind: 'piece'; task: Task; projected?: boolean; piece: CutPiece; cont: boolean };
+  | ({ kind: 'piece'; task: Task; projected?: boolean; piece: CutPiece; cont: boolean } & TimeInfo);
+
+// A task with several times a day is drawn once per time (Part C): `task` is the single-time copy that
+// block shows, `full` the real task (what a drag or a resize writes), `time` the time of this block.
+interface TimeInfo {
+  full?: Task;
+  time?: string;
+  suffix?: string;
+}
 
 const domTimeStyle: React.CSSProperties = {
   height: 36,
@@ -246,21 +255,27 @@ export default function TimeboxPane({
     const high = new Map<string, boolean>();
     for (const { task: t, projected } of own) {
       if (!taskVisible(t, filter)) continue;
-      const item = taskToItem(t);
-      if (!item) continue;
-      map.set(`task:${t.id}`, { kind: 'task', task: t, projected });
-      tasksById.current.set(t.id, t);
-      if (projected) projectedIds.current.add(t.id);
-      entries.push({ id: `task:${t.id}`, startMin: item.startMin, endMin: item.endMin, breaks: !!t.cutsBelow });
-      high.set(`task:${t.id}`, isMustDo(t));
+      for (const v of timeViews(t)) {
+        const item = taskToItem(v.task);
+        if (!item) continue;
+        const bid = `task:${t.id}${v.suffix}`;
+        map.set(bid, { kind: 'task', task: v.task, projected, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
+        tasksById.current.set(t.id, t);
+        if (projected) projectedIds.current.add(t.id);
+        entries.push({ id: bid, startMin: item.startMin, endMin: item.endMin, breaks: !!t.cutsBelow });
+        high.set(bid, isMustDo(t));
+      }
     }
     for (const { task: t, projected } of spill) {
       if (!taskVisible(t, filter)) continue;
-      const rest = continuationOf(t);
-      if (!rest) continue;
-      map.set(rest.id, { kind: 'continuation', task: t, projected });
-      entries.push({ id: rest.id, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow });
-      high.set(rest.id, isMustDo(t));
+      for (const v of timeViews(t)) {
+        const rest = continuationOf(v.task);
+        if (!rest) continue;
+        const cid = `${rest.id}${v.suffix}`;
+        map.set(cid, { kind: 'continuation', task: v.task, projected, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
+        entries.push({ id: cid, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow });
+        high.set(cid, isMustDo(t));
+      }
     }
     const plan = planCuts(entries, cutMin, (id) => {
       const s = map.get(id);
@@ -270,7 +285,7 @@ export default function TimeboxPane({
       if (it.piece) {
         const host = map.get(it.piece.hostId);
         if (host && (host.kind === 'task' || host.kind === 'continuation')) {
-          map.set(it.id, { kind: 'piece', task: host.task, projected: host.projected, piece: it.piece, cont: host.kind === 'continuation' });
+          map.set(it.id, { kind: 'piece', task: host.task, projected: host.projected, piece: it.piece, cont: host.kind === 'continuation', full: host.full, time: host.time, suffix: host.suffix });
         }
       }
       list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
@@ -412,7 +427,7 @@ export default function TimeboxPane({
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={`Continues from yesterday: ${t.title}`}
-                        {...({ dataSet: { blockId: pc && pc.index > 0 ? `${t.id}~${pc.index + 1}` : t.id, continuation: '1', ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
+                        {...({ dataSet: { blockId: `${t.id}${source.suffix ?? ''}${pc && pc.index > 0 ? `~${pc.index + 1}` : ''}`, continuation: '1', ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
                       >
                         <View style={styles.blockTitleRow}>
                           <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone, vt]} numberOfLines={1}>
@@ -449,6 +464,9 @@ export default function TimeboxPane({
                     height={b.height}
                     continues={b.continues}
                     piece={source.kind === 'piece' ? source.piece : undefined}
+                    fullTask={source.full}
+                    time={source.time}
+                    blockSuffix={source.suffix}
                     note={notes.get(b.id)}
                     badge={badges.get(b.id)}
                     a11y={`Task ${t.title}`}

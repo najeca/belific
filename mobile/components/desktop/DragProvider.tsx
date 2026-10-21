@@ -10,7 +10,9 @@ import {
   dwellDone,
   edgeAction,
   edgeDirection,
+  multiDropPatch,
   passedThreshold,
+  resizeRefusal,
   resizedDuration,
   resolveDrop,
   slotLabel,
@@ -26,6 +28,8 @@ import { closePopover } from './Popover';
 import { isEditableTarget } from '../../lib/editable';
 import { convertDumpItem } from '../../lib/taskActions';
 import { patchSeries } from '../../lib/seriesActions';
+import { isMultiTime } from '../../lib/times';
+import { showNotice } from './uiStore';
 import type { BrainDumpItem, Task } from '../../lib/types';
 
 // Desktop drag and drop (checkpoint 4, decision 019): hand written pointer
@@ -55,6 +59,8 @@ export interface DragItem {
   scope?: string;
   // Blocks only: minutes between the block's start and where it was grabbed.
   grabOffsetMin?: number;
+  // Blocks of a task with several times a day (Part C): the time of the block that was grabbed.
+  time?: string;
   // A projected occurrence of a repeating series (decision 023): it can only be
   // dropped on the Timebox, which sets the start time of the whole series.
   projected?: boolean;
@@ -295,6 +301,12 @@ export default function DragProvider({ children, onChanged }: { children: React.
     if (p.mode === 'resize') {
       const task = p.item.task;
       if (!task || !state.resizeDuration || state.resizeDuration === task.durationMinutes) return;
+      // A resize changes the length of every time of a task with several: refused if two would overlap.
+      const refusal = resizeRefusal(task, state.resizeDuration);
+      if (refusal) {
+        showNotice(refusal);
+        return;
+      }
       // Resizing a projected block changes the estimate of the whole series.
       if (p.item.projected) await patchSeries(task, { durationMinutes: state.resizeDuration });
       else await updateTask({ ...task, durationMinutes: state.resizeDuration });
@@ -306,6 +318,19 @@ export default function DragProvider({ children, onChanged }: { children: React.
     // or in the details window.
     if (!state.target || !state.accepted) return;
     const { task, item } = p.item;
+    // A block of a task with several times a day (Part C): only its own time moves (see multiDropPatch).
+    if (task && p.item.time && isMultiTime(task)) {
+      const res = multiDropPatch(task, p.item.time, state.target, todayKey, !!p.item.projected);
+      if (!res) return;
+      if (!res.ok) {
+        showNotice(res.note);
+        return;
+      }
+      if (p.item.projected) await patchSeries(task, res.fields);
+      else await updateTask({ ...task, ...res.fields });
+      onChangedRef.current();
+      return;
+    }
     if (task && p.item.projected) {
       // Dropped on the Timebox: the start time (and the estimate, when it had
       // none) is set for the whole series; the Day is never touched.

@@ -220,3 +220,60 @@ export function timesLabel(task: DoneFields, show: (t: string) => string = (t) =
   if (times.length <= 1) return times.length === 1 ? show(times[0]) : '';
   return times.map((t) => `${show(t)}${done.has(t) ? ' ✓' : ''}`).join(', ');
 }
+
+// ---- drawing: one block per time (Part C, P4) ----
+
+// What a time grid draws for one time of a task: a single-time copy of the task (its start time is
+// that time, no extra times, done if that time is done), so every block behaves like an ordinary
+// task's. The real task is kept beside it for what is written back.
+export interface TimeView {
+  // 0 for the first time, whose block id is the task's own; later times add `@HH:mm`.
+  index: number;
+  time: string;
+  // The id suffix: '' for the first time, '@HH:mm' for the others.
+  suffix: string;
+  // The task as one block sees it. Only a task with several times is copied; one with one time is itself.
+  task: Task;
+  multi: boolean;
+}
+
+export function suffixFor(index: number, time: string): string {
+  return index === 0 ? '' : `@${time}`;
+}
+
+export function viewAt(task: Task, time: string, done: boolean): Task {
+  return { ...task, startTime: time, extraTimes: undefined, timesDone: undefined, completed: done };
+}
+
+// The blocks of a task on its day, earliest time first. A task with no (valid) time has none.
+export function timeViews(task: Task): TimeView[] {
+  const times = timesOf(task);
+  if (times.length <= 1) return times.length === 1 ? [{ index: 0, time: times[0], suffix: '', task, multi: false }] : [];
+  const done = new Set(doneTimesOf(task));
+  return times.map((time, index) => ({ index, time, suffix: suffixFor(index, time), task: viewAt(task, time, done.has(time)), multi: true }));
+}
+
+// The block id back to the task id and the time suffix: `task:${id}@HH:mm` has the suffix '@HH:mm'.
+export function splitBlockSuffix(blockId: string): { id: string; time?: string } {
+  const at = blockId.lastIndexOf('@');
+  if (at <= 0) return { id: blockId };
+  const time = blockId.slice(at + 1);
+  return validTime(time) ? { id: blockId.slice(0, at), time } : { id: blockId };
+}
+
+// Moving every time by the same number of minutes (a block dragged to another day): refused when a
+// time would leave the day. Ticks follow their times.
+export function shiftTimesFields(task: DoneFields, deltaMin: number): TimeEdit | TimeRefusal {
+  const times = timesOf(task);
+  if (times.length === 0) return { ok: false, note: 'The task has no time.' };
+  const moved = times.map((t) => (toMinutes(t) as number) + deltaMin);
+  if (moved.some((m) => m < 0 || m > 23 * 60 + 59)) return { ok: false, note: 'Not moving it: a time would leave the day.' };
+  const next = moved.map((m) => toTime(m));
+  const done = new Set(doneTimesOf(task));
+  const nextDone = times.flatMap((t, i) => (done.has(t) ? [next[i]] : []));
+  const [first, ...rest] = next;
+  const fields: Partial<Task> = { startTime: first, extraTimes: rest.length > 0 ? rest : undefined };
+  if (!task.completed) fields.timesDone = nextDone.length > 0 ? nextDone : undefined;
+  else fields.timesDone = [...next];
+  return { ok: true, fields };
+}

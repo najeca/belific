@@ -6,6 +6,7 @@
 import type { Task } from './types.ts';
 import { isDateKey } from './kanban.ts';
 import { MAX_DURATION } from './duration.ts';
+import { moveTimeFields, overlapNote, shiftTimesFields, timesOf, type TimeEdit, type TimeRefusal } from './times.ts';
 import {
   DEFAULT_TASK_MINUTES,
   GRID_END_HOUR,
@@ -281,4 +282,39 @@ export function nudgeBlock(
   d.setDate(d.getDate() + (nudge === 'dayAfter' ? 1 : -1));
   const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   return canDayAcceptDrop(key, todayKey) ? { dueDate: key } : null;
+}
+
+// ---- a block of a task with several times (Part C, P4) ----
+
+// What dragging ONE time's block changes, or null when nothing changes or the drop is rejected.
+//  - slot on the same day (always for a projected day): only that time moves (a refusal says why);
+//  - slot on another day (stored only): the whole task moves there, every time by the same amount;
+//  - day or left: the task leaves the Timebox, so all its times go (as for a block of one time).
+export function multiDropPatch(
+  task: Pick<Task, 'dueDate' | 'startTime' | 'extraTimes' | 'timesDone' | 'completed' | 'completedAt' | 'durationMinutes'>,
+  time: string,
+  target: DropTarget,
+  todayKey: string,
+  projected: boolean,
+): TimeEdit | TimeRefusal | null {
+  if (!canDrop(target, todayKey)) return null;
+  const none = { startTime: undefined, extraTimes: undefined, timesDone: undefined };
+  if (target.kind === 'left') return projected ? null : { ok: true, fields: { dueDate: undefined, ...none } };
+  if (target.kind === 'day') return projected ? null : { ok: true, fields: { dueDate: target.dayKey, ...none } };
+  const oldStart = toMinutes(time);
+  if (oldStart === null) return null;
+  if (projected || target.dayKey === task.dueDate) {
+    const res = moveTimeFields(task, time, toTime(target.startMin));
+    return res.ok && Object.keys(res.fields).length === 0 ? null : res;
+  }
+  const res = shiftTimesFields(task, target.startMin - oldStart);
+  return res.ok ? { ok: true, fields: { dueDate: target.dayKey, ...res.fields } } : res;
+}
+
+// A resize changes the length of every time: refused when two of the task's times would then overlap.
+export function resizeRefusal(task: Pick<Task, 'startTime' | 'extraTimes'>, duration: number): string | null {
+  const times = timesOf(task);
+  if (times.length < 2) return null;
+  const problem = overlapNote(times, duration);
+  return problem ? `Not resizing: ${problem}.` : null;
 }

@@ -7,6 +7,7 @@ import { formatDuration } from '../../lib/duration';
 import { isCompactBlock, toMinutes, toTime, blockHeightPx } from '../../lib/timebox';
 import { pieceTimeText, type CutPiece } from '../../lib/cuts';
 import { nudgeBlock, slotLabel, taskDuration, yToMinutes, type BlockNudge } from '../../lib/drag';
+import { moveTimeFields } from '../../lib/times';
 import { dateKey } from '../../lib/kanban';
 import { shortcutFor } from '../../lib/shortcuts';
 import { updateTask } from '../../lib/storage';
@@ -63,7 +64,16 @@ export default function TimeBlock({
   piece,
   note,
   badge,
+  fullTask,
+  time,
+  blockSuffix,
 }: {
+  // A task with several times a day (Part C) is drawn once per time: `task` is the single-time copy this
+  // block shows, `fullTask` the real task (what a drag, a resize or a key writes), `time` this block's time
+  // and `blockSuffix` ('@HH:mm' for every time after the first) tells the blocks of one task apart.
+  fullTask?: Task;
+  time?: string;
+  blockSuffix?: string;
   // "Cut tasks underneath" (Part B): this block is one piece of a task that a break cuts. A press, a
   // drag and the keys act on the whole task; only the last piece has the resize handle and the
   // late button; a later piece shows its start and the time left instead of the full length.
@@ -98,22 +108,23 @@ export default function TimeBlock({
   const vt = look ? vibrantText : undefined;
   const vm = look ? vibrantMeta : undefined;
   const resizing = drag?.mode === 'resize' && drag.item.id === task.id && drag.item.scope === scope ? drag.resizeDuration : undefined;
-  const lifted = drag?.mode === 'move' && drag.item.id === task.id;
+  const lifted = drag?.mode === 'move' && drag.item.id === task.id && drag.item.time === time;
   const startMin = toMinutes(task.startTime) ?? 0;
   const lastPiece = !piece || piece.last;
   const headPiece = !piece || piece.head;
   // Pieces after the first get their own block key, so the first keeps the task's (tests and focus).
-  const blockKey = piece && piece.index > 0 ? `${task.id}~${piece.index + 1}` : task.id;
-  const live = useRef({ task, projected });
-  live.current = { task, projected };
+  const blockKey = `${task.id}${blockSuffix ?? ''}${piece && piece.index > 0 ? `~${piece.index + 1}` : ''}`;
+  const live = useRef({ task, projected, full: fullTask, time });
+  live.current = { task, projected, full: fullTask, time };
 
-  const dragRef = sourceRef(`block:${scope}${task.id}`, (e) => {
+  const dragRef = sourceRef(`block:${scope}${task.id}${blockSuffix ?? ''}`, (e) => {
     const grid = gridNode();
     const start = toMinutes(live.current.task.startTime);
     if (!grid || start === null) return null;
     return {
       kind: 'block',
-      task: live.current.task,
+      task: live.current.full ?? live.current.task,
+      ...(live.current.time ? { time: live.current.time } : {}),
       id: live.current.task.id,
       title: live.current.task.title,
       emoji: live.current.task.emoji,
@@ -147,15 +158,24 @@ export default function TimeBlock({
         if (!nudge) return;
         e.preventDefault();
         e.stopPropagation();
-        const { task: t, projected: proj } = live.current;
-        const patch = nudgeBlock(t, nudge, dateKey(new Date()), proj);
-        if (!patch) return;
+        const { task: shown, full, time: at, projected: proj } = live.current;
+        // The real task is what is written; a block of several times moves only its own time.
+        const t = full ?? shown;
+        let patch: Partial<Task> | null = nudgeBlock(shown, nudge, dateKey(new Date()), proj);
+        if (at && patch && patch.startTime) {
+          const moved = moveTimeFields(t, at, patch.startTime);
+          patch = moved.ok ? moved.fields : null;
+        } else if (at && patch && patch.dueDate) {
+          patch = { dueDate: patch.dueDate };
+        }
+        if (!patch || Object.keys(patch).length === 0) return;
         const done = proj ? patchSeries(t, patch) : updateTask({ ...t, ...patch });
         Promise.resolve(done).then(() => {
           onChanged();
           // The block is drawn again (maybe in another column): put the keyboard back on it.
           setTimeout(() => {
-            const sel = scope ? `[data-cal-block="${scope.replace(/"/g, '')}${t.id.replace(/"/g, '')}"]` : `[data-block-id="${t.id.replace(/"/g, '')}"]`;
+            const key = `${t.id}${blockSuffix ?? ''}`;
+            const sel = scope ? `[data-cal-block="${scope.replace(/"/g, '')}${key.replace(/"/g, '')}"]` : `[data-block-id="${key.replace(/"/g, '')}"]`;
             const again = document.querySelector<HTMLElement>(sel) ?? document.querySelector<HTMLElement>(`[data-block-task="${t.id.replace(/"/g, '')}"]`);
             again?.focus();
           }, 120);
@@ -180,7 +200,7 @@ export default function TimeBlock({
         const grid = gridNode();
         const start = toMinutes(live.current.task.startTime);
         if (!grid || start === null) return;
-        startResize(e, live.current.task, start, grid, live.current.projected, scope);
+        startResize(e, live.current.full ?? live.current.task, start, grid, live.current.projected, scope);
       };
       el.style.cursor = 'ns-resize';
       el.addEventListener('pointerdown', down);
@@ -200,7 +220,8 @@ export default function TimeBlock({
   // tall one it sits at the bottom, away from where a block is picked up.
   const [blockW, setBlockW] = useState(0);
   useEffect(() => {
-    if (!late) {
+    // A block of several times offers no late move: "the next free slot" has no single time to move.
+    if (!late || time) {
       setMove(null);
       return;
     }
@@ -219,7 +240,7 @@ export default function TimeBlock({
   const compact = isCompactBlock(resizedH !== undefined && lastPiece ? resizedH : height);
   const pieceData = piece ? { piece: String(piece.index + 1), pieceCount: String(piece.count) } : {};
   const baseData = scope ? { calBlock: `${scope}${blockKey}`, blockTask: task.id } : { blockId: blockKey, blockTask: task.id };
-  const dataSet = { ...baseData, ...pieceData, ...(task.cutsBelow ? { cuts: '1' } : {}) };
+  const dataSet = { ...baseData, ...pieceData, ...(task.cutsBelow ? { cuts: '1' } : {}), ...(time ? { blockTime: time } : {}) };
 
   return (
     <View style={[styles.wrap, sized, lifted && styles.lifted]}>
@@ -239,7 +260,7 @@ export default function TimeBlock({
             resizing !== undefined && styles.active,
           ]}
           accessibilityRole="button"
-          accessibilityLabel={piece ? `${a11y}, part ${piece.index + 1} of ${piece.count}` : a11y}
+          accessibilityLabel={`${a11y}${time ? `, ${formatTime(time)}` : ''}${piece ? `, part ${piece.index + 1} of ${piece.count}` : ''}`}
           {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
           <View style={[styles.titleRow, fullText && styles.titleRowTop]}>

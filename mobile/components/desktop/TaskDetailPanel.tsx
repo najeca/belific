@@ -23,7 +23,7 @@ import EmojiField from './EmojiField';
 import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
-import { LabelBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
+import { LabelBody, MoveToDayBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import { labelColor } from '../../lib/labelColors';
 import StreakLine from './StreakLine';
 import { shortRepeat } from '../../lib/repeat';
@@ -257,7 +257,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {projected && <SeriesNote />}
         <StreakLine task={task} />
-        <DetailRow glyph="📅" label="Task date">
+        <DetailRow icon="calendar-outline" label="Task date">
           <View style={styles.row}>
             <input
               type="date"
@@ -278,6 +278,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
                 style={domSelect}
               />
             )}
+            {!projected ? <DatePickField task={task} ops={ops} onSaved={onSaved} /> : null}
             {task.startTime && !multi ? (
               <Pressable onPress={() => patch({ startTime: undefined })} style={styles.xBtn} accessibilityRole="button" accessibilityLabel="Remove time" {...({ title: 'Remove time' } as object)}>
                 <Ionicons name="close" size={13} color={Colors.textSecondary} />
@@ -338,11 +339,11 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           ) : null}
         </DetailRow>
 
-        <DetailRow glyph="⏳" label="Estimated time">
+        <DetailRow icon="hourglass-outline" label="Estimated time">
           <DurationSelect id={`${task.id}:estimate`} label="Estimated time" value={task.durationMinutes} onChange={(m) => patch({ durationMinutes: m })} />
         </DetailRow>
 
-        <DetailRow glyph="⏱️" label="Actual time">
+        <DetailRow icon="stopwatch-outline" label="Actual time">
           <View style={styles.row}>
             <DurationSelect
               id={`${task.id}:actual`}
@@ -387,7 +388,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           </View>
         </DetailRow>
 
-        <DetailRow glyph="🏷️" label="Label">
+        <DetailRow icon="pricetag-outline" label="Label">
           <LabelField task={task} labels={labels} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
@@ -409,12 +410,12 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           </View>
         </DetailRow>
 
-        <DetailRow glyph="🔁" label="Repeats">
+        <DetailRow icon="repeat-outline" label="Repeats">
           <RepeatField task={task} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
         {/* Split (Part B; field cutsBelow): a break splits the timed tasks it overlaps into pieces. Off by default. */}
-        <DetailRow glyph="✂️" label="Split" shown="Split" tip="Split">
+        <DetailRow icon="cut-outline" label="Split" shown="Split" tip="Split">
           <View style={styles.row}>
             <Pressable
               onPress={() => patch({ cutsBelow: task.cutsBelow ? undefined : true })}
@@ -431,12 +432,12 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
         </DetailRow>
 
         {feats.dueDates && (
-          <DetailRow glyph="🔔" label="Reminder">
+          <DetailRow icon="notifications-outline" label="Reminder">
             <ReminderField task={task} ops={ops} onSaved={onSaved} />
           </DetailRow>
         )}
 
-        <DetailRow glyph="📋" label="List">
+        <DetailRow icon="list-outline" label="List">
           <select value={listKey ?? ''} aria-label="List" onChange={(e) => patch({ listKey: e.target.value || undefined })} style={domSelect}>
             <option value="">{listTitle(undefined)}</option>
             {lists.map((l) => (
@@ -447,10 +448,14 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           </select>
         </DetailRow>
 
+        <View style={styles.divider} />
         <View style={styles.section}>
-          <Text style={styles.sectionLabel} accessibilityRole="header">
-            📝  Notes
-          </Text>
+          <View style={styles.sectionHead}>
+            <Ionicons name="document-text-outline" size={16} color={Colors.textSecondary} />
+            <Text style={styles.sectionLabel} accessibilityRole="header">
+              Notes
+            </Text>
+          </View>
           <TextInput
             ref={notesRef}
             style={styles.notes}
@@ -464,10 +469,14 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           />
         </View>
 
+        <View style={styles.divider} />
         <View style={styles.section}>
-          <Text style={styles.sectionLabel} accessibilityRole="header">
-            ☑️  Subtasks  {counterLabel(task.subtasks)}
-          </Text>
+          <View style={styles.sectionHead}>
+            <Ionicons name="checkbox-outline" size={16} color={Colors.textSecondary} />
+            <Text style={styles.sectionLabel} accessibilityRole="header">
+              Subtasks  {counterLabel(task.subtasks)}
+            </Text>
+          </View>
           {subtasks.map((s) => (
             <View key={s.id} style={styles.subRow} {...({ dataSet: { subRow: s.id } } as object)}>
               <Pressable
@@ -615,6 +624,33 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
   );
 }
 
+// The date popover (TaskPopovers.MoveToDayBody): Today, Tomorrow, Next week and a month grid, beside
+// the date field. The field itself is unchanged; this only offers the quick way to the same value.
+function DatePickField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved: () => void }) {
+  const { ref, get } = usePopoverAnchor();
+  const id = `detail:${task.id}:date`;
+  const open = useIsOpen(id);
+  const wrapped: TaskOps = { ...ops, patch: (f) => ops.patch(f).then(onSaved) };
+  return (
+    <>
+      <Pressable
+        ref={ref as never}
+        onPress={() => togglePopover(id, get)}
+        style={[styles.xBtn, open && styles.openBg]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel="Pick a date"
+        {...({ title: 'Pick a date', dataSet: { ctl: 'datePick' } } as object)}
+      >
+        <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
+      </Pressable>
+      <Popover id={id} anchor={get} width={288} maxHeight={560}>
+        <MoveToDayBody task={task} ops={wrapped} done={() => closePopover(true)} />
+      </Popover>
+    </>
+  );
+}
+
 // The Repeat control of the card (TaskPopovers.RepeatBody), opened from the
 // modal: the same component, the same rules and the same writes; nothing forked.
 function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved: () => void }) {
@@ -716,13 +752,23 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
 // value on the right, no divider lines.
 // `label` keys the row; `shown` replaces the words on screen (the priority row shows
 // only its mark) and `tip` is then its hover tooltip and screen reader name.
-function DetailRow({ glyph, label, shown, tip, children }: { glyph: string; label: string; shown?: string; tip?: string; children: React.ReactNode }) {
+function DetailRow({ glyph, icon, label, shown, tip, children }: { glyph?: string; icon?: React.ComponentProps<typeof Ionicons>['name']; label: string; shown?: string; tip?: string; children: React.ReactNode }) {
   const text = shown ?? label;
   return (
     <View style={styles.detailRow} {...({ dataSet: { detailRow: label } } as object)}>
-      <Text ref={tipRef(tip) as never} style={styles.rowLabel} numberOfLines={1} accessibilityRole="header" accessibilityLabel={tip}>
-        {text ? `${glyph}  ${text}` : glyph}
-      </Text>
+      <View style={styles.rowLabelBox}>
+        {icon ? <Ionicons name={icon} size={16} color={Colors.textSecondary} /> : null}
+        {text ? (
+          <Text ref={tipRef(tip) as never} style={styles.rowLabel} numberOfLines={1} accessibilityRole="header" accessibilityLabel={tip}>
+            {text}
+          </Text>
+        ) : glyph ? (
+          // The priority row shows only its mark: the mark carries the tooltip and the name.
+          <Text ref={tipRef(tip) as never} style={styles.rowGlyph} accessibilityRole="header" accessibilityLabel={tip}>
+            {glyph}
+          </Text>
+        ) : null}
+      </View>
       <View style={styles.rowBody}>{children}</View>
     </View>
   );
@@ -754,24 +800,32 @@ const styles = StyleSheet.create({
     maxHeight: '100%',
     backgroundColor: Colors.surface,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
     boxShadow: Colors.shadowLg,
   } as never,
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
+  // The study's measurements: header 20px 35px 5px, body 0 35px 30px.
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 35, paddingTop: 20, paddingBottom: 5 },
   tick: { ...checkRing(22) } as object,
   tickOn: { ...checkRingDone },
   titleEmoji: { fontSize: 22 },
-  titleInput: { flex: 1, minWidth: 0, fontSize: 23, fontWeight: '700', color: Colors.textPrimary, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: 'transparent', outlineColor: Colors.accent },
+  titleInput: { flex: 1, minWidth: 0, fontSize: 20, fontWeight: '700', color: Colors.textPrimary, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: 'transparent', outlineColor: Colors.accent },
   titleDone: { color: Colors.textSecondary, textDecorationLine: 'line-through' },
-  iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
-  iconBtnOn: { backgroundColor: Colors.background },
+  iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  iconBtnOn: { backgroundColor: Colors.hover },
   scroll: { flexGrow: 0, flexShrink: 1 },
-  body: { paddingHorizontal: 20, paddingBottom: 16, gap: 2 },
+  body: { paddingHorizontal: 35, paddingBottom: 30, gap: 2 },
+  divider: { height: 1, backgroundColor: Colors.border, marginTop: 10 },
   // One line per row: the name on the left, the value on the right, no lines.
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 32 },
-  rowLabel: { width: 132, flexShrink: 0, fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 32 },
+  // An icon in front of a grey bold label.
+  rowLabelBox: { width: 140, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 32 },
+  rowGlyph: { fontSize: 14, width: 16, textAlign: 'center', color: Colors.textPrimary },
+  rowLabel: { flexShrink: 1, fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   rowBody: { flex: 1, minWidth: 0, gap: 4 },
   valueText: { fontSize: 13, color: Colors.textPrimary, paddingHorizontal: 6 },
   section: { gap: 4, paddingTop: 10 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -782,7 +836,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, minWidth: 120, height: 28, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   inputBad: { borderColor: Colors.danger },
   bad: { fontSize: 12, color: Colors.danger },
-  notes: { minHeight: 44, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
+  notes: { minHeight: 44, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   muted: { fontSize: 12, color: Colors.textSecondary },
   bigBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 26, borderRadius: 8, backgroundColor: Colors.background },
   bigBtnOn: { backgroundColor: Colors.accent },

@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.43.0 — 2026-10-21 (Ellie Planner look, step 5 of 8: the task modal and the popovers)
+
+**Desktop only. Look and feel; one small control added (see the last bullet).**
+- **Task modal:** the study's layout: a title row (round tick, 20px bold title, the three-dot menu, close), property rows each with a thin line icon, a grey bold label and the value (the hints stay in grey brackets), thin dividers before Notes and Subtasks, header padding 20px 35px 5px and body 0 35px 30px, 16px corners and a 1px outline. The priority row still shows only its mark with its tooltip. The emoji that stood in front of the rows are line icons.
+- **Popovers:** 10px corners with a 1px outline; rows are inset and rounded (6px) with a lighter hover; a tick on the chosen row; the search fields (labels, the filter) have a magnifier in front; the label popover keeps New label, Edit labels and Remove label as its footer, set off by a divider.
+- **Date popover:** Today, Tomorrow and Next week (the Monday after today) with an icon and the weekday and date on the right in grey, then a month grid (Monday first, nothing before today can be chosen, the chosen day is a filled rounded square), then Remove day. The old plain date field inside it is gone (it was only a browser field).
+- **One small control added:** the popover above was written in 2.26 but not shown anywhere any more; it now opens from a small chevron beside the date in the modal's Task date row ("Pick a date"). The date field itself, the time field and every other control are unchanged; skip it if you do not want it.
+- Real check `p22.js` +4 (the date popover, the label popover and the list picker, in both themes, with screenshots). Re-run and passing: p4, p5, p6, p10, p13 to p21, cp8f, cp9.
+
+---
+
 ## 2.42.0 — 2026-10-21 (Ellie Planner look, step 4 of 8: day columns and task cards)
 
 **Desktop only. Look only.**

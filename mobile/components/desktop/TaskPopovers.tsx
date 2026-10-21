@@ -50,6 +50,7 @@ import { startFocus } from './pomodoroStore';
 import { PopoverHeading, Row, popoverStyles } from './Popover';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import type { TaskOps } from './taskOps';
+import { MonthGrid, SearchField, divider } from './ui';
 
 // The contents of the small dropdowns on a task card (checkpoint 8.2). Each
 // body edits one thing through `ops` and calls `done` when an option was
@@ -277,7 +278,11 @@ function leadsText(list: number[]): string {
 // ---------------------------------------------------------------- Move to day
 export function MoveToDayBody({ task, ops, done }: BodyProps) {
   const todayKey = dateKey(new Date());
-  const tomorrowKey = dateKey(addDays(parseDateKey(todayKey), 1));
+  const today = parseDateKey(todayKey);
+  const tomorrowKey = dateKey(addDays(today, 1));
+  // "Next week": the Monday after today (on a Monday, the Monday a week on).
+  const nextWeekKey = dateKey(addDays(today, (8 - today.getDay()) % 7 || 7));
+  const weekdayDate = (key: string) => parseDateKey(key).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   const move = (requested: string | undefined) => {
     // Nothing earlier than today can be chosen.
     const day = requested ? clampToToday(requested, todayKey) : undefined;
@@ -286,24 +291,18 @@ export function MoveToDayBody({ task, ops, done }: BodyProps) {
   };
   return (
     <View style={styles.list}>
-      <PopoverHeading>Move to day</PopoverHeading>
-      <Row label="Today" sub={formatShortDate(todayKey)} selected={task.dueDate === todayKey} onPress={() => move(todayKey)} />
-      <Row label="Tomorrow" sub={formatShortDate(tomorrowKey)} selected={task.dueDate === tomorrowKey} onPress={() => move(tomorrowKey)} />
-      <View style={styles.dateRow}>
-        <Text style={styles.rowText}>A date</Text>
-        <input
-          type="date"
-          min={todayKey}
-          value=""
-          onChange={(e) => {
-            const v = e.target.value;
-            if (isDateKey(v) && v >= todayKey) move(v);
-          }}
-          style={domInputStyle}
-          aria-label="Move to date"
-        />
-      </View>
-      {task.dueDate && <Row label="Remove day" sub="Back to the Brain Dump list" onPress={() => move(undefined)} />}
+      <PopoverHeading>Day</PopoverHeading>
+      <Row icon="today-outline" label="Today" sub={weekdayDate(todayKey)} subRight selected={task.dueDate === todayKey} onPress={() => move(todayKey)} />
+      <Row icon="sunny-outline" label="Tomorrow" sub={weekdayDate(tomorrowKey)} subRight selected={task.dueDate === tomorrowKey} onPress={() => move(tomorrowKey)} />
+      <Row icon="arrow-forward-circle-outline" label="Next week" sub={weekdayDate(nextWeekKey)} subRight selected={task.dueDate === nextWeekKey} onPress={() => move(nextWeekKey)} />
+      <View style={divider} />
+      <MonthGrid selected={task.dueDate} min={todayKey} onPick={(key) => move(key)} a11y={(key) => `Move to ${key}`} />
+      {task.dueDate && (
+        <>
+          <View style={divider} />
+          <Row icon="close-outline" label="Remove day" sub="Back to the Brain Dump list" onPress={() => move(undefined)} />
+        </>
+      )}
     </View>
   );
 }
@@ -560,17 +559,15 @@ export function LabelBody({ task, ops, done }: BodyProps) {
   return (
     <View style={styles.list}>
       <View style={styles.searchWrap}>
-        <TextInput
-          style={styles.search}
+        <SearchField
           placeholder="Search or create…"
-          placeholderTextColor={Colors.textSecondary}
           value={text}
           onChangeText={setText}
           onSubmitEditing={() => {
             if (exact) choose(exact.key);
             else if (text.trim()) openNew(text);
           }}
-          accessibilityLabel="Search labels"
+          a11y="Search labels"
           autoFocus
         />
       </View>
@@ -902,15 +899,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     outlineColor: Colors.accent,
   },
-  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, minHeight: 34 },
-  labelRowHover: { backgroundColor: Colors.background },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, marginHorizontal: 4, borderRadius: 6, minHeight: 34 },
+  labelRowHover: { backgroundColor: Colors.hover },
   dot: { width: 10, height: 10, borderRadius: 5 },
   labelName: { flex: 1, fontSize: 14, color: Colors.textPrimary },
   labelEmoji: { fontSize: 14 },
   labelNameOn: { fontWeight: '700', color: Colors.accentText },
   editIcon: { padding: 4, borderRadius: 6 },
   editIconQuiet: { opacity: 0.35 },
-  sep: { height: 4 },
+  sep: { height: 1, backgroundColor: Colors.border, marginVertical: 6, marginHorizontal: 8 },
   editBox: { padding: 10, gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.border },
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   swatch: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },

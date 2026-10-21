@@ -146,10 +146,31 @@ async function run() {
     check(`${name}: the day header is a bold weekday with a small Today pill`, cardShape.weekdayWeight === '700' && cardShape.tagRadius === 6 && cardShape.tagBg === true, JSON.stringify(cardShape));
     check(`${name}: Add a task is a bordered 10px row`, cardShape.addRadius === '10px' && cardShape.addBorder === '1px', JSON.stringify([cardShape.addRadius, cardShape.addBorder]));
     check(`${name}: a label is a dot and its name, not a filled chip`, cardShape.labelChipBg === 'rgba(0, 0, 0, 0)' && cardShape.dotRound === true, JSON.stringify([cardShape.labelChipBg, cardShape.dotRound]));
+    // The list picker (a popover: lists with their emoji, + New list at the bottom).
+    await I.click(`document.querySelector('[aria-label^="List:"]')`, 600);
+    await I.shot(`p22-${name}-3a-list-picker`);
+    await I.key('Escape');
+    await C.sleep(300);
     // The task details.
     await I.click(`document.querySelector('[data-day-col="${today}"] [aria-label^="Task Write the report"]')`, 900);
     await C.waitFor(() => I.exists(`document.querySelector('[data-task-detail]') || document.querySelector('[role="dialog"]')`), 4000).catch(() => {});
     await I.shot(`p22-${name}-3-task-details`);
+    // The date popover (Today, Tomorrow, Next week, the month grid) and the label popover (search, ticks, footer actions).
+    await I.click(`document.querySelector('[aria-label="Pick a date"]')`, 700);
+    const dateShape = await I.js(`(() => {
+      const rows = ['Today', 'Tomorrow', 'Next week'].map((l) => !!document.querySelector('[role="dialog"] [aria-label="' + l + '"]') || !!document.querySelector('[aria-label="' + l + '"]'));
+      const grid = document.querySelector('[data-month-grid]');
+      return { rows, days: grid ? grid.querySelectorAll('[data-month-day]').length : 0, selected: grid ? [...grid.querySelectorAll('[data-month-day]')].filter((d) => d.getAttribute('aria-selected') === 'true' || d.getAttribute('data-selected') === '1').length : 0 };
+    })()`);
+    check(`${name}: the date popover has Today, Tomorrow, Next week and a month grid`, dateShape.rows.every(Boolean) && dateShape.days >= 28, JSON.stringify(dateShape));
+    await I.shot(`p22-${name}-3b-date-popover`);
+    await I.key('Escape');
+    await C.sleep(300);
+    await I.click(`document.querySelector('[data-detail-row="Label"] [role="button"]')`, 700);
+    check(`${name}: the label popover has a search field with a magnifier and its footer actions`, (await I.exists(`document.querySelector('[aria-label="Search labels"]')`)) && (await I.exists(`document.querySelector('[aria-label="New label"]')`)) && (await I.exists(`document.querySelector('[aria-label="Edit labels"]')`)));
+    await I.shot(`p22-${name}-3c-label-popover`);
+    await I.key('Escape');
+    await C.sleep(300);
     await I.key('Escape');
     await C.sleep(500);
     // Settings.

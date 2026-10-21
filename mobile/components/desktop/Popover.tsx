@@ -226,7 +226,7 @@ export default function Popover({
         zIndex: 500,
         background: Colors.surface,
         border: `1px solid ${Colors.border}`,
-        borderRadius: 12,
+        borderRadius: 10,
         boxShadow: Colors.shadowMd,
         boxSizing: 'border-box',
       }}
@@ -246,6 +246,8 @@ export function PopoverHeading({ children }: { children: string }) {
 export function Row({
   label,
   sub,
+  subRight,
+  icon,
   selected,
   onPress,
   leading,
@@ -257,6 +259,10 @@ export function Row({
 }: {
   label: string;
   sub?: string;
+  // The sub sits on the same line, right aligned and grey (the date shortcuts).
+  subRight?: boolean;
+  // A thin line icon in front of the label (used when there is no `leading`).
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
   selected?: boolean;
   onPress: () => void;
   leading?: React.ReactNode;
@@ -280,13 +286,14 @@ export function Row({
       accessibilityLabel={a11y ?? label}
       ref={tipRef(tip) as never}
     >
-      {leading}
+      {leading ?? (icon ? <Ionicons name={icon} size={16} color={Colors.textSecondary} /> : null)}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={[styles.rowText, selected && styles.rowTextOn, danger && styles.rowDanger]} numberOfLines={1}>
           {label}
         </Text>
-        {sub ? <Text style={styles.rowSub} numberOfLines={1}>{sub}</Text> : null}
+        {sub && !subRight ? <Text style={styles.rowSub} numberOfLines={1}>{sub}</Text> : null}
       </View>
+      {sub && subRight ? <Text style={styles.rowSub} numberOfLines={1}>{sub}</Text> : null}
       {trailing}
       {selected ? <Ionicons name="checkmark" size={16} color={Colors.accentText} /> : null}
     </Pressable>
@@ -310,8 +317,9 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textTransform: 'uppercase',
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, minHeight: 34, paddingVertical: 4 },
-  rowHover: { backgroundColor: Colors.background },
+  // A hovered row is a rounded, lighter block inset from the popover's edge.
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, marginHorizontal: 4, borderRadius: 6, minHeight: 34, paddingVertical: 4 },
+  rowHover: { backgroundColor: Colors.hover },
   rowText: { fontSize: 14, color: Colors.textPrimary },
   rowTextOn: { fontWeight: '700', color: Colors.accentText },
   rowSub: { fontSize: 12, color: Colors.textSecondary },

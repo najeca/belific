@@ -1,8 +1,9 @@
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { radius } from '../../lib/tokens';
+import { addDays, dateKey, isDateKey, parseDateKey } from '../../lib/kanban';
 
 // The shared pieces of the Ellie Planner look (docs/DESIGN_SYSTEM.md): outlined small buttons, the
 // segmented toggle, pills, the round checkbox and the one line icon style. Plain style objects
@@ -66,4 +67,109 @@ export function RoundCheck({ done, size = 18 }: { done: boolean; size?: number }
 // The one icon style: thin line icons (Ionicons "-outline"), small, grey, in front of a label.
 export function LineIcon({ name, size = 15, color = Colors.textSecondary }: { name: React.ComponentProps<typeof Ionicons>['name']; size?: number; color?: string }) {
   return <Ionicons name={name} size={size} color={color} />;
+}
+
+// A thin divider between sections (the modal, a popover's footer): 1px, low contrast.
+export const divider = { height: 1, backgroundColor: Colors.border, marginVertical: 8 } as const;
+
+// The search field of a popover: a magnifier in front, a quiet well.
+export function SearchField({
+  value,
+  onChangeText,
+  placeholder,
+  a11y,
+  onSubmitEditing,
+  autoFocus,
+}: {
+  value: string;
+  onChangeText: (t: string) => void;
+  placeholder: string;
+  a11y: string;
+  onSubmitEditing?: () => void;
+  autoFocus?: boolean;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 34, paddingHorizontal: 10, borderRadius: radius.md, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background }}>
+      <Ionicons name="search-outline" size={15} color={Colors.textSecondary} />
+      <TextInput
+        style={[{ flex: 1, minWidth: 0, height: 32, fontSize: 14, color: Colors.textPrimary }, { outlineStyle: 'none' } as object]}
+        placeholder={placeholder}
+        placeholderTextColor={Colors.textSecondary}
+        value={value}
+        onChangeText={onChangeText}
+        onSubmitEditing={onSubmitEditing}
+        accessibilityLabel={a11y}
+        autoFocus={autoFocus}
+      />
+    </View>
+  );
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+// A month grid for choosing a day (the date popover), Monday first. Nothing before `min` can be
+// chosen; the chosen day is a filled accent rounded square, today is in the accent colour.
+export function MonthGrid({ selected, min, onPick, a11y }: { selected?: string; min: string; onPick: (key: string) => void; a11y: (key: string) => string }) {
+  const start = parseDateKey(selected && isDateKey(selected) && selected >= min ? selected : min);
+  const [month, setMonth] = useState(() => new Date(start.getFullYear(), start.getMonth(), 1));
+  const todayKey = dateKey(new Date());
+  const minMonth = parseDateKey(min);
+  const atMin = month.getFullYear() === minMonth.getFullYear() && month.getMonth() === minMonth.getMonth();
+  const lead = (month.getDay() + 6) % 7;
+  const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const cells: Array<string | null> = [];
+  for (let i = 0; i < lead; i++) cells.push(null);
+  for (let d = 1; d <= count; d++) cells.push(dateKey(addDays(month, d - 1)));
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks: Array<Array<string | null>> = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  const shift = (by: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + by, 1));
+  return (
+    <View style={{ paddingHorizontal: 10, paddingTop: 6, paddingBottom: 6, gap: 2 }} {...({ dataSet: { monthGrid: '1' } } as object)}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 30 }}>
+        <Pressable onPress={() => shift(-1)} disabled={atMin} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, opacity: atMin ? 0.3 : 1 }} accessibilityRole="button" accessibilityLabel="Previous month">
+          <Ionicons name="chevron-back" size={16} color={Colors.textSecondary} />
+        </Pressable>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textPrimary }}>
+          {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}
+        </Text>
+        <Pressable onPress={() => shift(1)} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md }} accessibilityRole="button" accessibilityLabel="Next month">
+          <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+        </Pressable>
+      </View>
+      <View style={{ flexDirection: 'row' }}>
+        {WEEKDAY_LETTERS.map((l, i) => (
+          <Text key={i} style={{ flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '600', color: Colors.textTertiary }}>
+            {l}
+          </Text>
+        ))}
+      </View>
+      {weeks.map((w, wi) => (
+        <View key={wi} style={{ flexDirection: 'row' }}>
+          {w.map((key, ci) => {
+            if (!key) return <View key={ci} style={{ flex: 1, height: 30 }} />;
+            const off = key < min;
+            const on = key === selected;
+            return (
+              <Pressable
+                key={key}
+                disabled={off}
+                onPress={() => onPick(key)}
+                style={{ flex: 1, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, backgroundColor: on ? Colors.accent : undefined }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on, disabled: off }}
+                accessibilityLabel={a11y(key)}
+                {...({ dataSet: { monthDay: key } } as object)}
+              >
+                <Text style={{ fontSize: 13, fontWeight: on || key === todayKey ? '700' : '500', color: on ? Colors.onAccent : off ? Colors.textTertiary : key === todayKey ? Colors.accentText : Colors.textPrimary }}>
+                  {parseDateKey(key).getDate()}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
 }

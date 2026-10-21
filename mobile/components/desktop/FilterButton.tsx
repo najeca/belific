@@ -8,7 +8,7 @@ import { normalizeName } from '../../lib/labelRules';
 import { EMPTY_FILTER, filterCount, toggleLabel, type TaskFilter } from '../../lib/taskFilter';
 import type { Project } from '../../lib/types';
 import Popover, { Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
-import { outlinedBtn, outlinedBtnOn, outlinedBtnText } from './ui';
+import { SearchField, outlinedBtn, outlinedBtnOn, outlinedBtnText } from './ui';
 
 // The board filter (checkpoint 8.2, decision 021), top right of the week
 // header. Multi select labels, a "No label" row and a "Show complete" switch;
@@ -54,15 +54,7 @@ function FilterBody({ filter, labels, onChange }: { filter: TaskFilter; labels: 
   return (
     <View style={styles.body}>
       <View style={styles.searchWrap}>
-        <TextInput
-          style={styles.search}
-          placeholder="Search labels"
-          placeholderTextColor={Colors.textSecondary}
-          value={text}
-          onChangeText={setText}
-          accessibilityLabel="Search filter labels"
-          autoFocus
-        />
+        <SearchField placeholder="Search labels" value={text} onChangeText={setText} a11y="Search filter labels" autoFocus />
       </View>
       {shown.map((l) => {
         const on = filter.labels.includes(l.key);

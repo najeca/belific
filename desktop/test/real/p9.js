@@ -6,7 +6,7 @@
 // BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
-const { app } = require('electron');
+const { app, screen } = require('electron');
 const C = require('./common');
 const { makeInput, dayKeyFrom, readKv } = require('./input');
 
@@ -74,6 +74,10 @@ async function run() {
   const drag = async (fromExpr, toExpr, { hold = 300, release = true, offsetY = 0 } = {}) => {
     const a = await I.js(`(() => { const e = ${fromExpr}; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + 80), y: Math.round(r.top + 18) }; })()`);
     const b = await I.js(`(() => { const e = ${toExpr}; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 120) }; })()`);
+    // Diagnostics for the one-in-ten failure of this drag (kept until its cause is settled): where the real cursor
+    // is, and where the strip and the target column are when the drag starts and after the hold.
+    const snap = () => I.js(`(() => { const s = document.querySelector('[data-strip]'); const c = document.querySelector('[data-day-col="${day(1)}"]'); const r = c && c.getBoundingClientRect(); return { sl: s && Math.round(s.scrollLeft), col: r && [Math.round(r.left), Math.round(r.width)], ph: [...document.querySelectorAll('[data-drop-placeholder]')].map((e) => e.dataset.dropPlaceholder) }; })()`);
+    const diag0 = { cursor: screen.getCursorScreenPoint(), snap: await snap(), b };
     win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y });
     await C.sleep(80);
     win.webContents.sendInputEvent({ type: 'mouseDown', x: a.x, y: a.y, button: 'left', clickCount: 1 });
@@ -82,6 +86,10 @@ async function run() {
       await C.sleep(25);
     }
     await C.sleep(hold);
+    if (!release && !global.__dragDiagDone) {
+      global.__dragDiagDone = true;
+      console.log('DRAGDIAG', JSON.stringify({ ...diag0, cursorAfter: screen.getCursorScreenPoint(), after: await snap() }));
+    }
     if (release) {
       win.webContents.sendInputEvent({ type: 'mouseUp', x: b.x, y: b.y + offsetY, button: 'left', clickCount: 1 });
       await C.sleep(500);
@@ -129,7 +137,14 @@ async function run() {
 
   // Drag a card to tomorrow: a placeholder shows where it will land.
   await drag(`document.querySelector('[data-day-col="${today}"] [aria-label="Task Mover"]')`, col(day(1)), { release: false, hold: 400 });
-  check('while dragging, the target day shows a dashed placeholder with the task\'s name', (await I.js(`(document.querySelector('[data-drop-placeholder="${day(1)}"]') || {}).innerText || ''`)).includes('Mover'));
+  // The placeholder follows the pointer through a requestAnimationFrame tick, which Chromium slows down while a
+  // freshly started window is not yet in front (it failed once in five runs started right after another run): wait for it.
+  const placeholder = () => I.js(`(document.querySelector('[data-drop-placeholder="${day(1)}"]') || {}).innerText || ''`);
+  await C.waitFor(async () => (await placeholder()).includes('Mover'), 4000).catch(() => {});
+  if (!(await placeholder()).includes('Mover')) {
+    console.log('DIAG', JSON.stringify(await I.js(`(() => ({ dpr: devicePixelRatio, iw: innerWidth, ih: innerHeight, focus: document.hasFocus(), vis: document.visibilityState, ph: [...document.querySelectorAll('[data-drop-placeholder]')].map((e) => e.dataset.dropPlaceholder + ':' + e.innerText), lifted: !!document.querySelector('[data-lifted-card]'), col: (() => { const c = document.querySelector('[data-day-col="${day(1)}"]'); if (!c) return null; const r = c.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })(), strip: (() => { const c = document.querySelector('[data-strip]'); const r = c.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })(), win: null }))()`)), JSON.stringify(win.getBounds()), JSON.stringify(win.isMinimized()), JSON.stringify(win.isFocused()));
+  }
+  check('while dragging, the target day shows a dashed placeholder with the task\'s name', (await placeholder()).includes('Mover'));
   check('and the lifted card follows the pointer', await I.exists(`document.querySelector('[data-lifted-card]')`));
   await I.shot('p9-02-drag');
   const at = await I.js(`(() => { const r = ${col(day(1))}.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 120) }; })()`);
@@ -140,7 +155,7 @@ async function run() {
   // The mouse wheel scrolls the strip sideways: one column back shows yesterday beside today.
   const board = await I.js(`(() => { const r = document.querySelector('[data-strip]').getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 300) }; })()`);
   win.webContents.sendInputEvent({ type: 'mouseWheel', x: board.x, y: board.y, deltaX: 288, deltaY: 0, canScroll: true });
-  await C.sleep(600);
+  await C.waitFor(async () => (await colLeft(day(-1))) !== null && (await colLeft(day(-1))) >= (await stripLeft()) - 4, 4000).catch(() => {});
   check('the mouse wheel scrolls the days sideways (yesterday comes into view)', (await colLeft(day(-1))) !== null && (await colLeft(day(-1))) >= (await stripLeft()) - 4, String(await colLeft(day(-1))));
   await drag(`document.querySelector('[data-day-col="${day(1)}"] [aria-label="Task Mover"]')`, col(day(-1)), { hold: 300 });
   check('a past day refuses the drop (the task stays where it was)', byId('t2').dueDate === day(1));
@@ -178,9 +193,13 @@ async function run() {
 
   // ======== Step 4: the Calendar does what the Timebox does ========
   await I.click(I.byLabel('Show the Calendar'));
+  // The Calendar mounts and measures itself before it draws its day heads; one run in nine found them missing after
+  // the old fixed 1.2 seconds (headLeft null, then a script error on the missing scroller). Wait for them.
+  await C.waitFor(() => I.exists(`document.querySelector('[data-cal-scroller]') && document.querySelector('[data-cal-head]')`), 8000).catch(() => {});
   await C.sleep(400);
   await I.blur();
   await I.key('w');
+  await C.waitFor(() => I.exists(`document.querySelector('[data-cal-head="${today}"]')`), 8000).catch(() => {});
   await C.sleep(800);
   const calBlock = (key, id) => `document.querySelector('[data-cal-block="cal${key}:${id}"]')`;
   const yAt = (hhmm) => I.js(`(() => { const g = document.querySelector('[data-calendar-grid]').getBoundingClientRect(); const [h, m] = '${hhmm}'.split(':').map(Number); return Math.round(g.top + (h + m / 60) * 56); })()`);

@@ -655,11 +655,12 @@ function EventPopover({
 const styles = StyleSheet.create({
   pane: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.pane,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: 16,
     minWidth: 0,
-    boxShadow: Colors.shadowSm,
   } as object,
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32 },
   paneTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },

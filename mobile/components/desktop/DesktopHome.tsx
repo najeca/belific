@@ -563,8 +563,6 @@ function focusOpener(o: Opener): void {
   target?.focus();
 }
 
-const SOFT_SHADOW = Colors.shadowSm;
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   strip: { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
@@ -572,7 +570,7 @@ const styles = StyleSheet.create({
   back: { ...outlinedBtn, height: 36 } as object,
   backText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
   body: { flex: 1, flexDirection: 'row', padding: 16, gap: 16 },
-  centre: { flex: 1, minWidth: 0, backgroundColor: Colors.surface, borderRadius: 16, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, boxShadow: SOFT_SHADOW } as object,
+  centre: { flex: 1, minWidth: 0, backgroundColor: Colors.pane, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 } as object,
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, marginBottom: 8 },
   edgeBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   edgeHover: { backgroundColor: Colors.hover },

@@ -254,7 +254,7 @@ export default function KanbanPane({
           </Text>
           <Text style={[styles.date, head.when === 'past' && styles.past]}>{head.date}</Text>
           {head.when === 'today' && <Text style={styles.todayTag}>Today</Text>}
-          {away && <Text style={styles.awayTag}>✈️ Away</Text>}
+          {away && <Text style={styles.awayTag}>Away</Text>}
           {head.when !== 'past' && <DayMenu dayKey={day.key} tasks={tasks} away={away} awayDays={awayDays} onChanged={onChanged} />}
         </View>
         {head.when === 'past' ? (
@@ -406,24 +406,25 @@ const styles = StyleSheet.create({
   jump: { position: 'absolute', top: 40, left: 72, zIndex: 30, padding: 12, gap: 6, backgroundColor: Colors.surface, borderRadius: 14, boxShadow: Colors.shadowMd } as object,
   menuHeading: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
   board: { flex: 1 },
-  column: { width: COLUMN_WIDTH, borderRadius: 12 },
+  column: { width: COLUMN_WIDTH, borderRadius: 10 },
   columnTarget: { backgroundColor: Colors.accentSoft },
   columnHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingHorizontal: 2, paddingTop: 4, paddingBottom: 10 },
   weekday: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
   date: { fontSize: 20, fontWeight: '500', color: Colors.textSecondary },
   past: { opacity: 0.6 },
-  todayTag: { marginLeft: 4, fontSize: 12, fontWeight: '700', color: Colors.accentText },
+  // The small Today tag: a soft accent pill.
+  todayTag: { marginLeft: 4, alignSelf: 'center', height: 20, lineHeight: 20, paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden', fontSize: 11, fontWeight: '700', color: Colors.accentText, backgroundColor: Colors.accentSoft } as object,
   // An away day (2.27.0): greyed, with a small tag.
   awayColumn: { backgroundColor: Colors.surfaceRaised },
-  awayTag: { marginLeft: 4, fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  awayTag: { marginLeft: 4, alignSelf: 'center', height: 20, lineHeight: 20, paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden', fontSize: 11, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surfaceRaised } as object,
   addBox: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 10, paddingRight: 8, borderRadius: 10, backgroundColor: Colors.background, marginBottom: 10 },
   addPlus: { fontSize: 14, color: Colors.textSecondary, width: 16, textAlign: 'center' },
   addInput: { flex: 1, minWidth: 0, height: 40, fontSize: 14, color: Colors.textPrimary, outlineStyle: 'none' } as object,
   pastTotals: { minHeight: 20, marginBottom: 10, paddingHorizontal: 2, flexDirection: 'row' },
-  totals: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
+  totals: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surfaceRaised, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
   totalsOver: { color: Colors.accentText, fontWeight: '700' },
   columnList: { flex: 1 },
   columnListContent: { gap: 10, padding: 2, paddingBottom: 16 },
-  placeholder: { height: 52, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: Colors.accentSoft, justifyContent: 'center', paddingHorizontal: 12 },
+  placeholder: { height: 52, borderRadius: 10, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: Colors.accentSoft, justifyContent: 'center', paddingHorizontal: 12 },
   placeholderText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
 });

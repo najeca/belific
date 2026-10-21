@@ -174,7 +174,8 @@ async function run() {
   check('Inter is loaded from the app and draws the card titles (as the "Segoe UI" face of the text stack)', faces.some((f) => /^Segoe UI 600/.test(f)) && /Segoe UI/.test(await fontOf(`document.querySelector('[aria-label="Title Today task"]')`)), JSON.stringify(faces));
   check('the estimate figure uses Roboto Mono', /Roboto Mono/.test(await fontOf(`document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"] [data-card-time]')`)));
   const cardStyle = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); const s = getComputedStyle(c); return { r: s.borderTopLeftRadius, shadow: s.boxShadow !== 'none', border: s.borderTopWidth, pt: s.paddingTop, pl: s.paddingLeft }; })()`);
-  check('cards: 12 px corners, a light shadow, no hairline, padding 11 x 12', cardStyle.r === '12px' && cardStyle.shadow && cardStyle.border === '0px' && cardStyle.pt === '11px' && cardStyle.pl === '12px', JSON.stringify(cardStyle));
+  // 2.42.0 (the Ellie look, on purpose): flat cards, 10 px corners and a 1px outline instead of the light shadow and 12 px corners; the padding stays 11 x 12.
+  check('cards: 10 px corners, a 1px outline, no shadow, padding 11 x 12', cardStyle.r === '10px' && !cardStyle.shadow && cardStyle.border === '1px' && cardStyle.pt === '11px' && cardStyle.pl === '12px', JSON.stringify(cardStyle));
   check('a task with one of two steps done shows a part filled ring', (await ring()) === 'part');
   await I.js(`document.querySelector('[data-day-col="${today}"] [aria-label="Task Steps task"]').focus()`);
   await I.key('s');

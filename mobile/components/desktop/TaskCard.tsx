@@ -287,7 +287,7 @@ export default function TaskCard({
                 {task.title}
               </Text>
               <Text
-                style={[styles.chipText, !placed && task.durationMinutes === undefined && styles.chipTextMuted]}
+                style={[styles.chipText, !placed && task.durationMinutes === undefined && styles.chipTextMuted, task.completed && styles.chipDone]}
                 accessibilityLabel={placed ? `Starts ${timesLabel(task).replace(/ ✓/g, ' (done)')}` : `Estimate ${formatClock(task.durationMinutes)}`}
                 {...MONO}
                 {...({ dataSet: { cardTime: '1', mono: '1' } } as object)}
@@ -475,13 +475,10 @@ function IconControl({
   );
 }
 
-const SHADOW = Colors.shadowSm;
-const SHADOW_HOVER = Colors.shadowMd;
-
 const styles = StyleSheet.create({
-  card: { paddingVertical: 11, paddingHorizontal: 12, gap: 6, borderRadius: 12, boxShadow: SHADOW, transitionDuration: '120ms', transitionProperty: 'box-shadow', cursor: 'pointer' } as object,
-  // Only the shadow changes on hover: nothing moves (real check cp8e).
-  hover: { boxShadow: SHADOW_HOVER } as object,
+  // Flat and raised: a 1px outline, no shadow (the Ellie look). Hover only changes the outline's colour: nothing moves (real check cp8e).
+  card: { paddingVertical: 11, paddingHorizontal: 12, gap: 6, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, transitionDuration: '120ms', transitionProperty: 'border-color', cursor: 'pointer' } as object,
+  hover: { borderColor: Colors.borderStrong } as object,
   done: { opacity: 0.72 },
   dragging: { opacity: 0.35 },
   projected: { opacity: 0.82 },
@@ -493,12 +490,14 @@ const styles = StyleSheet.create({
   titleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   chipText: { fontSize: 11.5, lineHeight: 20, fontWeight: '600', color: Colors.textPrimary, paddingHorizontal: 7, borderRadius: 6, backgroundColor: Colors.chip, overflow: 'hidden' } as object,
   chipTextMuted: { color: Colors.textSecondary },
+  chipDone: { color: Colors.textTertiary },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20, paddingLeft: 26, overflow: 'hidden' },
   metaDay: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
   listEmoji: { fontSize: 11, lineHeight: 16 },
-  labelChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 18, paddingHorizontal: 6, borderRadius: 6, backgroundColor: Colors.chip, maxWidth: 150, flexShrink: 1 },
-  labelChipText: { fontSize: 11, fontWeight: '500', color: Colors.textPrimary, flexShrink: 1 },
-  dot: { width: 7, height: 7, borderRadius: 4 },
+  // A label is a coloured dot and its name, not a filled chip.
+  labelChip: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 18, maxWidth: 150, flexShrink: 1 },
+  labelChipText: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary, flexShrink: 1 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
   ringBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingRight: 2 },
   counter: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
   counterDone: { color: Colors.accentText, fontWeight: '700' },

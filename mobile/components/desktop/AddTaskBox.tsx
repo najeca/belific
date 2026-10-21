@@ -9,6 +9,7 @@ import { LabelBody } from './TaskPopovers';
 import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import type { TaskOps } from './taskOps';
+import { Ionicons } from '@expo/vector-icons';
 
 // The "Add a task" box (2.27.0), the same on a day column and in the left list:
 // the title, an optional time (on a day only, since a time belongs to a Day), an
@@ -78,9 +79,9 @@ export default function AddTaskBox({
   return (
     <View style={styles.wrap}>
       <View style={styles.box} {...({ dataSet: { addBox: id } } as object)}>
-        <Text style={styles.plus} accessible={false}>
-          ＋
-        </Text>
+        <View style={styles.plus} accessible={false}>
+          <Ionicons name="add-circle-outline" size={17} color={Colors.textSecondary} />
+        </View>
         <TextInput
           ref={inputRef as never}
           value={text}
@@ -107,7 +108,7 @@ export default function AddTaskBox({
           accessibilityLabel={label ? `Label for the new task: ${label.name}` : 'Label for the new task'}
           {...({ dataSet: { ctl: 'addLabel' } } as object)}
         >
-          {label ? label.emoji ? <Text style={styles.glyph}>{label.emoji}</Text> : <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} /> : <Text style={styles.glyph}>🏷️</Text>}
+          {label ? label.emoji ? <Text style={styles.glyph}>{label.emoji}</Text> : <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} /> : <Ionicons name="pricetag-outline" size={15} color={Colors.textSecondary} />}
         </Pressable>
         <Popover id={popId} anchor={anchor.get} width={284} maxHeight={540}>
           <LabelBody task={draft} ops={ops} done={() => closePopover(true)} />
@@ -138,11 +139,11 @@ const timeStyle: React.CSSProperties = {
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 10, gap: 4 },
-  box: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 10, paddingRight: 6, borderRadius: 10, backgroundColor: Colors.background, minWidth: 0 },
-  plus: { fontSize: 14, color: Colors.textSecondary, width: 16, textAlign: 'center', flexShrink: 0 },
+  box: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 10, paddingRight: 6, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, minWidth: 0 },
+  plus: { width: 16, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   input: { flex: 1, minWidth: 40, height: 40, fontSize: 14, color: Colors.textPrimary, outlineStyle: 'none' } as object,
   labelBtn: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  labelOn: { backgroundColor: Colors.surface },
+  labelOn: { backgroundColor: Colors.hover },
   glyph: { fontSize: 13 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   warning: { fontSize: 12, color: Colors.textSecondary, paddingHorizontal: 4 },

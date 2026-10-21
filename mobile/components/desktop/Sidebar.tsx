@@ -30,7 +30,7 @@ export default function Sidebar({ onHide, overlay, children }: { onHide: () => v
 }
 
 const styles = StyleSheet.create({
-  sidebar: { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, paddingTop: 14, paddingBottom: 8, minWidth: 0, boxShadow: Colors.shadowSm } as object,
+  sidebar: { flex: 1, backgroundColor: Colors.pane, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, paddingTop: 14, paddingBottom: 8, minWidth: 0 } as object,
   overlay: { boxShadow: Colors.shadowLg } as object,
   head: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, marginBottom: 10 },
   mark: { width: 28, height: 28, borderRadius: 8 },

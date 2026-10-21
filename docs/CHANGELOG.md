@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.42.0 — 2026-10-21 (Ellie Planner look, step 4 of 8: day columns and task cards)
+
+**Desktop only. Look only.**
+- **Day header:** a bold weekday, the date in grey, and a small Today pill (a soft accent fill); Away is a small grey pill.
+- **Add a task row:** a bordered 10px row on the raised surface with a circle-plus line icon, a tag line icon, and the day's total as a pill on the right.
+- **Task card:** flat and raised: a 1px outline instead of a shadow, 10px corners (was 12), padding 11 x 12, 10px between cards. Hover only changes the outline's colour (nothing moves). The label is a coloured dot and its name (no filled chip). A done task keeps its round green tick, a grey struck title and a dimmed duration pill.
+- The three panes (Brain Dump, the centre, the Timebox) are the pane colour with a 1px outline instead of a shadow, so cards are one step brighter than the pane in both themes.
+- Real checks changed on purpose: `p9.js` "cards: 12 px corners, a light shadow, no hairline" now expects 10px corners, a 1px outline and no shadow (padding still 11 x 12). `p22.js` +16 (card, header, Add a task, label in both themes). p9, cp8c and cp8e re-run and pass.
+
+---
+
 ## 2.41.0 — 2026-10-21 (Ellie Planner look, step 3 of 8: the shared pieces)
 
 **Desktop only. Look only; every control does what it did.**

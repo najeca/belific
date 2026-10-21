@@ -126,6 +126,26 @@ async function run() {
     check(`${name}: Only today is an outlined small button (1px outline, 8px corners)`, !!shape.outlined && shape.outlined[0] === '1px' && shape.outlined[1] === 8, JSON.stringify(shape.outlined));
     check(`${name}: the Calendar/Tasks toggle is a bordered segmented control`, shape.segBorder === '1px', String(shape.segBorder));
     check(`${name}: the duration is a soft pill (6px corners)`, shape.pillRadius === 6, String(shape.pillRadius));
+    // Day columns and cards (step 4).
+    const cardShape = await I.js(`(() => {
+      const col = document.querySelector('[data-day-col="${today}"]');
+      const card = col.querySelector('[aria-label^="Task Buy stamps"]');
+      const cs = getComputedStyle(card);
+      const tag = [...col.querySelectorAll('div,span')].find((e) => e.children.length === 0 && e.textContent === 'Today');
+      const add = col.querySelector('[data-add-box]');
+      const wk = col.querySelector('[role="heading"]');
+      const lab = card.querySelector('[data-card-label]');
+      const dot = lab && lab.firstElementChild;
+      const px = (v) => parseFloat(v);
+      return { radius: cs.borderTopLeftRadius, outline: cs.borderTopWidth, shadow: cs.boxShadow, pad: cs.paddingTop + ' ' + cs.paddingRight,
+        tagRadius: tag ? px(getComputedStyle(tag).borderTopLeftRadius) : null, tagBg: tag ? getComputedStyle(tag).backgroundColor !== 'rgba(0, 0, 0, 0)' : null,
+        addRadius: add ? getComputedStyle(add).borderTopLeftRadius : null, addBorder: add ? getComputedStyle(add).borderTopWidth : null,
+        weekdayWeight: wk ? getComputedStyle(wk).fontWeight : null, labelChipBg: lab ? getComputedStyle(lab).backgroundColor : null, dotRound: dot ? px(getComputedStyle(dot).borderTopLeftRadius) >= 4 : null };
+    })()`);
+    check(`${name}: a card is flat: 10px corners, a 1px outline, no shadow, padding 11 x 12`, cardShape.radius === '10px' && cardShape.outline === '1px' && cardShape.shadow === 'none' && cardShape.pad === '11px 12px', JSON.stringify(cardShape));
+    check(`${name}: the day header is a bold weekday with a small Today pill`, cardShape.weekdayWeight === '700' && cardShape.tagRadius === 6 && cardShape.tagBg === true, JSON.stringify(cardShape));
+    check(`${name}: Add a task is a bordered 10px row`, cardShape.addRadius === '10px' && cardShape.addBorder === '1px', JSON.stringify([cardShape.addRadius, cardShape.addBorder]));
+    check(`${name}: a label is a dot and its name, not a filled chip`, cardShape.labelChipBg === 'rgba(0, 0, 0, 0)' && cardShape.dotRound === true, JSON.stringify([cardShape.labelChipBg, cardShape.dotRound]));
     // The task details.
     await I.click(`document.querySelector('[data-day-col="${today}"] [aria-label^="Task Write the report"]')`, 900);
     await C.waitFor(() => I.exists(`document.querySelector('[data-task-detail]') || document.querySelector('[role="dialog"]')`), 4000).catch(() => {});

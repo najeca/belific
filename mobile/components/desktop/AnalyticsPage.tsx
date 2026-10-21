@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { dateKey, formatShortDate, parseDateKey, WEEKDAYS } from '../../lib/kanban';
 import { formatClock } from '../../lib/duration';
 import { labelColor } from '../../lib/labelColors';
-import { CHART_ACTUAL, CHART_ESTIMATE, chartLabelColor } from '../../lib/chartColors';
+import { chartLabelColor } from '../../lib/chartColors';
+import { THEMES } from '../../lib/tokens';
+import { useResolvedTheme } from './themeStore';
 import { loadLabels } from '../../lib/labels';
 import { loadBrainDumpItemsRaw, loadListsRaw, loadTasksRaw } from '../../lib/storage';
 import {
@@ -28,6 +31,7 @@ import type { BrainDumpItem, Project, Task, TaskList } from '../../lib/types';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { dayStamp, downloadText } from './download';
 import { DISPLAY_FONT_FAMILY } from './desktopFont';
+import { IconHeading, type IconName } from './ui';
 
 // The Analytics page (build plan phase 6): worked out from the tasks on this
 // computer, nothing stored or sent (lib/analytics.ts). A page like Progress,
@@ -41,14 +45,17 @@ import { DISPLAY_FONT_FAMILY } from './desktopFont';
 // sage for what happened (actual, done), a warm clay for estimates; the two
 // also differ in shape (an estimate is an outline, actual is solid), so colour
 // is never the only signal. Empty states say what is missing and nothing more.
-const ACTUAL = CHART_ACTUAL;
-const ESTIMATE = CHART_ESTIMATE;
+// The chart colours are theme tokens (a brighter pair on dark), so a change of theme repaints them.
+const ACTUAL = Colors.chartActual;
+const ESTIMATE = Colors.chartEstimate;
 // A label's colour as a bar or swatch: its palette colour, darkened where it is
 // too light to read as a graphic.
-const shareColor = (colorKey?: string) => chartLabelColor(labelColor(colorKey)?.edge ?? Colors.textSecondary, Colors.surface);
+const shareColorOn = (surface: string, textSecondary: string) => (colorKey?: string) => chartLabelColor(labelColor(colorKey)?.edge ?? textSecondary, surface);
 const BAR_AREA = 120;
 
 export default function AnalyticsPage({ refreshKey }: { refreshKey: number }) {
+  const theme = THEMES[useResolvedTheme()];
+  const shareColor = shareColorOn(theme.surface, theme.textSecondary);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [labels, setLabels] = useState<Project[]>([]);
   const [lists, setLists] = useState<TaskList[]>([]);
@@ -91,9 +98,7 @@ export default function AnalyticsPage({ refreshKey }: { refreshKey: number }) {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} accessibilityLabel="Analytics">
       <View style={styles.column}>
-        <Text style={styles.heading} accessibilityRole="header">
-          📊 Analytics
-        </Text>
+        <IconHeading icon="bar-chart-outline" style={styles.heading} size={20}>Analytics</IconHeading>
         <Text style={styles.hint}>Worked out from the tasks on this computer. Nothing is sent anywhere.</Text>
 
         <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Date range">
@@ -122,11 +127,11 @@ export default function AnalyticsPage({ refreshKey }: { refreshKey: number }) {
         </Text>
 
         <View style={styles.cards}>
-          <Card emoji="✅" title="Completed" accessibilityLabel="Completed card">
+          <Card icon="checkmark-circle-outline" title="Completed" accessibilityLabel="Completed card">
             <Text style={styles.big}>{completed.current}</Text>
             <Text style={styles.cardText}>{completed.text || 'No completed tasks in this range yet. Tasks you finish show up here.'}</Text>
           </Card>
-          <Card emoji="⏱️" title="Actual against estimated" accessibilityLabel="Time card">
+          <Card icon="stopwatch-outline" title="Actual against estimated" accessibilityLabel="Time card">
             <Text style={styles.big}>{time.withEstimate > 0 ? `${formatClock(time.actual)} / ${formatClock(time.estimated)}` : '–'}</Text>
             <Text style={styles.cardText}>
               {time.withEstimate > 0
@@ -134,13 +139,13 @@ export default function AnalyticsPage({ refreshKey }: { refreshKey: number }) {
                 : 'No finished tasks with an estimate yet. Add an estimate to a task and the timer fills in the rest.'}
             </Text>
           </Card>
-          <Card emoji="🧠" title="Brain Dump age" accessibilityLabel="Brain Dump age card">
+          <Card icon="bulb-outline" title="Brain Dump age" accessibilityLabel="Brain Dump age card">
             <Text style={styles.big}>{age.count > 0 ? `${age.averageDays}d` : '–'}</Text>
             <Text style={styles.cardText}>{age.text || 'Nothing is waiting in Brain Dump.'}</Text>
           </Card>
         </View>
 
-        <Section title="Time per day" emoji="📅">
+        <Section title="Time per day" icon="calendar-outline">
           <View style={styles.chips}>
             {(['count', 'time'] as const).map((m) => (
               <Pressable key={m} onPress={() => setMode(m)} style={[styles.chip, mode === m && styles.chipOn]} accessibilityRole="radio" accessibilityState={{ selected: mode === m }} accessibilityLabel={m === 'count' ? 'By tasks' : 'By time'}>
@@ -184,7 +189,7 @@ export default function AnalyticsPage({ refreshKey }: { refreshKey: number }) {
           )}
         </Section>
 
-        <Section title="Estimated against actual" emoji="⏳">
+        <Section title="Estimated against actual" icon="hourglass-outline">
           <Text style={styles.legend}>
             <Text style={{ color: ESTIMATE }}>▭ Estimated</Text>   <Text style={{ color: ACTUAL }}>▬ Actual</Text>
           </Text>
@@ -218,7 +223,7 @@ export default function AnalyticsPage({ refreshKey }: { refreshKey: number }) {
           )}
         </Section>
 
-        <Section title="Tasks by label" emoji="🏷️">
+        <Section title="Tasks by label" icon="pricetag-outline">
           <Text style={styles.readout} accessibilityLabel="Tasks by label readout">
             {readout.label ?? 'Hover or press a label for its numbers.'}
           </Text>
@@ -250,7 +255,7 @@ export default function AnalyticsPage({ refreshKey }: { refreshKey: number }) {
           )}
         </Section>
 
-        <Section title="Completed tasks" emoji="✅">
+        <Section title="Completed tasks" icon="checkmark-done-outline">
           <View style={styles.row}>
             <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Group by">
               {(['none', 'day', 'label'] as GroupBy[]).map((g) => (
@@ -266,7 +271,7 @@ export default function AnalyticsPage({ refreshKey }: { refreshKey: number }) {
               accessibilityRole="button"
               accessibilityLabel="Download completed tasks as CSV"
             >
-              <Text style={styles.chipText}>⬇️ Download CSV</Text>
+              <Text style={styles.chipText}>Download CSV</Text>
             </Pressable>
           </View>
           {loaded && rows.length === 0 ? (
@@ -307,23 +312,22 @@ function shortDay(key: string): string {
   return WEEKDAYS[parseDateKey(key).getDay()].slice(0, 2);
 }
 
-function Card({ emoji, title, accessibilityLabel, children }: { emoji: string; title: string; accessibilityLabel: string; children: React.ReactNode }) {
+function Card({ icon, title, accessibilityLabel, children }: { icon: IconName; title: string; accessibilityLabel: string; children: React.ReactNode }) {
   return (
     <View style={styles.card} accessibilityLabel={accessibilityLabel}>
-      <Text style={styles.cardTitle}>
-        {emoji} {title}
-      </Text>
+      <View style={styles.cardTitleRow}>
+        <Ionicons name={icon} size={15} color={Colors.textSecondary} />
+        <Text style={styles.cardTitle}>{title}</Text>
+      </View>
       {children}
     </View>
   );
 }
 
-function Section({ title, emoji, children }: { title: string; emoji: string; children: React.ReactNode }) {
+function Section({ title, icon, children }: { title: string; icon: IconName; children: React.ReactNode }) {
   return (
     <View style={styles.section} accessibilityLabel={`${title} section`}>
-      <Text style={styles.sectionTitle} accessibilityRole="header">
-        {emoji} {title}
-      </Text>
+      <IconHeading icon={icon} style={styles.sectionTitle}>{title}</IconHeading>
       {children}
     </View>
   );
@@ -349,13 +353,14 @@ const styles = StyleSheet.create({
   hint: { fontSize: 13, color: Colors.textSecondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   chips: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  chip: { paddingHorizontal: 12, height: 32, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.surface },
+  chip: { paddingHorizontal: 12, height: 32, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.surface },
   chipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   chipText: { fontSize: 13, color: Colors.textPrimary },
   chipTextOn: { color: Colors.onAccent, fontWeight: '600' },
   off: { opacity: 0.4 },
   cards: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
   card: { flexGrow: 1, flexBasis: 280, padding: 14, gap: 6, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, color: Colors.textSecondary },
   big: { fontSize: 28, fontWeight: '700', color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
   cardText: { fontSize: 13, color: Colors.textSecondary },
@@ -376,7 +381,7 @@ const styles = StyleSheet.create({
   taskNums: { width: 92, fontSize: 12, color: Colors.textPrimary, textAlign: 'right', fontVariant: ['tabular-nums'] },
   stack: { flexDirection: 'row', height: 16, borderRadius: 8, overflow: 'hidden', backgroundColor: Colors.background },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 28 },
-  swatch: { width: 12, height: 12, borderRadius: 3 },
+  swatch: { width: 12, height: 12, borderRadius: 4 },
   legendName: { flex: 1, fontSize: 13, color: Colors.textPrimary },
   legendNums: { fontSize: 13, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   group: { gap: 4, marginTop: 6 },

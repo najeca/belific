@@ -12,6 +12,7 @@ import type { Project, Task } from '../../lib/types';
 import MissedList from './MissedList';
 import { isPopoverOpen } from './Popover';
 import { closeOverlay, notifyChanged } from './uiStore';
+import { IconHeading } from './ui';
 
 // The Missed panel (2.27.0, item 6), opened from the button in the left pane.
 // Every action writes at once (an ordinary task edit, queued for sync); nothing
@@ -51,9 +52,7 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
     <Pressable style={styles.scrim} onPress={closeOverlay} accessibilityLabel="Close missed">
       <Pressable onPress={() => {}} style={styles.card} accessibilityLabel="Missed" {...({ role: 'dialog', 'aria-modal': true } as object)}>
         <View style={styles.header}>
-          <Text style={styles.title} accessibilityRole="header">
-            🕓 Missed
-          </Text>
+          <IconHeading icon="time-outline" style={styles.title}>Missed</IconHeading>
           <Pressable onPress={closeOverlay} style={styles.close} accessibilityRole="button" accessibilityLabel="Close" {...({ dataSet: { missedClose: '1' } } as object)}>
             <Ionicons name="close" size={18} color={Colors.textSecondary} />
           </Pressable>
@@ -85,7 +84,7 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.scrim },
-  card: { width: 560, maxWidth: '94%', maxHeight: '88%', borderRadius: 18, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 10 },
+  card: { width: 560, maxWidth: '94%', maxHeight: '88%', borderRadius: 16, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 10 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   hint: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },

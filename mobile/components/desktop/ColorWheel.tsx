@@ -101,7 +101,7 @@ export default function ColorWheel({
   );
 }
 
-const rangeStyle: React.CSSProperties = { flex: 1, width: '100%', height: 10, borderRadius: 5, appearance: 'none', WebkitAppearance: 'none', outlineColor: Colors.accent, cursor: 'pointer' };
+const rangeStyle: React.CSSProperties = { flex: 1, width: '100%', height: 10, borderRadius: 4, appearance: 'none', WebkitAppearance: 'none', outlineColor: Colors.accent, cursor: 'pointer' };
 const hexStyle: React.CSSProperties = {
   width: 92,
   height: 30,

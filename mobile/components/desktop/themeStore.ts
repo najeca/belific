@@ -6,7 +6,7 @@ import { DEFAULT_THEME_MODE, normalizeThemeMode, resolveTheme, type ThemeMode } 
 // The Theme setting (Settings, Appearance) as a small module store, like vibrantStore. The value
 // lives in the main process settings (`theme`, per computer, never synced); this is its renderer
 // copy. Applying it sets the design tokens (lib/tokens.ts) as CSS variables on <html>: every
-// `Colors.x` is a `var(--b-...)` on the desktop, so the whole screen changes at once.
+// `Colors.x` is a `var(--ds-...)` on the desktop, so the whole screen changes at once.
 //
 // To avoid a flash of the wrong theme at start, the last value is also cached in localStorage and
 // applied before the first paint (`installTheme`, called from the desktop entry); the main

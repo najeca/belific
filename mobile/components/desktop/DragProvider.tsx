@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     width: 240,
     paddingVertical: 11,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: Colors.surface,
     boxShadow: Colors.shadowMd,
     transform: [{ rotate: '2deg' }],

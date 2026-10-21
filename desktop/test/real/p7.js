@@ -108,7 +108,12 @@ async function run() {
   // ======== 1. Settings: the power feature toggles ========
   await openSettings();
   const upper = (await I.body()).toUpperCase();
-  check('Settings sections now carry an emoji (Account, Sync, Planning, Data, Labels, About, Power features)', ['👤 ACCOUNT', '🔄 SYNC', '🗓️ PLANNING', '💾 DATA', '🏷️ LABELS', 'ℹ️ ABOUT', '⚡ POWER FEATURES'].every((s) => upper.includes(s)), upper.slice(0, 400));
+  // 2.45.0 (the Ellie look, on purpose): the section icons are thin line icons now, not emoji; the titles are unchanged.
+  const hasIcon = (title) => I.js(`(() => { const h = [...document.querySelectorAll('[role="heading"]')].find((e) => e.textContent.trim().toUpperCase() === ${JSON.stringify(title)}); const p = h && h.previousElementSibling; return !!p && /ionicons/i.test(getComputedStyle(p).fontFamily); })()`);
+  const secTitles = ['ACCOUNT', 'SYNC', 'PLANNING', 'DATA', 'LABELS', 'ABOUT', 'POWER FEATURES'];
+  const secIcons = [];
+  for (const t of secTitles) secIcons.push(await hasIcon(t));
+  check('Settings sections each carry a line icon (Account, Sync, Planning, Data, Labels, About, Power features)', secTitles.every((s) => upper.includes(s)) && secIcons.every(Boolean), JSON.stringify(secIcons));
   check('the old section names still work for readers (accessible name "Account settings")', await I.exists(I.byLabel('Account settings')));
   check('defaults: reminders, planning and analytics are on', (await checked('🔔 Due dates and reminders')) === true && (await checked('🌅 Daily planning')) === true && (await checked('📊 Analytics')) === true);
   check('2.26.0: there is no Priority toggle (priority was removed from the interface)', (await checked('🚩 Priority')) === null && !(await I.body()).includes('Priority'));
@@ -320,7 +325,8 @@ async function run() {
   await back();
   await openFromMenu('Progress');
   await C.waitFor(async () => (await I.body()).includes('Progress'), 8000);
-  check('Progress has an emoji in its heading', (await I.body()).includes('📈 Progress'));
+  // 2.45.0 (on purpose): a line icon in front of the heading, not an emoji.
+  check('Progress has a line icon in its heading', (await I.js(`(() => { const h = [...document.querySelectorAll('[role="heading"]')].find((e) => e.textContent.trim() === 'Progress'); const p = h && h.previousElementSibling; return !!p && /ionicons/i.test(getComputedStyle(p).fontFamily); })()`)) === true);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

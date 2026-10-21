@@ -6,6 +6,7 @@ import { STREAK_TEXT, bestLine, dayLabel, streakLine, windowLine, type DayState,
 import { parseDateKey } from '../../lib/kanban';
 import { useAllStreaks } from './streakStore';
 import { DISPLAY_FONT_FAMILY } from './desktopFont';
+import { IconHeading } from './ui';
 
 // The Progress page (checkpoint 11, decision 025: a page inside the app, reached
 // from the profile menu or File, Progress; no new top level navigation). For
@@ -23,9 +24,7 @@ export default function ProgressPage() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} accessibilityLabel="Progress">
       <View style={styles.column}>
-        <Text style={styles.heading} accessibilityRole="header">
-          📈 {STREAK_TEXT.progressTitle}
-        </Text>
+        <IconHeading icon="trending-up-outline" style={styles.heading}>{STREAK_TEXT.progressTitle}</IconHeading>
         <Text style={styles.hint}>{STREAK_TEXT.progressIntro}</Text>
         {sorted.length === 0 ? (
           <View style={styles.card}>

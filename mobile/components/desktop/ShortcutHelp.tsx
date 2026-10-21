@@ -4,8 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { displayKeys, shortcutGroups } from '../../lib/shortcuts';
 import { closeOverlay } from './uiStore';
+import { IconHeading, type IconName } from './ui';
 
-const GROUP_EMOJI: Record<string, string> = { General: '⌨️', Navigation: '🧭', Task: '✅' };
+const GROUP_ICON: Record<string, IconName> = { General: 'keypad-outline', Navigation: 'compass-outline', Task: 'checkmark-circle-outline' };
 
 // The keyboard shortcut help (Shift+/). Generated from the registry in
 // lib/shortcuts.ts, so it lists exactly the keys that are wired and nothing
@@ -42,9 +43,7 @@ export default function ShortcutHelp() {
         <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
           {shortcutGroups().map(({ group, items }) => (
             <View key={group} style={styles.group}>
-              <Text style={styles.groupTitle} accessibilityRole="header">
-                {GROUP_EMOJI[group]} {group}
-              </Text>
+              <IconHeading icon={GROUP_ICON[group] ?? 'keypad-outline'} style={styles.groupTitle} size={15}>{group}</IconHeading>
               {items.map((d) => (
                 <View key={d.id} style={styles.row}>
                   <Text style={styles.label}>{d.label}</Text>
@@ -62,7 +61,7 @@ export default function ShortcutHelp() {
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.scrim },
-  card: { width: 480, maxWidth: '92%', maxHeight: '86%', borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 8 },
+  card: { width: 480, maxWidth: '92%', maxHeight: '86%', borderRadius: 16, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   close: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },

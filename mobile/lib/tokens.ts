@@ -40,6 +40,8 @@ export interface ColorTokens {
   shadowSm: string; // a block lifted a hair
   shadowMd: string; // a popover
   shadowLg: string; // a modal
+  chartActual: string; // charts: what happened (actual time, tasks done)
+  chartEstimate: string; // charts: the estimate (drawn as an outline too, so colour is never the only signal)
 }
 
 export const lightTokens: ColorTokens = {
@@ -75,6 +77,8 @@ export const lightTokens: ColorTokens = {
   shadowSm: '0 1px 2px rgba(27,27,27,0.06)',
   shadowMd: '0 6px 18px rgba(27,27,27,0.12)',
   shadowLg: '0 16px 48px rgba(27,27,27,0.20)',
+  chartActual: '#5C7A6B',
+  chartEstimate: '#9A5F3D',
 };
 
 export const darkTokens: ColorTokens = {
@@ -99,9 +103,9 @@ export const darkTokens: ColorTokens = {
   scrim: 'rgba(0,0,0,0.55)',
   scrimSoft: 'rgba(0,0,0,0.35)',
   trackLine: 'rgba(255,255,255,0.35)',
-  chip: 'rgba(255,255,255,0.10)',
-  chipStrong: 'rgba(255,255,255,0.18)',
-  checkFill: 'rgba(255,255,255,0.06)',
+  chip: 'rgba(255,255,255,0.06)',
+  chipStrong: 'rgba(255,255,255,0.12)',
+  checkFill: 'rgba(255,255,255,0.05)',
   onLabel: '#FFFFFF',
   plainBlock: '#282828',
   breakTint: '#3A3A3A',
@@ -110,6 +114,8 @@ export const darkTokens: ColorTokens = {
   shadowSm: '0 1px 2px rgba(0,0,0,0.4)',
   shadowMd: '0 6px 18px rgba(0,0,0,0.5)',
   shadowLg: '0 16px 48px rgba(0,0,0,0.6)',
+  chartActual: '#8FB39A',
+  chartEstimate: '#D9955F',
 };
 
 export const THEMES: Record<ThemeName, ColorTokens> = { light: lightTokens, dark: darkTokens };
@@ -140,11 +146,16 @@ export const fonts = {
 export const fontSize = { dayHeader: 20, cardTitle: 13, meta: 12, hint: 11, hour: 10, modalTitle: 20, rowLabel: 13 } as const;
 
 // Per app accent (the study, section 7). Belific is sage; Landis and Proload take their own.
+// `onAccent` is the text on an accent fill (white, or near black where white would not reach 4.5:1:
+// Proload's orange, Landis' bright indigo on dark). The soft accent is derived from the accent.
 export const accents = {
-  belific: { light: { accent: '#5C7A6B', accentText: '#44604F' }, dark: { accent: '#8FB39A', accentText: '#8FB39A' } },
-  landis: { light: { accent: '#6D4AE0', accentText: '#5B3CC4' }, dark: { accent: '#8B5CF6', accentText: '#A78BFA' } },
-  proload: { light: { accent: '#E8620C', accentText: '#B84A06' }, dark: { accent: '#F97316', accentText: '#FB923C' } },
+  belific: { light: { accent: '#5C7A6B', accentText: '#44604F', onAccent: '#FFFFFF' }, dark: { accent: '#8FB39A', accentText: '#8FB39A', onAccent: '#121212' } },
+  landis: { light: { accent: '#6D4AE0', accentText: '#5B3CC4', onAccent: '#FFFFFF' }, dark: { accent: '#8B5CF6', accentText: '#A78BFA', onAccent: '#0A0A0A' } },
+  proload: { light: { accent: '#E8620C', accentText: '#B84A06', onAccent: '#1B1B1B' }, dark: { accent: '#F97316', accentText: '#FB923C', onAccent: '#121212' } },
 } as const;
+export type AppName = keyof typeof accents;
 
-// `backgroundColor` -> `--b-background-color`: the CSS variable a token is published under.
-export const cssVarName = (key: string): string => `--b-${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+// `backgroundColor` -> `--ds-background-color`: the CSS variable a token is published under (the
+// same names in the app and in design-tokens/tokens.css, so Landis and Proload read them as they are).
+export const CSS_PREFIX = '--ds-';
+export const cssVarName = (key: string): string => `${CSS_PREFIX}${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;

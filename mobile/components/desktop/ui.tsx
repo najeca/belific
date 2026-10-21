@@ -173,3 +173,17 @@ export function MonthGrid({ selected, min, onPick, a11y }: { selected?: string; 
     </View>
   );
 }
+
+// A heading with a thin line icon in front (a page title, a section title, a column title): the
+// icon is chrome, the text is the heading (accessibility role "header").
+export type IconName = React.ComponentProps<typeof Ionicons>['name'];
+export function IconHeading({ icon, style, size = 17, color = Colors.textSecondary, children, a11y }: { icon: IconName; style: object | object[]; size?: number; color?: string; children: React.ReactNode; a11y?: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 1 }}>
+      <Ionicons name={icon} size={size} color={color} />
+      <Text style={style} accessibilityRole="header" accessibilityLabel={a11y}>
+        {children}
+      </Text>
+    </View>
+  );
+}

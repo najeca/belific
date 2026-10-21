@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   muted: { fontSize: 13, color: Colors.textSecondary },
   allBtn: { alignSelf: 'flex-start', paddingHorizontal: 12, height: 32, borderRadius: 10, backgroundColor: Colors.accent, justifyContent: 'center' },
   allText: { fontSize: 13, fontWeight: '700', color: Colors.onAccent },
-  row: { padding: 10, borderRadius: 12, backgroundColor: Colors.surface, gap: 8 },
+  row: { padding: 10, borderRadius: 10, backgroundColor: Colors.surface, gap: 8 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   box: { ...checkRing(18) } as object,
   boxOn: { ...checkRingDone },

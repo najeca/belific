@@ -58,9 +58,9 @@ const styles = StyleSheet.create({
   heading: { fontSize: 18, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary },
   body: { fontSize: 14, color: Colors.textPrimary, marginBottom: 4 },
   hint: { fontSize: 12, color: Colors.textSecondary },
-  btn: { paddingHorizontal: 14, minHeight: 44, paddingVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
+  btn: { paddingHorizontal: 14, minHeight: 44, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
   btnText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
-  btnPrimary: { paddingHorizontal: 16, minHeight: 44, paddingVertical: 8, borderRadius: 14, backgroundColor: Colors.accent, justifyContent: 'center' },
+  btnPrimary: { paddingHorizontal: 16, minHeight: 44, paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.accent, justifyContent: 'center' },
   btnPrimaryText: { fontSize: 13, fontWeight: '600', color: Colors.onAccent },
   disabled: { opacity: 0.5 },
 });

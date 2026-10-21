@@ -144,7 +144,8 @@ async function run() {
   // ======== 2. Settings, Calendars, signed out ========
   await openSettings();
   const upper = (await I.body()).toUpperCase();
-  check('Settings has a 📅 Calendars section', upper.includes('📅 CALENDARS') && (await I.exists(I.byLabel('Calendars settings'))));
+  // 2.45.0 (on purpose): the section's icon is a line icon, not an emoji.
+  check('Settings has a Calendars section with a line icon', upper.includes('CALENDARS') && (await I.exists(I.byLabel('Calendars settings'))) && (await I.js(`(() => { const h = [...document.querySelectorAll('[role="heading"]')].find((e) => e.textContent.trim().toUpperCase() === 'CALENDARS'); const p = h && h.previousElementSibling; return !!p && /ionicons/i.test(getComputedStyle(p).fontFamily); })()`)) === true);
   check('signed out, the feed says it needs an account (and offers no link)', (await text('Calendar feed')).includes('Sign in to get a feed link') && !(await I.exists(I.byLabel('Feed link'))));
   check('the iPhone calendars are explained (allowed on the iPhone, nothing comes here)', (await I.body()).includes('iPhone calendars') && (await I.body()).includes('Nothing from them comes to this computer'));
   check('the seeded subscription is listed with its host, event count and refresh time', (await text('Imported calendar Seeded')).includes('cal.example') && (await text('Imported calendar Seeded')).includes('1 event') && /Refreshed \d\d:\d\d/.test(await text('Imported calendar Seeded')), await text('Imported calendar Seeded'));

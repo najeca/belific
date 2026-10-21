@@ -185,7 +185,7 @@ function Body({ lists, counts, selected, current }: { lists: TaskList[]; counts:
 }
 
 const styles = StyleSheet.create({
-  button: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: 10, height: 30, borderRadius: 12 },
+  button: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: 10, height: 30, borderRadius: 10 },
   buttonOpen: { backgroundColor: Colors.background },
   buttonText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, color: Colors.textPrimary, flexShrink: 1 },
   emoji: { fontSize: 15, width: 22, textAlign: 'center' },

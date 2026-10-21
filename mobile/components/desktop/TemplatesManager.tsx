@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   hint: { fontSize: 12, color: Colors.textSecondary },
   input: { flex: 1, height: 34, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
-  btn: { paddingHorizontal: 12, height: 32, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
+  btn: { paddingHorizontal: 12, height: 32, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
   btnText: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary },
   danger: { fontSize: 12, fontWeight: '600', color: Colors.danger },
 });

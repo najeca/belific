@@ -65,8 +65,8 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, color: Colors.textPrimary },
   hint: { fontSize: 12, color: Colors.textSecondary },
   methods: { gap: 10, marginTop: 4 },
-  method: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, height: 44, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  method: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, height: 44, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   methodText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  notNow: { alignSelf: 'flex-start', paddingHorizontal: 14, height: 36, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
+  notNow: { alignSelf: 'flex-start', paddingHorizontal: 14, height: 36, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
   notNowText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
 });

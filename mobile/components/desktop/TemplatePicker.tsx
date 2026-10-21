@@ -52,7 +52,7 @@ export default function TemplatePicker({ listKey, refreshKey, onChanged }: { lis
 }
 
 const styles = StyleSheet.create({
-  btn: { width: 40, height: 40, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  btn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
   btnOpen: { borderColor: Colors.accent },
   emoji: { fontSize: 16 },
   empty: { fontSize: 12, color: Colors.textSecondary, paddingHorizontal: 14, paddingVertical: 8 },

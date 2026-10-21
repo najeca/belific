@@ -26,6 +26,7 @@ import { closeOverlay, notifyChanged } from './uiStore';
 import { useTint } from './themeStore';
 import { DISPLAY_FONT_FAMILY } from './desktopFont';
 import { RoundCheck } from './ui';
+import { IconHeading, type IconName } from './ui';
 
 // Daily Planning (4 steps) and Daily Shutdown (2 steps), build plan phase 5,
 // section 4. A full screen overlay on the home screen, never a new screen: a
@@ -130,7 +131,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     tick: (t) => edit(t.id, t.completed ? { completed: false } : { completed: true, completedAt: new Date().toISOString() }),
   };
   const missedColumn = (title: string, hint: string) => (
-    <Column title={title} emoji="🕓" hint={hint}>
+    <Column title={title} icon="time-outline" hint={hint}>
       <MissedList items={missedRows} labels={labels} todayKey={todayKey} actions={missedActions} rowLabel={(t) => `Flow task ${t.title}`} empty="No missed tasks to review. Add anything you want to work on in the next step." />
     </Column>
   );
@@ -150,7 +151,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     ];
     columns = (
       <>
-        <Column title="Here's what you finished" emoji="✅">
+        <Column title="Here's what you finished" icon="checkmark-circle-outline">
           {done.length === 0 ? <Text style={styles.muted}>Nothing was finished yesterday.</Text> : done.map((t) => <Row key={t.id} task={t} label={labelOf(t)} />)}
         </Column>
         {missedColumn("Here's what you missed", 'Tick any that were actually done, or choose a day. The one off tasks you leave come to today when you finish; repeating days are never moved.')}
@@ -166,7 +167,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     columns = (
       <>
         <ListColumn lists={lists} tasks={view} labels={labels} actionLabel={mode === 'planning' ? 'Today' : 'Tomorrow'} onPick={(t) => edit(t.id, { dueDate: target })} />
-        <Column title={mode === 'planning' ? 'Today' : 'Tomorrow'} emoji={mode === 'planning' ? '📅' : '🌅'} hint={mode === 'shutdown' ? `${tomorrowList.length === 1 ? '1 already planned task' : `${tomorrowList.length} already planned tasks`}, ${countFromToday(view, carry, todayKey)} from Today` : undefined}>
+        <Column title={mode === 'planning' ? 'Today' : 'Tomorrow'} icon={mode === 'planning' ? 'calendar-outline' : 'sunny-outline'} hint={mode === 'shutdown' ? `${tomorrowList.length === 1 ? '1 already planned task' : `${tomorrowList.length} already planned tasks`}, ${countFromToday(view, carry, todayKey)} from Today` : undefined}>
           <AddBar
             placeholder={mode === 'planning' ? 'Add a task for today' : 'Add a task for tomorrow'}
             onAdd={(title) => {
@@ -194,18 +195,18 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     const move = (t: Task, day: string) => edit(t.id, { dueDate: day });
     columns = (
       <>
-        <Column title="Today" emoji="📅">
+        <Column title="Today" icon="calendar-outline">
           <LabelBar tasks={todayList} labels={labels} />
           {todayList.map((t) => (
             <Row key={t.id} task={t} label={labelOf(t)} onEstimate={(m) => edit(t.id, { durationMinutes: m })} actions={[{ text: '→ Tomorrow', a11y: `Move ${t.title} to tomorrow`, onPress: () => move(t, tomorrow) }, { text: '→ Next week', a11y: `Move ${t.title} to next week`, onPress: () => move(t, nextWeek) }]} />
           ))}
         </Column>
-        <Column title="Tomorrow" emoji="🌅" hint={awayDays.has(tomorrow) ? '✈️ Tomorrow is an away day' : 'Add tasks that can wait'}>
+        <Column title="Tomorrow" icon="sunny-outline" hint={awayDays.has(tomorrow) ? 'Tomorrow is an away day' : 'Add tasks that can wait'}>
           {tomorrowList.map((t) => (
             <Row key={t.id} task={t} label={labelOf(t)} actions={[{ text: '← Today', a11y: `Move ${t.title} to today`, onPress: () => move(t, todayKey) }]} />
           ))}
         </Column>
-        <Column title="Next week" emoji="🗓️" hint="Add tasks that can wait">
+        <Column title="Next week" icon="calendar-number-outline" hint="Add tasks that can wait">
           {nextWeekList.map((t) => (
             <Row key={t.id} task={t} label={labelOf(t)} actions={[{ text: '← Today', a11y: `Move ${t.title} to today`, onPress: () => move(t, todayKey) }]} />
           ))}
@@ -219,7 +220,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     ];
     columns = (
       <>
-        <Column title="Today" emoji="📅" hint="Give a task a time, or leave it untimed.">
+        <Column title="Today" icon="calendar-outline" hint="Give a task a time, or leave it untimed.">
           {todayList.map((t) => (
             <View key={t.id} style={styles.timeRow}>
               <Row task={t} label={labelOf(t)} onEstimate={(m) => edit(t.id, { durationMinutes: m })} />
@@ -239,7 +240,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
             </View>
           ))}
         </Column>
-        <Column title="Timebox" emoji="🕐">
+        <Column title="Timebox" icon="time-outline">
           <DayPreview tasks={todayList} labels={labels} isToday />
         </Column>
       </>
@@ -254,11 +255,11 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     ];
     columns = (
       <>
-        <Column title="Here's what you did today" emoji="✅" hint="Corrections are fine: untick anything that is not done.">
+        <Column title="Here's what you did today" icon="checkmark-circle-outline" hint="Corrections are fine: untick anything that is not done.">
           {done.length === 0 ? <Text style={styles.muted}>Nothing finished today, and that is fine.</Text> : done.map((t) => <Row key={t.id} task={t} label={labelOf(t)} tick onTick={() => edit(t.id, { completed: false })} />)}
         </Column>
         {missedRows.length > 0 && missedColumn('From earlier days', 'The Missed list. Nothing here moves unless you choose; Shutdown does not bring them to today.')}
-        <Column title="What you missed" emoji="🌙" hint="Ticked ones go to tomorrow when you finish.">
+        <Column title="What you missed" icon="moon-outline" hint="Ticked ones go to tomorrow when you finish.">
           {left.length === 0 ? (
             <Text style={styles.muted}>Nothing left over from today.</Text>
           ) : (
@@ -290,7 +291,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     <View style={styles.overlay} accessibilityLabel={mode === 'planning' ? 'Daily Planning' : 'Daily Shutdown'} {...({ role: 'dialog', 'aria-modal': true, dataSet: { flow: mode } } as object)}>
       <View style={styles.rail}>
         <Text style={styles.badge}>
-          {mode === 'planning' ? '🌅 Daily Planning' : '🌙 Daily Shutdown'} · Step {step + 1} of {steps.length}
+          {mode === 'planning' ? 'Daily Planning' : 'Daily Shutdown'} · Step {step + 1} of {steps.length}
         </Text>
         <Text style={styles.title} accessibilityRole="header">
           {s.title}
@@ -299,7 +300,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         <Text style={styles.helper}>Everything is a draft until you finish. Cancel changes nothing.</Text>
         {awayNote ? (
           <Text style={styles.helper} {...({ dataSet: { flowAway: '1' } } as object)}>
-            ✈️ {awayNote} {awayNote.includes(' and ') ? 'are away days' : 'is an away day'}. Tasks can still go there.
+            {awayNote} {awayNote.includes(' and ') ? 'are away days' : 'is an away day'}. Tasks can still go there.
           </Text>
         ) : null}
         <View style={styles.figures}>
@@ -368,12 +369,10 @@ function byLabel(tasks: Task[], labels: Project[], what: 'actual' | 'estimate' =
   return [...by.entries()].filter(([, m]) => m > 0).map(([k, m]) => [k, formatClock(m)]);
 }
 
-function Column({ title, emoji, hint, children }: { title: string; emoji: string; hint?: string; children: React.ReactNode }) {
+function Column({ title, icon, hint, children }: { title: string; icon: IconName; hint?: string; children: React.ReactNode }) {
   return (
     <View style={styles.column} accessibilityLabel={`${title} column`}>
-      <Text style={styles.columnTitle} accessibilityRole="header">
-        {emoji} {title}
-      </Text>
+      <IconHeading icon={icon} style={styles.columnTitle}>{title}</IconHeading>
       {hint ? <Text style={styles.muted}>{hint}</Text> : null}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 6, paddingBottom: 12 }}>
         {children}
@@ -563,8 +562,8 @@ const styles = StyleSheet.create({
   figureKey: { fontSize: 13, color: Colors.textSecondary },
   figureValue: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
   railButtons: { flexDirection: 'row', gap: 8 },
-  backBtn: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  primary: { flex: 1, height: 44, borderRadius: 14, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 44, height: 44, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  primary: { flex: 1, height: 44, borderRadius: 10, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
   primaryText: { fontSize: 15, fontWeight: '700', color: Colors.onAccent },
   off: { opacity: 0.5 },
   cancel: { alignSelf: 'center', padding: 8 },
@@ -582,7 +581,7 @@ const styles = StyleSheet.create({
   action: { paddingHorizontal: 8, height: 28, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.surface },
   actionText: { fontSize: 12, color: Colors.textPrimary },
   timeRow: { gap: 4 },
-  add: { height: 38, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
+  add: { height: 38, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   bar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: Colors.background },
   allDay: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, alignItems: 'center', paddingBottom: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border, marginBottom: 6 },
   allDayChip: { fontSize: 11, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: Colors.background, color: Colors.textPrimary, maxWidth: 140 },

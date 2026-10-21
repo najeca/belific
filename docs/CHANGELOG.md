@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.45.0 — 2026-10-21 (Ellie Planner look, step 7 of 8: Settings and every remaining screen)
+
+**Desktop only. Look only.**
+- **Every screen** (Settings, Progress, Analytics, Trash, Labels, Quests, Daily Planning, Sign in, the shortcut help, quick capture, search, the Missed list, the Calendar month) now uses the same pieces and tokens. New real check `p23.js` opens each of them in light and in dark, saves a screenshot, and checks in code that nothing is left in the old style: no radius outside the scale (4, 6, 8, 10, 16, round) and every line of text at least 4.5:1 on its real background (translucent layers included).
+- **One radius scale everywhere:** the 14, 12, 18, 20, 9, 7, 5 and 3 px corners left over from the old look (62 places) are now on the scale; round things stay round.
+- **Thin line icons instead of interface emoji:** the headings and section titles (Settings, Analytics, Quests, Trash, Progress, Labels, Missed, Timebox, Daily Planning's columns, quick capture, the shortcut help groups), the profile menu rows, the Settings feature switches and several buttons. The person's own emoji (a list, a label, a task) stay emoji, and so do the friendly empty-state lines and the markers on imported calendar events. Screen reader names are unchanged.
+- **Analytics charts on dark:** the chart colours are theme tokens (a brighter pair on dark) and a label's colour in a chart is lightened to stay 3:1 on the dark surface.
+- **Dark label colours a little deeper:** a label's dark tint keeps 4.5:1 for the secondary text even under a duration chip (the chip is softer on dark too).
+- **CSS variables renamed** `--b-*` to `--ds-*`, the name design-tokens/ uses, so Landis and Proload read the same names.
+- Real checks changed on purpose, each only because an emoji became a line icon: `p7.js` (the Settings sections and the Progress heading carry a line icon), `p8.js` (the Calendars section), `p3.js` ("Quick capture to Today", no emoji in front of Today). Full real regression re-run: all pass except `run-cp8b`, which failed twice in a row once (a label dropdown check, then its relaunch) and then passed 58 of 58 twice on a rerun with no change; not explained, recorded as a flake to watch.
+
+---
+
 ## 2.44.0 — 2026-10-21 (Ellie Planner look, step 6 of 8: the Calendar and the Timebox)
 
 **Desktop only. Look only.**

@@ -7,6 +7,7 @@ import { createTaskIn } from '../../lib/taskCommands';
 import { loadLists } from '../../lib/storage';
 import type { TaskList } from '../../lib/types';
 import { closeOverlay, getSelectedList, notifyChanged } from './uiStore';
+import { IconHeading } from './ui';
 
 // Quick capture (Q, and T for today; build plan phase 3). One box over the home
 // screen, wherever the keyboard focus was, whichever panes are open: type, press
@@ -31,7 +32,7 @@ export default function QuickCapture({ mode }: { mode: 'list' | 'today' }) {
   }, []);
 
   const selected = resolveSelectedList(getSelectedList(), lists);
-  const where = mode === 'today' ? '📅 Today' : listTitle(lists.find((l) => l.key === selected));
+  const where = mode === 'today' ? 'Today' : listTitle(lists.find((l) => l.key === selected));
 
   async function submit(keepOpen: boolean) {
     const title = text.trim();
@@ -50,7 +51,7 @@ export default function QuickCapture({ mode }: { mode: 'list' | 'today' }) {
   return (
     <Pressable style={styles.scrim} onPress={closeOverlay} accessibilityLabel="Close quick capture">
       <Pressable onPress={() => {}} style={styles.card} accessibilityLabel="Quick capture" {...({ role: 'dialog', 'aria-modal': true } as object)}>
-        <Text style={styles.heading}>⚡ Quick capture to {where}</Text>
+        <IconHeading icon="flash-outline" style={styles.heading}>Quick capture to {where}</IconHeading>
         <TextInput
           ref={input}
           style={styles.input}
@@ -81,8 +82,8 @@ export default function QuickCapture({ mode }: { mode: 'list' | 'today' }) {
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', paddingTop: 140, backgroundColor: Colors.scrim },
-  card: { width: 520, maxWidth: '92%', borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 10, alignSelf: 'center' },
+  card: { width: 520, maxWidth: '92%', borderRadius: 16, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 10, alignSelf: 'center' },
   heading: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, color: Colors.textSecondary },
-  input: { height: 44, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 16, outlineColor: Colors.accent },
+  input: { height: 44, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 16, outlineColor: Colors.accent },
   hint: { fontSize: 12, color: Colors.textSecondary },
 });

@@ -183,10 +183,10 @@ const styles = StyleSheet.create({
   hint: { marginTop: 6, fontSize: 12, color: Colors.textSecondary },
   warning: { marginTop: 8, fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  confirm: { marginTop: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
-  btn: { paddingHorizontal: 14, height: 36, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
+  confirm: { marginTop: 10, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
+  btn: { paddingHorizontal: 14, height: 36, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
   btnText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
-  btnPrimary: { paddingHorizontal: 16, height: 36, borderRadius: 14, backgroundColor: Colors.accent, justifyContent: 'center' },
+  btnPrimary: { paddingHorizontal: 16, height: 36, borderRadius: 10, backgroundColor: Colors.accent, justifyContent: 'center' },
   btnPrimaryText: { fontSize: 13, fontWeight: '600', color: Colors.onAccent },
   disabled: { opacity: 0.5 },
 });

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import PaletteSwitch from './PaletteSwitch';
 import RoutineConvertRow from './RoutineConvertRow';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { deleteAccountDesktop, signOutDesktop } from '../../lib/desktopAuth';
 import { SIGN_IN_TEXT } from '../../lib/authCore';
@@ -30,6 +31,7 @@ import { REMINDER_LEADS, leadLabel, toggleLead } from '../../lib/reminder';
 import { CUT_MIN_OPTIONS, parseCutMin } from '../../lib/cuts';
 import { displayKeys, shortcutGroups } from '../../lib/shortcuts';
 import { DISPLAY_FONT_FAMILY } from './desktopFont';
+import { IconHeading, type IconName } from './ui';
 
 // The Settings page (checkpoint 9, decision 025): a view inside the app, not
 // an overlay. It replaces the old Settings modal; every setting and its
@@ -142,7 +144,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
       <View style={styles.column}>
         <Text style={styles.heading}>Settings</Text>
 
-        <Section title="Account" emoji="👤">
+        <Section title="Account" icon="person-outline">
           {signedIn ? (
             <>
               <Text style={styles.body}>Signed in as {account}</Text>
@@ -194,7 +196,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           {(ui.message || note) && <Text style={styles.hint}>{note ?? ui.message}</Text>}
         </Section>
 
-        <Section title="Sync" emoji="🔄">
+        <Section title="Sync" icon="sync-outline">
           <Text style={[styles.body, line.warn && { color: Colors.danger }]}>{line.text}</Text>
           <Text style={styles.hint}>{lastSyncedText(status.lastSuccessAt, now)}</Text>
           <Text style={styles.hint}>Last error: {error ?? 'None'}</Text>
@@ -212,7 +214,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
 
         {prefs && (
           <>
-            <Section title="Planning" emoji="🗓️">
+            <Section title="Planning" icon="calendar-number-outline">
               <View style={styles.timeRow}>
                 <Text style={styles.body}>My day starts at</Text>
                 <select
@@ -255,7 +257,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               </Text>
             </Section>
 
-            <Section title="Appearance" emoji="🎨">
+            <Section title="Appearance" icon="color-palette-outline">
               <Text style={styles.body}>Theme</Text>
               <View style={styles.leadRow} {...({ dataSet: { themeSetting: '1' } } as object)}>
                 {THEME_MODES.map((m) => {
@@ -284,7 +286,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               </Text>
             </Section>
 
-            <Section title="Notifications" emoji="🔔">
+            <Section title="Notifications" icon="notifications-outline">
               <ToggleRow label="Event starts" value={prefs.notifyEvents} onChange={(v) => setPref({ notifyEvents: v })} />
               <ToggleRow label="Tasks placed on the Timebox" value={prefs.notifyTasks} onChange={(v) => setPref({ notifyTasks: v })} />
               {prefs.notifyTasks && (
@@ -354,21 +356,22 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           </>
         )}
 
-        <Section title="Calendars" emoji="📅">
+        <Section title="Calendars" icon="calendar-number-outline">
           <CalendarsSection signedIn={signedIn} refreshKey={refreshKey} />
         </Section>
 
-        <Section title="Power features" emoji="⚡">
+        <Section title="Power features" icon="flash-outline">
           <Text style={styles.hint}>Turn off what you do not use and it disappears from the screen. Nothing is deleted: turn it on again and it is all still there.</Text>
           {FEATURES.map((f) => (
             <View key={f.key}>
               {f.comingLater ? (
                 <View style={styles.toggleRow} accessibilityLabel={`${f.label}, coming later`}>
-                  <Text style={[styles.body, { flex: 1 }]}>{f.emoji} {f.label}</Text>
+                  <Ionicons name={FEATURE_ICONS[f.key] ?? 'ellipse-outline'} size={16} color={Colors.textSecondary} />
+                  <Text style={[styles.body, { flex: 1 }]}>{f.label}</Text>
                   <Text style={styles.hint}>Coming later</Text>
                 </View>
               ) : (
-                <ToggleRow label={`${f.emoji} ${f.label}`} value={features[f.key]} onChange={(v) => setFeature(f.key, v)} />
+                <ToggleRow label={f.label} icon={FEATURE_ICONS[f.key]} a11yLabel={`${f.emoji} ${f.label}`} value={features[f.key]} onChange={(v) => setFeature(f.key, v)} />
               )}
               <Text style={styles.hint}>{f.hint}</Text>
             </View>
@@ -376,7 +379,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           {features.templates && <TemplatesManager />}
         </Section>
 
-        <Section title="Data" emoji="💾">
+        <Section title="Data" icon="save-outline">
           <View style={styles.row}>
             <Pressable onPress={() => desktop?.actions.openBackups()} accessibilityRole="button" style={styles.btn}>
               <Text style={styles.btnText}>Open backups folder</Text>
@@ -387,10 +390,10 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           </View>
           <View style={styles.row}>
             <Pressable onPress={() => onExport('json')} accessibilityRole="button" accessibilityLabel="Export my data as JSON" style={styles.btn}>
-              <Text style={styles.btnText}>📤 My data (JSON)</Text>
+              <Text style={styles.btnText}>My data (JSON)</Text>
             </Pressable>
             <Pressable onPress={() => onExport('csv')} accessibilityRole="button" accessibilityLabel="Export my tasks as CSV" style={styles.btn}>
-              <Text style={styles.btnText}>📤 My tasks (CSV)</Text>
+              <Text style={styles.btnText}>My tasks (CSV)</Text>
             </Pressable>
           </View>
           {exportNote && (
@@ -404,7 +407,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           <ResetCacheRow onChanged={onChanged} />
         </Section>
 
-        <Section title="Labels" emoji="🏷️">
+        <Section title="Labels" icon="pricetag-outline">
           <Text style={styles.body}>
             {labelCount === 0 ? 'No labels yet.' : labelCount === 1 ? '1 label.' : `${labelCount} labels.`} Rename them, change their colour or delete them.
           </Text>
@@ -415,7 +418,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           </View>
         </Section>
 
-        <Section title="Keyboard shortcuts" emoji="⌨️">
+        <Section title="Keyboard shortcuts" icon="keypad-outline">
           <Text style={styles.hint}>Shift+/ shows this list over the home screen at any time. Letters work when you are not typing in a box; task keys act on the card that has the keyboard focus.</Text>
           {shortcutGroups().map(({ group, items }) => (
             <View key={group} style={{ marginTop: 10 }} accessibilityLabel={`${group} shortcuts`}>
@@ -430,7 +433,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
           ))}
         </Section>
 
-        <Section title="About" emoji="ℹ️">
+        <Section title="About" icon="information-circle-outline">
           <Text style={styles.body}>Belific {desktop?.version ?? ''}</Text>
           <View style={styles.row}>
             <Pressable onPress={() => openExternal(PRIVACY_URL)} accessibilityRole="link" accessibilityLabel="Privacy policy" style={styles.btn}>
@@ -451,20 +454,23 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   );
 }
 
-function Section({ title, emoji, children }: { title: string; emoji?: string; children: React.ReactNode }) {
+const FEATURE_ICONS: Record<string, IconName> = { dueDates: 'notifications-outline', planning: 'sunny-outline', pomodoro: 'timer-outline', templates: 'copy-outline', analytics: 'bar-chart-outline', attachments: 'attach-outline' };
+
+function Section({ title, icon, children }: { title: string; icon?: IconName; children: React.ReactNode }) {
   return (
     <View style={styles.section} accessibilityLabel={`${title} settings`}>
-      <Text style={styles.sectionTitle}>{emoji ? `${emoji} ${title}` : title}</Text>
+      {icon ? <IconHeading icon={icon} style={styles.sectionTitle} size={16}>{title}</IconHeading> : <Text style={styles.sectionTitle}>{title}</Text>}
       {children}
     </View>
   );
 }
 
-function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+function ToggleRow({ label, value, onChange, icon, a11yLabel }: { label: string; value: boolean; onChange: (v: boolean) => void; icon?: IconName; a11yLabel?: string }) {
   return (
     <View style={styles.toggleRow}>
+      {icon ? <Ionicons name={icon} size={16} color={Colors.textSecondary} /> : null}
       <Text style={[styles.body, { flex: 1 }]}>{label}</Text>
-      <PaletteSwitch value={value} onValueChange={onChange} label={label} />
+      <PaletteSwitch value={value} onValueChange={onChange} label={a11yLabel ?? label} />
     </View>
   );
 }
@@ -493,15 +499,15 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, color: Colors.textPrimary },
   hint: { marginTop: 6, fontSize: 12, color: Colors.textSecondary },
   leadRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  leadChip: { paddingHorizontal: 10, height: 30, borderRadius: 15, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
+  leadChip: { paddingHorizontal: 10, height: 30, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
   leadChipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   leadChipText: { fontSize: 12, color: Colors.textPrimary },
   leadChipTextOn: { color: Colors.onAccent, fontWeight: '600' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  confirm: { marginTop: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
-  btn: { paddingHorizontal: 14, height: 36, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
+  confirm: { marginTop: 10, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
+  btn: { paddingHorizontal: 14, height: 36, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
   btnText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
-  btnPrimary: { paddingHorizontal: 16, height: 36, borderRadius: 14, backgroundColor: Colors.accent, justifyContent: 'center' },
+  btnPrimary: { paddingHorizontal: 16, height: 36, borderRadius: 10, backgroundColor: Colors.accent, justifyContent: 'center' },
   btnPrimaryText: { fontSize: 13, fontWeight: '600', color: Colors.onAccent },
   dangerText: { fontSize: 13, fontWeight: '600', color: Colors.danger },
   disabled: { opacity: 0.5 },

@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   todayBtn: { ...outlinedBtn, paddingHorizontal: 14, height: 32, justifyContent: 'center' } as object,
   todayText: { ...outlinedBtnText },
-  jump: { position: 'absolute', top: 40, left: 72, zIndex: 30, padding: 12, gap: 6, backgroundColor: Colors.surface, borderRadius: 14, boxShadow: Colors.shadowMd } as object,
+  jump: { position: 'absolute', top: 40, left: 72, zIndex: 30, padding: 12, gap: 6, backgroundColor: Colors.surface, borderRadius: 10, boxShadow: Colors.shadowMd } as object,
   menuHeading: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
   board: { flex: 1 },
   column: { width: COLUMN_WIDTH, borderRadius: 10 },

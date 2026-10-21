@@ -59,6 +59,7 @@ import {
 import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { openDetail } from './uiStore';
 import { outlinedBtn, outlinedBtnText } from './ui';
+import { IconHeading } from './ui';
 
 // Desktop Timebox (decision 009): an hourly grid for one day, the whole 24
 // hours, 00:00 to 24:00 (decision 024). It opens at the "My day starts at"
@@ -315,9 +316,7 @@ export default function TimeboxPane({
   return (
     <View style={styles.pane}>
       <View style={styles.headRow}>
-        <Text style={styles.paneTitle} accessibilityRole="header">
-          🕐 Timebox
-        </Text>
+        <IconHeading icon="time-outline" style={styles.paneTitle}>Timebox</IconHeading>
         {onHide && (
           <Pressable onPress={onHide} style={styles.hideBtn} accessibilityRole="button" accessibilityLabel="Hide Timebox">
             <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
@@ -679,7 +678,7 @@ const styles = StyleSheet.create({
     zIndex: 20,
     padding: 10,
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -754,7 +753,7 @@ const styles = StyleSheet.create({
     maxWidth: '92%',
     padding: 16,
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -781,7 +780,7 @@ const styles = StyleSheet.create({
   confirmNo: { fontSize: 13, fontWeight: '700', color: Colors.accentText },
   cancelBtn: { paddingHorizontal: 10, height: 34, justifyContent: 'center' },
   cancelText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-  saveBtn: { paddingHorizontal: 16, height: 34, justifyContent: 'center', borderRadius: 12, backgroundColor: Colors.accent },
+  saveBtn: { paddingHorizontal: 16, height: 34, justifyContent: 'center', borderRadius: 10, backgroundColor: Colors.accent },
   saveBtnDisabled: { opacity: 0.4 },
   saveText: { fontSize: 13, fontWeight: '700', color: Colors.onAccent },
 });

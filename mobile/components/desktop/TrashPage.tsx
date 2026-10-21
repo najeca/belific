@@ -5,6 +5,7 @@ import { agoText, TRASH_DAYS, type TrashEntry } from '../../lib/trash';
 import { loadTrash, restoreFromTrash } from '../../lib/trashActions';
 import { notifyChanged } from './uiStore';
 import { DISPLAY_FONT_FAMILY } from './desktopFont';
+import { IconHeading } from './ui';
 
 // The Trash page (build plan phase 6): tasks deleted in the last 30 days.
 // Restore makes a NEW task with the same fields (a deleted task can never come
@@ -42,9 +43,7 @@ export default function TrashPage({ refreshKey }: { refreshKey: number }) {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} accessibilityLabel="Trash">
       <View style={styles.column}>
-        <Text style={styles.heading} accessibilityRole="header">
-          🗑️ Trash
-        </Text>
+        <IconHeading icon="trash-outline" style={styles.heading} size={20}>Trash</IconHeading>
         <Text style={styles.hint}>
           Tasks you deleted in the last {TRASH_DAYS} days. Restore makes a new copy of the task with the same details; the deleted one stays deleted.
         </Text>
@@ -105,7 +104,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
   meta: { fontSize: 12, color: Colors.textSecondary },
-  btn: { paddingHorizontal: 14, height: 34, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
+  btn: { paddingHorizontal: 14, height: 34, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
   btnText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
   off: { opacity: 0.5 },
 });

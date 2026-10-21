@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
   mustDo: { fontSize: 12, lineHeight: 16, color: Colors.textPrimary },
   icons: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: 8, paddingLeft: 4 },
   quiet: { opacity: 0, pointerEvents: 'none' } as object,
-  icon: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
+  icon: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   iconOpen: { backgroundColor: Colors.chipStrong },
   glyph: { fontSize: 13, lineHeight: 18, color: Colors.textPrimary },
 });

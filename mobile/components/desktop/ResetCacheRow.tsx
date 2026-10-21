@@ -40,7 +40,7 @@ export default function ResetCacheRow({ onChanged }: { onChanged: () => void }) 
           accessibilityLabel="Reset local cache and resync"
           style={[styles.btn, (busy || confirming) && styles.disabled]}
         >
-          <Text style={styles.btnText}>♻️ Reset local cache and resync</Text>
+          <Text style={styles.btnText}>Reset local cache and resync</Text>
         </Pressable>
       </View>
       {confirming && (
@@ -68,10 +68,10 @@ export default function ResetCacheRow({ onChanged }: { onChanged: () => void }) 
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  confirm: { marginTop: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
+  confirm: { marginTop: 10, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
   body: { fontSize: 14, color: Colors.textPrimary },
   hint: { marginTop: 6, fontSize: 12, color: Colors.textSecondary },
-  btn: { paddingHorizontal: 14, height: 36, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
+  btn: { paddingHorizontal: 14, height: 36, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },
   btnText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
   dangerText: { fontSize: 13, fontWeight: '600', color: Colors.danger },
   disabled: { opacity: 0.5 },

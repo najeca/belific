@@ -6,6 +6,7 @@ import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import LabelsPage from './LabelsPage';
 import { isPopoverOpen } from './Popover';
 import { closeOverlay } from './uiStore';
+import { IconHeading } from './ui';
 
 // Labels as an overlay (build plan phase 7), not a page: it opens over whatever
 // screen is showing (Settings, or the home panes), so what was there stays
@@ -33,7 +34,7 @@ export default function LabelsOverlay({ onChanged }: { onChanged: () => void }) 
     <Pressable style={styles.scrim} onPress={closeOverlay} accessibilityLabel="Close labels">
       <Pressable onPress={() => {}} style={styles.card} accessibilityLabel="Labels" {...({ role: 'dialog', 'aria-modal': true } as object)}>
         <View style={styles.header}>
-          <Text style={styles.title} accessibilityRole="header">🏷️ Labels</Text>
+          <IconHeading icon="pricetag-outline" style={styles.title}>Labels</IconHeading>
           <Pressable onPress={closeOverlay} style={styles.close} accessibilityRole="button" accessibilityLabel="Close" {...({ dataSet: { labelsClose: '1' } } as object)}>
             <Ionicons name="close" size={18} color={Colors.textSecondary} />
           </Pressable>
@@ -48,7 +49,7 @@ export default function LabelsOverlay({ onChanged }: { onChanged: () => void }) 
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.scrim },
-  card: { width: 560, maxWidth: '94%', maxHeight: '88%', borderRadius: 18, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 8 },
+  card: { width: 560, maxWidth: '94%', maxHeight: '88%', borderRadius: 16, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   close: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },

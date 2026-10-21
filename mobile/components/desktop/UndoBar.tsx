@@ -64,9 +64,9 @@ export default function UndoBar() {
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, bottom: 20, alignItems: 'center', zIndex: 70 },
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: 8, height: 44, borderRadius: 14, backgroundColor: Colors.textPrimary, maxWidth: '90%', boxShadow: Colors.shadowMd } as object,
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: 8, height: 44, borderRadius: 10, backgroundColor: Colors.textPrimary, maxWidth: '90%', boxShadow: Colors.shadowMd } as object,
   text: { fontSize: 13, color: Colors.background, flexShrink: 1 },
-  btn: { paddingHorizontal: 12, height: 30, borderRadius: 9, justifyContent: 'center', backgroundColor: Colors.background },
+  btn: { paddingHorizontal: 12, height: 30, borderRadius: 8, justifyContent: 'center', backgroundColor: Colors.background },
   btnText: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
   close: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   closeText: { fontSize: 18, color: Colors.background },

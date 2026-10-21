@@ -12,6 +12,7 @@ import { opsForProjected, opsForTask } from './taskOps';
 import type { Task } from '../../lib/types';
 import { DISPLAY_FONT_FAMILY } from './desktopFont';
 import { RoundCheck } from './ui';
+import { IconHeading } from './ui';
 
 // The Quests page (build plan phase 4): every repeating task, grouped by how
 // often it repeats (Daily, Weekly, Every 2 weeks, Every few weeks, Monthly,
@@ -55,9 +56,7 @@ export default function QuestsPage({ refreshKey }: { refreshKey: number }) {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} accessibilityLabel="Quests">
       <View style={styles.column}>
-        <Text style={styles.heading} accessibilityRole="header">
-          🎯 Quests
-        </Text>
+        <IconHeading icon="trophy-outline" style={styles.heading} size={20}>Quests</IconHeading>
         <Text style={styles.hint}>Your repeating tasks, by how often they repeat. A skipped day never breaks a streak.</Text>
         {loaded && groups.length === 0 && (
           <View style={styles.empty}>
@@ -168,11 +167,11 @@ function QuestCard({ quest: q, todayKey, act }: { quest: Quest; todayKey: string
       {target && (
         <View style={styles.actions}>
           <Pressable onPress={act(() => skipQuest(target))} style={styles.action} accessibilityRole="button" accessibilityLabel={`Skip ${q.title} this time`}>
-            <Text style={styles.actionText}>⏭️ Skip</Text>
+            <Text style={styles.actionText}>Skip</Text>
           </Pressable>
           {canPlanToday(q, todayKey) && (
             <Pressable onPress={act(() => planQuestToday(target, todayKey))} style={styles.action} accessibilityRole="button" accessibilityLabel={`Put ${q.title} on today`}>
-              <Text style={styles.actionText}>📅 Today</Text>
+              <Text style={styles.actionText}>Today</Text>
             </Pressable>
           )}
           {(canPlanToday(q, todayKey) || target.task.dueDate === todayKey) && !target.task.startTime && (
@@ -182,7 +181,7 @@ function QuestCard({ quest: q, todayKey, act }: { quest: Quest; todayKey: string
               accessibilityRole="button"
               accessibilityLabel={`Put ${q.title} on the Timebox today`}
             >
-              <Text style={styles.actionText}>🕐 Timebox</Text>
+              <Text style={styles.actionText}>Timebox</Text>
             </Pressable>
           )}
         </View>
@@ -223,6 +222,6 @@ const styles = StyleSheet.create({
   dueDone: { color: Colors.accentText, backgroundColor: Colors.surface },
   streak: { fontSize: 12, color: Colors.textSecondary },
   actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  action: { paddingHorizontal: 10, height: 30, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
+  action: { paddingHorizontal: 10, height: 30, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
   actionText: { fontSize: 12, color: Colors.textPrimary },
 });

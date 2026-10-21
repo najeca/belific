@@ -91,12 +91,12 @@ function DayActions({ actions, onOpenSettings }: { actions: ProfileActions; onOp
   };
   return (
     <>
-      {actions.planning && <Row label="🌅 Plan my day" onPress={run(actions.planning)} a11y="Plan my day" />}
-      {actions.shutdown && <Row label="🌙 Shut down my day" onPress={run(actions.shutdown)} a11y="Shut down my day" />}
-      <Row label="⚡ Quick capture" onPress={run(actions.capture)} a11y="Quick capture" />
-      <Row label="🔎 Search" onPress={run(actions.search)} a11y="Search tasks" />
-      <Row label="⚙️ Settings" onPress={onOpenSettings} a11y="Settings" />
-      <Row label="⌨️ Keyboard shortcuts" onPress={run(actions.shortcuts)} a11y="Keyboard shortcuts" />
+      {actions.planning && <Row icon="sunny-outline" label="Plan my day" onPress={run(actions.planning)} a11y="Plan my day" />}
+      {actions.shutdown && <Row icon="moon-outline" label="Shut down my day" onPress={run(actions.shutdown)} a11y="Shut down my day" />}
+      <Row icon="flash-outline" label="Quick capture" onPress={run(actions.capture)} a11y="Quick capture" />
+      <Row icon="search-outline" label="Search" onPress={run(actions.search)} a11y="Search tasks" />
+      <Row icon="settings-outline" label="Settings" onPress={onOpenSettings} a11y="Settings" />
+      <Row icon="keypad-outline" label="Keyboard shortcuts" onPress={run(actions.shortcuts)} a11y="Keyboard shortcuts" />
     </>
   );
 }
@@ -116,8 +116,8 @@ function SignedOutBody({ actions, busy, message, onOpenSignIn, onOpenSettings, o
     <View style={styles.rows}>
       <DayActions actions={actions} onOpenSettings={onOpenSettings} />
       <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
-      {showAnalytics && <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />}
-      <Row label="🗑️ Trash" onPress={onOpenTrash} a11y="Trash" />
+      {showAnalytics && <Row icon="bar-chart-outline" label="Analytics" onPress={onOpenAnalytics} a11y="Analytics" />}
+      <Row icon="trash-outline" label="Trash" onPress={onOpenTrash} a11y="Trash" />
     </View>
     </View>
   );
@@ -169,8 +169,8 @@ function SignedInBody({ actions, account, status, ui, onOpenSettings, onOpenProg
         <Row label={syncing || status.state === 'syncing' ? 'Syncing…' : 'Sync now'} onPress={syncNow} disabled={syncing || status.state === 'syncing'} a11y="Sync now" />
         <DayActions actions={actions} onOpenSettings={onOpenSettings} />
         <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
-        {showAnalytics && <Row label="📊 Analytics" onPress={onOpenAnalytics} a11y="Analytics" />}
-        <Row label="🗑️ Trash" onPress={onOpenTrash} a11y="Trash" />
+        {showAnalytics && <Row icon="bar-chart-outline" label="Analytics" onPress={onOpenAnalytics} a11y="Analytics" />}
+        <Row icon="trash-outline" label="Trash" onPress={onOpenTrash} a11y="Trash" />
         <Row label="Sign out" onPress={signOut} a11y="Sign out" />
       </View>
     </View>
@@ -188,6 +188,6 @@ const styles = StyleSheet.create({
   note: { fontSize: 13, color: Colors.textPrimary },
   hint: { fontSize: 12, color: Colors.textSecondary },
   warn: { color: Colors.danger },
-  primary: { marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 36, borderRadius: 14, backgroundColor: Colors.accent },
+  primary: { marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 36, borderRadius: 10, backgroundColor: Colors.accent },
   primaryText: { fontSize: 13, fontWeight: '600', color: Colors.onAccent },
 });

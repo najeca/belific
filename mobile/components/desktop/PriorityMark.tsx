@@ -23,5 +23,5 @@ export default function PriorityMark({ chip = false }: { chip?: boolean }) {
 
 const styles = StyleSheet.create({
   mark: { fontSize: 11, lineHeight: 16, flexShrink: 0, color: Colors.textPrimary },
-  chip: { backgroundColor: Colors.onLabel, borderRadius: 5, overflow: 'hidden' },
+  chip: { backgroundColor: Colors.onLabel, borderRadius: 4, overflow: 'hidden' },
 });

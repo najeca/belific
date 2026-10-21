@@ -51,6 +51,26 @@ test('dark: every label colour, old and new, keeps primary and secondary text re
   }
 });
 
+test('dark: secondary text stays 4.5:1 on a label colour even with a chip (the duration pill) laid over it', () => {
+  const mix = (a: string, b: string, t: number) => `#${[1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join('')}`;
+  const chipAlpha = Number(/[\d.]+\)$/.exec(darkTokens.chip)![0].slice(0, -1));
+  for (const c of [...LABEL_COLORS, ...LEGACY_COLORS]) {
+    const under = mix(darkTint(c.edge), '#FFFFFF', chipAlpha);
+    assert.ok(contrast(darkTokens.textSecondary, under) >= 4.5, `${c.key} under a chip ${contrast(darkTokens.textSecondary, under).toFixed(2)}`);
+  }
+  const plain = mix(darkTokens.plainBlock, '#FFFFFF', chipAlpha);
+  assert.ok(contrast(darkTokens.textSecondary, plain) >= 4.5, `plain under a chip ${contrast(darkTokens.textSecondary, plain).toFixed(2)}`);
+});
+
+test('the chart colours are readable graphics (3:1) on every surface in both themes', () => {
+  for (const t of [lightTokens, darkTokens]) {
+    for (const bg of [t.background, t.pane, t.surface]) {
+      assert.ok(contrast(t.chartActual, bg) >= 3, `actual on ${bg}`);
+      assert.ok(contrast(t.chartEstimate, bg) >= 3, `estimate on ${bg}`);
+    }
+  }
+});
+
 test('light: every label colour keeps the tint it always had, and its text stays readable', () => {
   for (const c of [...LABEL_COLORS, ...LEGACY_COLORS]) {
     assert.equal(tintFor(c, false), c.tint);
@@ -74,8 +94,8 @@ test('Colors: plain hex here (no document), the phone palette it shipped with; C
   assert.equal(Colors.accent, '#5C7A6B');
   assert.equal(Colors.background, phoneColors.background);
   assert.equal(phoneColors.background, '#F0EEE8');
-  assert.equal(cssVarName('textPrimary'), '--b-text-primary');
-  assert.equal(cssVarName('shadowMd'), '--b-shadow-md');
+  assert.equal(cssVarName('textPrimary'), '--ds-text-primary');
+  assert.equal(cssVarName('shadowMd'), '--ds-shadow-md');
 });
 
 test('each app brings its own accent and Belific stays sage (brighter on dark)', () => {

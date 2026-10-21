@@ -1,7 +1,7 @@
 // Belific theme colours. `Colors.x` is what every component reads; it holds no hard-coded colour
 // of its own (lib/tokens.ts is the one source).
 //
-// On the desktop (web) each entry is a CSS variable reference, `var(--b-text-primary)`, so a
+// On the desktop (web) each entry is a CSS variable reference, `var(--ds-text-primary)`, so a
 // change of theme (components/desktop/themeStore.ts sets the variables on <html>) repaints the
 // whole screen at once with no re-render. On the phone (and in `node --test`, where there is no
 // document) each entry is the plain hex the phone shipped with, which is also what the colour

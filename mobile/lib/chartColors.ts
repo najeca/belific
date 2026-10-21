@@ -22,11 +22,13 @@ export function contrastRatio(a: string, b: string): number {
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-// The colour darkened, in small steps toward black, until it is at least `min`:1
-// against `background`. A colour that already passes is returned as it is.
+// The colour moved, in small steps, until it is at least `min`:1 against `background`: darkened
+// toward black on a light background, lightened toward white on a dark one (the dark theme,
+// 2.45.0). A colour that already passes is returned as it is.
 export function chartLabelColor(hex: string, background: string, min = 3): string {
   let c = channels(hex);
   const toHex = (v: [number, number, number]) => `#${v.map((x) => Math.round(x).toString(16).padStart(2, '0')).join('')}`;
-  for (let i = 0; i < 40 && contrastRatio(toHex(c), background) < min; i++) c = c.map((x) => x * 0.95) as [number, number, number];
+  const dark = luminance(background) < 0.18;
+  for (let i = 0; i < 40 && contrastRatio(toHex(c), background) < min; i++) c = c.map((x) => (dark ? x + (255 - x) * 0.08 : x * 0.95)) as [number, number, number];
   return toHex(c);
 }

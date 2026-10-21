@@ -242,7 +242,7 @@ const tabStyle: React.CSSProperties = {
   height: 28,
   padding: 0,
   border: 'none',
-  borderRadius: 7,
+  borderRadius: 6,
   cursor: 'pointer',
   fontSize: 16,
   fontFamily: EMOJI_FONT,

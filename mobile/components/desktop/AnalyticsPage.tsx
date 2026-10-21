@@ -27,6 +27,7 @@ import {
 import type { BrainDumpItem, Project, Task, TaskList } from '../../lib/types';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { dayStamp, downloadText } from './download';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // The Analytics page (build plan phase 6): worked out from the tasks on this
 // computer, nothing stored or sent (lib/analytics.ts). A page like Progress,
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 24, alignItems: 'center' },
   column: { width: '100%', maxWidth: 980, gap: 12 },
-  heading: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  heading: { fontSize: 20, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary },
   hint: { fontSize: 13, color: Colors.textSecondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   chips: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },

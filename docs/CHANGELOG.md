@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 2.40.0 — 2026-10-21 (Ellie Planner look, step 2 of 8: fonts)
+
+**Desktop only. Look only.**
+- **Newsreader** (a warm serif, SIL Open Font License) is bundled as local files (`mobile/assets/fonts/Newsreader-500/600/700.woff2`, Latin subset, licence beside them and in `THIRD_PARTY_NOTICES.md`), so the desktop app still works offline (the page allows only itself). It is used for the Belific name and the big page titles only: Settings, Analytics, Progress, Quests, Trash, Labels, Sign in, Daily Planning, the account choice. Everything else stays Inter (and Roboto Mono for figures); a task title is never serif.
+- The iPhone is unchanged: the font files are only imported by the desktop entry. iOS export and the marker gate pass (38 markers, 0 hits).
+- Real check `p22.js` +3 (the name is Newsreader, both families load from the app files, the interface is Inter).
+
+---
+
 ## 2.39.0 — 2026-10-21 (Ellie Planner look, step 1 of 8: tokens, themes and the Theme setting)
 
 **Desktop only. Look and feel only: no behaviour change, no schema change, no backup, no migration.**

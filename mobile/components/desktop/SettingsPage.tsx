@@ -29,6 +29,7 @@ import { setDefaultReminders, useDefaultReminders } from './reminderStore';
 import { REMINDER_LEADS, leadLabel, toggleLead } from '../../lib/reminder';
 import { CUT_MIN_OPTIONS, parseCutMin } from '../../lib/cuts';
 import { displayKeys, shortcutGroups } from '../../lib/shortcuts';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // The Settings page (checkpoint 9, decision 025): a view inside the app, not
 // an overlay. It replaces the old Settings modal; every setting and its
@@ -484,7 +485,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingTop: 4, alignItems: 'center' },
   column: { width: '100%', maxWidth: 640, gap: 12 },
-  heading: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
+  heading: { fontSize: 18, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
   section: { padding: 16, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   sectionTitle: { marginBottom: 6, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: Colors.textSecondary },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 36, marginTop: 4 },

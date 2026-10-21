@@ -13,6 +13,7 @@ import LabelForm from './LabelForm';
 import { loadTasks } from '../../lib/storage';
 import type { Project, Task } from '../../lib/types';
 import Popover, { closePopover, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // The Labels page (checkpoint 9, decision 025): every label with its colour,
 // name and the number of open tasks using it. Its colour, emoji or name opens
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingTop: 4, alignItems: 'center' },
   column: { width: '100%', maxWidth: 640, gap: 12 },
-  heading: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
+  heading: { fontSize: 18, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
   card: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   empty: { fontSize: 14, color: Colors.textSecondary, paddingVertical: 12 },
   sectionTitle: { marginTop: 8, marginBottom: 6, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: Colors.textSecondary },

@@ -10,6 +10,7 @@ import { notifyChanged } from './uiStore';
 import { StepsRing } from './TaskCard';
 import { opsForProjected, opsForTask } from './taskOps';
 import type { Task } from '../../lib/types';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // The Quests page (build plan phase 4): every repeating task, grouped by how
 // often it repeats (Daily, Weekly, Every 2 weeks, Every few weeks, Monthly,
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 24, alignItems: 'center' },
   column: { width: '100%', maxWidth: 980, gap: 14 },
-  heading: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  heading: { fontSize: 20, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary },
   hint: { fontSize: 13, color: Colors.textSecondary },
   empty: { padding: 16, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   body: { fontSize: 14, color: Colors.textPrimary },

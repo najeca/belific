@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
 import { answerAccountChoice, getAuthUi, subscribeAuthUi } from '../../lib/desktopAuth';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // Shown when the account that signed in is not the one this computer last
 // used and local data exists (checkpoint 6.1, M2). Nothing is uploaded until
@@ -54,7 +55,7 @@ const styles = StyleSheet.create({
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 200 },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: Colors.scrim },
   panel: { width: 460, maxWidth: '92%', padding: 20, gap: 10, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.border },
-  heading: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  heading: { fontSize: 18, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary },
   body: { fontSize: 14, color: Colors.textPrimary, marginBottom: 4 },
   hint: { fontSize: 12, color: Colors.textSecondary },
   btn: { paddingHorizontal: 14, minHeight: 44, paddingVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },

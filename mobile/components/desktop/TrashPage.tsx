@@ -4,6 +4,7 @@ import { Colors } from '../../lib/theme';
 import { agoText, TRASH_DAYS, type TrashEntry } from '../../lib/trash';
 import { loadTrash, restoreFromTrash } from '../../lib/trashActions';
 import { notifyChanged } from './uiStore';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // The Trash page (build plan phase 6): tasks deleted in the last 30 days.
 // Restore makes a NEW task with the same fields (a deleted task can never come
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 24, alignItems: 'center' },
   column: { width: '100%', maxWidth: 760, gap: 12 },
-  heading: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  heading: { fontSize: 20, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary },
   hint: { fontSize: 13, color: Colors.textSecondary },
   note: { fontSize: 13, color: Colors.accentText },
   body: { fontSize: 14, color: Colors.textPrimary },

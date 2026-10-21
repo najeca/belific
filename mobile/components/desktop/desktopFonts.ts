@@ -2,7 +2,9 @@ import { Asset } from 'expo-asset';
 import { Colors } from '../../lib/theme';
 
 // The desktop's interface fonts (2.26.0): Inter for every word, Roboto Mono for
-// timer and clock figures (elements marked data-mono). The files ship inside
+// timer and clock figures (elements marked data-mono), and (2.40.0) Newsreader, a warm
+// serif, for the Belific name and the big page titles only (SIL Open Font License, the
+// licence is beside the files). The files ship inside
 // the app (mobile/assets/fonts, Inter under the SIL Open Font License, Roboto
 // Mono under the Apache License 2.0, both with their licence beside them), so
 // nothing is fetched and it works offline; the page's CSP allows only 'self'.
@@ -23,6 +25,11 @@ const INTER: Array<[number, number]> = [
   [600, require('../../assets/fonts/Inter-600.woff2')],
   [700, require('../../assets/fonts/Inter-700.woff2')],
 ];
+const NEWSREADER: Array<[number, number]> = [
+  [500, require('../../assets/fonts/Newsreader-500.woff2')],
+  [600, require('../../assets/fonts/Newsreader-600.woff2')],
+  [700, require('../../assets/fonts/Newsreader-700.woff2')],
+];
 const MONO: Array<[number, number]> = [
   [400, require('../../assets/fonts/RobotoMono-400.woff2')],
   [500, require('../../assets/fonts/RobotoMono-500.woff2')],
@@ -39,6 +46,7 @@ export function installDesktopFonts(): void {
   const css = [
     ...INTER.map(([w, m]) => face('Inter', w, m)),
     ...INTER.map(([w, m]) => face('Segoe UI', w, m)),
+    ...NEWSREADER.map(([w, m]) => face('Newsreader', w, m)),
     ...MONO.map(([w, m]) => face('Roboto Mono', w, m)),
     `[data-mono]{font-family:'Roboto Mono',ui-monospace,monospace !important;font-variant-numeric:tabular-nums;letter-spacing:-0.2px}`,
     // Text with no colour of its own (an emoji, a raw DOM control) inherits the theme's, not the browser's black.

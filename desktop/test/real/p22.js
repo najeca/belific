@@ -122,6 +122,15 @@ async function run() {
     await I.shot(`p22-${name}-4-settings`);
   };
 
+  // ======== 0. Fonts (step 2): Inter for the UI, Newsreader for the name and big titles, offline from the app files ========
+  const fontOf = (expr) => I.js(`(() => { const e = ${expr}; return e ? getComputedStyle(e).fontFamily : null; })()`);
+  const wordmark = `[...document.querySelectorAll('div,span')].find((e) => e.children.length === 0 && e.textContent === 'Belific' && getComputedStyle(e).fontFamily.startsWith('Newsreader'))`;
+  check('fonts: the Belific name is set in Newsreader', await I.exists(wordmark), String(await fontOf(wordmark)));
+  const loaded = await I.js(`Promise.all([document.fonts.load('700 18px Newsreader'), document.fonts.load('500 14px Inter')]).then(() => [document.fonts.check('700 18px Newsreader'), document.fonts.check('500 14px Inter'), [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family + f.weight).join(',')])`);
+  check('fonts: Newsreader and Inter are loaded from the app files (the page allows only itself)', loaded[0] === true && loaded[1] === true, JSON.stringify(loaded));
+  const body = await fontOf(`document.querySelector('[aria-label="Show Tasks"] div, [aria-label="Show Tasks"] span')`);
+  check('fonts: the interface is Inter', /^Inter|Segoe UI|-apple-system/.test(String(body)), String(body));
+
   // ======== 1. The default: light ========
   await pass('light', 'light', 'rgb(250, 247, 240)');
   check('light: nothing is stored until the setting is changed (the default is light)', stored() === undefined || stored() === 'light');

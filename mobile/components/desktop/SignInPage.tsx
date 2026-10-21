@@ -5,6 +5,7 @@ import { Colors } from '../../lib/theme';
 import { SIGN_IN_TEXT } from '../../lib/authCore';
 import { cancelSignIn, startAppleSignIn, startGoogleSignIn } from '../../lib/desktopAuth';
 import { useAccount } from './useAccount';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // The Sign in page (checkpoint 12, decision 026): a page inside the app like
 // Settings and Progress, with the Back button in the top strip, Escape to
@@ -60,7 +61,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingTop: 24, alignItems: 'center' },
   column: { width: '100%', maxWidth: 420, gap: 12 },
-  heading: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  heading: { fontSize: 18, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary },
   body: { fontSize: 14, color: Colors.textPrimary },
   hint: { fontSize: 12, color: Colors.textSecondary },
   methods: { gap: 10, marginTop: 4 },

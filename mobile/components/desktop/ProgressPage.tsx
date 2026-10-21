@@ -5,6 +5,7 @@ import { Colors } from '../../lib/theme';
 import { STREAK_TEXT, bestLine, dayLabel, streakLine, windowLine, type DayState, type SeriesStreak } from '../../lib/seriesStreak';
 import { parseDateKey } from '../../lib/kanban';
 import { useAllStreaks } from './streakStore';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // The Progress page (checkpoint 11, decision 025: a page inside the app, reached
 // from the profile menu or File, Progress; no new top level navigation). For
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingTop: 4, alignItems: 'center' },
   column: { width: '100%', maxWidth: 640, gap: 12 },
-  heading: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
+  heading: { fontSize: 18, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
   hint: { fontSize: 12, color: Colors.textSecondary },
   card: { padding: 16, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, gap: 4 },
   titleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },

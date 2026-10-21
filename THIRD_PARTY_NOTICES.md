@@ -41,6 +41,12 @@ The interface font, `mobile/assets/fonts/Inter-*.woff2`.
 Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter).
 Full licence: `mobile/assets/fonts/Inter-OFL.txt`.
 
+## Newsreader (SIL Open Font License 1.1)
+
+The font for the Belific name and the big page titles, `mobile/assets/fonts/Newsreader-*.woff2` (Latin subset, from the @fontsource/newsreader package).
+Copyright 2020 The Newsreader Project Authors (http://github.com/productiontype/Newsreader).
+Full licence: `mobile/assets/fonts/Newsreader-OFL.txt`.
+
 ## Roboto Mono (Apache License 2.0)
 
 The font for times and timers, `mobile/assets/fonts/RobotoMono-*.woff2`.

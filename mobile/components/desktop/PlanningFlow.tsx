@@ -24,6 +24,7 @@ import DurationSelect from './DurationSelect';
 import { isPopoverOpen } from './Popover';
 import { closeOverlay, notifyChanged } from './uiStore';
 import { useTint } from './themeStore';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // Daily Planning (4 steps) and Daily Shutdown (2 steps), build plan phase 5,
 // section 4. A full screen overlay on the home screen, never a new screen: a
@@ -554,7 +555,7 @@ const styles = StyleSheet.create({
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 65, flexDirection: 'row', backgroundColor: Colors.background },
   rail: { width: 280, padding: 20, gap: 10, backgroundColor: Colors.surface, borderRightWidth: 1, borderRightColor: Colors.border },
   badge: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: Colors.accentText },
-  title: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  title: { fontSize: 20, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary },
   helper: { fontSize: 13, color: Colors.textSecondary },
   figures: { gap: 6, marginTop: 8 },
   figure: { flexDirection: 'row', justifyContent: 'space-between' },

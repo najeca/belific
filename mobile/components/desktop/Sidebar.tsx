@@ -3,6 +3,7 @@ import { View, Text, Pressable, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { pressStyle } from './pressStyle';
+import { DISPLAY_FONT_FAMILY } from './desktopFont';
 
 // The left pane (2.26.0): the Belific mark and name with the hide button in one
 // header, then the selected list (the list switcher, the add task box and its
@@ -33,7 +34,7 @@ const styles = StyleSheet.create({
   overlay: { boxShadow: Colors.shadowLg } as object,
   head: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, marginBottom: 10 },
   mark: { width: 28, height: 28, borderRadius: 8 },
-  name: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 },
+  name: { fontSize: 16, fontFamily: DISPLAY_FONT_FAMILY, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 },
   hide: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   hover: { backgroundColor: Colors.background },
   list: { flex: 1, minHeight: 0 },

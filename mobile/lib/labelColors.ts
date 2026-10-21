@@ -148,6 +148,33 @@ export function customTint(hex: string): string {
   return '#FFFFFF';
 }
 
+// The same label colour on the dark theme (2.39.0): a block or card with a light pastel tint would
+// carry white text, so on dark the tint is the colour mixed into the dark card surface instead,
+// as strong as it can be while the dark theme's secondary text (#A7A7A7) stays AA on it.
+// Light stays the tint above, untouched. Pure; labelColors.test.ts checks every colour.
+const DARK_SURFACE = '#282828';
+const DARK_TEXT_SECONDARY = '#A7A7A7';
+const darkTints = new Map<string, string>();
+export function darkTint(edge: string): string {
+  const hit = darkTints.get(edge);
+  if (hit) return hit;
+  const base = channels(DARK_SURFACE);
+  const rgb = channels(edge);
+  let out = DARK_SURFACE;
+  for (let t = 0.3; t >= 0; t -= 0.01) {
+    const c = toHex(rgb.map((v, i) => base[i] + (v - base[i]) * t));
+    if (contrast(DARK_TEXT_SECONDARY, c) >= 4.55) {
+      out = c;
+      break;
+    }
+  }
+  darkTints.set(edge, out);
+  return out;
+}
+export function tintFor(color: Pick<LabelColor, 'edge' | 'tint'>, dark: boolean): string {
+  return dark ? darkTint(color.edge) : color.tint;
+}
+
 // ---- hue and shade (the colour wheel) ----
 // Hue 0 to 360; shade 0 (light) to 100 (dark), at a vivid saturation.
 export function hueShadeToHex(hue: number, shade: number): string {

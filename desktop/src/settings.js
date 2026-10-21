@@ -25,6 +25,7 @@ const DEFAULTS = Object.freeze({
   dayStart: '05:00', // where the Timebox opens (UI state, never synced)
   showStreaks: true, // the "N days in a row" line on repeating tasks (checkpoint 11, never synced)
   vibrantColours: false, // "Vibrant task colours" on Calendar blocks and Timebox cards (per computer, never synced)
+  theme: 'light', // the Theme setting: 'light' (default), 'dark' or 'system' (per computer, never synced)
   closeToTray: true,
   startWithWindows: false, // opt in, off by default
   trayNoteShown: false,
@@ -39,11 +40,14 @@ function sanitize(partial, current = DEFAULTS) {
   for (const key of BOOLEANS) {
     if (typeof p[key] === 'boolean') out[key] = p[key];
   }
+  if (p.theme === 'light' || p.theme === 'dark' || p.theme === 'system') out.theme = p.theme;
   if (typeof p.dailyTime === 'string' && HM.test(p.dailyTime)) out.dailyTime = p.dailyTime;
   if (typeof p.dayStart === 'string' && HM_30.test(p.dayStart)) out.dayStart = p.dayStart;
   if (Array.isArray(p.defaultReminders)) out.defaultReminders = normalizeLeads(p.defaultReminders);
   // A stored value that is not a list falls back to the default.
   out.defaultReminders = Array.isArray(out.defaultReminders) ? [...out.defaultReminders] : [...DEFAULTS.defaultReminders];
+  // A stored value that is not a theme falls back to the default.
+  if (out.theme !== 'light' && out.theme !== 'dark' && out.theme !== 'system') out.theme = DEFAULTS.theme;
   // A stored value that is not valid falls back to the default.
   if (!HM_30.test(out.dayStart)) out.dayStart = DEFAULTS.dayStart;
   return out;

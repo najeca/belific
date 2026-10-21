@@ -28,6 +28,8 @@ export interface DesktopSettings {
   showStreaks: boolean;
   // "Vibrant task colours": saturated blocks with white text on the Calendar and the Timebox. Per computer, never synced.
   vibrantColours: boolean;
+  // The Theme setting: 'light' (default), 'dark' or 'system'. Per computer, never synced.
+  theme: 'light' | 'dark' | 'system';
   closeToTray: boolean;
   startWithWindows: boolean;
   trayNoteShown: boolean;

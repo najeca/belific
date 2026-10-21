@@ -36,6 +36,7 @@ import { refreshFeatures, useFeatures } from './featureStore';
 import { refreshCutMin } from './cutStore';
 import { refreshDefaultReminders } from './reminderStore';
 import { refreshVibrant } from './vibrantStore';
+import { refreshTheme } from './themeStore';
 import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
 import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
@@ -222,6 +223,7 @@ export default function DesktopHome() {
     refreshCutMin();
     refreshDefaultReminders();
     refreshVibrant();
+    refreshTheme();
   }, [refreshKey]);
   useEffect(() => {
     restorePomodoro();
@@ -557,7 +559,7 @@ function focusOpener(o: Opener): void {
   target?.focus();
 }
 
-const SOFT_SHADOW = '0 1px 2px rgba(38,37,31,0.05), 0 2px 8px rgba(38,37,31,0.04)';
+const SOFT_SHADOW = Colors.shadowSm;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
@@ -572,7 +574,7 @@ const styles = StyleSheet.create({
   edgeHover: { backgroundColor: Colors.background },
   seg: { flexDirection: 'row', borderRadius: 10, padding: 3, gap: 2, backgroundColor: Colors.background } as object,
   segBtn: { paddingHorizontal: 12, height: 30, borderRadius: 8, justifyContent: 'center', transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
-  segHover: { backgroundColor: '#E8E5DC' },
+  segHover: { backgroundColor: Colors.hover },
   segOn: { backgroundColor: Colors.accent },
   segText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
   segTextOn: { color: Colors.onAccent, fontWeight: '700' },
@@ -582,6 +584,6 @@ const styles = StyleSheet.create({
   rowText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
   sidebarOverlay: { position: 'absolute', left: 16, top: 16, bottom: 16, width: SIDEBAR_WIDTH, zIndex: 20 },
   timeboxOverlay: { position: 'absolute', right: 16, top: 16, bottom: 16, width: TIMEBOX_WIDTH, zIndex: 20 },
-  scrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 19, backgroundColor: 'rgba(38,37,31,0.12)' },
+  scrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 19, backgroundColor: Colors.scrimSoft },
   hidden: { display: 'none' },
 });

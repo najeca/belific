@@ -22,6 +22,7 @@ import { notifyChanged, openDetail, type DetailFocus } from './uiStore';
 import { toggleTimer } from './timerUi';
 import { timesLabel } from '../../lib/times';
 import StreakLine from './StreakLine';
+import { useTint } from './themeStore';
 
 // A task on the board, in the left list, or in any list (2.27.0). The card is a
 // face, not an editor: a click anywhere on it (except the tick box and the steps
@@ -73,6 +74,7 @@ export default function TaskCard({
   listEmoji?: string;
 }) {
   // Ctrl+Delete opens the ⋮ menu already asking "Delete? Yes / No".
+  const tint = useTint();
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [focusWithin, setFocusWithin] = useState(false);
 
@@ -250,7 +252,7 @@ export default function TaskCard({
       }}
       style={[
         styles.card,
-        { backgroundColor: color?.tint ?? CARD_PLAIN },
+        { backgroundColor: (color ? tint(color) : CARD_PLAIN) },
         // 2.27.0: the label's strong colour as a left edge, so labels are easy to
         // tell apart (the tints stay light for readable text).
         color && { borderLeftWidth: 3, borderLeftColor: color.edge, paddingLeft: 9 },
@@ -352,7 +354,7 @@ export default function TaskCard({
             )}
 
             {/* At most three icons, over the top right corner in the card's own colour. */}
-            <View style={[styles.icons, { backgroundColor: color?.tint ?? CARD_PLAIN }, !iconsShown && styles.quiet]} {...({ dataSet: { cardControls: '1' } } as object)}>
+            <View style={[styles.icons, { backgroundColor: (color ? tint(color) : CARD_PLAIN) }, !iconsShown && styles.quiet]} {...({ dataSet: { cardControls: '1' } } as object)}>
               <IconControl id={`${id}:label`} ctl="label" a11y={label ? `Label: ${label.name}` : 'Select label'} shown={iconsShown} glyph="🏷️">
                 {(anchor) => (
                   <Popover id={`${id}:label`} anchor={anchor} width={284} maxHeight={540}>
@@ -404,7 +406,7 @@ function dayLabel(day: string, todayKey: string): string {
 export function StepsRing({ done, total, size = 16 }: { done: number; total: number; size?: number }) {
   const all = total > 0 && done >= total;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const track = 'rgba(38,37,31,0.18)';
+  const track = Colors.trackLine;
   return (
     <div
       aria-hidden="true"
@@ -422,7 +424,7 @@ export function StepsRing({ done, total, size = 16 }: { done: number; total: num
       {all ? (
         <span style={{ color: Colors.onAccent, fontSize: size * 0.62, lineHeight: 1, fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>✓</span>
       ) : (
-        <span style={{ width: size - 5, height: size - 5, borderRadius: '50%', background: '#FFFFFF' }} />
+        <span style={{ width: size - 5, height: size - 5, borderRadius: '50%', background: Colors.surface }} />
       )}
     </div>
   );
@@ -430,7 +432,7 @@ export function StepsRing({ done, total, size = 16 }: { done: number; total: num
 
 // The timer and clock figures use Roboto Mono (2.26.0, lib's desktopFonts).
 const MONO = { dataSet: { mono: '1' } } as object;
-const CARD_PLAIN = '#FFFFFF';
+const CARD_PLAIN = Colors.plainBlock;
 
 // A small icon that opens its popover (rendered by `children`, in a portal).
 // Hidden, it keeps its place but is transparent and out of the tab order.
@@ -472,8 +474,8 @@ function IconControl({
   );
 }
 
-const SHADOW = '0 1px 2px rgba(38,37,31,0.06), 0 2px 6px rgba(38,37,31,0.05)';
-const SHADOW_HOVER = '0 2px 4px rgba(38,37,31,0.07), 0 6px 14px rgba(38,37,31,0.09)';
+const SHADOW = Colors.shadowSm;
+const SHADOW_HOVER = Colors.shadowMd;
 
 const styles = StyleSheet.create({
   card: { paddingVertical: 11, paddingHorizontal: 12, gap: 6, borderRadius: 12, boxShadow: SHADOW, transitionDuration: '120ms', transitionProperty: 'box-shadow', cursor: 'pointer' } as object,
@@ -484,25 +486,25 @@ const styles = StyleSheet.create({
   projected: { opacity: 0.82 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   check: { paddingTop: 1 },
-  box: { width: 18, height: 18, borderRadius: 6, borderWidth: 1.5, borderColor: 'rgba(38,37,31,0.35)', backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+  box: { width: 18, height: 18, borderRadius: 6, borderWidth: 1.5, borderColor: Colors.trackLine, backgroundColor: Colors.checkFill, alignItems: 'center', justifyContent: 'center' },
   boxDone: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   title: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', color: Colors.textPrimary, minWidth: 0 },
   titleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  chipText: { fontSize: 11.5, lineHeight: 20, fontWeight: '500', color: Colors.textPrimary, paddingHorizontal: 6, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.75)' },
+  chipText: { fontSize: 11.5, lineHeight: 20, fontWeight: '500', color: Colors.textPrimary, paddingHorizontal: 6, borderRadius: 6, backgroundColor: Colors.chip },
   chipTextMuted: { color: Colors.textSecondary },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20, paddingLeft: 26, overflow: 'hidden' },
   metaDay: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
   listEmoji: { fontSize: 11, lineHeight: 16 },
-  labelChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 18, paddingHorizontal: 6, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.75)', maxWidth: 150, flexShrink: 1 },
+  labelChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 18, paddingHorizontal: 6, borderRadius: 6, backgroundColor: Colors.chip, maxWidth: 150, flexShrink: 1 },
   labelChipText: { fontSize: 11, fontWeight: '500', color: Colors.textPrimary, flexShrink: 1 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   ringBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingRight: 2 },
   counter: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
   counterDone: { color: Colors.accentText, fontWeight: '700' },
-  mustDo: { fontSize: 12, lineHeight: 16 },
+  mustDo: { fontSize: 12, lineHeight: 16, color: Colors.textPrimary },
   icons: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: 8, paddingLeft: 4 },
   quiet: { opacity: 0, pointerEvents: 'none' } as object,
   icon: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
-  iconOpen: { backgroundColor: 'rgba(255,255,255,0.85)' },
-  glyph: { fontSize: 13, lineHeight: 18 },
+  iconOpen: { backgroundColor: Colors.chipStrong },
+  glyph: { fontSize: 13, lineHeight: 18, color: Colors.textPrimary },
 });

@@ -23,6 +23,8 @@ import { FEATURES } from '../../lib/features';
 import CalendarsSection from './CalendarsSection';
 import { setCutMin, useCutMin } from './cutStore';
 import { setVibrant, useVibrant } from './vibrantStore';
+import { setThemeMode, useThemeMode } from './themeStore';
+import { THEME_MODES, THEME_MODE_LABEL } from '../../lib/themeMode';
 import { setDefaultReminders, useDefaultReminders } from './reminderStore';
 import { REMINDER_LEADS, leadLabel, toggleLead } from '../../lib/reminder';
 import { CUT_MIN_OPTIONS, parseCutMin } from '../../lib/cuts';
@@ -52,6 +54,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   const features = useFeatures();
   const cutMin = useCutMin();
   const vibrant = useVibrant();
+  const themeMode = useThemeMode();
   const defaultReminders = useDefaultReminders();
 
   const desktop = globalThis.belificDesktop;
@@ -252,6 +255,26 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
             </Section>
 
             <Section title="Appearance" emoji="🎨">
+              <Text style={styles.body}>Theme</Text>
+              <View style={styles.leadRow} {...({ dataSet: { themeSetting: '1' } } as object)}>
+                {THEME_MODES.map((m) => {
+                  const on = themeMode === m;
+                  return (
+                    <Pressable
+                      key={m}
+                      onPress={() => setThemeMode(m)}
+                      style={[styles.leadChip, on && styles.leadChipOn]}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: on }}
+                      accessibilityLabel={`Theme: ${THEME_MODE_LABEL[m]}`}
+                      {...({ 'aria-checked': on, dataSet: { themeMode: m } } as object)}
+                    >
+                      <Text style={[styles.leadChipText, on && styles.leadChipTextOn]}>{THEME_MODE_LABEL[m]}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.hint}>Light is the default. Match system follows the light or dark setting of this computer. This is kept on this computer only.</Text>
               <View {...({ dataSet: { vibrantSetting: '1' } } as object)}>
                 <ToggleRow label="Vibrant task colours" value={vibrant} onChange={(v) => setVibrant(v)} />
               </View>

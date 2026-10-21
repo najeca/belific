@@ -27,6 +27,7 @@ import {
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { timeViews } from '../../lib/times';
 import { useCutMin } from './cutStore';
+import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { openingMinutes } from '../../lib/dayStart';
 import { tasksForTimebox } from '../../lib/timeboxTasks';
@@ -226,6 +227,7 @@ export default function TimeboxPane({
   const cutMin = useCutMin();
   // "Vibrant task colours" (Settings): saturated cards with bold white text; off = as before.
   const vibrant = useVibrant();
+  const tint = useTint();
   const { sources, items, notes, badges } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: TimeboxItem[] = [];
@@ -422,7 +424,7 @@ export default function TimeboxPane({
                           styles.block,
                           styles.taskBlock,
                           styles.continuationBlock,
-                          color && [styles.taskBlockLabelled, { backgroundColor: look?.bg ?? color.tint, borderLeftColor: look?.edge ?? color.edge }],
+                          color && [styles.taskBlockLabelled, { backgroundColor: look?.bg ?? tint(color), borderLeftColor: look?.edge ?? color.edge }],
                           !color && look && [styles.taskBlockLabelled, { backgroundColor: look.bg, borderLeftColor: look.edge }],
                         ]}
                         accessibilityRole="button"
@@ -656,7 +658,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     minWidth: 0,
-    boxShadow: '0 1px 2px rgba(38,37,31,0.05), 0 2px 8px rgba(38,37,31,0.04)',
+    boxShadow: Colors.shadowSm,
   } as object,
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32 },
   paneTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
@@ -750,7 +752,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(38, 37, 31, 0.2)',
+    backgroundColor: Colors.scrimSoft,
     borderRadius: 16,
   },
   popover: {

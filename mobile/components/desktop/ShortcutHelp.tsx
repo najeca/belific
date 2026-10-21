@@ -61,7 +61,7 @@ export default function ShortcutHelp() {
 }
 
 const styles = StyleSheet.create({
-  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(38,37,31,0.28)' },
+  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.scrim },
   card: { width: 480, maxWidth: '92%', maxHeight: '86%', borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },

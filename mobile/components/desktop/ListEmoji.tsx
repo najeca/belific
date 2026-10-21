@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text } from 'react-native';
+import { Colors } from '../../lib/theme';
 import { tipRef } from './tip';
 
 // The emoji of a task's list on a Calendar or Timebox block's time line, right after the
@@ -8,7 +9,7 @@ import { tipRef } from './tip';
 export default function ListEmoji({ emoji, name }: { emoji?: string; name?: string }) {
   if (!emoji) return null;
   return (
-    <Text ref={tipRef(name) as never} accessibilityLabel={name ? `List ${name}` : undefined} {...({ dataSet: { blockListEmoji: '1' } } as object)}>
+    <Text ref={tipRef(name) as never} style={{ color: Colors.textPrimary }} accessibilityLabel={name ? `List ${name}` : undefined} {...({ dataSet: { blockListEmoji: '1' } } as object)}>
       {emoji}
     </Text>
   );

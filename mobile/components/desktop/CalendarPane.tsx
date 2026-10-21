@@ -8,6 +8,7 @@ import { isMustDo } from '../../lib/mustDo';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { timeViews } from '../../lib/times';
 import { useCutMin } from './cutStore';
+import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { taskDuration } from '../../lib/drag';
 import { dayAt, followToday, indexOfDay, leftDay, stripAround, visibleRange, weekRangeTitle } from '../../lib/dayStrip';
@@ -146,6 +147,7 @@ export default function CalendarPane({
   const cutMin = useCutMin();
   // "Vibrant task colours" (Settings): saturated chips and blocks with bold white text; off = as before.
   const vibrant = useVibrant();
+  const tint = useTint();
 
   const reload = useCallback(() => {
     // Raw rows, tombstones included: a skipped day of a series blocks its projection.
@@ -529,7 +531,7 @@ export default function CalendarPane({
                           <Pressable
                             key={t.id + (t.dueDate ?? '')}
                             onPress={() => openDetail(t.id)}
-                            style={[styles.chip, color && { backgroundColor: look?.bg ?? color.tint, borderLeftColor: look?.edge ?? color.edge, borderLeftWidth: 3 }]}
+                            style={[styles.chip, color && { backgroundColor: look?.bg ?? tint(color), borderLeftColor: look?.edge ?? color.edge, borderLeftWidth: 3 }]}
                             accessibilityRole="button"
                             accessibilityLabel={`Calendar task ${t.title}`}
                           >
@@ -619,7 +621,7 @@ export default function CalendarPane({
                               <Pressable
                                 ref={sourceRef(`calchip:${d.key}:${t.id}`, () => ({ kind: 'card', task: t, id: t.id, title: t.title, emoji: t.emoji, duration: taskDuration(t), projected })) as never}
                                 onPress={() => openDetail(t.id)}
-                                style={[styles.chip, { backgroundColor: look?.bg ?? color?.tint ?? '#FFFFFF', borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent, borderLeftWidth: 3 }, projected && styles.projected]}
+                                style={[styles.chip, { backgroundColor: look?.bg ?? (color ? tint(color) : Colors.plainBlock), borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent, borderLeftWidth: 3 }, projected && styles.projected]}
                                 accessibilityRole="button"
                                 accessibilityLabel={`All day task ${t.title}`}
                                 {...({ dataSet: { calBlock: `${scope}${t.id}` } } as object)}
@@ -721,7 +723,7 @@ export default function CalendarPane({
                         <View key={b.id} style={[styles.blockWrap, pos]}>
                           <Pressable
                             onPress={() => openDetail(t.id)}
-                            style={[styles.block, styles.taskBlock, { backgroundColor: look?.bg ?? color?.tint ?? '#FFFFFF', borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent }, styles.projected]}
+                            style={[styles.block, styles.taskBlock, { backgroundColor: look?.bg ?? (color ? tint(color) : Colors.plainBlock), borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent }, styles.projected]}
                             accessibilityRole="button"
                             accessibilityLabel={`Calendar block, continues from yesterday: ${t.title}`}
                             ref={tipRef(`${t.emoji ? `${t.emoji} ` : ''}${t.title}, ${timeText.toLowerCase()}${note ? `, ${note}` : ''}`) as never}
@@ -810,10 +812,10 @@ const styles = StyleSheet.create({
   note: { fontSize: 12, color: Colors.textSecondary, marginBottom: 6 },
   headRow: { flexDirection: 'row' },
   dayHead: { alignItems: 'center', justifyContent: 'center' },
-  awayDay: { backgroundColor: 'rgba(38,37,31,0.07)' },
+  awayDay: { backgroundColor: Colors.surfaceRaised },
   dayHeadDate: { fontWeight: '700' },
   past: { opacity: 0.55 },
-  cellTarget: { backgroundColor: 'rgba(92,122,107,0.10)' },
+  cellTarget: { backgroundColor: Colors.accentSoft },
   dayHeadText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
   dayHeadToday: { color: Colors.accentText, fontWeight: '700' },
   allDayRow: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.border, minHeight: 28 },

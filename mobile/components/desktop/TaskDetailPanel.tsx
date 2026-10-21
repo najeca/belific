@@ -745,7 +745,7 @@ const domSelect: React.CSSProperties = {
 
 const styles = StyleSheet.create({
   layer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
-  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(38,37,31,0.28)', cursor: 'default' } as never,
+  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: Colors.scrim, cursor: 'default' } as never,
   centre: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24 },
   panel: {
     width: 600,
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
     maxHeight: '100%',
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    boxShadow: '0 16px 48px rgba(38,37,31,0.22)',
+    boxShadow: Colors.shadowLg,
   } as never,
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
   tick: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: Colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   switch: { width: 34, height: 20, borderRadius: 10, padding: 3, backgroundColor: Colors.border, justifyContent: 'center' },
   switchOn: { backgroundColor: Colors.accent },
-  knob: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFFFFF' },
+  knob: { width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.onLabel },
   knobOn: { alignSelf: 'flex-end' },
   input: { flex: 1, minWidth: 120, height: 28, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   inputBad: { borderColor: Colors.danger },

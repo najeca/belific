@@ -441,7 +441,8 @@ function createWindow(visible = true) {
     minWidth: 760,
     minHeight: 600,
     title: 'Belific',
-    backgroundColor: '#F0EEE8',
+    // The light theme's page colour (mobile/lib/tokens.ts); the renderer paints the real theme at once.
+    backgroundColor: '#FAF7F0',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

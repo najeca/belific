@@ -22,6 +22,7 @@ import { tipRef } from './tip';
 import PriorityMark from './PriorityMark';
 import ListEmoji from './ListEmoji';
 import { isMustDo } from '../../lib/mustDo';
+import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText, VIBRANT_WHITE } from './vibrantStore';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
@@ -43,7 +44,7 @@ const KEY_NUDGE: Partial<Record<string, BlockNudge>> = {
 };
 
 // A break (a task with "Split" on) with no label colour: a neutral grey, no new colour in the palette.
-const BREAK_TINT = '#E6E4DD';
+const BREAK_TINT = Colors.breakTint;
 
 export default function TimeBlock({
   task,
@@ -103,6 +104,7 @@ export default function TimeBlock({
 }) {
   const { drag, sourceRef, startResize } = useDrag();
   // "Vibrant task colours" (Settings): a saturated block with bold white text; null = as before.
+  const tint = useTint();
   const look = vibrantLook(useVibrant(), color, !!task.cutsBelow);
   const vt = look ? vibrantText : undefined;
   const vm = look ? vibrantMeta : undefined;
@@ -232,7 +234,7 @@ export default function TimeBlock({
             styles.block,
             look
               ? { backgroundColor: look.bg, borderLeftColor: look.edge }
-              : { backgroundColor: color?.tint ?? (task.cutsBelow ? BREAK_TINT : '#FFFFFF'), borderLeftColor: color?.edge ?? (task.cutsBelow ? Colors.textSecondary : Colors.accent) },
+              : { backgroundColor: (color ? tint(color) : undefined) ?? (task.cutsBelow ? BREAK_TINT : Colors.plainBlock), borderLeftColor: color?.edge ?? (task.cutsBelow ? Colors.textSecondary : Colors.accent) },
             continues && styles.continues,
             projected && styles.projected,
             late && styles.late,
@@ -324,7 +326,7 @@ export function SlotPreview({ startMin, duration, top }: { startMin: number; dur
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', paddingRight: 2, paddingBottom: 1 },
   lifted: { opacity: 0.35 },
-  base: { flex: 1, borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 2px rgba(38,37,31,0.08)' } as object,
+  base: { flex: 1, borderRadius: 8, overflow: 'hidden', boxShadow: Colors.shadowSm } as object,
   block: { flex: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', borderLeftWidth: 3 },
   continues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   projected: { opacity: 0.82 },
@@ -344,5 +346,5 @@ const styles = StyleSheet.create({
   continuesTag: { position: 'absolute', right: 6, bottom: 2, flexDirection: 'row', alignItems: 'center', gap: 2 },
   continuesText: { fontSize: 10, color: Colors.textSecondary },
   handle: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 6 },
-  preview: { position: 'absolute', left: 0, right: 2, borderRadius: 8, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: 'rgba(92,122,107,0.10)', paddingHorizontal: 8, paddingVertical: 2, zIndex: 5 },
+  preview: { position: 'absolute', left: 0, right: 2, borderRadius: 8, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: Colors.accentSoft, paddingHorizontal: 8, paddingVertical: 2, zIndex: 5 },
 });

@@ -64,7 +64,7 @@ export function LabelColorPicker({
             >
               <View style={[styles.fill, { backgroundColor: c.edge }]}>
                 {takenBy && <View style={styles.mark} />}
-                {locked && !takenBy && <Ionicons name="lock-closed" size={9} color="#FFFFFF" />}
+                {locked && !takenBy && <Ionicons name="lock-closed" size={9} color={Colors.onLabel} />}
               </View>
             </Pressable>
             </div>
@@ -80,7 +80,7 @@ export function LabelColorPicker({
           accessibilityLabel={`Any colour for ${forName}`}
           {...({ 'aria-pressed': custom, dataSet: { swatch: 'wheel', ...(!ok ? { locked: '1' } : {}) } } as object)}
         >
-          <View style={[styles.fill, custom && current ? { backgroundColor: current.edge } : styles.rainbow]}>{!ok && <Ionicons name="lock-closed" size={9} color="#FFFFFF" />}</View>
+          <View style={[styles.fill, custom && current ? { backgroundColor: current.edge } : styles.rainbow]}>{!ok && <Ionicons name="lock-closed" size={9} color={Colors.onLabel} />}</View>
         </Pressable>
         </div>
       </View>
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   locked: { opacity: 0.45 },
   taken: { opacity: 0.35 },
   fill: { width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  mark: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: Colors.textPrimary },
+  mark: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.textPrimary },
   rainbow: { backgroundImage: 'conic-gradient(#E23B3B, #F07A1A, #BF9100, #1F9E4E, #0B97CF, #4F46C8, #CC36B4, #E23B3B)' } as object,
   tickRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 2, alignSelf: 'stretch' },
   tick: { width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: Colors.textSecondary, flexShrink: 0 },

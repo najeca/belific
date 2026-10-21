@@ -29,8 +29,8 @@ export default function Sidebar({ onHide, overlay, children }: { onHide: () => v
 }
 
 const styles = StyleSheet.create({
-  sidebar: { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, paddingTop: 14, paddingBottom: 8, minWidth: 0, boxShadow: '0 1px 2px rgba(38,37,31,0.05), 0 2px 8px rgba(38,37,31,0.04)' } as object,
-  overlay: { boxShadow: '0 8px 32px rgba(38,37,31,0.18)' } as object,
+  sidebar: { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, paddingTop: 14, paddingBottom: 8, minWidth: 0, boxShadow: Colors.shadowSm } as object,
+  overlay: { boxShadow: Colors.shadowLg } as object,
   head: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, marginBottom: 10 },
   mark: { width: 28, height: 28, borderRadius: 8 },
   name: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 },

@@ -106,7 +106,7 @@ export default function SearchPalette() {
 }
 
 const styles = StyleSheet.create({
-  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', paddingTop: 100, backgroundColor: 'rgba(38,37,31,0.28)' },
+  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', paddingTop: 100, backgroundColor: Colors.scrim },
   card: { width: 600, maxWidth: '92%', maxHeight: '70%', borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 12, gap: 8, alignSelf: 'center' },
   input: { height: 44, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 16, outlineColor: Colors.accent },
   list: { flexGrow: 0 },

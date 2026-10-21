@@ -254,7 +254,7 @@ test('plan is pure: it never mutates its inputs', () => {
 // ----- settings -----
 
 test('settings: defaults, validation and persistence', async () => {
-  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', defaultReminders: [0], dayStart: '05:00', showStreaks: true, vibrantColours: false, closeToTray: true, startWithWindows: false, trayNoteShown: false });
+  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', defaultReminders: [0], dayStart: '05:00', showStreaks: true, vibrantColours: false, theme: 'light', closeToTray: true, startWithWindows: false, trayNoteShown: false });
   const s = sanitize({ dailyTime: '25:00', closeToTray: 'yes', startWithWindows: true, evil: 1, dailyReminder: false });
   assert.equal(s.dailyTime, '09:00');
   assert.equal(s.closeToTray, true);

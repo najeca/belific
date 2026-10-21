@@ -48,3 +48,13 @@ test('vibrantColours defaults to off, is a boolean, and ignores anything else (V
   for (const bad of ['yes', 1, null, undefined, {}]) assert.equal(sanitize({ vibrantColours: bad }, on).vibrantColours, true, JSON.stringify(bad));
   assert.equal(sanitize({ dailyTime: '08:00' }, on).vibrantColours, true);
 });
+
+test('theme defaults to light and accepts light, dark and system only', () => {
+  assert.equal(DEFAULTS.theme, 'light');
+  assert.equal(sanitize({}).theme, 'light');
+  for (const v of ['light', 'dark', 'system']) assert.equal(sanitize({ theme: v }).theme, v);
+  const current = sanitize({ theme: 'dark' });
+  for (const bad of ['Dark', 'auto', '', 1, null, undefined, true, {}]) assert.equal(sanitize({ theme: bad }, current).theme, 'dark', JSON.stringify(bad));
+  assert.equal(sanitize({}, { ...DEFAULTS, theme: 'purple' }).theme, 'light');
+  assert.equal(sanitize({ theme: 'dark' }).vibrantColours, false);
+});

@@ -80,7 +80,7 @@ export default function QuickCapture({ mode }: { mode: 'list' | 'today' }) {
 }
 
 const styles = StyleSheet.create({
-  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', paddingTop: 140, backgroundColor: 'rgba(38,37,31,0.28)' },
+  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', paddingTop: 140, backgroundColor: Colors.scrim },
   card: { width: 520, maxWidth: '92%', borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 10, alignSelf: 'center' },
   heading: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, color: Colors.textSecondary },
   input: { height: 44, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 16, outlineColor: Colors.accent },

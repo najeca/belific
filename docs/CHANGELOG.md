@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.39.0 — 2026-10-21 (Ellie Planner look, step 1 of 8: tokens, themes and the Theme setting)
+
+**Desktop only. Look and feel only: no behaviour change, no schema change, no backup, no migration.**
+- **One token source:** `mobile/lib/tokens.ts` holds the colours (Option B light, Option A dark from `docs/DESIGN_TARGET.md`), the radius scale (4, 6, 8, 10, 16, full), the spacing, the fonts and the per app accents. `Colors.x` (`lib/theme.ts`) is now a CSS variable reference on the desktop (`var(--b-text-primary)`), so one change of theme repaints the whole screen at once with no re-render; on the phone and in `node --test` it is still the plain hex the phone shipped with (the phone's look is unchanged).
+- **Theme setting (Settings, Appearance):** Light (the default: cream and sage), Dark, or Match system. Kept per computer in the main process settings (`theme`, never synced), cached in the page so the right theme is painted before the first frame.
+- **No hard-coded colours left in the desktop components:** scrims, shadows, hover fills, the plain block colour, chips on a tinted card and the break grey are tokens. The label colour wheel and the rainbow swatch are the palette itself and keep their literal colours.
+- **Label colours stay readable on both themes:** light keeps every tint it had; on dark a label's block or card is the colour mixed into the dark surface, as strong as the dark secondary text (#A7A7A7) allows at 4.5:1 (`darkTint`, tested for all 32 label colours). Vibrant task colours (white text, 6:1) are unchanged.
+- Text with no colour of its own (an emoji, the priority mark) now takes the theme's text colour instead of the browser's black.
+- Tests: `tokens.test.ts` (9: contrast of both themes, every label colour on both, the theme mode), settings +1, real check `p22.js` (27: light by default, Dark chosen in Settings repaints at once and is saved, Match system, text readable on every block and a card in both themes, Vibrant in dark) with screenshots of the Calendar Week, Tasks, the task details and Settings in each theme.
+- Also fixed: the two migration 004 header tests (`partB.test.ts`, `partC.test.ts`) still expected "NOT APPLIED" after the docs commit `9dbe42b`; they now expect APPLIED (commit `dd0bba3`).
+
+---
+
 ## 2.38.1 — 2026-10-21 (the on-block "move to the next free slot" button removed)
 
 **Desktop only. Display only. No schema change.**

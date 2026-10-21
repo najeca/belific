@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   title: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   done: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  must: { fontSize: 12, lineHeight: 16 },
+  must: { fontSize: 12, lineHeight: 16, color: Colors.textPrimary },
   when: { fontSize: 12, color: Colors.textSecondary },
   actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingLeft: 2 },
   act: { paddingHorizontal: 10, height: 28, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, justifyContent: 'center' },

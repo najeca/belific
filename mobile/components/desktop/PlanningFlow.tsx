@@ -23,6 +23,7 @@ import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import DurationSelect from './DurationSelect';
 import { isPopoverOpen } from './Popover';
 import { closeOverlay, notifyChanged } from './uiStore';
+import { useTint } from './themeStore';
 
 // Daily Planning (4 steps) and Daily Shutdown (2 steps), build plan phase 5,
 // section 4. A full screen overlay on the home screen, never a new screen: a
@@ -494,6 +495,7 @@ function LabelBar({ tasks, labels }: { tasks: Task[]; labels: Project[] }) {
 // ones on the hours, and the current time line.
 const PREVIEW_PX_PER_HOUR = 30;
 function DayPreview({ tasks, labels, isToday }: { tasks: Task[]; labels: Project[]; isToday: boolean }) {
+  const tint = useTint();
   const untimed = tasks.filter((t) => !t.startTime);
   const timed = tasks.filter((t) => t.startTime);
   const top = (time: string) => {
@@ -521,7 +523,7 @@ function DayPreview({ tasks, labels, isToday }: { tasks: Task[]; labels: Project
           return (
             <View
               key={t.id}
-              style={[styles.block, { top: top(t.startTime as string), height: Math.max(16, (Math.max(estimateOf(t), 30) * PREVIEW_PX_PER_HOUR) / 60) }, color && { backgroundColor: color.tint, borderLeftColor: color.edge }]}
+              style={[styles.block, { top: top(t.startTime as string), height: Math.max(16, (Math.max(estimateOf(t), 30) * PREVIEW_PX_PER_HOUR) / 60) }, color && { backgroundColor: tint(color), borderLeftColor: color.edge }]}
               accessibilityLabel={`Planned ${t.title} at ${t.startTime}`}
             >
               <Text style={styles.blockText} numberOfLines={1}>

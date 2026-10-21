@@ -1,4 +1,5 @@
 import React from 'react';
+import { Colors } from '../../lib/theme';
 import { StyleSheet, Text } from 'react-native';
 import { MUST_DO_MARK, MUST_DO_TIP } from '../../lib/mustDo';
 import { tipRef } from './tip';
@@ -21,6 +22,6 @@ export default function PriorityMark({ chip = false }: { chip?: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  mark: { fontSize: 11, lineHeight: 16, flexShrink: 0 },
-  chip: { backgroundColor: '#FFFFFF', borderRadius: 5, overflow: 'hidden' },
+  mark: { fontSize: 11, lineHeight: 16, flexShrink: 0, color: Colors.textPrimary },
+  chip: { backgroundColor: Colors.onLabel, borderRadius: 5, overflow: 'hidden' },
 });

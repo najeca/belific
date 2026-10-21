@@ -227,7 +227,7 @@ export default function Popover({
         background: Colors.surface,
         border: `1px solid ${Colors.border}`,
         borderRadius: 12,
-        boxShadow: '0 6px 18px rgba(38, 37, 31, 0.14)',
+        boxShadow: Colors.shadowMd,
         boxSizing: 'border-box',
       }}
     >

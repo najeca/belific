@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    boxShadow: '0 6px 24px rgba(38,37,31,0.16)',
+    boxShadow: Colors.shadowMd,
   } as never,
   ask: { flexDirection: 'column', alignItems: 'stretch', gap: 8, maxWidth: 420 },
   pomoBtns: { gap: 6 },

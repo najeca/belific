@@ -7,6 +7,7 @@ import { loadTasksRaw } from '../../lib/storage';
 import { useTick } from './timerUi';
 import { pressStyle } from './pressStyle';
 import { openOverlay } from './uiStore';
+import { Ionicons } from '@expo/vector-icons';
 
 // The Missed button in the left pane (2.27.0, item 6): opens the Missed panel,
 // with how many are waiting. It reads "Earlier": the board never shows loss
@@ -32,7 +33,8 @@ export default function MissedButton({ refreshKey }: { refreshKey: number }) {
       accessibilityLabel={count === 0 ? 'Earlier days: nothing waiting' : `Earlier days: ${count} to look at`}
       {...({ dataSet: { missedButton: String(count) }, title: 'Planned for an earlier day and not done yet (the Missed list)' } as object)}
     >
-      <Text style={styles.text}>🕓 Earlier</Text>
+      <Ionicons name="time-outline" size={15} color={Colors.textSecondary} />
+      <Text style={styles.text}>Earlier</Text>
       {count > 0 && (
         <Text style={styles.badge} {...({ dataSet: { missedCount: '1' } } as object)}>
           {count}
@@ -43,8 +45,8 @@ export default function MissedButton({ refreshKey }: { refreshKey: number }) {
 }
 
 const styles = StyleSheet.create({
-  btn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 10, borderRadius: 10 },
-  hover: { backgroundColor: Colors.surface },
+  btn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 10, borderRadius: 8 },
+  hover: { backgroundColor: Colors.hover },
   text: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  badge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: Colors.accent, color: Colors.onAccent, fontSize: 11, fontWeight: '700', textAlign: 'center', lineHeight: 18 },
+  badge: { minWidth: 18, height: 18, borderRadius: 999, paddingHorizontal: 5, backgroundColor: Colors.accent, color: Colors.onAccent, fontSize: 11, fontWeight: '700', textAlign: 'center', lineHeight: 18 },
 });

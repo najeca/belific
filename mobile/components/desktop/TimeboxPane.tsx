@@ -58,6 +58,7 @@ import {
 } from '../../lib/storage';
 import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { openDetail } from './uiStore';
+import { outlinedBtn, outlinedBtnText } from './ui';
 
 // Desktop Timebox (decision 009): an hourly grid for one day, the whole 24
 // hours, 00:00 to 24:00 (decision 024). It opens at the "My day starts at"
@@ -664,20 +665,12 @@ const styles = StyleSheet.create({
   paneTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   hideBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12 },
-  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: 32 },
   dateText: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  todayBtn: {
-    paddingHorizontal: 12,
-    height: 28,
-    justifyContent: 'center',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.background,
-  },
+  todayBtn: { ...outlinedBtn, paddingHorizontal: 12, height: 28, justifyContent: 'center' } as object,
   todayBtnDisabled: { opacity: 0.4 },
-  todayText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
+  todayText: { ...outlinedBtnText },
   picker: {
     position: 'absolute',
     top: 84,

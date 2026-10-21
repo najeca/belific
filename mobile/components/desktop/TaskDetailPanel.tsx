@@ -37,6 +37,7 @@ import { closeDetail, getDetailFocus, notifyChanged, useDetailId } from './uiSto
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
+import { RoundCheck, checkRing, checkRingDone } from './ui';
 
 // The task details (build plan phase 2; a centred modal since 2.26.0): every
 // field of a task in one place, as fields and not as steps. Opens from Open
@@ -226,7 +227,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           accessibilityRole="button"
           accessibilityLabel={task.completed ? 'Reopen the task' : 'Mark the task complete'}
         >
-          {task.completed && <Ionicons name="checkmark" size={16} color={Colors.onAccent} />}
+          {task.completed && <Ionicons name="checkmark" size={16} color={Colors.success} />}
         </Pressable>
         {task.emoji ? <Text style={styles.titleEmoji}>{task.emoji}</Text> : null}
         <TextInput
@@ -303,7 +304,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
                       accessibilityLabel={`Mark the ${formatTime(time)} time ${done ? 'not done' : 'done'}`}
                       {...({ dataSet: { timeTick: time } } as object)}
                     >
-                      <Ionicons name={done ? 'checkbox' : 'square-outline'} size={15} color={done ? Colors.accent : Colors.textSecondary} />
+                      <RoundCheck done={done} size={16} />
                     </Pressable>
                     <input
                       type="time"
@@ -474,7 +475,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
                 accessibilityRole="button"
                 accessibilityLabel={s.done ? `Untick ${s.title}` : `Tick ${s.title}`}
               >
-                <Ionicons name={s.done ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={s.done ? Colors.accent : Colors.textSecondary} />
+                <RoundCheck done={s.done} size={18} />
               </Pressable>
               {editingSub === s.id ? (
                 <TextInput
@@ -756,8 +757,8 @@ const styles = StyleSheet.create({
     boxShadow: Colors.shadowLg,
   } as never,
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
-  tick: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: Colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
-  tickOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  tick: { ...checkRing(22) } as object,
+  tickOn: { ...checkRingDone },
   titleEmoji: { fontSize: 22 },
   titleInput: { flex: 1, minWidth: 0, fontSize: 23, fontWeight: '700', color: Colors.textPrimary, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: 'transparent', outlineColor: Colors.accent },
   titleDone: { color: Colors.textSecondary, textDecorationLine: 'line-through' },

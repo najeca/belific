@@ -27,6 +27,7 @@ import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { pressStyle } from './pressStyle';
 import type { Project, Task, TaskList } from '../../lib/types';
+import { outlinedBtn, outlinedBtnText } from './ui';
 
 // The Tasks board (desktop): day columns in one continuous sideways strip
 // (2.26.0, lib/dayStrip.ts). It opens with today at the left edge and scrolls
@@ -395,13 +396,13 @@ const styles = StyleSheet.create({
   // Inside the centre pane (2.26.0), which draws the frame.
   pane: { flex: 1, minWidth: 0 },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
-  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
-  navHover: { backgroundColor: Colors.background },
+  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  navHover: { backgroundColor: Colors.hover },
   off: { opacity: 0.35 },
   titleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: 32, flexShrink: 1 },
   title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  todayBtn: { paddingHorizontal: 14, height: 32, justifyContent: 'center', borderRadius: 10, backgroundColor: Colors.background },
-  todayText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
+  todayBtn: { ...outlinedBtn, paddingHorizontal: 14, height: 32, justifyContent: 'center' } as object,
+  todayText: { ...outlinedBtnText },
   jump: { position: 'absolute', top: 40, left: 72, zIndex: 30, padding: 12, gap: 6, backgroundColor: Colors.surface, borderRadius: 14, boxShadow: Colors.shadowMd } as object,
   menuHeading: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
   board: { flex: 1 },

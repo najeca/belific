@@ -52,6 +52,7 @@ import { useTick } from './timerUi';
 import FilterButton from './FilterButton';
 import { importedOccurrences, loadIcs, useIcs, type ImportedOccurrence } from './icsStore';
 import { minuteLabel, rangeOf, segmentsForDay, type DaySegment } from '../../lib/externalEvents';
+import { outlinedBtn, outlinedBtnText, segBtn, segBtnOn, segLabel, segLabelOn, segTrack } from './ui';
 
 // The Calendar (build plan phase 3): the centre of the home screen when it is
 // switched from the Kanban board (V). Day, week and month views (D, W, M). The
@@ -797,18 +798,18 @@ const styles = StyleSheet.create({
   pane: { flex: 1, minWidth: 0 },
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 6, flexWrap: 'wrap' },
-  navBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  navBtn: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   off: { opacity: 0.4 },
   title: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, minWidth: 0, flexShrink: 1 },
   totals: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   totalsOver: { color: Colors.accentText, fontWeight: '700' },
-  seg: { flexDirection: 'row', borderRadius: 12, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  segBtn: { paddingHorizontal: 10, height: 32, justifyContent: 'center', backgroundColor: Colors.background },
-  segOn: { backgroundColor: Colors.accent },
-  segText: { fontSize: 12, color: Colors.textPrimary },
-  segTextOn: { color: Colors.onAccent, fontWeight: '700' },
-  todayBtn: { paddingHorizontal: 12, height: 32, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
-  todayText: { fontSize: 12, fontWeight: '600', color: Colors.accentText },
+  seg: { ...segTrack } as object,
+  segBtn: { ...segBtn, paddingHorizontal: 10 } as object,
+  segOn: { ...segBtnOn },
+  segText: { ...segLabel, fontSize: 12 },
+  segTextOn: { ...segLabelOn },
+  todayBtn: { ...outlinedBtn, height: 32, justifyContent: 'center' } as object,
+  todayText: { ...outlinedBtnText, fontSize: 12 },
   note: { fontSize: 12, color: Colors.textSecondary, marginBottom: 6 },
   headRow: { flexDirection: 'row' },
   dayHead: { alignItems: 'center', justifyContent: 'center' },

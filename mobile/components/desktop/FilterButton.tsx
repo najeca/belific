@@ -8,6 +8,7 @@ import { normalizeName } from '../../lib/labelRules';
 import { EMPTY_FILTER, filterCount, toggleLabel, type TaskFilter } from '../../lib/taskFilter';
 import type { Project } from '../../lib/types';
 import Popover, { Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
+import { outlinedBtn, outlinedBtnOn, outlinedBtnText } from './ui';
 
 // The board filter (checkpoint 8.2, decision 021), top right of the week
 // header. Multi select labels, a "No label" row and a "Show complete" switch;
@@ -103,10 +104,10 @@ function FilterBody({ filter, labels, onChange }: { filter: TaskFilter; labels: 
 }
 
 const styles = StyleSheet.create({
-  btn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
-  btnOn: { borderColor: Colors.accent },
-  btnOpen: { backgroundColor: Colors.surface },
-  text: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  btn: { ...outlinedBtn, height: 36 } as object,
+  btnOn: { ...outlinedBtnOn },
+  btnOpen: { backgroundColor: Colors.hover },
+  text: { ...outlinedBtnText },
   textOn: { color: Colors.accentText },
   body: { paddingBottom: 6 },
   searchWrap: { padding: 10, paddingBottom: 4 },

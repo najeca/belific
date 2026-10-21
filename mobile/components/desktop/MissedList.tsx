@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { formatShortDate, isDateKey } from '../../lib/kanban';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
 import { tipRef } from './tip';
@@ -8,6 +9,7 @@ import { labelColor } from '../../lib/labelColors';
 import type { MissedItem } from '../../lib/missed';
 import type { Project, Task } from '../../lib/types';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
+import { checkRing, checkRingDone } from './ui';
 
 // The Missed list (2.27.0, item 6): one row per missed one off task or missed
 // day of a repeating series, with its actions. The same list, rows and actions
@@ -44,7 +46,9 @@ export default function MissedList({ items, labels, todayKey, actions, empty, ro
           <View key={`${t.id}|${m.day}`} style={styles.row} accessibilityLabel={rowLabel ? rowLabel(t) : `Missed ${t.title}, ${formatShortDate(m.day)}`} {...({ dataSet: { missedRow: t.id, missedDay: m.day } } as object)}>
             <View style={styles.head}>
               {actions.tick && m.kind === 'task' && (
-                <Pressable onPress={() => actions.tick?.(t)} style={[styles.box, t.completed && styles.boxOn]} accessibilityRole="button" accessibilityLabel={t.completed ? `Mark ${t.title} not done` : `Mark ${t.title} done`} />
+                <Pressable onPress={() => actions.tick?.(t)} style={[styles.box, t.completed && styles.boxOn]} accessibilityRole="button" accessibilityLabel={t.completed ? `Mark ${t.title} not done` : `Mark ${t.title} done`}>
+                  {t.completed && <Ionicons name="checkmark" size={13} color={Colors.success} />}
+                </Pressable>
               )}
               {label && <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />}
               <Text style={[styles.title, t.completed && styles.done]} numberOfLines={2}>
@@ -121,8 +125,8 @@ const styles = StyleSheet.create({
   allText: { fontSize: 13, fontWeight: '700', color: Colors.onAccent },
   row: { padding: 10, borderRadius: 12, backgroundColor: Colors.surface, gap: 8 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  box: { width: 18, height: 18, borderRadius: 6, borderWidth: 1.5, borderColor: Colors.textSecondary },
-  boxOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  box: { ...checkRing(18) } as object,
+  boxOn: { ...checkRingDone },
   dot: { width: 8, height: 8, borderRadius: 4 },
   title: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   done: { textDecorationLine: 'line-through', color: Colors.textSecondary },

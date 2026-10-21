@@ -111,6 +111,21 @@ async function run() {
     await I.shot(`p22-${name}-2-tasks`);
     const cardRatios = await contrastIn(`document.querySelector('[data-day-col="${today}"] [aria-label^="Task Write the report"]')`);
     check(`${name}: a labelled card's text is readable on its colour`, !!cardRatios && cardRatios.every((r) => r >= 4.5), JSON.stringify(cardRatios) + (await I.js('JSON.stringify(window.__why)')));
+    // Shared pieces (step 3): a round checkbox, outlined small buttons, a segmented toggle, a duration pill.
+    const shape = await I.js(`(() => {
+      const box = document.querySelector('[data-day-col="${today}"] [aria-label="Mark Buy stamps complete"] > div');
+      const btn = document.querySelector('[aria-label="Show only today"]');
+      const seg = document.querySelector('[aria-label="Centre view"]');
+      const pill = document.querySelector('[data-day-col="${today}"] [data-card-time]');
+      const px = (v) => parseFloat(v);
+      return { checkRadius: box ? px(getComputedStyle(box).borderTopLeftRadius) >= 9 : null, checkSize: box ? box.getBoundingClientRect().width : null,
+        outlined: btn ? [getComputedStyle(btn).borderTopWidth, px(getComputedStyle(btn).borderTopLeftRadius)] : null,
+        segBorder: seg ? getComputedStyle(seg).borderTopWidth : null, pillRadius: pill ? px(getComputedStyle(pill).borderTopLeftRadius) : null };
+    })()`);
+    check(`${name}: the checkbox is round`, shape.checkRadius === true && shape.checkSize === 18, JSON.stringify(shape));
+    check(`${name}: Only today is an outlined small button (1px outline, 8px corners)`, !!shape.outlined && shape.outlined[0] === '1px' && shape.outlined[1] === 8, JSON.stringify(shape.outlined));
+    check(`${name}: the Calendar/Tasks toggle is a bordered segmented control`, shape.segBorder === '1px', String(shape.segBorder));
+    check(`${name}: the duration is a soft pill (6px corners)`, shape.pillRadius === 6, String(shape.pillRadius));
     // The task details.
     await I.click(`document.querySelector('[data-day-col="${today}"] [aria-label^="Task Write the report"]')`, 900);
     await C.waitFor(() => I.exists(`document.querySelector('[data-task-detail]') || document.querySelector('[role="dialog"]')`), 4000).catch(() => {});
@@ -128,7 +143,7 @@ async function run() {
   check('fonts: the Belific name is set in Newsreader', await I.exists(wordmark), String(await fontOf(wordmark)));
   const loaded = await I.js(`Promise.all([document.fonts.load('700 18px Newsreader'), document.fonts.load('500 14px Inter')]).then(() => [document.fonts.check('700 18px Newsreader'), document.fonts.check('500 14px Inter'), [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family + f.weight).join(',')])`);
   check('fonts: Newsreader and Inter are loaded from the app files (the page allows only itself)', loaded[0] === true && loaded[1] === true, JSON.stringify(loaded));
-  const body = await fontOf(`document.querySelector('[aria-label="Show Tasks"] div, [aria-label="Show Tasks"] span')`);
+  const body = await fontOf(`[...document.querySelectorAll('[aria-label="Show Tasks"] [dir="auto"]')].pop()`);
   check('fonts: the interface is Inter', /^Inter|Segoe UI|-apple-system/.test(String(body)), String(body));
 
   // ======== 1. The default: light ========

@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.41.0 — 2026-10-21 (Ellie Planner look, step 3 of 8: the shared pieces)
+
+**Desktop only. Look only; every control does what it did.**
+- **One shared kit** (`components/desktop/ui.tsx`): outlined small buttons, the segmented toggle, pills, the round checkbox and the line icon style, so every screen draws them the same way.
+- **Top bar:** the Calendar / Tasks toggle is a bordered segmented control (the active segment filled with the accent) with thin line icons instead of emoji; Only today, Quests, Today, Filter and Back are outlined small buttons (1px outline, 8px corners, a quiet fill on hover); the Earlier button and the Day / Week / Month toggle follow. Emoji that were interface icons in the top bar are now line icons.
+- **Pills:** the duration or time on a card is a soft 6px pill; the Earlier count is a round count pill.
+- **Round checkboxes** on cards, in the details (the task, its steps and its times), in the Missed list, Daily Planning and Quests; done is the success green on its dark green.
+- Real check `p22.js` +8 (round checkbox, outlined buttons, segmented toggle, pill, in both themes). p3, p7 and cp8e re-run and pass.
+
+---
+
 ## 2.40.0 — 2026-10-21 (Ellie Planner look, step 2 of 8: fonts)
 
 **Desktop only. Look only.**

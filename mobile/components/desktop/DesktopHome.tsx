@@ -37,6 +37,7 @@ import { refreshCutMin } from './cutStore';
 import { refreshDefaultReminders } from './reminderStore';
 import { refreshVibrant } from './vibrantStore';
 import { refreshTheme } from './themeStore';
+import { outlinedBtn, outlinedBtnOn, outlinedBtnText, segBtn, segBtnHover, segBtnOn, segLabel, segLabelOn, segTrack } from './ui';
 import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
 import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
@@ -421,7 +422,7 @@ export default function DesktopHome() {
               </Pressable>
             )}
             <View style={styles.seg} accessibilityRole="radiogroup" accessibilityLabel="Centre view">
-              {([['kanban', '✅ Tasks', 'Show Tasks'], ['calendar', '📆 Calendar', 'Show the Calendar']] as const).map(([v, text, label]) => (
+              {([['kanban', 'checkbox-outline', 'Tasks', 'Show Tasks'], ['calendar', 'calendar-outline', 'Calendar', 'Show the Calendar']] as const).map(([v, icon, text, label]) => (
                 <Pressable
                   key={v}
                   onPress={() => updatePanes((s) => (s.center === v ? s : toggleCenter(s)))}
@@ -430,7 +431,10 @@ export default function DesktopHome() {
                   accessibilityState={{ selected: paneState.center === v }}
                   accessibilityLabel={label}
                 >
-                  <Text style={[styles.segText, paneState.center === v && styles.segTextOn]}>{text}</Text>
+                  <View style={styles.segInner}>
+                    <Ionicons name={icon} size={15} color={paneState.center === v ? Colors.onAccent : Colors.textSecondary} />
+                    <Text style={[styles.segText, paneState.center === v && styles.segTextOn]}>{text}</Text>
+                  </View>
                 </Pressable>
               ))}
             </View>
@@ -442,11 +446,11 @@ export default function DesktopHome() {
               accessibilityLabel="Show only today"
               {...({ 'aria-pressed': paneState.onlyToday } as object)}
             >
-              <Text style={styles.rowEmoji}>📅</Text>
-              <Text style={[styles.rowText, paneState.onlyToday && styles.segTextOn]}>Only today</Text>
+              <Ionicons name="today-outline" size={15} color={paneState.onlyToday ? Colors.accentText : Colors.textSecondary} />
+              <Text style={[styles.rowText, paneState.onlyToday && styles.rowTextOn]}>Only today</Text>
             </Pressable>
             <Pressable onPress={() => showView('quests')} style={pressStyle(({ hovered }) => [styles.rowBtn, hovered && styles.segHover])} accessibilityRole="button" accessibilityLabel="Quests">
-              <Text style={styles.rowEmoji}>🎯</Text>
+              <Ionicons name="trophy-outline" size={15} color={Colors.textSecondary} />
               <Text style={styles.rowText}>Quests</Text>
             </Pressable>
             <View style={{ flex: 1 }} />
@@ -565,23 +569,24 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   strip: { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
   stripRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: 10, backgroundColor: Colors.surface, boxShadow: SOFT_SHADOW } as object,
+  back: { ...outlinedBtn, height: 36 } as object,
   backText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
   body: { flex: 1, flexDirection: 'row', padding: 16, gap: 16 },
   centre: { flex: 1, minWidth: 0, backgroundColor: Colors.surface, borderRadius: 16, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, boxShadow: SOFT_SHADOW } as object,
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, marginBottom: 8 },
-  edgeBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  edgeHover: { backgroundColor: Colors.background },
-  seg: { flexDirection: 'row', borderRadius: 10, padding: 3, gap: 2, backgroundColor: Colors.background } as object,
-  segBtn: { paddingHorizontal: 12, height: 30, borderRadius: 8, justifyContent: 'center', transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
-  segHover: { backgroundColor: Colors.hover },
-  segOn: { backgroundColor: Colors.accent },
-  segText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
-  segTextOn: { color: Colors.onAccent, fontWeight: '700' },
-  rowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: 10, backgroundColor: Colors.background, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
-  rowBtnOn: { backgroundColor: Colors.accent },
-  rowEmoji: { fontSize: 15 },
-  rowText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
+  edgeBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  edgeHover: { backgroundColor: Colors.hover },
+  seg: { ...segTrack } as object,
+  segBtn: { ...segBtn, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
+  segInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  segHover: { ...segBtnHover },
+  segOn: { ...segBtnOn },
+  segText: { ...segLabel },
+  segTextOn: { ...segLabelOn },
+  rowBtn: { ...outlinedBtn, height: 36, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
+  rowBtnOn: { ...outlinedBtnOn },
+  rowText: { ...outlinedBtnText },
+  rowTextOn: { color: Colors.accentText },
   sidebarOverlay: { position: 'absolute', left: 16, top: 16, bottom: 16, width: SIDEBAR_WIDTH, zIndex: 20 },
   timeboxOverlay: { position: 'absolute', right: 16, top: 16, bottom: 16, width: TIMEBOX_WIDTH, zIndex: 20 },
   scrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 19, backgroundColor: Colors.scrimSoft },

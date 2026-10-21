@@ -23,6 +23,7 @@ import { toggleTimer } from './timerUi';
 import { timesLabel } from '../../lib/times';
 import StreakLine from './StreakLine';
 import { useTint } from './themeStore';
+import { checkRing, checkRingDone } from './ui';
 
 // A task on the board, in the left list, or in any list (2.27.0). The card is a
 // face, not an editor: a click anywhere on it (except the tick box and the steps
@@ -279,7 +280,7 @@ export default function TaskCard({
                 accessibilityRole="button"
                 accessibilityLabel={task.completed ? `Mark ${task.title} incomplete` : `Mark ${task.title} complete`}
               >
-                <View style={[styles.box, task.completed && styles.boxDone]}>{task.completed && <Ionicons name="checkmark" size={13} color={Colors.onAccent} />}</View>
+                <View style={[styles.box, task.completed && styles.boxDone]}>{task.completed && <Ionicons name="checkmark" size={13} color={Colors.success} />}</View>
               </Pressable>
               <Text style={[styles.title, task.completed && styles.titleDone]} numberOfLines={3} accessibilityLabel={`Title ${task.title}`}>
                 {task.emoji ? `${task.emoji} ` : ''}
@@ -486,11 +487,11 @@ const styles = StyleSheet.create({
   projected: { opacity: 0.82 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   check: { paddingTop: 1 },
-  box: { width: 18, height: 18, borderRadius: 6, borderWidth: 1.5, borderColor: Colors.trackLine, backgroundColor: Colors.checkFill, alignItems: 'center', justifyContent: 'center' },
-  boxDone: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  box: { ...checkRing(18), borderColor: Colors.trackLine } as object,
+  boxDone: { ...checkRingDone },
   title: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', color: Colors.textPrimary, minWidth: 0 },
   titleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  chipText: { fontSize: 11.5, lineHeight: 20, fontWeight: '500', color: Colors.textPrimary, paddingHorizontal: 6, borderRadius: 6, backgroundColor: Colors.chip },
+  chipText: { fontSize: 11.5, lineHeight: 20, fontWeight: '600', color: Colors.textPrimary, paddingHorizontal: 7, borderRadius: 6, backgroundColor: Colors.chip, overflow: 'hidden' } as object,
   chipTextMuted: { color: Colors.textSecondary },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20, paddingLeft: 26, overflow: 'hidden' },
   metaDay: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },

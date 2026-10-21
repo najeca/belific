@@ -25,6 +25,7 @@ import { isPopoverOpen } from './Popover';
 import { closeOverlay, notifyChanged } from './uiStore';
 import { useTint } from './themeStore';
 import { DISPLAY_FONT_FAMILY } from './desktopFont';
+import { RoundCheck } from './ui';
 
 // Daily Planning (4 steps) and Daily Shutdown (2 steps), build plan phase 5,
 // section 4. A full screen overlay on the home screen, never a new screen: a
@@ -406,12 +407,12 @@ function Row({
     <View style={[styles.row, color && { borderLeftColor: color.edge, borderLeftWidth: 3 }]} accessibilityLabel={`Flow task ${task.title}`}>
       {onTick && (
         <Pressable onPress={onTick} style={styles.tick} accessibilityRole="button" accessibilityLabel={tick ? `Mark ${task.title} not done` : `Mark ${task.title} done`}>
-          <Ionicons name={tick ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={tick ? Colors.accent : Colors.textSecondary} />
+          <RoundCheck done={!!tick} size={18} />
         </Pressable>
       )}
       {check && (
         <Pressable onPress={check.onPress} style={styles.tick} accessibilityRole="checkbox" accessibilityState={{ checked: check.on }} accessibilityLabel={check.a11y}>
-          <Ionicons name={check.on ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={check.on ? Colors.accent : Colors.textSecondary} />
+          <RoundCheck done={!!check.on} size={18} />
         </Pressable>
       )}
       <View style={{ flex: 1, minWidth: 0 }}>

@@ -11,6 +11,7 @@ import { StepsRing } from './TaskCard';
 import { opsForProjected, opsForTask } from './taskOps';
 import type { Task } from '../../lib/types';
 import { DISPLAY_FONT_FAMILY } from './desktopFont';
+import { RoundCheck } from './ui';
 
 // The Quests page (build plan phase 4): every repeating task, grouped by how
 // often it repeats (Daily, Weekly, Every 2 weeks, Every few weeks, Monthly,
@@ -112,7 +113,7 @@ function QuestCard({ quest: q, todayKey, act }: { quest: Quest; todayKey: string
           accessibilityRole="button"
           accessibilityLabel={done ? `Reopen ${q.title}` : `Complete ${q.title}`}
         >
-          <Ionicons name={done ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={done ? Colors.accent : Colors.textSecondary} />
+          <RoundCheck done={!!done} size={26} />
         </Pressable>
         <View style={styles.main}>
           <View style={styles.titleRow}>
@@ -152,7 +153,7 @@ function QuestCard({ quest: q, todayKey, act }: { quest: Quest; todayKey: string
               accessibilityState={{ checked: st.done }}
               accessibilityLabel={`${st.title} (${q.title})`}
             >
-              <Ionicons name={st.done ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={st.done ? Colors.accent : Colors.textSecondary} />
+              <RoundCheck done={!!st.done} size={18} />
               <Text style={[styles.stepText, st.done && styles.stepDone]}>{st.title}</Text>
             </Pressable>
           ))}

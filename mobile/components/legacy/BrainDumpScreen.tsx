@@ -12,8 +12,8 @@ import {
   UIManager,
 } from 'react-native';
 import { FlatList as GHFlatList } from 'react-native-gesture-handler';
-import { PressRow, SwipeRow } from '../../components/phone/touch';
-import { ActionMenu } from '../../components/phone/menu';
+import { PressRow, SwipeRow } from '../phone/touch';
+import { ActionMenu } from '../phone/menu';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -191,8 +191,8 @@ function DumpEditForm({
   );
 }
 
+// Inside the Tasks tab until P5 (PLAN_phone P3): the tab draws the header.
 export default function InboxScreen() {
-  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<ThoughtRow[]>([]);
   const [captureText, setCaptureText] = useState('');
   const [editVisible, setEditVisible] = useState(false);
@@ -243,11 +243,7 @@ export default function InboxScreen() {
   const sorted = items;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Brain Dump</Text>
-      </View>
-
+    <View style={styles.container}>
       <View style={styles.captureRow}>
         <TextInput
           ref={inputRef}

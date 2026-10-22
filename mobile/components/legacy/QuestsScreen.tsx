@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
@@ -15,9 +14,8 @@ import { loadRoutineCompletions, loadTasksRaw } from '../../lib/storage';
 // (and any rule this version does not know). One card each: emoji, name, what is
 // due this period, current and best streak (never a zero, never a warning:
 // decisions 007 and 027), one tap to complete, Skip, and Today. The iPhone has
-// no Timebox, so there is no Timebox button here.
+// no Timebox, so there is no Timebox button here. Inside the Tasks tab until P5 (PLAN_phone P3).
 export default function QuestsScreen() {
-  const insets = useSafeAreaInsets();
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -39,9 +37,8 @@ export default function QuestsScreen() {
   const groups = questsBySection(quests);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Text style={styles.title}>Quests</Text>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 96 }} showsVerticalScrollIndicator={false}>
         <Text style={styles.hint}>Your repeating tasks. A skipped day never breaks a streak.</Text>
         {loaded && groups.length === 0 && (
           <View style={styles.card}>

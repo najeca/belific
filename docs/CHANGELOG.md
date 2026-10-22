@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.51.0 — 2026-10-22 (iPhone catch-up P3: three tabs, the round +, Settings behind the avatar)
+
+**iPhone. JavaScript only. The desktop is unchanged.**
+- **Three tabs:** Today, Calendar, Tasks (`app/(tabs)/_layout.tsx`, the new tokens and Inter). The Brain Dump and Quests tabs are gone; their screens live inside Tasks for now (Brain Dump, All, Repeating), so nothing is lost before P5 replaces them. The old screens moved to `components/legacy/` (`BrainDumpScreen`, `TaskListScreen`, `QuestsScreen`).
+- **Settings behind the profile avatar** top right on every tab (no Settings tab; the gear is gone).
+- **The round + on every tab** opens the quick add (`components/phone/QuickAdd.tsx`): Today adds for today, Calendar for the chosen day, Tasks to Brain Dump. One title and Add; Cancel is one tap. The task is written by the shared `createTaskIn`. New phone pieces: `components/phone/chrome.tsx` (`ScreenHeader`, `AddButton`, `Segmented`).
+- **Changed on purpose:** the + used to add an event on Today and the Calendar; it now adds a task (old events stay and are still edited by tapping them, decision 4).
+- **Tests:** real touch check `phone-p3.js` (14) at 390 x 844; `iosMarkers.test.ts` reads the moved files at their new paths.
+
+---
+
 ## 2.50.0 — 2026-10-22 (iPhone catch-up P2: the touch kit)
 
 **iPhone. Needs a new EAS build to try on a phone (new native module `expo-haptics`). The desktop is unchanged.**

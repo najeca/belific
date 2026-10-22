@@ -8,15 +8,14 @@ import {
   FlatList,
   StyleSheet,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../lib/theme';
-import { sortTasksForDisplay, STARTER_TOP_TASKS, generateId } from '../lib/data';
-import { loadTasks, addTask, loadProjects, shouldShowStarterRoutine } from '../lib/storage';
-import { setTaskCompleted } from '../lib/taskActions';
-import TaskFormModal from './components/TaskForm';
-import type { Project, Task } from '../lib/types';
+import { Colors } from '../../lib/theme';
+import { sortTasksForDisplay, STARTER_TOP_TASKS, generateId } from '../../lib/data';
+import { loadTasks, addTask, loadProjects, shouldShowStarterRoutine } from '../../lib/storage';
+import { setTaskCompleted } from '../../lib/taskActions';
+import TaskFormModal from '../../app/components/TaskForm';
+import type { Project, Task } from '../../lib/types';
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -25,9 +24,8 @@ function formatDueDateKey(key: string): string {
   return `${SHORT_MONTHS[m - 1]} ${d}`;
 }
 
+// The full task list, inside the Tasks tab until P5 (PLAN_phone P3).
 export default function TasksScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectFilter, setProjectFilter] = useState<string | undefined>(undefined);
@@ -84,21 +82,7 @@ export default function TasksScreen() {
   const sorted = sortTasksForDisplay(filteredTasks);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          accessibilityLabel="Back"
-          accessibilityRole="button"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Tasks</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
+    <View style={styles.container}>
       <View style={styles.captureRow}>
         <TextInput
           ref={inputRef}

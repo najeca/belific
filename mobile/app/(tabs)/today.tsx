@@ -41,6 +41,8 @@ import { setTaskCompleted } from '../../lib/taskActions';
 import { scheduleEventNotifications } from '../../lib/notifications';
 import AddEventModal from '../components/AddEventModal';
 import RoutineFormModal from '../components/RoutineForm';
+import { AddButton } from '../../components/phone/chrome';
+import { QuickAdd } from '../../components/phone/QuickAdd';
 import type { ScheduleEvent, CustomEvent, CustomCategory, Routine, TimeOfDay, Task } from '../../lib/types';
 
 const TIME_OF_DAY_ORDER: TimeOfDay[] = ['morning', 'afternoon', 'evening'];
@@ -167,6 +169,7 @@ export default function TodayScreen() {
 
   const [topTasks, setTopTasks] = useState<Task[]>([]);
   const [starterMode, setStarterMode] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   async function loadTopTasks() {
     const allTasks = await loadTasks();
@@ -353,11 +356,12 @@ export default function TodayScreen() {
             <TouchableOpacity
               onPress={() => router.push('/settings')}
               style={styles.settingsBtn}
-              accessibilityLabel="Settings"
+              accessibilityLabel="Profile and settings"
               accessibilityRole="button"
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              {...({ dataSet: { profileAvatar: '1' } } as object)}
             >
-              <Ionicons name="settings-outline" size={22} color={Colors.textSecondary} />
+              <Ionicons name="person-circle-outline" size={28} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -478,7 +482,7 @@ export default function TodayScreen() {
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionLabel}>Top 3 tasks</Text>
             <TouchableOpacity
-              onPress={() => router.push('/tasks')}
+              onPress={() => router.push('/(tabs)/tasks')}
               accessibilityLabel="See all tasks"
               accessibilityRole="button"
             >
@@ -514,7 +518,7 @@ export default function TodayScreen() {
                     i === topTasks.length - 1 && styles.routineRowLast,
                     pressed && { opacity: 0.85 },
                   ]}
-                  onPress={() => router.push('/tasks')}
+                  onPress={() => router.push('/(tabs)/tasks')}
                   accessibilityLabel={task.title}
                   accessibilityHint="Tap to open Tasks"
                 >
@@ -583,16 +587,9 @@ export default function TodayScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: insets.bottom + 24 }]}
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.85}
-        accessibilityLabel="Add event"
-        accessibilityRole="button"
-      >
-        <Ionicons name="add" size={28} color={Colors.onAccent} />
-      </TouchableOpacity>
+      {/* The round + adds a task for today (PLAN_phone P3); an old event is still edited by tapping it. */}
+      <AddButton onPress={() => setAdding(true)} a11y="Add a task for today" />
+      <QuickAdd visible={adding} where={{ dueDate: dateKey, label: 'Today' }} onClose={() => setAdding(false)} onAdded={() => loadTopTasks()} />
 
       <AddEventModal
         visible={modalVisible}

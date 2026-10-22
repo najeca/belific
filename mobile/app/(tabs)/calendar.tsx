@@ -10,7 +10,9 @@ import {
   AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { AddButton } from '../../components/phone/chrome';
+import { QuickAdd } from '../../components/phone/QuickAdd';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import {
@@ -97,6 +99,8 @@ function EventRowCompact({
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
   const realToday = new Date();
   const [viewYear, setViewYear] = useState(realToday.getFullYear());
   const [viewMonth, setViewMonth] = useState(realToday.getMonth());
@@ -289,8 +293,17 @@ export default function CalendarScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
         <Text style={styles.title}>Calendar</Text>
+        <TouchableOpacity
+          onPress={() => router.push('/settings')}
+          accessibilityLabel="Profile and settings"
+          accessibilityRole="button"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          {...({ dataSet: { profileAvatar: '1' } } as object)}
+        >
+          <Ionicons name="person-circle-outline" size={28} color={Colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       {/* Month navigation */}
@@ -397,16 +410,9 @@ export default function CalendarScreen() {
         </View>
       )}
 
-      {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: insets.bottom + 24 }]}
-        onPress={openAddModal}
-        activeOpacity={0.85}
-        accessibilityLabel="Add event"
-        accessibilityRole="button"
-      >
-        <Ionicons name="add" size={28} color={Colors.onAccent} />
-      </TouchableOpacity>
+      {/* The round + adds a task on the chosen day (PLAN_phone P3). */}
+      <AddButton onPress={() => setAdding(true)} a11y="Add a task on this day" />
+      <QuickAdd visible={adding} where={{ dueDate: formatDateKey(selectedDate), label: selectedDay != null ? formatDetailHeader(selectedDate) : 'Today' }} onClose={() => setAdding(false)} onAdded={() => loadTasks().then(setTasks).catch(() => {})} />
 
       {/* Unified day-detail / edit / add sheet — one Modal, content swaps by mode */}
       <Modal

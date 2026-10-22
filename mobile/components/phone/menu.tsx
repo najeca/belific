@@ -14,6 +14,9 @@ import type { IconName } from './ui';
 export interface MenuItem {
   label: string;
   icon: IconName;
+  // Drawn instead of the icon (a label's colour dot).
+  leading?: React.ReactNode;
+  selected?: boolean;
   danger?: boolean;
   run: () => void;
 }
@@ -55,9 +58,11 @@ export function ActionMenu({ visible, title, items, onClose }: { visible: boolea
               }}
               accessibilityRole="button"
               accessibilityLabel={it.label}
+              accessibilityState={{ selected: !!it.selected }}
             >
-              <Ionicons name={it.icon} size={22} color={it.danger ? c.danger : c.textSecondary} />
-              <Text style={[s.rowText, it.danger && s.danger]}>{it.label}</Text>
+              {it.leading ?? <Ionicons name={it.icon} size={22} color={it.danger ? c.danger : c.textSecondary} />}
+              <Text style={[s.rowText, it.danger && s.danger, { flex: 1 }]}>{it.label}</Text>
+              {it.selected ? <Ionicons name="checkmark" size={20} color={c.accentText} /> : null}
             </Pressable>
           ))}
           <View style={{ height: 1, backgroundColor: c.border, marginVertical: 6 }} />

@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 2.54.0 — 2026-10-22 (iPhone catch-up P6: task details, part 1)
+
+**iPhone. JavaScript only. The desktop looks and works the same (one shared file moved).**
+- **A task's details on the phone** (`components/phone/TaskDetails.tsx`, a full sheet with Done): title and emoji, top priority (the red exclamation mark), date (Today, Tomorrow, No date and a month grid, weeks from Monday: `MonthGrid.tsx`), time (the iPhone's own time picker; a typed field on the web export: `TimeField`), length (the desktop's presets and a typed length), label (with its colour dot; a new label gets the next free colour), list, notes, steps (add, tick, rename, delete) and Delete. Opened from Today (Edit, the menu) and from Tasks (a tap, the menu), in place of the old task form.
+- **Every change is written at once and names only its own fields** (`lib/detailsPatches.ts`), through the shared task actions, so cutsBelow, reminders, extra times, times done, the timer, the list and the emoji are never lost when the phone edits a task. A projected day of a repeating task edits its series (as on the desktop); its date moves only that day (stored first). Changing the first time of a task with several times keeps the others (the times rules; an overlap is refused with a note).
+- **Shared code:** the desktop's `components/desktop/taskOps.ts` moved to `lib/taskOps.ts` (the old path re-exports it, so the desktop is unchanged); `labels.ts` is used by the phone now (its colour fill is idempotent, tested). The quick menu can show a colour dot and a tick.
+- **Tests:** `detailsPatches.test.ts` (5: every edit keeps the Part B and C fields and the timer; clearing the date clears the time; the times rules; the sync sends the kept fields when the server has the columns and never otherwise; the label colour fill is idempotent); real touch check `phone-p6.js` (23). Changed on purpose: `phone-p4.js` and `phone-p5.js` now expect the details (not the old form) and `phone-p4.js` waits for Today's data; the touch harness retries finding an element for up to 4 seconds.
+
+---
+
 ## 2.53.0 — 2026-10-22 (iPhone catch-up P5: Tasks with the list switcher and Repeating)
 
 **iPhone. JavaScript only. The desktop is unchanged.**

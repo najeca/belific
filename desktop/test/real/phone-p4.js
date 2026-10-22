@@ -77,7 +77,8 @@ async function run() {
   const menuItems = () => P.js(`[...document.querySelectorAll('[data-action-menu] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
   const menuTap = (label) => P.finger.tap(`document.querySelector('[data-action-menu] [aria-label=${JSON.stringify(label)}]')`, 900);
 
-  // Order.
+  // Order (once Today has read the data).
+  await C.waitFor(async () => (await rows()).length >= 6, 8000).catch(() => {});
   const order = await rows();
   check('only today: the task for tomorrow is not on Today', !order.includes('Tomorrow thing'), JSON.stringify(order));
   const timedOrder = order.filter((t) => ['Morning walk', 'Standup', 'Evening review'].includes(t));
@@ -142,8 +143,9 @@ async function run() {
   check('Delete deletes it (to Trash)', !!task('rent').deletedAt);
   await P.finger.hold(body('Evening review'), 480, 700);
   await menuTap('Edit');
-  check('Edit opens the task form', (await text()).includes('Evening review') && /Due date|Notes/.test(await text()));
-  await P.finger.tap(`[...document.querySelectorAll('[aria-label="Cancel"]')].pop()`, 800);
+  // 2.54.0 (P6): Edit opens the task details (it was the old task form).
+  check('Edit opens the task details', await P.js(`!!document.querySelector('[data-task-details="review"]')`));
+  await P.finger.tap(`[...document.querySelectorAll('[aria-label="Done"]')].pop()`, 800);
 
   // A repeating task's menu.
   await P.finger.hold(body('Old habit'), 480, 700);

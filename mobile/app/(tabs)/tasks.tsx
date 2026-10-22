@@ -27,10 +27,10 @@ import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { PressRow, SwipeRow, haptic } from '../../components/phone/touch';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
 import { usePhonePref } from '../../components/phone/prefs';
+import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
 import { useStyles, useTheme } from '../../components/phone/theme';
 import { Card, LabelDot, Pill, RoundCheck, SectionHeader } from '../../components/phone/ui';
 import { inter, mono, type } from '../../components/phone/type';
-import TaskFormModal from '../components/TaskForm';
 
 // The Tasks tab (PLAN_phone P5): the desktop's left pane for a finger. A list switcher at the top
 // (Brain Dump, every list, and Repeating, which replaces the old Quests tab), a quick add row, then
@@ -89,7 +89,7 @@ export default function TasksTab() {
   const [undo, setUndo] = useState<UndoMessage | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [editTask, setEditTask] = useState<Task | undefined>();
+  const [details, setDetails] = useState<DetailsTarget | null>(null);
   const [listSheet, setListSheet] = useState<{ list: TaskList | null } | null>(null);
   const [showStreaks] = usePhonePref('showStreaks');
   const input = useRef<TextInput>(null);
@@ -145,7 +145,7 @@ export default function TasksTab() {
     else await deleteOne(row.task);
     await load();
   };
-  const open = async (row: ThoughtRow) => setEditTask(await asTask(row));
+  const open = async (row: ThoughtRow) => setDetails({ task: await asTask(row), projected: false });
 
   function holdMenu(row: ThoughtRow) {
     const title = row.kind === 'task' ? row.task.title : row.item.title;
@@ -447,15 +447,7 @@ export default function TasksTab() {
           void load();
         }}
       />
-      <TaskFormModal
-        visible={!!editTask}
-        editTask={editTask}
-        onClose={() => setEditTask(undefined)}
-        onSaved={() => {
-          setEditTask(undefined);
-          void load();
-        }}
-      />
+      <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
     </View>
   );
 }

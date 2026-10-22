@@ -109,8 +109,9 @@ async function run() {
   // A legacy item opens as a task.
   await P.finger.tap(body('Old phone note'), 1200);
   const converted = byTitle('Old phone note')[0];
-  check('opening an old phone item makes it a task and opens it', !!converted && !!read('belific_brain_dump').find((i) => i.id === 'old1').deletedAt && /Due date|Notes/.test(await text()), JSON.stringify(converted));
-  await P.finger.tap(`[...document.querySelectorAll('[aria-label="Cancel"]')].pop()`, 900);
+  // 2.54.0 (P6): it opens in the task details (it was the old task form).
+  check('opening an old phone item makes it a task and opens it', !!converted && !!read('belific_brain_dump').find((i) => i.id === 'old1').deletedAt && (await P.js(`!!document.querySelector('[data-task-details]')`)), JSON.stringify(converted));
+  await P.finger.tap(`[...document.querySelectorAll('[aria-label="Done"]')].pop()`, 900);
 
   // A named list keeps its dated tasks.
   await P.finger.tap(chip('L1'), 900);

@@ -27,19 +27,19 @@ import { labelColor } from '../../lib/labelColors';
 import { liveLists } from '../../lib/lists';
 import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
 import { counter } from '../../lib/subtasks';
-import { deleteOne, deleteRepeating, duplicate, moveToList, skipDay, storedTask, tickRoutine, tickTask, toggleSubtask } from '../../lib/phoneActions';
+import { deleteOne, deleteRepeating, duplicate, moveToList, skipDay, tickRoutine, tickTask, toggleSubtask } from '../../lib/phoneActions';
 import type { CustomEvent, Project, Routine, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { AddButton, ScreenHeader } from '../../components/phone/chrome';
 import { QuickAdd } from '../../components/phone/QuickAdd';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { PressRow, haptic } from '../../components/phone/touch';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
+import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
 import { useStyles, useTheme } from '../../components/phone/theme';
 import { Button, Card, LabelDot, RoundCheck, SectionHeader } from '../../components/phone/ui';
 import { inter, mono, type } from '../../components/phone/type';
 import AddEventModal from '../components/AddEventModal';
 import RoutineFormModal from '../components/RoutineForm';
-import TaskFormModal from '../components/TaskForm';
 
 // Today on the iPhone (PLAN_phone P4): only today, in time order, with an Anytime group below; a
 // small Now and Next line at the top; a tick takes the row away with Undo for a few seconds and
@@ -99,7 +99,7 @@ export default function TodayScreen() {
   const [undo, setUndo] = useState<UndoMessage | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [editTask, setEditTask] = useState<Task | undefined>();
+  const [details, setDetails] = useState<DetailsTarget | null>(null);
   const [editEvent, setEditEvent] = useState<CustomEvent | undefined>();
   const [editRoutine, setEditRoutine] = useState<Routine | undefined>();
 
@@ -150,9 +150,9 @@ export default function TodayScreen() {
     if (done && withUndo) setUndo({ id: Date.now(), text: `Done: ${itemTitle(item)}`, undo: () => void tick(item, false, false) });
   }
 
+  // The details sheet edits a projected day's series (its date moves only that day), as on the desktop.
   async function openEdit(task: Task, projected: boolean) {
-    const row = await storedTask(task, projected);
-    if (row) setEditTask(row);
+    setDetails({ task, projected });
   }
 
   function openMenu(item: TodayItem) {
@@ -361,15 +361,7 @@ export default function TodayScreen() {
       <AddButton onPress={() => setAdding(true)} a11y="Add a task for today" />
       <QuickAdd visible={adding} where={{ dueDate: todayKey, label: 'Today' }} onClose={() => setAdding(false)} onAdded={() => void load()} />
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
-      <TaskFormModal
-        visible={!!editTask}
-        editTask={editTask}
-        onClose={() => setEditTask(undefined)}
-        onSaved={() => {
-          setEditTask(undefined);
-          void load();
-        }}
-      />
+      <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
       <AddEventModal
         visible={!!editEvent}
         date={today}

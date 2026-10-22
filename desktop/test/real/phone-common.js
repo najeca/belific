@@ -28,10 +28,14 @@ async function phoneWindow(win, { width = 390, height = 844 } = {}) {
   });
   await C.sleep(800);
 
+  // The element's box; a screen still drawing (a tab just pressed, a sheet opening) gets up to 4 s.
   const point = async (expr) => {
-    const r = await js(`(() => { const e = ${expr}; if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width, h: b.height, top: b.top, left: b.left }; })()`);
-    if (!r) throw new Error(`no element for ${expr}`);
-    return r;
+    for (let i = 0; i < 20; i++) {
+      const r = await js(`(() => { const e = ${expr}; if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width, h: b.height, top: b.top, left: b.left }; })()`).catch(() => null);
+      if (r) return r;
+      await C.sleep(200);
+    }
+    throw new Error(`no element for ${expr}`);
   };
   const touch = (type, x, y) => send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y), id: 1, radiusX: 4, radiusY: 4, force: 1 }] });
 

@@ -8,6 +8,20 @@ to know the current version and recent history.
 
 ---
 
+## 2.53.0 — 2026-10-22 (iPhone catch-up P5: Tasks with the list switcher and Repeating)
+
+**iPhone. JavaScript only. The desktop is unchanged.**
+- **The Tasks tab is the desktop's left pane for a finger:** a list switcher at the top (Brain Dump with its count, every list with its emoji and count, Repeating, New list; it scrolls sideways), an add row, then every task of the chosen list. A named list keeps its dated tasks (the desktop's rule, `thoughts.ts`); Brain Dump shows the tasks with no day and no list and the old phone Brain Dump items (which become tasks when opened, as on the desktop). "Done today, N" under the list.
+- **Swipe a row right** to mark it done (with Undo); **swipe left** for Tomorrow and Delete (a repeating task offers Skip instead). Tap opens the task; press and hold for Edit, Duplicate, Move to list, Delete. Every swipe is also a screen reader action.
+- **Lists:** press and hold a list to edit its name and emoji or delete it (`components/phone/ListSheet.tsx`, the shared createList, editList and removeList: same name rules, same key, tasks stay).
+- **Repeating replaces the old Quests tab:** each repeating task with what is due, its streak small, tick, Skip and Today (the shared `quests.ts` and `questActions.ts`). Routines not yet converted are listed under it and tick as before.
+- **Show streaks, on this iPhone:** a new Settings section "On this iPhone" with a per phone "Show streaks" switch (default on, never synced; `components/phone/prefs.ts`).
+- **iOS marker gate:** `Show streaks` removed on purpose (P5). `seriesStreak` stays a marker: the phone's streaks come from `quests.ts` as before, so the plan's second removal was not needed.
+- **Touch fixes found by the checks:** a row drawn before its data loaded never got its press and hold (gesture handler does not take a change of gesture shape on a mounted detector: the detector is now remounted); a sheet opened by a hold no longer closes on the lifting finger (`useSettled`, shared by the menu, the list sheet and the quick add).
+- **Tests:** real touch check `phone-p5.js` (26). The touch harness now holds the page at 390 px (a non mobile viewport; the mobile one zoomed out while the page was still wide) and waits for the tab bar. Changed on purpose: `phone-p2.js` now drives the Tasks rows (the Brain Dump tab went in P3) and `phone-p3.js` the list switcher (the interim All went in P5); `iosMarkers.test.ts` lists the P5 removal.
+
+---
+
 ## 2.52.0 — 2026-10-22 (iPhone catch-up P4: Today)
 
 **iPhone. JavaScript only. The desktop is unchanged.**

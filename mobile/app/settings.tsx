@@ -38,6 +38,7 @@ import { signInWithApple, signOut, deleteAccount } from '../lib/auth';
 import { phoneGoogle } from '../lib/phoneGoogleAuth';
 import RoutineConvertSection from './components/RoutineConvertSection';
 import CalendarsSection from './components/CalendarsSection';
+import { usePhonePref } from '../components/phone/prefs';
 import type { Session } from '@supabase/supabase-js';
 
 // Read from app.json's expo.version at runtime rather than hardcoded —
@@ -46,6 +47,7 @@ import type { Session } from '@supabase/supabase-js';
 const APP_VERSION = Constants.expoConfig?.version ?? '—';
 
 export default function SettingsScreen() {
+  const [showStreaks, setShowStreaks] = usePhonePref('showStreaks');
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -286,6 +288,21 @@ export default function SettingsScreen() {
               <Text style={styles.settingsPromptText}>Tap to enable in Settings</Text>
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* On this iPhone (PLAN_phone P5): settings that stay on this phone, never synced. */}
+        <Text style={styles.sectionHeader}>On this iPhone</Text>
+        <View style={styles.card}>
+          <View style={styles.row} {...({ dataSet: { phoneStreaks: '1' } } as object)}>
+            <Text style={styles.rowLabel}>Show streaks</Text>
+            <Switch
+              value={showStreaks}
+              onValueChange={setShowStreaks}
+              trackColor={{ false: Colors.border, true: Colors.accent }}
+              thumbColor={Colors.onAccent}
+              accessibilityLabel="Show streaks"
+            />
+          </View>
         </View>
 
         {/* Account section — optional, app is fully usable signed out */}

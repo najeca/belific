@@ -1,5 +1,6 @@
 'use strict';
-// Real touch check for PLAN_phone P2 (2.50.0): the phone's touch kit on the Brain Dump cards, at
+// Real touch check for PLAN_phone P2 (2.50.0): the phone's touch kit on list rows (since P5 the Tasks
+// tab's Brain Dump rows; the old Brain Dump tab went in P3), at
 // 390 x 844 with real touch events (phone-common.js). A short still tap opens a card; a finger that
 // moves (a scroll) opens nothing; a slow lift opens nothing; a 450 ms hold opens the menu; a swipe
 // to the left shows Delete, and Delete deletes. Isolated data folder; Supabase is the in process fake.
@@ -47,17 +48,20 @@ async function run() {
 
   const width = await P.js('window.innerWidth');
   check('the page is phone sized (390 px wide)', width === 390, String(width));
-  // Open Brain Dump from the tab bar.
-  await P.finger.tap(`[...document.querySelectorAll('[role="tab"], a, [role="link"], [role="button"]')].find((e) => /Brain Dump/.test(e.textContent) && e.getBoundingClientRect().top > 700)`, 900);
-  await C.waitFor(() => P.js(`!!document.querySelector('[data-dump-card]')`), 6000).catch(() => {});
-  check('Brain Dump shows the cards', await P.js(`document.querySelectorAll('[data-dump-card]').length >= 10`));
+  // Open the Tasks tab (Brain Dump is its first list).
+  const tabEls = `[...document.querySelectorAll('a, [role="tab"], [role="button"], [role="link"]')].filter((e) => { const r = e.getBoundingClientRect(); return r.top > 760 && r.height > 20 && r.width > 40 && r.width < 200; })`;
+  await C.waitFor(() => P.js(`${tabEls}.length >= 3`), 8000).catch(() => {});
+  await P.finger.tap(`${tabEls}.find((e) => e.textContent.replace(/[^ -~]/g, '').trim() === 'Tasks')`, 1000);
+  await C.waitFor(() => P.js(`!!document.querySelector('[data-task-row]')`), 6000).catch(() => {});
+  check('Brain Dump shows the rows', await P.js(`document.querySelectorAll('[data-task-row]').length >= 10`));
   await shot('phone-p2-braindump');
 
-  const card = (t) => `document.querySelector('[data-dump-card="${t}"]')`;
-  const editOpen = () => P.js(`document.body.innerText.includes('Edit thought')`);
+  const card = (t) => `document.querySelector('[data-task-row="${t}"] [data-task-body]')`;
+  // A tap opens the task: the details sheet (P6) or, before it, the task form.
+  const editOpen = () => P.js(`!!document.querySelector('[data-task-details]') || /Due date/.test(document.body.innerText)`);
   const menuOpen = () => P.js(`!!document.querySelector('[data-action-menu]')`);
   const closeEdit = async () => {
-    if (await editOpen()) await P.finger.tap(`[...document.querySelectorAll('[aria-label="Cancel"]')].pop()`, 800);
+    if (await editOpen()) await P.finger.tap(`[...document.querySelectorAll('[aria-label="Done"], [aria-label="Cancel"]')].pop()`, 800);
   };
 
   // A tap.
@@ -85,13 +89,13 @@ async function run() {
   await P.finger.hold(card('Thought number 12'), 480, 700);
   check('hold: about 400 ms opens the quick menu', await menuOpen());
   const items = await P.js(`[...document.querySelectorAll('[data-action-menu] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
-  check('hold: the menu has Edit, Delete and Cancel', JSON.stringify(items) === JSON.stringify(['Edit', 'Delete', 'Cancel']), JSON.stringify(items));
+  check('hold: the menu has Edit, Duplicate, Move to list, Delete and Cancel', JSON.stringify(items) === JSON.stringify(['Edit', 'Duplicate', 'Move to list', 'Delete', 'Cancel']), JSON.stringify(items));
   await shot('phone-p2-hold');
   await P.finger.tap(`document.querySelector('[data-action-menu] [aria-label="Cancel"]')`, 700);
   check('hold: Cancel closes the menu in one tap', !(await menuOpen()));
 
   // Swipe left.
-  await P.finger.drag(card('Thought number 12'), -170, 0, 260, 800, { x: 300, y: 20 });
+  await P.finger.drag(card('Thought number 12'), -200, 0, 260, 800, { x: 240, y: 20 });
   // Every row has its (hidden) Delete; the one on screen is the swiped row's.
   const shown = await P.js(`[...document.querySelectorAll('[data-swipe-action="Delete"]')].some((a) => { const r = a.getBoundingClientRect(); return r.width > 40 && r.left >= 0 && r.right <= innerWidth + 1; })`);
   check('swipe left: the Delete button shows', shown);

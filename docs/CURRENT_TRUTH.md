@@ -2,7 +2,7 @@
 
 Update this at every session close. It replaces `current-state-audit.md` and `architecture.md` (both historical, July 2026) in the session protocol.
 
-Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 2.52.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
+Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 2.53.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
 
 **Since 2026-10-16 the work follows `docs/belific-build-plan.md` (phases 1 to 9) and `docs/build-progress.md` (checkpoint per phase, decisions, what is next).** Phases 1 to 8 are done (phase 8 in code: its Edge Function is not deployed and its grant 003 is not applied; Jethro does both); phase 9 has not started.
 
@@ -27,6 +27,7 @@ Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its f
 - **2.50.0 (P2):** the touch kit (`components/phone/touch.tsx`: `PressRow`, `SwipeRow`, `haptic`, `useReducedMotion`; `menu.tsx`: `ActionMenu`), rules in `lib/touchRules.ts`. `expo-haptics` added (**native: needs an EAS build**). Brain Dump cards use it. The phone touch harness `desktop/test/real/phone-common.js` (390 x 844, real touch events through the DevTools Protocol) and `phone-p2.js`.
 - **2.51.0 (P3):** three tabs (Today, Calendar, Tasks), Settings behind the avatar, the round + with the quick add on every tab; the old Brain Dump, task list and Quests screens sit inside Tasks (`components/legacy/`) until P5.
 - **2.52.0 (P4):** Today rebuilt (`app/(tabs)/today.tsx`, `lib/todayView.ts`, `lib/phoneActions.ts`, `UndoBar.tsx`): today only, Planned in time order, Anytime, Now and Next, tick with Undo, Done today, open in place, hold menu. Unconverted routines tick as before; old events are grey rows. The phone no longer stores the next day of a dated repeating task when ticked (it projects, like the desktop).
+- **2.53.0 (P5):** the Tasks tab: list switcher (Brain Dump, lists, Repeating, New list), add row, every task of the list, swipe right done, swipe left Tomorrow or Delete, hold menu, list edit sheet, Repeating with small streaks (per phone "Show streaks" in Settings, On this iPhone). Marker `Show streaks` removed on purpose; `seriesStreak` stays.
 
 ## Part C (2026-10-21, desktop from 2.34.1; plan `docs/PLAN_part_c.md`)
 - **2.34.1 (P1):** the timer can be started on any task, including a shown (not stored) day of a repeating task, which is stored first; a start that cannot happen shows a note; "Start from HH:mm" counts from a time that has begun today. Desktop only, no schema change.

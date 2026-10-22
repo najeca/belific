@@ -60,6 +60,7 @@ async function run() {
     await C.sleep(250);
   };
 
+  await C.waitFor(() => P.js(`${tabEls}.length >= 3`), 8000).catch(() => {});
   // The tab text also holds the icon font's glyph: keep the plain letters only.
   const names = await P.js(`${tabEls}.map((e) => e.textContent.replace(/[^ -~]/g, '').trim())`);
   check('three tabs: Today, Calendar, Tasks', JSON.stringify(names) === JSON.stringify(['Today', 'Calendar', 'Tasks']), JSON.stringify(names));
@@ -99,16 +100,14 @@ async function run() {
   const dentist = stored().find((t) => t.title === 'Dentist');
   check('Calendar: + stores the task on the chosen day (today)', !!dentist && dentist.dueDate === today, JSON.stringify(dentist));
 
-  // Tasks: Brain Dump, All, Repeating.
+  // Tasks: Brain Dump and Repeating (since P5 the list switcher; the interim "All" went with it).
   await P.finger.tap(tab('Tasks'), 1000);
   check('Tasks: Brain Dump shows the loose thought', (await text()).includes('A loose thought'));
   await shot('phone-p3-tasks');
-  await P.finger.tap(visible('[data-seg="all"]'), 900);
-  check('Tasks: All lists every task', (await text()).includes('Call the bank') && (await text()).includes('Dentist'));
-  await P.finger.tap(visible('[data-seg="repeating"]'), 900);
+  await P.finger.tap(visible('[data-list-chip="__repeating__"]'), 900);
   check('Tasks: Repeating shows the repeating task (the old Quests)', (await text()).includes('Stretch'));
   await shot('phone-p3-repeating');
-  await P.finger.tap(visible('[data-seg="dump"]'), 900);
+  await P.finger.tap(visible('[data-list-chip="dump"]'), 900);
   await P.finger.tap(visible('[data-add-button]'), 900);
   await P.finger.tap(visible('[aria-label="New task title"]'), 300);
   await typeText('Idea for the garden');

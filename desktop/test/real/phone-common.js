@@ -11,9 +11,22 @@ async function phoneWindow(win, { width = 390, height = 844 } = {}) {
   const dbg = win.webContents.debugger;
   if (!dbg.isAttached()) dbg.attach('1.3');
   const send = (method, params = {}) => dbg.sendCommand(method, params);
-  await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: true });
-  await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
   const js = (code) => win.webContents.executeJavaScript(code, true);
+  // The app may still be settling its window (size, a reload) when this runs, which can drop the
+  // emulation: it is applied until the page really is phone sized, then the layout gets a moment.
+  for (let i = 0; i < 40; i++) {
+    if (!dbg.isAttached()) dbg.attach('1.3');
+    // Not a "mobile" viewport: that one zooms out to fit a page that was still wide when it applied.
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: false });
+    await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    await C.sleep(250);
+    if ((await js('innerWidth').catch(() => 0)) === width) break;
+  }
+  // The phone layout is drawn once its tab bar is there.
+  await C.waitFor(() => js(`[...document.querySelectorAll('a, [role="tab"], [role="button"], [role="link"]')].filter((e) => { const r = e.getBoundingClientRect(); return r.top > ${height - 100} && r.height > 20; }).length >= 3`), 15000).catch(async () => {
+    console.log(`INFO phone layout not seen: ${await js('innerWidth + "x" + innerHeight + " " + document.body.innerText.slice(0, 80).replace(/\s+/g, " ")').catch((e) => String(e))}`);
+  });
+  await C.sleep(800);
 
   const point = async (expr) => {
     const r = await js(`(() => { const e = ${expr}; if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width, h: b.height, top: b.top, left: b.left }; })()`);

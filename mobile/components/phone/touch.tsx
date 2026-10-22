@@ -41,6 +41,18 @@ export function useReducedMotion(): boolean {
   return reduced;
 }
 
+// A sheet or menu opened by a press and hold sits under the finger that is still down: the lift must
+// not count as a choice (on the web it lands as a click on the new dim area). Presses on the new sheet
+// within SETTLE_MS of opening are ignored.
+export const SETTLE_MS = 350;
+export function useSettled(visible: boolean): () => boolean {
+  const openedAt = useRef(0);
+  useEffect(() => {
+    if (visible) openedAt.current = Date.now();
+  }, [visible]);
+  return () => Date.now() - openedAt.current > SETTLE_MS;
+}
+
 export interface RowAction {
   name: string; // the screen reader action's label ("Done", "Delete")
   run: () => void;
@@ -110,7 +122,9 @@ export function PressRow({
   // Web only: let the browser scroll the list when a finger moves on a row (the iPhone's own scroll
   // view does this natively); a row's gestures still see the touch.
   return (
-    <GestureDetector gesture={gesture} touchAction={touchAction}>
+    // Remounted when the hold comes or goes (gesture handler does not take a change of shape on a
+    // mounted detector: a row drawn before its data loaded would otherwise never get its hold).
+    <GestureDetector key={hasHold ? 'hold' : 'tap'} gesture={gesture} touchAction={touchAction}>
       <View
         style={style}
         accessible

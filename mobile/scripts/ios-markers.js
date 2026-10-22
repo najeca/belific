@@ -50,7 +50,9 @@ const MARKERS = [
   // 'Convert routines from your iPhone') stays protected below.
   'routine-convert',
   'Convert routines from your iPhone',
-  'Show streaks',
+  // 'Show streaks' REMOVED ON PURPOSE in PLAN_phone P5 (2.53.0): the iPhone has its own per phone
+  // "Show streaks" switch (Settings, On this iPhone) for the streaks on the Repeating chip. The phone's
+  // streaks come from lib/quests.ts (as before); seriesStreak stays a marker. No data risk: a local switch.
   // 2.25.0 (build plan phase 8): imported ICS subscriptions are desktop only.
   // The iPhone reads its own calendars (lib/deviceCalendar.ts) and shares only
   // the pure day layout (lib/externalEvents.ts) and the feed link code.

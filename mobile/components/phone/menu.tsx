@@ -1,18 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { radius, type ColorTokens } from '../../lib/tokens';
 import { useStyles, useTheme } from './theme';
-import { useReducedMotion } from './touch';
+import { useReducedMotion, useSettled } from './touch';
 import { inter, type } from './type';
 import type { IconName } from './ui';
 
 // The quick menu a press and hold opens (PLAN_phone P2): a sheet from the bottom with large rows and
 // Cancel. A tap on the dim area closes it too. The phone's stand-in for the desktop's popovers.
-
-// How long after opening a press is taken as the opening finger lifting.
-export const MENU_SETTLE_MS = 350;
 
 export interface MenuItem {
   label: string;
@@ -36,13 +33,8 @@ export function ActionMenu({ visible, title, items, onClose }: { visible: boolea
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
-  // The finger that held the row to open this menu lifts over it: that lift is not a choice. Presses in
-  // the first moments after opening are ignored.
-  const openedAt = useRef(0);
-  useEffect(() => {
-    if (visible) openedAt.current = Date.now();
-  }, [visible]);
-  const settled = () => Date.now() - openedAt.current > MENU_SETTLE_MS;
+  // The finger that held the row to open this menu lifts over it: that lift is not a choice.
+  const settled = useSettled(visible);
   return (
     <Modal visible={visible} transparent animationType={reduced ? 'none' : 'fade'} onRequestClose={onClose}>
       <Pressable style={s.scrim} onPress={() => settled() && onClose()} accessibilityLabel="Close menu" {...({ dataSet: { menuScrim: '1' } } as object)}>

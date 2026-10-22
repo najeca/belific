@@ -53,7 +53,7 @@ test('2.18.1: the phone gets its own Google sign in, so two markers were removed
 
 test('2.21.0: the iPhone gets Convert routines and Quests, so three markers were removed on purpose; the desktop row stays protected', () => {
   for (const removed of ['convertRoutines', 'undoConversion', 'routineConvertActions']) assert.ok(!markers.MARKERS.includes(removed), `${removed} is no longer a marker`);
-  for (const kept of ['RoutineConvertRow', 'routine-convert', 'Convert routines from your iPhone', 'seriesStreak', 'ProgressPage', 'Show streaks']) assert.ok(markers.MARKERS.includes(kept), kept);
+  for (const kept of ['RoutineConvertRow', 'routine-convert', 'Convert routines from your iPhone', 'seriesStreak', 'ProgressPage']) assert.ok(markers.MARKERS.includes(kept), kept);
   // no new phone file uses a desktop only marker
   const phoneFiles = ['../components/legacy/QuestsScreen.tsx', '../components/legacy/BrainDumpScreen.tsx', '../app/components/RoutineConvertSection.tsx', 'quests.ts', 'questActions.ts', 'lists.ts', 'emoji.ts'];
   for (const f of phoneFiles) {
@@ -129,10 +129,12 @@ test('the real repository passes the source check today', () => {
 // removal not listed here (or a listed one put back) fails, so every change to the list is deliberate.
 const PHONE_REMOVED: Record<string, string[]> = {
   P1: ['Match system'],
+  // P5: the phone's own per phone "Show streaks" switch (Settings). seriesStreak is still a marker.
+  P5: ['Show streaks'],
 };
 test('PLAN_phone: markers removed on purpose, by phase; the desktop only theme functions stay markers', () => {
   for (const [phase, names] of Object.entries(PHONE_REMOVED)) {
     for (const n of names) assert.ok(!markers.MARKERS.includes(n), `${phase}: ${n} is no longer a marker`);
   }
-  for (const kept of ['installTheme', 'setThemeMode', 'vibrantColor', 'resizeRefusal', 'searchEmoji', 'Smallest piece when a break splits a task']) assert.ok(markers.MARKERS.includes(kept), kept);
+  for (const kept of ['seriesStreak', 'installTheme', 'setThemeMode', 'vibrantColor', 'resizeRefusal', 'searchEmoji', 'Smallest piece when a break splits a task']) assert.ok(markers.MARKERS.includes(kept), kept);
 });

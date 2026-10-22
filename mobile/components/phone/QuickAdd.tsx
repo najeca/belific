@@ -5,7 +5,7 @@ import { radius, type ColorTokens } from '../../lib/tokens';
 import { createTaskIn } from '../../lib/taskCommands';
 import type { Task } from '../../lib/types';
 import { useStyles, useTheme } from './theme';
-import { useReducedMotion } from './touch';
+import { useReducedMotion, useSettled } from './touch';
 import { inter, type } from './type';
 import { Button } from './ui';
 
@@ -35,6 +35,7 @@ export function QuickAdd({ visible, where, onClose, onAdded }: { visible: boolea
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
+  const settled = useSettled(visible);
   const [title, setTitle] = useState('');
   const input = useRef<TextInput>(null);
   useEffect(() => {
@@ -52,7 +53,7 @@ export function QuickAdd({ visible, where, onClose, onAdded }: { visible: boolea
   return (
     <Modal visible={visible} transparent animationType={reduced ? 'none' : 'slide'} onRequestClose={onClose} onShow={() => input.current?.focus()}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={s.scrim} onPress={onClose} accessibilityLabel="Cancel adding">
+        <Pressable style={s.scrim} onPress={() => settled() && onClose()} accessibilityLabel="Cancel adding">
           <Pressable style={[s.sheet, { paddingBottom: insets.bottom + 16 }]} onPress={() => {}} {...({ dataSet: { quickAdd: where.label } } as object)}>
             <Text style={s.where}>{where.label}</Text>
             <TextInput

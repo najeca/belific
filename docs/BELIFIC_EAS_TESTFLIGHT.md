@@ -1,5 +1,7 @@
 # Belific: EAS build for TestFlight (2.25.0, shared Supabase project)
 
+> **3.0.0 (2026-10-22).** The iPhone catch-up release has its own checklist: `docs/PHONE_RELEASE_3.0.0.md` (version 3.0.0, build 1; new native pieces; the waiver question; the TestFlight hand test; when Convert is safe). The sections below still describe the variables, build numbers and rollback.
+
 > **Version note (2026-10-17).** This note was written for 2.18.1. `mobile/app.json` is now **2.25.0** (build plan phases 2 to 8 bumped it), so **the next TestFlight build is 2.25.0**. **2.25.0 adds a native module, `expo-calendar` 15.0.8**, and two Info.plist texts (`NSCalendarsUsageDescription`, `NSCalendarsFullAccessUsageDescription`): the iPhone calendar reading only works in a build made after this change, never through an update of an older build. The build number is still raised **by hand** in `mobile/app.json` (`expo.ios.buildNumber`, now "1"; no `autoIncrement`, no `appVersionSource`). Nothing was built, uploaded or submitted: no EAS command was run.
 
 Belific specific. The Landis `eas-build` skill under `.claude/skills/workflow/eas-build/` and `docs/publishing-reference.md` are **stale for this app** (they say so at the top now); use this file.

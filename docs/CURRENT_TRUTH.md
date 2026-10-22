@@ -2,7 +2,7 @@
 
 Update this at every session close. It replaces `current-state-audit.md` and `architecture.md` (both historical, July 2026) in the session protocol.
 
-Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 2.59.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
+Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 3.0.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
 
 **Since 2026-10-16 the work follows `docs/belific-build-plan.md` (phases 1 to 9) and `docs/build-progress.md` (checkpoint per phase, decisions, what is next).** Phases 1 to 8 are done (phase 8 in code: its Edge Function is not deployed and its grant 003 is not applied; Jethro does both); phase 9 has not started.
 
@@ -34,6 +34,7 @@ Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its f
 - **2.57.0 (P9):** Week (seven columns, short titles) and Month (marks and counts) on the phone's Calendar; a tap on a day opens it in Day view and never creates a task; a sideways swipe moves a day, week or month, a vertical scroll always wins.
 - **2.58.0 (P10):** hold a block on the Day timeline, then drag it in 15 minute steps (`DraggableBlock.tsx`, `lib/phoneDrag.ts` on the desktop's drop rules), with Undo and auto scroll; screen reader actions move it 15 minutes. Markers `multiDropPatch` and `resizeRefusal` removed on purpose.
 - **2.59.0 (P11):** Theme (Light, Dark, Match system) in the phone's Settings; every phone screen follows it; `phoneColors` removed (Colors on the phone = the light tokens); the old screens and task form deleted; `userInterfaceStyle` automatic (next build). Audit `phone-p11.js` (12 screens, both themes).
+- **3.0.0 (P12):** the iPhone catch-up release, prepared, not built: `docs/PHONE_RELEASE_3.0.0.md` holds the hand steps (EAS build and submit, TestFlight hand test, when Convert routines is safe). The live App Store version is 2.18.1 (decision 2) on the old project.
 
 ## Part C (2026-10-21, desktop from 2.34.1; plan `docs/PLAN_part_c.md`)
 - **2.34.1 (P1):** the timer can be started on any task, including a shown (not stored) day of a repeating task, which is stored first; a start that cannot happen shows a note; "Start from HH:mm" counts from a time that has begun today. Desktop only, no schema change.

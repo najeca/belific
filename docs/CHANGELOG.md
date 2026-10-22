@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.0.0 — 2026-10-22 (iPhone catch-up P12: release preparation)
+
+**Version only, and the hand checklist. No code change. Nothing was built or sent (decision 1: 3.0.0 at P12).**
+- **3.0.0** is the iPhone catch-up release (P1 to P11, 2.49.0 to 2.59.0): the desktop's look (tokens, Inter and Newsreader, Light, Dark, Match system), three tabs (Today, Calendar, Tasks), Settings behind the avatar, the round + everywhere, touch rules (tap, hold, swipe, drag), Today in time order with Undo, Tasks with lists and Repeating, full task details (priority, date, time, length, label, list, repeat, times a day, reminders, notes, steps), phone reminders with "Remind me on this device", and the Calendar's Day, Week and Month with the sideways swipe and hold-to-drag.
+- **`docs/PHONE_RELEASE_3.0.0.md`:** what Jethro does by hand: the waiver question (a second EAS build), the native changes in this build, the variables, the phone backup, `eas build` and `eas submit`, the TestFlight hand test (what to tap, swipe and hold, and what should happen), when Convert routines is safe, and the rollback to the live 2.18.1. `docs/BELIFIC_EAS_TESTFLIGHT.md` points to it; `docs/PLAN_phone.md` has its status.
+- `ios.buildNumber` stays "1" (a new version string starts at 1; check it is unused in App Store Connect).
+
+---
+
 ## 2.59.0 — 2026-10-22 (iPhone catch-up P11: the Theme setting, the dark audit, the old palette gone)
 
 **iPhone, and one native setting (`userInterfaceStyle` is now "automatic", needed for Match system: it takes effect in the next EAS build). The desktop is unchanged.**

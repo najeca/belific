@@ -4,6 +4,8 @@ Written 2026-10-22 on Opus. Plan only: no app code, no build, no EAS, no databas
 The layout and behaviour below are Jethro's decisions and are final; this plan only says how to build them safely.
 Where this plan makes a choice of its own it says so ("chosen here"); anything that is a guess says "guess".
 
+**Status (2026-10-22): P1 to P12 built, 2.49.0 to 3.0.0; see `docs/build-progress.md`. The hand steps for the release are in `docs/PHONE_RELEASE_3.0.0.md`.**
+
 ## Phases at a glance
 
 | # | Phase | Size | Model | Needs a new EAS build to try on a phone |

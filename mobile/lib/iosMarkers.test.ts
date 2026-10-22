@@ -55,7 +55,7 @@ test('2.21.0: the iPhone gets Convert routines and Quests, so three markers were
   for (const removed of ['convertRoutines', 'undoConversion', 'routineConvertActions']) assert.ok(!markers.MARKERS.includes(removed), `${removed} is no longer a marker`);
   for (const kept of ['RoutineConvertRow', 'routine-convert', 'Convert routines from your iPhone', 'seriesStreak', 'ProgressPage']) assert.ok(markers.MARKERS.includes(kept), kept);
   // no new phone file uses a desktop only marker
-  const phoneFiles = ['../components/legacy/QuestsScreen.tsx', '../components/legacy/BrainDumpScreen.tsx', '../app/components/RoutineConvertSection.tsx', 'quests.ts', 'questActions.ts', 'lists.ts', 'emoji.ts'];
+  const phoneFiles = ['../app/(tabs)/tasks.tsx', '../app/(tabs)/today.tsx', '../app/components/RoutineConvertSection.tsx', 'quests.ts', 'questActions.ts', 'lists.ts', 'emoji.ts'];
   for (const f of phoneFiles) {
     const text = fs.readFileSync(path.resolve(import.meta.dirname, f), 'utf8');
     for (const m of markers.MARKERS) assert.ok(!text.includes(m), `${f} contains the desktop only marker ${m}`);

@@ -16,7 +16,8 @@ import { inter, mono } from '../type';
 // screen (lib/blockLayout.ts, 2.47.0): one line under 36 px, two to 55 px, the full layout from 56 px;
 // every line is one line with an ellipsis, so text never runs over text or out of the block. Tasks
 // take their label's tint and edge; old events are grey and read only; the iPhone's own events show
-// their calendar's colour on the edge.
+// their calendar's colour on the edge. Text grows with the iPhone's text size up to 1.3 times (P11), so
+// the block tiers, which are worked out from the block's height, still hold.
 export interface BlockLook {
   bg: string;
   edge: string;
@@ -72,19 +73,19 @@ export function PhoneBlock({ source, height, look }: { source: DaySource; height
   return (
     <View style={[s.block, { backgroundColor: look.bg, borderLeftColor: look.edge, paddingVertical: pad, justifyContent: tier === 1 ? 'center' : 'flex-start' }]}>
       <View style={s.line}>
-        <Text style={[s.title, grey && s.grey, done && s.done]} numberOfLines={tier === 3 ? 2 : 1}>
+        <Text style={[s.title, grey && s.grey, done && s.done]} numberOfLines={tier === 3 ? 2 : 1} maxFontSizeMultiplier={1.3}>
           {title}
         </Text>
         {high ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
         {repeats && tier !== 1 ? <Ionicons name="repeat" size={11} color={c.textSecondary} /> : null}
         {right ? (
-          <Text style={s.right} numberOfLines={1}>
+          <Text style={s.right} numberOfLines={1} maxFontSizeMultiplier={1.3}>
             {right}
           </Text>
         ) : null}
       </View>
       {tier !== 1 ? (
-        <Text style={s.meta} numberOfLines={1}>
+        <Text style={s.meta} numberOfLines={1} maxFontSizeMultiplier={1.3}>
           {[timeText, lengthText, tier === 3 ? (look.listEmoji ?? '') : ''].filter(Boolean).join(' ')}
         </Text>
       ) : null}

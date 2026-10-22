@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Colors } from '../../lib/theme';
+import { useTheme, useThemed } from '../../components/phone/theme';
+import type { ColorTokens } from '../../lib/tokens';
 import { convertRoutines, loadRoutineState, undoConversion, type RoutineState } from '../../lib/routineConvertActions';
 import { DRY_RUN_NOTE, dryRunLines } from '../../lib/routineConvert';
 
@@ -18,6 +19,8 @@ import { DRY_RUN_NOTE, dryRunLines } from '../../lib/routineConvert';
 // Unlike the desktop there is no "Back up first" step: the phone has no backup
 // folder. Signed in, every row is also on the server; Undo is the way back.
 export default function RoutineConvertSection() {
+  const { c: Colors } = useTheme();
+  const styles = useThemed(make);
   const [state, setState] = useState<RoutineState | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -128,7 +131,9 @@ export default function RoutineConvertSection() {
   );
 }
 
-const styles = StyleSheet.create({
+// The theme's colours (PLAN_phone P11): `Colors` here is the light or dark token set.
+const make = (Colors: ColorTokens) =>
+  StyleSheet.create({
   wrap: { padding: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
   heading: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
   body: { fontSize: 15, color: Colors.textPrimary },

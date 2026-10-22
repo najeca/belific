@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, Share, StyleSheet, AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Colors } from '../../lib/theme';
+import { useTheme, useThemed } from '../../components/phone/theme';
+import type { ColorTokens } from '../../lib/tokens';
 import { FEED_TEXT } from '../../lib/calendarFeed';
 import { feedChangePending, feedLinkFor, loadFeedToken, newFeedLink, turnOffFeed } from '../../lib/calendarFeedActions';
 import { askCalendarAccess, calendarAccess, openPhoneSettings, DEVICE_CALENDAR_TEXT, type CalendarAccess } from '../../lib/deviceCalendar';
@@ -11,6 +12,8 @@ import { askCalendarAccess, calendarAccess, openPhoneSettings, DEVICE_CALENDAR_T
 // (share, make a new one, turn off). Imported ICS subscriptions are a Windows
 // feature; the phone already has its own calendars.
 export default function CalendarsSection({ signedIn }: { signedIn: boolean }) {
+  const { c: Colors } = useTheme();
+  const styles = useThemed(make);
   const [access, setAccess] = useState<CalendarAccess | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -151,7 +154,9 @@ export default function CalendarsSection({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+// The theme's colours (PLAN_phone P11): `Colors` here is the light or dark token set.
+const make = (Colors: ColorTokens) =>
+  StyleSheet.create({
   sectionHeader: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 1, marginBottom: 8, marginTop: 8 },
   card: { backgroundColor: Colors.surface, borderRadius: 16, marginBottom: 28, overflow: 'hidden' },
   block: { paddingHorizontal: 16, paddingVertical: 14 },

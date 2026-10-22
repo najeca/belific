@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../lib/theme';
+import { useTheme, useThemed } from '../../components/phone/theme';
+import type { ColorTokens } from '../../lib/tokens';
 import { generateId } from '../../lib/data';
 import { addRoutine, updateRoutine, deleteRoutine } from '../../lib/storage';
 import type { Routine, TimeOfDay } from '../../lib/types';
@@ -34,6 +35,8 @@ interface RoutineFormContentProps {
 // that needs it inside its own sheet (none yet) can use this directly;
 // RoutineFormModal below is the standalone pageSheet wrapper Today uses.
 export function RoutineFormContent({ onClose, onSaved, editRoutine }: RoutineFormContentProps) {
+  const { c: Colors } = useTheme();
+  const styles = useThemed(make);
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('morning');
@@ -180,6 +183,8 @@ interface RoutineFormModalProps {
 }
 
 export default function RoutineFormModal({ visible, onClose, onSaved, editRoutine }: RoutineFormModalProps) {
+  const { c: Colors } = useTheme();
+  const styles = useThemed(make);
   return (
     <Modal
       visible={visible}
@@ -195,7 +200,9 @@ export default function RoutineFormModal({ visible, onClose, onSaved, editRoutin
   );
 }
 
-const styles = StyleSheet.create({
+// The theme's colours (PLAN_phone P11): `Colors` here is the light or dark token set.
+const make = (Colors: ColorTokens) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

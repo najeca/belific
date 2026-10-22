@@ -2,11 +2,11 @@
   "expo": {
     "name": "Belific",
     "slug": "belific",
-    "version": "2.58.0",
+    "version": "2.59.0",
     "scheme": "belific",
     "orientation": "portrait",
     "icon": "./assets/belificappicon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "splash": {
       "image": "./assets/belificappicon.png",

@@ -120,17 +120,8 @@ export const darkTokens: ColorTokens = {
 
 export const THEMES: Record<ThemeName, ColorTokens> = { light: lightTokens, dark: darkTokens };
 
-// The phone keeps the palette it shipped with (2.18.1): the restyle is the desktop's. Nothing on
-// the iPhone changes until its own catch-up release decides to take the tokens.
-export const phoneColors: ColorTokens = {
-  ...lightTokens,
-  background: '#F0EEE8',
-  pane: '#FAF9F5',
-  surface: '#FAF9F5',
-  border: '#E4E0D5',
-  textPrimary: '#26251F',
-  textSecondary: '#6E6C64',
-};
+// 2.59.0 (PLAN_phone P11): the iPhone uses these tokens too (light and dark, components/phone/theme.tsx);
+// the frozen phone palette it kept until then (phoneColors) is gone.
 
 // One scale, nothing between: cards and add rows 10, popovers 10 (rows 6), pills 6, buttons 8,
 // modals 16, an avatar or a round checkbox full.

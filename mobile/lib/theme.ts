@@ -4,16 +4,17 @@
 // On the desktop (web) each entry is a CSS variable reference, `var(--ds-text-primary)`, so a
 // change of theme (components/desktop/themeStore.ts sets the variables on <html>) repaints the
 // whole screen at once with no re-render. On the phone (and in `node --test`, where there is no
-// document) each entry is the plain hex the phone shipped with, which is also what the colour
-// maths and the contrast tests need.
+// document) each entry is the plain hex of the light tokens (2.59.0; before, the phone's old palette),
+// which is also what the colour maths and the contrast tests need. The phone's screens read the live
+// theme from components/phone/theme.tsx instead; only code outside a screen (the error screen) reads this.
 //
 // accent (#5C7A6B) is verified 4.07:1 on the old background: fine for fills and icons with
 // onAccent text on top, but it fails AA for body text directly on background/surface. Use
 // accentText wherever the accent sits behind readable text.
-import { cssVarName, phoneColors, type ColorTokens } from './tokens.ts';
+import { cssVarName, lightTokens, type ColorTokens } from './tokens.ts';
 
 const onWeb = typeof document !== 'undefined';
 
-const refs = Object.fromEntries(Object.keys(phoneColors).map((k) => [k, `var(${cssVarName(k)})`])) as unknown as ColorTokens;
+const refs = Object.fromEntries(Object.keys(lightTokens).map((k) => [k, `var(${cssVarName(k)})`])) as unknown as ColorTokens;
 
-export const Colors: Readonly<ColorTokens> = Object.freeze(onWeb ? refs : { ...phoneColors });
+export const Colors: Readonly<ColorTokens> = Object.freeze(onWeb ? refs : { ...lightTokens });

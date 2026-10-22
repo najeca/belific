@@ -20,9 +20,9 @@ const make = (c: ColorTokens) => ({
   avatarCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface, alignItems: 'center' as const, justifyContent: 'center' as const },
   fab: { position: 'absolute' as const, right: 18, width: 58, height: 58, borderRadius: 29, backgroundColor: c.accent, alignItems: 'center' as const, justifyContent: 'center' as const, borderWidth: 1, borderColor: c.accent },
   segTrack: { flexDirection: 'row' as const, borderRadius: radius.lg, padding: 3, gap: 2, backgroundColor: c.surfaceRaised, borderWidth: 1, borderColor: c.border },
-  seg: { flex: 1, minHeight: 36, borderRadius: radius.md, alignItems: 'center' as const, justifyContent: 'center' as const, paddingHorizontal: 6 },
+  seg: { flex: 1, minHeight: 36, borderRadius: radius.md, alignItems: 'center' as const, justifyContent: 'center' as const, paddingHorizontal: 4 },
   segOn: { backgroundColor: c.surface, borderWidth: 1, borderColor: c.borderStrong },
-  segText: { ...inter(600), fontSize: 14, color: c.textSecondary },
+  segText: { ...inter(600), fontSize: 13, color: c.textSecondary },
   segTextOn: { color: c.textPrimary },
 });
 

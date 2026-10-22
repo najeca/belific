@@ -46,3 +46,10 @@ export function useStyles<T extends StyleSheet.NamedStyles<T>>(make: (c: ColorTo
   const { c } = useTheme();
   return useMemo(() => StyleSheet.create(make(c)), [c, make]);
 }
+
+// For a screen whose styles are made with StyleSheet.create inside `make` (the older phone screens
+// moved onto the theme in P11): the result, made again only when the theme changes.
+export function useThemed<T>(make: (c: ColorTokens) => T): T {
+  const { c } = useTheme();
+  return useMemo(() => make(c), [c, make]);
+}

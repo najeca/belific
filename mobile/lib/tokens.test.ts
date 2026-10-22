@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { THEMES, accents, cssVarName, darkTokens, lightTokens, phoneColors } from './tokens.ts';
+import { THEMES, accents, cssVarName, darkTokens, lightTokens } from './tokens.ts';
 import { DEFAULT_THEME_MODE, normalizeThemeMode, resolveTheme } from './themeMode.ts';
 import { LABEL_COLORS, LEGACY_COLORS, contrast, darkTint, tintFor } from './labelColors.ts';
 import { Colors } from './theme.ts';
@@ -90,10 +90,11 @@ test('the theme mode: light by default, system follows the computer, junk is the
   assert.equal(resolveTheme('system', false), 'light');
 });
 
-test('Colors: plain hex here (no document), the phone palette it shipped with; CSS variable names are stable', () => {
+// Changed on purpose in 2.59.0 (PLAN_phone P11): the phone's old palette (phoneColors) is gone.
+test('Colors: plain hex here (no document), the light tokens; CSS variable names are stable', () => {
   assert.equal(Colors.accent, '#5C7A6B');
-  assert.equal(Colors.background, phoneColors.background);
-  assert.equal(phoneColors.background, '#F0EEE8');
+  assert.equal(Colors.background, lightTokens.background);
+  assert.equal(Colors.background, '#FAF7F0');
   assert.equal(cssVarName('textPrimary'), '--ds-text-primary');
   assert.equal(cssVarName('shadowMd'), '--ds-shadow-md');
 });

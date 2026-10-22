@@ -20,7 +20,7 @@ const make = (c: ColorTokens) => ({
   today: { borderWidth: 1, borderColor: c.accentText },
   on: { backgroundColor: c.accent },
   day: { ...inter(500), fontSize: 15, color: c.textPrimary },
-  other: { color: c.textTertiary },
+  other: { color: c.textSecondary, ...inter(400) },
   dayOn: { color: c.onAccent, ...inter(700) },
 });
 

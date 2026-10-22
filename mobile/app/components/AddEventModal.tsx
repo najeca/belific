@@ -14,7 +14,8 @@ import {
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../lib/theme';
+import { useTheme, useThemed } from '../../components/phone/theme';
+import type { ColorTokens } from '../../lib/tokens';
 import {
   CATEGORIES,
   CUSTOM_CATEGORY_COLOR_POOL,
@@ -129,6 +130,8 @@ interface EventFormProps {
 // defaults (today, next quarter hour, 30 min, "Free") still apply so a
 // fast add is still just title + Save.
 export function EventForm({ date, onClose, onSaved, editEvent, initialTitle, origin }: EventFormProps) {
+  const { c: Colors } = useTheme();
+  const styles = useThemed(make);
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<string>(DEFAULT_CATEGORY);
@@ -687,6 +690,8 @@ interface Props {
 // unified sheet (e.g. today.tsx's own add/edit flow, which has no
 // day-detail step to chain with).
 export default function AddEventModal({ visible, date, onClose, onSaved, editEvent }: Props) {
+  const { c: Colors } = useTheme();
+  const styles = useThemed(make);
   return (
     <Modal
       visible={visible}
@@ -702,7 +707,9 @@ export default function AddEventModal({ visible, date, onClose, onSaved, editEve
   );
 }
 
-const styles = StyleSheet.create({
+// The theme's colours (PLAN_phone P11): `Colors` here is the light or dark token set.
+const make = (Colors: ColorTokens) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

@@ -15,7 +15,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import { Colors } from '../lib/theme';
+import { useTheme, useThemed } from '../components/phone/theme';
+import { Segmented } from '../components/phone/chrome';
+import { type } from '../components/phone/type';
+import { THEME_MODE_LABEL, THEME_MODES, type ThemeMode } from '../lib/themeMode';
+import type { ColorTokens } from '../lib/tokens';
 import {
   clearAllData,
   loadNotificationsEnabled,
@@ -48,6 +52,8 @@ import type { Session } from '@supabase/supabase-js';
 const APP_VERSION = Constants.expoConfig?.version ?? '—';
 
 export default function SettingsScreen() {
+  const { c: Colors, mode, setMode } = useTheme();
+  const styles = useThemed(make);
   const [showStreaks, setShowStreaks] = usePhonePref('showStreaks');
   const [remindTasks, setRemindTasks] = usePhonePref('remindTasks');
   const insets = useSafeAreaInsets();
@@ -295,6 +301,11 @@ export default function SettingsScreen() {
         {/* On this iPhone (PLAN_phone P5): settings that stay on this phone, never synced. */}
         <Text style={styles.sectionHeader}>On this iPhone</Text>
         <View style={styles.card}>
+          {/* The Theme (PLAN_phone P11): Light (the default), Dark or Match system, on this phone only. */}
+          <View style={[styles.row, { flexDirection: 'column', alignItems: 'stretch', gap: 8 }]} {...({ dataSet: { phoneTheme: mode } } as object)}>
+            <Text style={styles.rowLabel}>Theme</Text>
+            <Segmented<ThemeMode> a11y="Theme" value={mode} onChange={setMode} options={THEME_MODES.map((m) => ({ key: m, label: THEME_MODE_LABEL[m] }))} />
+          </View>
           <View style={styles.row} {...({ dataSet: { phoneRemind: '1' } } as object)}>
             <Text style={styles.rowLabel}>Remind me on this device</Text>
             <Switch
@@ -464,7 +475,9 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+// The theme's colours (PLAN_phone P11): `Colors` here is the light or dark token set.
+const make = (Colors: ColorTokens) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -484,11 +497,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // The phone's big titles (P11): Newsreader, as on Today, Calendar and Tasks.
   title: {
-    fontSize: 32,
-    fontWeight: '800',
+    ...type.screenTitle,
     color: Colors.textPrimary,
-    letterSpacing: -0.5,
   },
   sectionHeader: {
     fontSize: 11,

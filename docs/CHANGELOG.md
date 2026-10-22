@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.59.0 — 2026-10-22 (iPhone catch-up P11: the Theme setting, the dark audit, the old palette gone)
+
+**iPhone, and one native setting (`userInterfaceStyle` is now "automatic", needed for Match system: it takes effect in the next EAS build). The desktop is unchanged.**
+- **Theme in Settings, On this iPhone:** Light (the default), Dark, Match system, per phone (never synced); the whole app switches at once, and the status bar follows.
+- **Every phone screen follows the theme:** Settings, the event form, the routine form, the calendar feed section and the routine convert section moved onto the theme (`useThemed`), and Settings' title is Newsreader like the other screens.
+- **The old palette is gone:** `phoneColors` is removed from `lib/tokens.ts`; `Colors` on the phone is the light tokens (only the error screen reads it).
+- **Retired:** the old Brain Dump, task list and Quests screens (`components/legacy/`) and the old task form (`app/components/TaskForm.tsx`).
+- **Found by the audit and fixed:** done items in Week, other months' dates in Month and in the details' date grid used the faint tertiary grey (2.6:1 to 3.3:1); they now use the secondary grey (4.5:1 or more in both themes). The Theme switch's "Match system" fits (13 pt segments).
+- **Text size:** calendar blocks grow with the iPhone's text size up to 1.3 times, so the block tiers still hold.
+- **Tests:** real touch check `phone-p11.js` (51): twelve phone screens and sheets in Light and Dark, each audited like the desktop's p23 (radius scale, text 4.5:1 on its real background), and the Theme setting. Changed on purpose: `tokens.test.ts` (Colors is the light tokens now), `iosMarkers.test.ts` (reads the current screens).
+
+---
+
 ## 2.58.0 — 2026-10-22 (iPhone catch-up P10: hold a block, then drag it)
 
 **iPhone. JavaScript only (no Reanimated, decision 5). The desktop is unchanged.**

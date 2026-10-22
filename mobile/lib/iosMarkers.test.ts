@@ -124,3 +124,15 @@ test('the real repository passes the source check today', () => {
   const root = path.resolve(import.meta.dirname, '..', '..');
   assert.deepEqual(markers.sourceOffenders(root).offenders, []);
 });
+
+// PLAN_phone (the iPhone catch-up, 2.49.0 on): each marker removed on purpose, with its phase. A
+// removal not listed here (or a listed one put back) fails, so every change to the list is deliberate.
+const PHONE_REMOVED: Record<string, string[]> = {
+  P1: ['Match system'],
+};
+test('PLAN_phone: markers removed on purpose, by phase; the desktop only theme functions stay markers', () => {
+  for (const [phase, names] of Object.entries(PHONE_REMOVED)) {
+    for (const n of names) assert.ok(!markers.MARKERS.includes(n), `${phase}: ${n} is no longer a marker`);
+  }
+  for (const kept of ['installTheme', 'setThemeMode', 'vibrantColor', 'resizeRefusal', 'searchEmoji', 'Smallest piece when a break splits a task']) assert.ok(markers.MARKERS.includes(kept), kept);
+});

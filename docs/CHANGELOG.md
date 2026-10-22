@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 2.49.0 — 2026-10-22 (iPhone catch-up P1: the phone's theme, fonts and small pieces)
+
+**iPhone groundwork. Nothing on screen changes yet; the desktop is unchanged.** Plan: `docs/PLAN_phone.md`.
+- **Theme:** `components/phone/theme.tsx` (`PhoneThemeProvider`, `useTheme`, `useStyles`): the desktop's light and dark tokens (`lib/tokens.ts`), Light by default, Dark and Match system stored per phone (`belific_phone_theme_mode`, never synced). The setting is shown in P11. The status bar follows the theme.
+- **Fonts:** Inter, Newsreader and Roboto Mono as `.ttf` in `mobile/assets/fonts`, unpacked from the desktop's own `.woff2` files (same fonts, same versions; iOS cannot read woff2). Loaded at launch on the iPhone only (`phoneFonts.native.ts`); the web export keeps the desktop's @font-face rules, so the desktop bundle does not grow. `components/phone/type.ts` names a font per weight (iOS picks a custom font by name).
+- **Phone kit:** `components/phone/ui.tsx`: card, divider, pill, label dot, round tick, line icon, outlined and primary buttons, icon button, section header; 44 pt targets, the radius scale, 1px outlines. The done tick is the accent with the onAccent tick (the desktop's green on pale green is under 3:1 on dark).
+- **Old screens keep `phoneColors`** (lib/theme.ts) until P11; new phone files may not import it (test).
+- **iOS marker gate:** `Match system` removed on purpose (P1): the phone's theme store imports `lib/themeMode.ts`. A per device setting, no data risk. `installTheme` and `setThemeMode` stay markers.
+- **Tests:** `phoneTheme.test.ts` (3: fonts are TrueType copies of the desktop families with licences; kit text 4.5:1 in both themes; phone files never import the old palette or desktop code); `iosMarkers.test.ts` lists the PLAN_phone removals by phase.
+
+---
+
 ## 2.48.0 — 2026-10-22 (edit a list: its name and emoji)
 
 **Desktop only. No database change, no migration.**

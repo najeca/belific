@@ -98,7 +98,9 @@ const MARKERS = [
   // nothing on the iPhone changes), so tokens, theme and dark tint names are NOT markers; these are.
   'installTheme',
   'setThemeMode',
-  'Match system',
+  // 'Match system' REMOVED ON PURPOSE in PLAN_phone P1 (2.49.0): the phone's own theme store
+  // (components/phone/theme.tsx) imports lib/themeMode.ts, whose labels include it; the Theme row is
+  // shown on the phone in P11. A per device setting, never synced: no data risk.
 ];
 
 const ALLOWED = {

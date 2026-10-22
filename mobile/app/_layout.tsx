@@ -11,6 +11,8 @@ import { migrateToSyncableSchema } from '../lib/storage';
 import { runFullSync, startSyncLoop } from '../lib/sync';
 import { watchGoogleLinks } from '../lib/phoneGoogleAuth';
 import { Colors } from '../lib/theme';
+import { PhoneThemeProvider, useTheme } from '../components/phone/theme';
+import { usePhoneFonts } from '../components/phone/phoneFonts';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -120,14 +122,24 @@ function RootLayoutInner() {
     };
   }, []);
 
+  // The iPhone waits for its fonts (a moment at launch; a failed font falls back to the system one).
+  const fontsReady = usePhoneFonts();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }} />
+        <PhoneThemeProvider>
+          <ThemedStatusBar />
+          {fontsReady ? <Stack screenOptions={{ headerShown: false }} /> : null}
+        </PhoneThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
+}
+
+// The status bar follows the phone's theme (PLAN_phone P1): dark text on light, light text on dark.
+function ThemedStatusBar() {
+  const { name } = useTheme();
+  return <StatusBar style={name === 'dark' ? 'light' : 'dark'} />;
 }
 
 export default function RootLayout() {

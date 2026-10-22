@@ -133,10 +133,12 @@ const PHONE_REMOVED: Record<string, string[]> = {
   P5: ['Show streaks'],
   // P7: the phone's reminders and extra times. setDefaultReminders and the desktop's settings line stay markers.
   P7: ['effectiveReminders', 'Add another time'],
+  // P8: the Day view draws breaks (cuts.ts); the Split setting's words stay markers.
+  P8: ['planCuts', 'refusalNote'],
 };
 test('PLAN_phone: markers removed on purpose, by phase; the desktop only theme functions stay markers', () => {
   for (const [phase, names] of Object.entries(PHONE_REMOVED)) {
     for (const n of names) assert.ok(!markers.MARKERS.includes(n), `${phase}: ${n} is no longer a marker`);
   }
-  for (const kept of ['seriesStreak', 'setDefaultReminders', 'Reminders for a timed task', 'installTheme', 'setThemeMode', 'vibrantColor', 'resizeRefusal', 'searchEmoji', 'Smallest piece when a break splits a task']) assert.ok(markers.MARKERS.includes(kept), kept);
+  for (const kept of ['seriesStreak', 'setDefaultReminders', 'Reminders for a timed task', 'installTheme', 'setThemeMode', 'vibrantColor', 'resizeRefusal', 'searchEmoji', 'Smallest piece when a break splits a task', 'Splits the tasks it overlaps, so you still see them before and after it.']) assert.ok(markers.MARKERS.includes(kept), kept);
 });

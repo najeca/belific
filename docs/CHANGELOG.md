@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.56.0 — 2026-10-22 (iPhone catch-up P8: the Calendar's Day view)
+
+**iPhone. JavaScript only. The desktop is unchanged.**
+- **The Calendar tab is rebuilt** (`app/(tabs)/calendar.tsx`): Day, Week and Month at the top, the arrows and Today under them (Week and Month are drawn in P9).
+- **Day is a touch timeline** (`components/phone/calendar/DayView.tsx`): an all day row, 24 hours at the desktop's 56 px an hour, a red line at the current time on today, and the day's blocks side by side where they overlap. The day is built by `lib/phoneDay.ts` with the desktop Calendar's rules: today's stored and projected tasks, a block per time of a task with several times, yesterday's overnight rest, breaks that split the task under them (as on the desktop), the old events in grey (decision 4) and the iPhone's own calendar events (read only, asked for in context as before).
+- **Blocks** (`PhoneBlock.tsx`) use the 2.47.0 tiers: one line under 36 px, two to 55 px, the full layout from 56 px; one line each with an ellipsis, so text never runs over text or out of the block. A task takes its label's tint and edge colour.
+- **A tap on a block opens it** (the task details; an event of your own opens its edit form). **A tap on an empty part of the timeline** opens the quick add with that quarter hour and 30 minutes filled in (decision 6: 15 minute steps); Cancel is one tap. The tap layer sits under the blocks, so one tap never counts twice.
+- **iOS marker gate:** `planCuts` and `refusalNote` removed on purpose (P8): the phone draws breaks. The Split setting's own words stay markers.
+- **Web export only:** the phone layout declares its own fonts (the desktop's .woff2 files) so a page that starts on a phone screen shows Inter, not a serif fallback.
+- **Tests:** `phoneDay.test.ts` (5); real touch check `phone-p8.js` (15, including the text overlap check of `p24.js` on the phone's blocks). The touch harness reloads the page once at phone size: the app picks its layout when it starts, as an iPhone does (a page narrowed after it started could stay on the desktop entry, which made earlier phone checks flaky).
+
+---
+
 ## 2.55.0 — 2026-10-22 (iPhone catch-up P7: Repeat, times a day, reminders; "Remind me on this device")
 
 **iPhone, plus one desktop label. JavaScript only (expo-notifications is already in the app).**

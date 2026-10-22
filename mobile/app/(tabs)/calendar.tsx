@@ -1,778 +1,200 @@
-import { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Pressable,
-  ScrollView,
-  Modal,
-  StyleSheet,
-  AppState,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { AddButton } from '../../components/phone/chrome';
-import { QuickAdd } from '../../components/phone/QuickAdd';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../lib/theme';
-import {
-  getWeeklyEventsForDate,
-  customToScheduleEvent,
-  timeToMinutes,
-  formatDateKey,
-} from '../../lib/data';
-import { loadCustomEvents, loadCustomCategories, loadTasks } from '../../lib/storage';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AppState, Pressable, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { radius, type ColorTokens } from '../../lib/tokens';
+import { customToScheduleEvent, formatTime, getStarterEventsForDate, getWeeklyEventsForDate } from '../../lib/data';
+import { loadCustomCategories, loadCustomEvents, loadListsRaw, loadProjects, loadTasksRaw, shouldShowStarterRoutine } from '../../lib/storage';
+import { dateKey, formatDayLabel, parseDateKey } from '../../lib/kanban';
+import { calendarTitle, minutesOfDay, stepAnchor, visibleDayKeys } from '../../lib/calendarView';
+import type { CalendarView } from '../../lib/paneState';
+import { toTime } from '../../lib/timebox';
 import { kv } from '../../lib/kv';
 import { askCalendarAccess, calendarAccess, loadDeviceEvents, openPhoneSettings, DEVICE_CALENDAR_TEXT, type CalendarAccess, type DeviceOccurrence } from '../../lib/deviceCalendar';
-import { minuteLabel, segmentsForDay } from '../../lib/externalEvents';
-import { EventForm } from '../components/AddEventModal';
-import type { ScheduleEvent, CustomEvent, CustomCategory, Task } from '../../lib/types';
+import type { DaySource } from '../../lib/phoneDay';
+import type { CustomCategory, CustomEvent, ScheduleEvent } from '../../lib/types';
+import { AddButton, ScreenHeader, Segmented } from '../../components/phone/chrome';
+import { QuickAdd, type QuickAddWhere } from '../../components/phone/QuickAdd';
+import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
+import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
+import { DayView, type DayData } from '../../components/phone/calendar/DayView';
+import { useStyles, useTheme } from '../../components/phone/theme';
+import { Button, IconButton } from '../../components/phone/ui';
+import { inter, type } from '../../components/phone/type';
+import AddEventModal from '../components/AddEventModal';
 
-// "Not now" on the calendar question, remembered on this phone (build plan phase 8).
+// The Calendar on the iPhone (PLAN_phone P8): Day, Week and Month at the top, the day or period moved
+// with the arrows (P9 adds the sideways swipe), Today to come back. Day is a touch timeline
+// (components/phone/calendar/DayView.tsx); a tap on an empty slot adds a task at that time (Cancel is
+// one tap). The iPhone's own calendars are read only, asked for in context as before.
 const CALENDAR_PROMPT_KEY = 'belific_calendar_prompt_dismissed';
 
-const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAY_HEADERS = ['Mo','Tu','We','Th','Fr','Sa','Su'];
-
-function buildCalendarWeeks(year: number, month: number): (number | null)[][] {
-  const firstDayJS = new Date(year, month, 1).getDay();
-  const firstDayMon = (firstDayJS + 6) % 7;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const cells: (number | null)[] = [
-    ...Array<null>(firstDayMon).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  const weeks: (number | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 7) {
-    weeks.push(cells.slice(i, i + 7));
-  }
-  return weeks;
-}
-
-function EventRowCompact({
-  event,
-  onLongPress,
-  isLast,
-}: {
-  event: ScheduleEvent;
-  onLongPress?: () => void;
-  isLast?: boolean;
-}) {
-  const rowStyle = [styles.eventRow, isLast && styles.eventRowLast];
-  const inner = (
-    <>
-      <View style={[styles.eventBar, { backgroundColor: event.color }]} />
-      <View style={styles.eventTimes}>
-        <Text style={styles.eventStart}>{event.start}</Text>
-        <Text style={styles.eventEnd}>{event.end}</Text>
-      </View>
-      <Text style={styles.eventIcon}>{event.icon}</Text>
-      {/* 2.26.0: no priority flag or muted title; a stored priority is kept. */}
-      <Text style={styles.eventTitle} numberOfLines={2}>
-        {event.title}
-      </Text>
-      {event.isCustom && (
-        <Ionicons name="ellipsis-horizontal" size={14} color={Colors.textSecondary} style={{ paddingRight: 12 }} />
-      )}
-    </>
-  );
-
-  if (onLongPress) {
-    return (
-      <Pressable
-        style={({ pressed }) => [...rowStyle, pressed && { opacity: 0.85 }]}
-        onPress={onLongPress}
-        onLongPress={onLongPress}
-        delayLongPress={300}
-        accessibilityLabel={event.title}
-        accessibilityHint="Tap to edit"
-      >
-        {inner}
-      </Pressable>
-    );
-  }
-  return <View style={rowStyle}>{inner}</View>;
-}
+const make = (c: ColorTokens) => ({
+  screen: { flex: 1, backgroundColor: c.background },
+  bar: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, paddingHorizontal: 12, paddingBottom: 8 },
+  title: { ...inter(600), fontSize: 15, color: c.textPrimary, flex: 1, textAlign: 'center' as const },
+  todayBtn: { minHeight: 36, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, justifyContent: 'center' as const },
+  todayText: { ...inter(600), fontSize: 13, color: c.textPrimary },
+  card: { marginHorizontal: 12, marginBottom: 8, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, gap: 8 },
+  cardTitle: { ...inter(600), fontSize: 15, color: c.textPrimary },
+  cardBody: { ...type.meta, color: c.textSecondary },
+  placeholder: { ...type.body, color: c.textSecondary, padding: 24, textAlign: 'center' as const },
+});
 
 export default function CalendarScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const [adding, setAdding] = useState(false);
-  const realToday = new Date();
-  const [viewYear, setViewYear] = useState(realToday.getFullYear());
-  const [viewMonth, setViewMonth] = useState(realToday.getMonth());
-  const [selectedDay, setSelectedDay] = useState<number | null>(realToday.getDate());
-  const [allCustomEvents, setAllCustomEvents] = useState<CustomEvent[]>([]);
-  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
-  // One Modal, one visibility flag. `mode` picks which content it shows —
-  // switching between them just swaps the rendered child, no separate
-  // Modal instances to close/reopen (that chaining is what onDetailDismiss
-  // used to exist for).
-  const [modalVisible, setModalVisible] = useState(false);
-  const [mode, setMode] = useState<'detail' | 'edit' | 'add' | null>(null);
-  const [activeEvent, setActiveEvent] = useState<CustomEvent | undefined>(undefined);
-  // Build plan phase 8: the tasks with a Day, and the iPhone's own calendar
-  // events (read only, in memory only, after the person allows it).
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const s = useStyles(make);
+  const { c } = useTheme();
+  const [view, setView] = useState<CalendarView>('day');
+  const [todayKey, setTodayKey] = useState(() => dateKey(new Date()));
+  const [anchor, setAnchor] = useState(todayKey);
+  const [nowMin, setNowMin] = useState(() => minutesOfDay(new Date()));
+  const [data, setData] = useState<DayData>({ tasks: [], events: [], device: [], projects: [], lists: [] });
+  const [custom, setCustom] = useState<CustomEvent[]>([]);
+  const [categories, setCategories] = useState<CustomCategory[]>([]);
+  const [starter, setStarter] = useState(false);
+  const [device, setDevice] = useState<DeviceOccurrence[]>([]);
   const [access, setAccess] = useState<CalendarAccess | null>(null);
-  const [deviceEvents, setDeviceEvents] = useState<DeviceOccurrence[]>([]);
   const [promptDismissed, setPromptDismissed] = useState(true);
+  const [details, setDetails] = useState<DetailsTarget | null>(null);
+  const [adding, setAdding] = useState<QuickAddWhere | null>(null);
+  const [editEvent, setEditEvent] = useState<CustomEvent | undefined>();
+
+  const load = useCallback(async () => {
+    const [tasks, ev, cats, st, projects, lists] = await Promise.all([loadTasksRaw(), loadCustomEvents(), loadCustomCategories(), shouldShowStarterRoutine(), loadProjects(), loadListsRaw()]);
+    setTodayKey(dateKey(new Date()));
+    setNowMin(minutesOfDay(new Date()));
+    setCustom(ev);
+    setCategories(cats);
+    setStarter(st);
+    setData((d) => ({ ...d, tasks, projects, lists }));
+    refreshTaskReminders();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadCustomEvents().then(setAllCustomEvents);
-      loadCustomCategories().then(setCustomCategories);
-      loadTasks().then(setTasks).catch(() => {});
+      load().catch(() => {});
       calendarAccess().then(setAccess);
-      kv.getItem(CALENDAR_PROMPT_KEY).then((v) => setPromptDismissed(v === '1')).catch(() => setPromptDismissed(false));
-    }, []),
+      kv.getItem(CALENDAR_PROMPT_KEY)
+        .then((v) => setPromptDismissed(v === '1'))
+        .catch(() => setPromptDismissed(false));
+      const timer = setInterval(() => setNowMin(minutesOfDay(new Date())), 60_000);
+      return () => clearInterval(timer);
+    }, [load]),
   );
-
-  // Coming back from the Settings app (where access may have been turned on or off).
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') calendarAccess().then(setAccess);
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') calendarAccess().then(setAccess);
     });
     return () => sub.remove();
   }, []);
 
-  // The month on screen, read again when it changes or access is granted.
+  const keys = useMemo(() => visibleDayKeys(view, anchor), [view, anchor]);
+  // The iPhone's own events for what is on screen (read only, in memory only).
   useEffect(() => {
     if (access !== 'granted') {
-      setDeviceEvents([]);
+      setDevice([]);
       return;
     }
     let live = true;
-    const first = formatDateKey(new Date(viewYear, viewMonth, 1));
-    const last = formatDateKey(new Date(viewYear, viewMonth + 1, 0));
-    loadDeviceEvents(first, last)
-      .then((list) => {
-        if (live) setDeviceEvents(list);
-      })
-      .catch(() => {
-        if (live) setDeviceEvents([]);
-      });
+    loadDeviceEvents(keys[0], keys[keys.length - 1])
+      .then((list) => live && setDevice(list))
+      .catch(() => live && setDevice([]));
     return () => {
       live = false;
     };
-  }, [access, viewYear, viewMonth]);
+  }, [access, keys]);
 
-  async function onAskAccess() {
-    setAccess(await askCalendarAccess());
+  // The old events of one day (decision 4: kept, read only): the weekly template and the phone's own.
+  const eventsOn = useCallback(
+    (key: string): ScheduleEvent[] => {
+      const d = parseDateKey(key);
+      const template = starter ? getStarterEventsForDate(d) : getWeeklyEventsForDate(d);
+      return [...template, ...custom.filter((e) => e.date === key).map((e) => customToScheduleEvent(e, categories))];
+    },
+    [starter, custom, categories],
+  );
+  const dayData = useMemo<DayData>(() => ({ ...data, events: eventsOn(anchor), device }), [data, eventsOn, anchor, device]);
+
+  function open(src: DaySource) {
+    if (src.kind === 'task') setDetails({ task: src.task, projected: src.projected });
+    else if (src.kind === 'event' && src.event.isCustom) {
+      const ev = custom.find((e) => e.id === src.event.id);
+      if (ev) setEditEvent(ev);
+    }
   }
 
-  function onNotNow() {
+  const step = (delta: number) => setAnchor((a) => stepAnchor(view, a, delta));
+  const viewName = view === 'day' ? 'day' : view === 'week' ? 'week' : 'month';
+  const dismiss = () => {
     setPromptDismissed(true);
     kv.setItem(CALENDAR_PROMPT_KEY, '1').catch(() => {});
-  }
-
-  function tasksOn(key: string): Task[] {
-    return tasks
-      .filter((t) => t.dueDate === key)
-      .sort((a, b) => (a.startTime ?? '99').localeCompare(b.startTime ?? '99') || a.title.localeCompare(b.title));
-  }
-
-  function deviceOn(key: string) {
-    return segmentsForDay(deviceEvents, key);
-  }
-
-  function prevMonth() {
-    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
-    else setViewMonth(m => m - 1);
-  }
-
-  function nextMonth() {
-    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
-    else setViewMonth(m => m + 1);
-  }
-
-  function hasEvents(day: number): boolean {
-    const date = new Date(viewYear, viewMonth, day);
-    const key = formatDateKey(date);
-    return allCustomEvents.some(e => e.date === key) || tasks.some(t => t.dueDate === key) || deviceOn(key).length > 0;
-  }
-
-  function getEventsForDay(day: number): ScheduleEvent[] {
-    const date = new Date(viewYear, viewMonth, day);
-    const key = formatDateKey(date);
-    const weekly = getWeeklyEventsForDate(date);
-    const custom = allCustomEvents
-      .filter(e => e.date === key)
-      .map(e => customToScheduleEvent(e, customCategories));
-    return [...weekly, ...custom].sort(
-      (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start),
-    );
-  }
-
-  const weeks = buildCalendarWeeks(viewYear, viewMonth);
-
-  const isToday = (day: number) =>
-    day === realToday.getDate() &&
-    viewMonth === realToday.getMonth() &&
-    viewYear === realToday.getFullYear();
-
-  const selectedDate = selectedDay != null
-    ? new Date(viewYear, viewMonth, selectedDay)
-    : realToday;
-
-  const detailEvents = selectedDay != null ? getEventsForDay(selectedDay) : [];
-  const detailKey = formatDateKey(selectedDate);
-  const detailTasks = selectedDay != null ? tasksOn(detailKey) : [];
-  const detailDevice = selectedDay != null ? deviceOn(detailKey) : [];
-
-  function formatDetailHeader(d: Date): string {
-    return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
-  }
-
-  // Called after a successful save or delete from the form. Editing an
-  // existing event drops back to the day list (decision: multi-edit in one
-  // sitting is a normal flow, don't force a reopen). Adding a brand-new
-  // event closes the sheet entirely, matching the FAB's old standalone
-  // behavior — there's no prior detail view to return to in that path.
-  function handleEventSaved() {
-    loadCustomEvents().then(setAllCustomEvents);
-    if (mode === 'edit') {
-      setActiveEvent(undefined);
-      setMode('detail');
-    } else {
-      setModalVisible(false);
-      setMode(null);
-      setActiveEvent(undefined);
-    }
-  }
-
-  // Cancel / close-X from within the form. Same detail-vs-close split as
-  // handleEventSaved above.
-  function handleFormClose() {
-    if (mode === 'edit') {
-      setActiveEvent(undefined);
-      setMode('detail');
-    } else {
-      setModalVisible(false);
-      setMode(null);
-      setActiveEvent(undefined);
-    }
-  }
-
-  function openDetail(day: number) {
-    setSelectedDay(day);
-    setMode('detail');
-    setModalVisible(true);
-  }
-
-  // Swaps the sheet's content from the day list to the edit form — no
-  // Modal close/reopen, so no iOS pageSheet dismiss-animation race to work
-  // around.
-  function openEditModal(scheduleEvent: ScheduleEvent) {
-    const found = allCustomEvents.find(c => c.id === scheduleEvent.id);
-    if (!found) return;
-    setActiveEvent(found);
-    setMode('edit');
-  }
-
-  function openAddModal() {
-    setActiveEvent(undefined);
-    setMode('add');
-    setModalVisible(true);
-  }
-
-  // The only place that fires when the sheet is actually, fully gone —
-  // whether closed via the X button, Android back, or an iOS swipe-down
-  // the code above never initiated. Runs unconditionally, independent of
-  // whatever handler (or lack of one) already tried to close it, so state
-  // can never drift out of sync with what's really on screen.
-  function handleModalDismiss() {
-    setModalVisible(false);
-    setMode(null);
-    setActiveEvent(undefined);
-  }
+  };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-        <Text style={styles.title}>Calendar</Text>
-        <TouchableOpacity
-          onPress={() => router.push('/settings')}
-          accessibilityLabel="Profile and settings"
-          accessibilityRole="button"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          {...({ dataSet: { profileAvatar: '1' } } as object)}
-        >
-          <Ionicons name="person-circle-outline" size={28} color={Colors.textSecondary} />
-        </TouchableOpacity>
+    <View style={s.screen}>
+      <ScreenHeader title="Calendar" />
+      <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
+        <Segmented
+          a11y="Calendar view"
+          value={view}
+          onChange={setView}
+          options={[
+            { key: 'day', label: 'Day' },
+            { key: 'week', label: 'Week' },
+            { key: 'month', label: 'Month' },
+          ]}
+        />
       </View>
-
-      {/* Month navigation */}
-      <View style={styles.monthNav}>
-        <TouchableOpacity
-          onPress={prevMonth}
-          style={styles.navBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel="Previous month"
-          accessibilityRole="button"
-        >
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.monthLabel}>{MONTH_NAMES[viewMonth]} {viewYear}</Text>
-        <TouchableOpacity
-          onPress={nextMonth}
-          style={styles.navBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel="Next month"
-          accessibilityRole="button"
-        >
-          <Ionicons name="chevron-forward" size={22} color={Colors.textPrimary} />
-        </TouchableOpacity>
+      <View style={s.bar}>
+        <IconButton name="chevron-back" onPress={() => step(-1)} a11y={`Previous ${viewName}`} color={c.textSecondary} />
+        <Text style={s.title} numberOfLines={1} {...({ dataSet: { calTitle: anchor } } as object)}>
+          {calendarTitle(view, anchor)}
+        </Text>
+        <IconButton name="chevron-forward" onPress={() => step(1)} a11y={`Next ${viewName}`} color={c.textSecondary} />
+        <Pressable style={s.todayBtn} onPress={() => setAnchor(todayKey)} accessibilityRole="button" accessibilityLabel="Go to today">
+          <Text style={s.todayText}>Today</Text>
+        </Pressable>
       </View>
-
-      {/* Day headers */}
-      <View style={styles.weekRow}>
-        {DAY_HEADERS.map(d => (
-          <Text key={d} style={styles.dayHeader}>{d}</Text>
-        ))}
-      </View>
-
-      {/* Calendar grid */}
-      <View style={styles.grid}>
-        {weeks.map((week, wi) => (
-          <View key={wi} style={styles.weekRow}>
-            {week.map((day, di) => (
-              <TouchableOpacity
-                key={di}
-                style={styles.dayCell}
-                onPress={() => {
-                  if (day != null) {
-                    openDetail(day);
-                  }
-                }}
-                disabled={day == null}
-                activeOpacity={0.7}
-              >
-                {day != null ? (
-                  <View style={[
-                    styles.dayCellInner,
-                    isToday(day) && styles.todayCellInner,
-                    selectedDay === day && !isToday(day) && styles.selectedCellInner,
-                  ]}>
-                    <Text style={[
-                      styles.dayText,
-                      isToday(day) && styles.todayText,
-                    ]}>
-                      {day}
-                    </Text>
-                    {hasEvents(day) && (
-                      <View style={[
-                        styles.dot,
-                        isToday(day) && styles.dotOnToday,
-                      ]} />
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.dayCellInner} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-      </View>
-
-      {/* The iPhone's own calendars: asked in context, explained when off */}
-      {access === 'undetermined' && !promptDismissed && (
-        <View style={styles.calCard} accessibilityLabel="iPhone calendars">
-          <Text style={styles.calCardTitle}>📅 {DEVICE_CALENDAR_TEXT.askTitle}</Text>
-          <Text style={styles.calCardBody}>{DEVICE_CALENDAR_TEXT.askBody}</Text>
-          <View style={styles.calCardRow}>
-            <TouchableOpacity onPress={onAskAccess} style={styles.calCardPrimary} accessibilityRole="button">
-              <Text style={styles.calCardPrimaryText}>{DEVICE_CALENDAR_TEXT.askButton}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onNotNow} style={styles.calCardBtn} accessibilityRole="button">
-              <Text style={styles.calCardBtnText}>{DEVICE_CALENDAR_TEXT.notNow}</Text>
-            </TouchableOpacity>
+      {(access === 'undetermined' || access === 'denied') && !promptDismissed ? (
+        <View style={s.card} accessibilityLabel="iPhone calendars">
+          <Text style={s.cardTitle}>{access === 'denied' ? DEVICE_CALENDAR_TEXT.deniedTitle : DEVICE_CALENDAR_TEXT.askTitle}</Text>
+          <Text style={s.cardBody}>{access === 'denied' ? DEVICE_CALENDAR_TEXT.deniedBody : DEVICE_CALENDAR_TEXT.askBody}</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {access === 'denied' ? (
+              <Button label={DEVICE_CALENDAR_TEXT.openSettings} kind="primary" onPress={openPhoneSettings} />
+            ) : (
+              <Button label={DEVICE_CALENDAR_TEXT.askButton} kind="primary" onPress={() => void askCalendarAccess().then(setAccess)} />
+            )}
+            <Button label={DEVICE_CALENDAR_TEXT.notNow} onPress={dismiss} />
           </View>
         </View>
-      )}
-      {access === 'denied' && !promptDismissed && (
-        <View style={styles.calCard} accessibilityLabel="iPhone calendars">
-          <Text style={styles.calCardTitle}>📅 {DEVICE_CALENDAR_TEXT.deniedTitle}</Text>
-          <Text style={styles.calCardBody}>{DEVICE_CALENDAR_TEXT.deniedBody}</Text>
-          <View style={styles.calCardRow}>
-            <TouchableOpacity onPress={openPhoneSettings} style={styles.calCardPrimary} accessibilityRole="button">
-              <Text style={styles.calCardPrimaryText}>{DEVICE_CALENDAR_TEXT.openSettings}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onNotNow} style={styles.calCardBtn} accessibilityRole="button">
-              <Text style={styles.calCardBtnText}>{DEVICE_CALENDAR_TEXT.notNow}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* The round + adds a task on the chosen day (PLAN_phone P3). */}
-      <AddButton onPress={() => setAdding(true)} a11y="Add a task on this day" />
-      <QuickAdd visible={adding} where={{ dueDate: formatDateKey(selectedDate), label: selectedDay != null ? formatDetailHeader(selectedDate) : 'Today' }} onClose={() => setAdding(false)} onAdded={() => loadTasks().then(setTasks).catch(() => {})} />
-
-      {/* Unified day-detail / edit / add sheet — one Modal, content swaps by mode */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setModalVisible(false)}
-        onDismiss={handleModalDismiss}
-      >
-        {mode === 'detail' && (
-          <View style={[styles.detailContainer, { paddingTop: insets.top + 16 }]}>
-            <View style={styles.detailHeader}>
-              <Text style={styles.detailTitle}>{formatDetailHeader(selectedDate)}</Text>
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => setModalVisible(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              style={styles.detailScroll}
-              contentContainerStyle={styles.detailContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {detailEvents.length === 0 && detailTasks.length === 0 && detailDevice.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateTitle}>No events scheduled</Text>
-                  <Text style={styles.emptyStateSubtext}>Tap + to add your first event</Text>
-                </View>
-              ) : detailEvents.length === 0 ? null : (
-                <View style={styles.eventListContainer}>
-                  {detailEvents.map((e, i) => (
-                    <EventRowCompact
-                      key={e.id}
-                      event={e}
-                      onLongPress={e.isCustom ? () => openEditModal(e) : undefined}
-                      isLast={i === detailEvents.length - 1}
-                    />
-                  ))}
-                </View>
-              )}
-              {detailTasks.length > 0 && (
-                <>
-                  <Text style={styles.detailSection}>✅ Tasks</Text>
-                  <View style={styles.eventListContainer}>
-                    {detailTasks.map((t, i) => (
-                      <View key={t.id} style={[styles.eventRow, i === detailTasks.length - 1 && styles.eventRowLast]} accessibilityLabel={`Task ${t.title}${t.completed ? ', done' : ''}`}>
-                        <View style={[styles.eventBar, { backgroundColor: Colors.accent }]} />
-                        <View style={styles.eventTimes}>
-                          <Text style={styles.eventStart}>{t.startTime ?? ''}</Text>
-                        </View>
-                        <Text style={styles.eventIcon}>{t.completed ? '✅' : t.emoji ?? '☐'}</Text>
-                        <Text style={[styles.eventTitle, t.completed && styles.eventTitleLow]} numberOfLines={2}>
-                          {t.title}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </>
-              )}
-              {detailDevice.length > 0 && (
-                <>
-                  <Text style={styles.detailSection}>📅 iPhone calendars</Text>
-                  <View style={styles.eventListContainer}>
-                    {detailDevice.map((seg, i) => {
-                      const o = seg.occ as DeviceOccurrence;
-                      return (
-                        <View key={o.id} style={[styles.eventRow, i === detailDevice.length - 1 && styles.eventRowLast]} accessibilityLabel={`Calendar event ${o.title}, ${o.calendarName}, read only`}>
-                          <View style={[styles.eventBar, { backgroundColor: o.color }]} />
-                          <View style={styles.eventTimes}>
-                            <Text style={styles.eventStart}>{seg.allDayRow ? 'All day' : minuteLabel(seg.startMin)}</Text>
-                            {!seg.allDayRow && <Text style={styles.eventEnd}>{minuteLabel(seg.endMin)}</Text>}
-                          </View>
-                          <View style={{ flex: 1, paddingVertical: 10 }}>
-                            <Text style={[styles.eventTitle, { paddingVertical: 0 }]} numberOfLines={2}>
-                              {o.title}
-                            </Text>
-                            <Text style={styles.eventEnd}>{o.calendarName}</Text>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-                  <Text style={styles.detailNote}>Read only. Change these events in the Calendar app.</Text>
-                </>
-              )}
-              <View style={{ height: 40 }} />
-            </ScrollView>
-          </View>
-        )}
-        {(mode === 'edit' || mode === 'add') && (
-          <EventForm
-            date={selectedDate}
-            onClose={handleFormClose}
-            onSaved={handleEventSaved}
-            editEvent={activeEvent}
+      ) : null}
+      <View style={{ flex: 1, borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.pane }}>
+        {view === 'day' ? (
+          <DayView
+            dayKey={anchor}
+            todayKey={todayKey}
+            nowMin={nowMin}
+            data={dayData}
+            onOpen={open}
+            onAddAt={(m) => setAdding({ dueDate: anchor, startTime: toTime(m), durationMinutes: 30, label: `${formatDayLabel(anchor)} at ${formatTime(toTime(m))}` })}
           />
+        ) : (
+          <Text style={s.placeholder}>{view === 'week' ? 'Week' : 'Month'} view</Text>
         )}
-      </Modal>
+      </View>
+      <AddButton onPress={() => setAdding({ dueDate: anchor, label: anchor === todayKey ? 'Today' : formatDayLabel(anchor) })} a11y="Add a task on this day" />
+      <QuickAdd visible={!!adding} where={adding ?? { label: '' }} onClose={() => setAdding(null)} onAdded={() => void load()} />
+      <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
+      <AddEventModal
+        visible={!!editEvent}
+        date={parseDateKey(anchor)}
+        editEvent={editEvent}
+        onClose={() => setEditEvent(undefined)}
+        onSaved={() => {
+          setEditEvent(undefined);
+          void load();
+        }}
+      />
     </View>
   );
 }
-
-const CELL_SIZE = 44;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  navBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  grid: {
-    paddingHorizontal: 8,
-  },
-  weekRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  dayHeader: {
-    width: CELL_SIZE,
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    paddingBottom: 8,
-  },
-  dayCell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayCellInner: {
-    width: CELL_SIZE - 4,
-    height: CELL_SIZE - 4,
-    borderRadius: (CELL_SIZE - 4) / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  todayCellInner: {
-    backgroundColor: Colors.accent,
-  },
-  selectedCellInner: {
-    backgroundColor: Colors.surface,
-  },
-  dayText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: Colors.textPrimary,
-  },
-  todayText: {
-    color: Colors.onAccent,
-    fontWeight: '700',
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.accent,
-    marginTop: 2,
-  },
-  dotOnToday: {
-    backgroundColor: Colors.onAccent,
-  },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailContainer: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    paddingHorizontal: 16,
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  detailTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  closeBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailScroll: { flex: 1 },
-  detailContent: { paddingBottom: 20 },
-  emptyState: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingVertical: 40,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  emptyStateTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginBottom: 6,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    opacity: 0.7,
-  },
-  eventListContainer: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  eventRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 56,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  eventRowLast: {
-    borderBottomWidth: 0,
-  },
-  eventBar: {
-    width: 4,
-    alignSelf: 'stretch',
-  },
-  eventTimes: {
-    width: 52,
-    paddingVertical: 12,
-    paddingLeft: 10,
-  },
-  eventStart: {
-    fontSize: 11,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  eventEnd: {
-    fontSize: 10,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  eventIcon: {
-    fontSize: 16,
-    marginHorizontal: 8,
-  },
-  eventTitle: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    paddingRight: 4,
-    paddingVertical: 12,
-  },
-  eventTitleHigh: {
-    fontWeight: '700',
-  },
-  eventTitleLow: {
-    color: Colors.textSecondary,
-  },
-  priorityFlag: {
-    marginRight: 4,
-  },
-  detailSection: {
-    marginTop: 20,
-    marginBottom: 8,
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  detailNote: {
-    marginTop: 8,
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  calCard: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  calCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  calCardBody: {
-    marginTop: 6,
-    fontSize: 13,
-    lineHeight: 18,
-    color: Colors.textSecondary,
-  },
-  calCardRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  calCardPrimary: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: Colors.accent,
-    justifyContent: 'center',
-  },
-  calCardPrimaryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.onAccent,
-  },
-  calCardBtn: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    justifyContent: 'center',
-  },
-  calCardBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-});

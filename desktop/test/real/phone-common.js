@@ -13,15 +13,24 @@ async function phoneWindow(win, { width = 390, height = 844 } = {}) {
   const send = (method, params = {}) => dbg.sendCommand(method, params);
   const js = (code) => win.webContents.executeJavaScript(code, true);
   // The app may still be settling its window (size, a reload) when this runs, which can drop the
-  // emulation: it is applied until the page really is phone sized, then the layout gets a moment.
-  for (let i = 0; i < 40; i++) {
-    if (!dbg.isAttached()) dbg.attach('1.3');
-    // Not a "mobile" viewport: that one zooms out to fit a page that was still wide when it applied.
-    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: false });
-    await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
-    await C.sleep(250);
-    if ((await js('innerWidth').catch(() => 0)) === width) break;
-  }
+  // emulation: it is applied until the page really is phone sized.
+  const emulate = async () => {
+    for (let i = 0; i < 40; i++) {
+      if (!dbg.isAttached()) dbg.attach('1.3');
+      // Not a "mobile" viewport: that one zooms out to fit a page that was still wide when it applied.
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: false });
+      await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+      await C.sleep(250);
+      if ((await js('innerWidth').catch(() => 0)) === width) return;
+    }
+  };
+  await emulate();
+  // The app picks its layout when it starts (a phone never changes width; a page that starts wide and
+  // is then narrowed can stay on the desktop entry): reload once at phone size, so it starts as the
+  // phone app does.
+  win.webContents.reload();
+  await C.sleep(2500);
+  await emulate();
   // The phone layout is drawn once its tab bar is there.
   await C.waitFor(() => js(`[...document.querySelectorAll('a, [role="tab"], [role="button"], [role="link"]')].filter((e) => { const r = e.getBoundingClientRect(); return r.top > ${height - 100} && r.height > 20; }).length >= 3`), 15000).catch(async () => {
     console.log(`INFO phone layout not seen: ${await js('innerWidth + "x" + innerHeight + " " + document.body.innerText.slice(0, 80).replace(/\s+/g, " ")').catch((e) => String(e))}`);
@@ -35,7 +44,8 @@ async function phoneWindow(win, { width = 390, height = 844 } = {}) {
       if (r) return r;
       await C.sleep(200);
     }
-    throw new Error(`no element for ${expr}`);
+    const seen = await js('innerWidth + "x" + innerHeight + " | " + document.body.innerText.slice(0, 160).replace(/\s+/g, " ")').catch((e) => String(e));
+    throw new Error(`no element for ${expr} (page: ${seen})`);
   };
   const touch = (type, x, y) => send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y), id: 1, radiusX: 4, radiusY: 4, force: 1 }] });
 

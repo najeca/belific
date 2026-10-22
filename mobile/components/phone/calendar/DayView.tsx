@@ -1,0 +1,150 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
+import { radius, type ColorTokens } from '../../../lib/tokens';
+import { buildPhoneDay, minuteAtY } from '../../../lib/phoneDay';
+import { GRID_HEIGHT_PX, PX_PER_HOUR, hourLabel } from '../../../lib/timebox';
+import { nowLineTop } from '../../../lib/calendarView';
+import { labelColor, tintFor } from '../../../lib/labelColors';
+import { isMustDo, MUST_DO_MARK } from '../../../lib/mustDo';
+import { TAP_MAX_MOVE, TAP_MAX_MS } from '../../../lib/touchRules';
+import type { DeviceOccurrence } from '../../../lib/deviceCalendar';
+import type { Project, ScheduleEvent, Task, TaskList } from '../../../lib/types';
+import type { DaySource } from '../../../lib/phoneDay';
+import { useStyles, useTheme } from '../theme';
+import { PressRow } from '../touch';
+import { inter, mono, type } from '../type';
+import { PhoneBlock, type BlockLook } from './PhoneBlock';
+
+// The Calendar's Day view on the phone (PLAN_phone P8): an all day row, then a 24 hour timeline
+// (56 px an hour, the desktop's scale, so the block tiers of 2.47.0 apply), a red line at the current
+// time, and the day's blocks side by side where they overlap. A tap on a block opens it; a tap on an
+// empty part of the timeline opens the quick add with that quarter hour filled in (the tap layer sits
+// under the blocks, so a tap never counts twice).
+const GUTTER = 52;
+
+const make = (c: ColorTokens) => ({
+  allDay: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.border },
+  chip: { minHeight: 32, paddingHorizontal: 10, borderRadius: radius.sm, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, maxWidth: '100%' as const },
+  chipText: { ...inter(500), fontSize: 13, color: c.textPrimary, flexShrink: 1 },
+  allDayLabel: { ...type.small, color: c.textSecondary, alignSelf: 'center' as const, marginRight: 4 },
+  hour: { position: 'absolute' as const, left: 0, width: GUTTER - 6, textAlign: 'right' as const, ...mono(400), fontSize: 10, color: c.textSecondary },
+  line: { position: 'absolute' as const, left: GUTTER, right: 0, height: 1, backgroundColor: c.border },
+  now: { position: 'absolute' as const, left: GUTTER - 4, right: 0, height: 2, backgroundColor: c.now },
+  nowDot: { position: 'absolute' as const, left: GUTTER - 6, width: 8, height: 8, borderRadius: 4, backgroundColor: c.now },
+  mark: { fontSize: 11, color: c.danger },
+});
+
+export interface DayData {
+  tasks: Task[];
+  events: ScheduleEvent[];
+  device: DeviceOccurrence[];
+  projects: Project[];
+  lists: TaskList[];
+}
+
+export function DayView({
+  dayKey,
+  todayKey,
+  nowMin,
+  data,
+  onOpen,
+  onAddAt,
+}: {
+  dayKey: string;
+  todayKey: string;
+  nowMin: number;
+  data: DayData;
+  onOpen: (source: DaySource) => void;
+  onAddAt: (minute: number) => void;
+}) {
+  const s = useStyles(make);
+  const { c, name } = useTheme();
+  const [width, setWidth] = useState(390);
+  const scroller = useRef<React.ElementRef<typeof ScrollView>>(null);
+  const day = useMemo(() => buildPhoneDay({ tasks: data.tasks, dayKey, todayKey, events: data.events, device: data.device }), [data, dayKey, todayKey]);
+
+  // Opens near now on today (an hour before), at 8:00 on another day.
+  useEffect(() => {
+    const target = dayKey === todayKey ? Math.max(0, nowMin - 60) : 8 * 60;
+    const t = setTimeout(() => scroller.current?.scrollTo({ y: (target / 60) * PX_PER_HOUR, animated: false }), 50);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayKey]);
+
+  const lookOf = (src: DaySource): BlockLook => {
+    if (src.kind === 'event') return { bg: c.breakTint, edge: c.borderStrong };
+    if (src.kind === 'device') return { bg: c.surfaceRaised, edge: (src.seg.occ as DeviceOccurrence).color ?? c.textTertiary };
+    const t = src.task;
+    const p = t.projectKey ? data.projects.find((x) => x.key === t.projectKey) : undefined;
+    const col = labelColor(p?.colorKey);
+    const list = t.listKey ? data.lists.find((l) => l.key === t.listKey && !l.deletedAt) : undefined;
+    return { bg: col ? tintFor(col, name === 'dark') : t.cutsBelow ? c.breakTint : c.plainBlock, edge: col?.edge ?? (t.cutsBelow ? c.textSecondary : c.accent), listEmoji: list?.emoji };
+  };
+
+  const area = width - GUTTER - 4;
+  const empty = Gesture.Tap()
+    .maxDistance(TAP_MAX_MOVE)
+    .maxDuration(TAP_MAX_MS)
+    .runOnJS(true)
+    .onEnd((e, ok) => {
+      if (ok) onAddAt(minuteAtY(e.y, PX_PER_HOUR));
+    });
+
+  const a11yOf = (src: DaySource) => (src.kind === 'task' ? `Task ${src.task.title}${src.task.startTime ? `, ${src.task.startTime}` : ''}` : src.kind === 'event' ? `Event ${src.event.title}, read only` : `Calendar event ${src.seg.occ.title}, read only`);
+
+  return (
+    <View style={{ flex: 1 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} {...({ dataSet: { dayView: dayKey } } as object)}>
+      {day.allDay.length + day.deviceAllDay.length > 0 ? (
+        <View style={s.allDay}>
+          <Text style={s.allDayLabel}>All day</Text>
+          {day.allDay.map(({ task, projected }) => (
+            <PressRow key={task.id} onTap={() => onOpen({ kind: 'task', task, projected })} a11y={`All day task ${task.title}`} style={s.chip} data={{ allDayChip: task.title }}>
+              {isMustDo(task) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
+              <Text style={[s.chipText, task.completed && { textDecorationLine: 'line-through', color: c.textSecondary }]} numberOfLines={1}>
+                {`${task.emoji ? `${task.emoji} ` : ''}${task.title}`}
+              </Text>
+            </PressRow>
+          ))}
+          {day.deviceAllDay.map((seg) => (
+            <View key={seg.occ.id} style={[s.chip, { borderLeftWidth: 3, borderLeftColor: (seg.occ as DeviceOccurrence).color ?? c.textTertiary }]} accessible accessibilityLabel={`Calendar event ${seg.occ.title}, all day, read only`}>
+              <Text style={[s.chipText, { color: c.textSecondary }]} numberOfLines={1}>
+                {seg.occ.title}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <ScrollView ref={scroller} contentContainerStyle={{ height: GRID_HEIGHT_PX + 24 }} showsVerticalScrollIndicator={false}>
+        <View style={{ height: GRID_HEIGHT_PX, marginTop: 12 }}>
+          {Array.from({ length: 24 }, (_, h) => (
+            <React.Fragment key={h}>
+              <Text style={[s.hour, { top: h * PX_PER_HOUR - 6 }]}>{hourLabel(h)}</Text>
+              <View style={[s.line, { top: h * PX_PER_HOUR }]} />
+            </React.Fragment>
+          ))}
+          {/* The empty timeline: a tap here adds a task at that time. Under the blocks. */}
+          <GestureDetector gesture={empty} touchAction="pan-y">
+            <View style={{ position: 'absolute', left: GUTTER, right: 0, top: 0, height: GRID_HEIGHT_PX }} accessible accessibilityRole="button" accessibilityLabel="Add a task at a time" {...({ dataSet: { emptySlots: '1' } } as object)} />
+          </GestureDetector>
+          {day.blocks.map((b) => {
+            const w = area / b.cols;
+            return (
+              <View key={b.id} style={{ position: 'absolute', top: b.top, height: b.height, left: GUTTER + 2 + b.col * w, width: w - 2, paddingBottom: 1 }} {...({ dataSet: { phoneBlock: b.id } } as object)}>
+                <PressRow onTap={() => onOpen(b.source)} a11y={a11yOf(b.source)} style={{ flex: 1 }} data={{ blockTap: b.id }}>
+                  <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source)} />
+                </PressRow>
+              </View>
+            );
+          })}
+          {dayKey === todayKey ? (
+            <>
+              <View pointerEvents="none" style={[s.now, { top: nowLineTop(nowMin) }]} {...({ dataSet: { nowLine: '1' } } as object)} />
+              <View pointerEvents="none" style={[s.nowDot, { top: nowLineTop(nowMin) - 3 }]} />
+            </>
+          ) : null}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}

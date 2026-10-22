@@ -67,8 +67,9 @@ const MARKERS = [
   // Split switch in the details and the Settings row; the visible strings say "split" since 2.33.0,
   // the old "Cut tasks underneath" / "cuts a task" markers were retired with the wording). The phone shows no pieces; the two
   // synced fields (cutsBelow, reminders) are shared sync code and are NOT markers.
-  'planCuts',
-  'refusalNote',
+  // 'planCuts' and 'refusalNote' REMOVED ON PURPOSE in PLAN_phone P8 (2.56.0): the iPhone's Day view draws a
+  // break the way the desktop does (lib/phoneDay.ts uses lib/cuts.ts). Only drawing: the Split setting's
+  // words below stay markers, so the switch itself cannot reach the phone.
   'Splits the tasks it overlaps, so you still see them before and after it.',
   'Smallest piece when a break splits a task',
   // 2.32.0 (Part B, P5): several reminders per task and the desktop's default list are desktop only

@@ -313,6 +313,7 @@ async function run() {
   await shot('p2-06-list');
   // deleting the list sends its tasks back to Brain Dump
   await click(byLabel('List: Reading. Change list'));
+  await click(byLabel('Edit list Reading'));
   await click(byLabel('Delete list Reading'));
   await click(byLabel('Confirm delete list'));
   await C.waitFor(() => !byTitle('Read a book')[0].listKey, 8000);

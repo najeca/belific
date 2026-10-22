@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 2.48.0 — 2026-10-22 (edit a list: its name and emoji)
+
+**Desktop only. No database change, no migration.**
+- **A pencil on each list row** in the lists dropdown (Lists, Proload and so on; none on Brain Dump, which is not a stored list) opens an edit box in the same popover: a name field, the emoji chooser, Save and Cancel. **Delete list moved into the box**, with the same "Delete this list? Its N waiting tasks go back to Brain Dump." confirmation and rules. The old "This list" section under the lists (rename on blur, emoji, delete) is gone.
+- **Save changes the same list:** `editedList` (`lib/lists.ts`, pure) keeps the key, the order and createdAt, so every task, its history and the calendar blocks follow; `editList` (`taskCommands.ts`) writes it once through `putList`, so `updatedAt` moves and one upsert is queued in the outbox like any list edit. The name follows the new list rule (empty, over 40 characters, "Brain Dump" and another list's name are refused with the same sentences; the list's own name in other letters is fine). Nothing is stored before Save; Cancel changes nothing.
+- **Style:** the box uses the new tokens (outlined Cancel, accent Save, danger Delete), checked in light and dark.
+- **Tests:** `listEdit.test.ts` (4: key and tasks kept, emoji cleared, duplicate rule, one outbox upsert), a sync test in `syncEngine.test.ts` (the other device gets the new name and emoji under the same key, its tasks stay); new real check `p25.js` (29): pencils, the box, the duplicate refusal, Cancel, a new name and emoji, the stored list, the dropdown, the left pane, a Timebox block and a Calendar block, Delete list inside the box, dark. `p2.js` now opens the box before Delete list (changed on purpose). Screenshots in `docs/screens-2.48/`.
+
+---
+
 ## 2.47.0 — 2026-10-22 (small Calendar and Timebox blocks no longer overlap their own text)
 
 **Desktop only. Look and behaviour only. No data, database or sync change.**

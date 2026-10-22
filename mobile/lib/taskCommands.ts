@@ -2,7 +2,7 @@ import { addTask, deleteList, loadListsRaw, loadTasksRaw, putList, updateTask } 
 import { generateId } from './data';
 import { duplicateTask } from './taskCopy';
 import { newThought } from './thoughts';
-import { listNameProblem, liveLists, newList, nextSortOrder } from './lists';
+import { editedList, listNameProblem, liveLists, newList, nextSortOrder } from './lists';
 import { firstEmoji } from './emoji';
 import type { Task, TaskList } from './types';
 
@@ -46,6 +46,14 @@ export async function createList(name: string, emojiText?: string): Promise<{ li
   const list = newList(generateId(), name, firstEmoji(emojiText), nextSortOrder(all), new Date().toISOString());
   await putList(list);
   return { list };
+}
+
+// The list edit box's Save: the name and the emoji in one write (one outbox entry, one updatedAt).
+export async function editList(key: string, name: string, emojiText: string | undefined): Promise<{ list: TaskList } | { problem: string }> {
+  const result = editedList(await loadListsRaw(), key, name, emojiText);
+  if ('problem' in result) return result;
+  await putList(result.list);
+  return result;
 }
 
 export async function renameList(key: string, name: string): Promise<string | null> {

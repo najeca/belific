@@ -646,6 +646,31 @@ test('002 a server without lists, settings and the timer columns: nothing sent o
   assert.equal(phone.row('user_settings', 'feature.pomodoro')?.value, 'true');
 });
 
+test('2.48.0 editing a list (name and emoji) is one upsert under the same key; the other device gets it and its tasks stay in the list', async () => {
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };
+  const desk = makeDevice(server);
+  await desk.put('lists', { key: 'l1', name: 'Reading', emoji: '📚', sortOrder: 0, createdAt: '2026-10-01T00:00:00.000Z' });
+  await desk.put('tasks', task('t1', 'Chapter 1', { listKey: 'l1' }));
+  await desk.engine.sync();
+  const phone = makeDevice(server);
+  await phone.engine.sync();
+  assert.equal(phone.row('lists', 'l1')?.name, 'Reading');
+  await wait(5);
+  await desk.put('lists', { ...desk.row('lists', 'l1')!, name: 'Books', emoji: '📖' });
+  const queued = desk.data.outbox.entries.filter((e) => e.table === 'lists');
+  assert.deepEqual(queued.map((e) => [e.key, e.op, e.row?.name, e.row?.emoji]), [['l1', 'upsert', 'Books', '📖']]);
+  await desk.engine.sync();
+  await phone.engine.sync();
+  assert.equal(server.all('lists').length, 1);
+  assert.equal(server.get('lists', 'l1')?.name, 'Books');
+  assert.equal(server.get('lists', 'l1')?.emoji, '📖');
+  assert.equal(phone.rows('lists').length, 1);
+  assert.deepEqual([phone.row('lists', 'l1')?.name, phone.row('lists', 'l1')?.emoji], ['Books', '📖']);
+  assert.equal(phone.row('tasks', 't1')?.listKey, 'l1');
+  assert.equal(desk.data.outbox.entries.length, 0);
+});
+
 test('002 a timer stopped on one device stops on the other; a deleted list is a tombstone everywhere', async () => {
   const server = new FakeServer();
   server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };

@@ -7,7 +7,7 @@
 // device) reads as Brain Dump, so a task never disappears with its list.
 import type { Task, TaskList } from './types.ts';
 import { isDateKey } from './kanban.ts';
-import { BRAIN_DUMP_EMOJI, DEFAULT_LIST_EMOJI } from './emoji.ts';
+import { BRAIN_DUMP_EMOJI, DEFAULT_LIST_EMOJI, firstEmoji } from './emoji.ts';
 
 export const BRAIN_DUMP_NAME = 'Brain Dump';
 export const MAX_LIST_NAME = 40;
@@ -36,6 +36,27 @@ export function newList(key: string, name: string, emoji: string | undefined, so
   const list: TaskList = { key, name: name.trim().replace(/\s+/g, ' '), sortOrder, createdAt: nowIso, updatedAt: nowIso };
   if (emoji) list.emoji = emoji;
   return list;
+}
+
+// The list after the edit box's Save (2.48.0): a new name and emoji on the same row. The key, the sort
+// order and createdAt stay, so its tasks (which carry the key) and their history follow it; the caller writes
+// the row (storage stamps updatedAt and queues it). No emoji text clears the emoji. The name follows the same
+// rule as a new list, except the list's own current name is fine.
+export function editedList(
+  lists: TaskList[],
+  key: string,
+  name: string,
+  emojiText: string | undefined,
+): { list: TaskList } | { problem: string } {
+  const problem = listNameProblem(lists, name, key);
+  if (problem) return { problem };
+  const current = lists.find((l) => l.key === key && !l.deletedAt);
+  if (!current) return { problem: 'That list no longer exists' };
+  const next: TaskList = { ...current, name: name.trim().replace(/\s+/g, ' ') };
+  const emoji = firstEmoji(emojiText);
+  if (emoji) next.emoji = emoji;
+  else delete next.emoji;
+  return { list: next };
 }
 
 export function liveLists(lists: TaskList[]): TaskList[] {

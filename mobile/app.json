@@ -2,7 +2,7 @@
   "expo": {
     "name": "Belific",
     "slug": "belific",
-    "version": "2.47.0",
+    "version": "2.48.0",
     "scheme": "belific",
     "orientation": "portrait",
     "icon": "./assets/belificappicon.png",

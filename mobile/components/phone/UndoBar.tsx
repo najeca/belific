@@ -11,7 +11,8 @@ export const UNDO_MS = 5000;
 export interface UndoMessage {
   id: number;
   text: string;
-  undo: () => void;
+  // Absent: a note only (a refused drag), with no Undo.
+  undo?: () => void;
 }
 
 const make = (c: ColorTokens) => ({
@@ -37,17 +38,19 @@ export function UndoBar({ message, onDone }: { message: UndoMessage | null; onDo
       <Text style={s.text} numberOfLines={1}>
         {message.text}
       </Text>
-      <Pressable
-        onPress={() => {
-          message.undo();
-          onDone();
-        }}
-        style={s.undo}
-        accessibilityRole="button"
-        accessibilityLabel="Undo"
-      >
-        <Text style={s.undoText}>Undo</Text>
-      </Pressable>
+      {message.undo ? (
+        <Pressable
+          onPress={() => {
+            message.undo?.();
+            onDone();
+          }}
+          style={s.undo}
+          accessibilityRole="button"
+          accessibilityLabel="Undo"
+        >
+          <Text style={s.undoText}>Undo</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

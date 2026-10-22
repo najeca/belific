@@ -15,6 +15,7 @@ import { useStyles, useTheme } from '../theme';
 import { PressRow } from '../touch';
 import { inter, mono, type } from '../type';
 import { PhoneBlock, type BlockLook } from './PhoneBlock';
+import { DraggableBlock, type DragTarget } from './DraggableBlock';
 
 // The Calendar's Day view on the phone (PLAN_phone P8): an all day row, then a 24 hour timeline
 // (56 px an hour, the desktop's scale, so the block tiers of 2.47.0 apply), a red line at the current
@@ -50,6 +51,7 @@ export function DayView({
   data,
   onOpen,
   onAddAt,
+  onDrop,
 }: {
   dayKey: string;
   todayKey: string;
@@ -57,11 +59,27 @@ export function DayView({
   data: DayData;
   onOpen: (source: DaySource) => void;
   onAddAt: (minute: number) => void;
+  // P10: a held block was dragged to a new start.
+  onDrop?: (target: DragTarget) => void;
 }) {
   const s = useStyles(make);
   const { c, name } = useTheme();
   const [width, setWidth] = useState(390);
   const scroller = useRef<React.ElementRef<typeof ScrollView>>(null);
+  // P10: where the timeline is on screen and how far it is scrolled, for the auto scroll near its edges.
+  const frame = useRef({ top: 0, height: 0, y: 0, max: 0 });
+  const [dragging, setDragging] = useState(false);
+  const autoScroll = (absY: number): number => {
+    const f = frame.current;
+    const step = absY < f.top + 56 ? -12 : absY > f.top + f.height - 56 ? 12 : 0;
+    const next = Math.max(0, Math.min(f.max, f.y + step));
+    const moved = next - f.y;
+    if (moved !== 0) {
+      f.y = next;
+      scroller.current?.scrollTo({ y: next, animated: false });
+    }
+    return moved;
+  };
   const day = useMemo(() => buildPhoneDay({ tasks: data.tasks, dayKey, todayKey, events: data.events, device: data.device }), [data, dayKey, todayKey]);
 
   // Opens near now on today (an hour before), at 8:00 on another day.
@@ -115,7 +133,25 @@ export function DayView({
           ))}
         </View>
       ) : null}
-      <ScrollView ref={scroller} contentContainerStyle={{ height: GRID_HEIGHT_PX + 24 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scroller}
+        contentContainerStyle={{ height: GRID_HEIGHT_PX + 24 }}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!dragging}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          frame.current.y = e.nativeEvent.contentOffset.y;
+          frame.current.max = Math.max(0, e.nativeEvent.contentSize.height - e.nativeEvent.layoutMeasurement.height);
+        }}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          frame.current.height = h;
+          frame.current.max = Math.max(0, GRID_HEIGHT_PX + 24 - h);
+          (scroller.current as unknown as { measureInWindow?: (cb: (x: number, y: number) => void) => void })?.measureInWindow?.((_x, y) => {
+            frame.current.top = y;
+          });
+        }}
+      >
         <View style={{ height: GRID_HEIGHT_PX, marginTop: 12 }}>
           {Array.from({ length: 24 }, (_, h) => (
             <React.Fragment key={h}>
@@ -131,9 +167,23 @@ export function DayView({
             const w = area / b.cols;
             return (
               <View key={b.id} style={{ position: 'absolute', top: b.top, height: b.height, left: GUTTER + 2 + b.col * w, width: w - 2, paddingBottom: 1 }} {...({ dataSet: { phoneBlock: b.id } } as object)}>
-                <PressRow onTap={() => onOpen(b.source)} a11y={a11yOf(b.source)} style={{ flex: 1 }} data={{ blockTap: b.id }}>
-                  <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source)} />
-                </PressRow>
+                {b.source.kind === 'task' && !b.source.continuation && onDrop ? (
+                  <DraggableBlock
+                    source={b.source}
+                    a11y={a11yOf(b.source)}
+                    onTap={() => onOpen(b.source)}
+                    onDrop={onDrop}
+                    onDragging={setDragging}
+                    autoScroll={autoScroll}
+                    data={{ blockTap: b.id }}
+                  >
+                    <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source)} />
+                  </DraggableBlock>
+                ) : (
+                  <PressRow onTap={() => onOpen(b.source)} a11y={a11yOf(b.source)} style={{ flex: 1 }} data={{ blockTap: b.id }}>
+                    <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source)} />
+                  </PressRow>
+                )}
               </View>
             );
           })}

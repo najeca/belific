@@ -17,6 +17,12 @@ import { QuickAdd, type QuickAddWhere } from '../../components/phone/QuickAdd';
 import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
 import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
 import { DayView, type DayData } from '../../components/phone/calendar/DayView';
+import type { DragTarget } from '../../components/phone/calendar/DraggableBlock';
+import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
+import { phoneDropPatch } from '../../lib/phoneDrag';
+import { patchSeries } from '../../lib/seriesActions';
+import { patchTask } from '../../lib/taskActions';
+import type { Task } from '../../lib/types';
 import { MonthView, WeekView } from '../../components/phone/calendar/WeekMonth';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { dayItems } from '../../lib/phoneWeek';
@@ -62,6 +68,7 @@ export default function CalendarScreen() {
   const [details, setDetails] = useState<DetailsTarget | null>(null);
   const [adding, setAdding] = useState<QuickAddWhere | null>(null);
   const [editEvent, setEditEvent] = useState<CustomEvent | undefined>();
+  const [notice, setNotice] = useState<UndoMessage | null>(null);
 
   const load = useCallback(async () => {
     const [tasks, ev, cats, st, projects, lists] = await Promise.all([loadTasksRaw(), loadCustomEvents(), loadCustomCategories(), shouldShowStarterRoutine(), loadProjects(), loadListsRaw()]);
@@ -125,6 +132,23 @@ export default function CalendarScreen() {
       const ev = custom.find((e) => e.id === src.event.id);
       if (ev) setEditEvent(ev);
     }
+  }
+
+  // P10: a held block dragged to a new start (lib/phoneDrag.ts: the desktop's drop rules, 15 minute steps).
+  async function drop({ source, startMin }: DragTarget) {
+    const full: Task = source.full ?? source.task;
+    const res = phoneDropPatch({ task: full, time: source.time, multi: !!source.full, projected: source.projected, dayKey: anchor, startMin, todayKey });
+    if (!res) return;
+    if ('note' in res) {
+      setNotice({ id: Date.now(), text: res.note });
+      return;
+    }
+    const before: Partial<Task> = {};
+    for (const k of Object.keys(res.fields) as Array<keyof Task>) (before as Record<string, unknown>)[k] = full[k];
+    const write = (fields: Partial<Task>) => (res.series ? patchSeries(full, fields) : patchTask(full.id, fields));
+    await write(res.fields);
+    await load();
+    setNotice({ id: Date.now(), text: `Moved to ${formatTime(toTime(startMin))}`, undo: () => void write(before).then(load) });
   }
 
   const step = (delta: number) => setAnchor((a) => stepAnchor(view, a, delta));
@@ -200,6 +224,7 @@ export default function CalendarScreen() {
               data={dayData}
               onOpen={open}
               onAddAt={(m) => setAdding({ dueDate: anchor, startTime: toTime(m), durationMinutes: 30, label: `${formatDayLabel(anchor)} at ${formatTime(toTime(m))}` })}
+              onDrop={(t) => void drop(t)}
             />
           ) : view === 'week' ? (
             <WeekView anchor={anchor} todayKey={todayKey} itemsOf={itemsOf} onPick={openDay} />
@@ -208,6 +233,7 @@ export default function CalendarScreen() {
           )}
         </View>
       </GestureDetector>
+      <UndoBar message={notice} onDone={() => setNotice(null)} />
       <AddButton onPress={() => setAdding({ dueDate: anchor, label: anchor === todayKey ? 'Today' : formatDayLabel(anchor) })} a11y="Add a task on this day" />
       <QuickAdd visible={!!adding} where={adding ?? { label: '' }} onClose={() => setAdding(null)} onAdded={() => void load()} />
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />

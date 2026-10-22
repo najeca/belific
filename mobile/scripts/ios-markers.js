@@ -97,8 +97,9 @@ const MARKERS = [
   // 'Add another time' REMOVED ON PURPOSE in PLAN_phone P7 (2.55.0): extra times are edited on the iPhone
   // (components/phone/TimesEditor.tsx), only through lib/times.ts (no overlap, at most six).
   // 2.37.0 (Part C, P4): dragging or resizing one time of a task with several times is desktop only (lib/drag.ts).
-  'multiDropPatch',
-  'resizeRefusal',
+  // 'multiDropPatch' and 'resizeRefusal' REMOVED ON PURPOSE in PLAN_phone P10 (2.58.0): the iPhone's Day
+  // view drags a block with the desktop's drop rules (lib/phoneDrag.ts uses lib/drag.ts). resizeRefusal
+  // comes with the same file: a pure check, and the phone has no edge resize, so no screen uses it.
   // 2.45.0 (the Ellie Planner look): the Theme setting, its store and the desktop's dark theme are desktop only.
   // lib/tokens.ts and lib/theme.ts ARE in the phone bundle (Colors comes from them, as the phone's own palette:
   // nothing on the iPhone changes), so tokens, theme and dark tint names are NOT markers; these are.

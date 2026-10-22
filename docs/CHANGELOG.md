@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 2.58.0 — 2026-10-22 (iPhone catch-up P10: hold a block, then drag it)
+
+**iPhone. JavaScript only (no Reanimated, decision 5). The desktop is unchanged.**
+- **Press and hold a block on the Day timeline** (about 400 ms, a small haptic, it lifts), then drag it up or down: it follows the finger and shows the time it will get; letting go moves it in 15 minute steps (decision 6). A message says where it went, with Undo. Near the top or bottom edge the timeline scrolls on its own. (`components/phone/calendar/DraggableBlock.tsx`: gesture handler's pan after a long press, raced against the tap.)
+- **The desktop's drop rules** (`lib/phoneDrag.ts` on `drag.ts`): a task moves to the new start (30 minutes when it had no length); one time of a task with several times moves alone, and a drop over another of its times is refused with a note; a projected day of a repeating task moves the series' time, never its day; never onto a past day. A split piece moves its whole task by the same amount; yesterday's overnight rest is not draggable.
+- **A quick tap still opens a block; a finger that moves before the hold scrolls the timeline.** Screen readers get "15 minutes earlier" and "15 minutes later" on every task block.
+- **iOS marker gate:** `multiDropPatch` and `resizeRefusal` removed on purpose (P10): `drag.ts` reaches the phone; `resizeRefusal` comes with it (a pure check, no resize on the phone).
+- **Web export only:** a block takes the touch itself (the browser would otherwise start a scroll and cancel the drag); the empty timeline still scrolls.
+- **Tests:** `phoneDrag.test.ts` (5); real touch check `phone-p10.js` (9): hold and drag an hour, Undo, the snap to a quarter, a drag without the hold moves nothing, a tap still opens, one of several times moves alone, an overlap is refused, a repeating day moves the series time.
+
+---
+
 ## 2.57.0 — 2026-10-22 (iPhone catch-up P9: Week, Month and the sideways swipe)
 
 **iPhone. JavaScript only. The desktop is unchanged.**

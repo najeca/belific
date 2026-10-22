@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { formatTime } from '../../lib/data';
 import { formatDuration } from '../../lib/duration';
-import { isCompactBlock, toMinutes, toTime, blockHeightPx } from '../../lib/timebox';
+import { toMinutes, toTime, blockHeightPx } from '../../lib/timebox';
+import { BLOCK_DROP_ORDER, blockPlan } from '../../lib/blockLayout';
 import { pieceTimeText, type CutPiece } from '../../lib/cuts';
 import { nudgeBlock, slotLabel, taskDuration, yToMinutes, type BlockNudge } from '../../lib/drag';
 import { moveTimeFields } from '../../lib/times';
@@ -115,6 +116,10 @@ export default function TimeBlock({
   const headPiece = !piece || piece.head;
   // Pieces after the first get their own block key, so the first keeps the task's (tests and focus).
   const blockKey = `${task.id}${blockSuffix ?? ''}${piece && piece.index > 0 ? `~${piece.index + 1}` : ''}`;
+  const [fit, setFit] = useState({ key: '', dropped: 0 });
+  const [boxW, setBoxW] = useState(0);
+  const titleEl = useRef<HTMLElement | null>(null);
+  const metaEl = useRef<HTMLElement | null>(null);
   const live = useRef({ task, projected, full: fullTask, time });
   live.current = { task, projected, full: fullTask, time };
 
@@ -140,9 +145,19 @@ export default function TimeBlock({
   const keysCleanup = useRef<(() => void) | null>(null);
   const elRef = useRef<HTMLElement | null>(null);
   // The Calendar's hover tooltip holds the whole block, kept current as the task changes.
+  // A block too short to show everything has the same tooltip (2.47.0).
+  const tipped = !!fullText || blockPlan(height).tier !== 3;
   useEffect(() => {
-    if (fullText) tipRef(blockTip(task, piece, note))(elRef.current);
-  }, [fullText, task.title, task.emoji, task.startTime, task.durationMinutes, task.recurrence, piece, note]);
+    if (tipped) tipRef(blockTip(task, piece, note))(elRef.current);
+  }, [tipped, task.title, task.emoji, task.startTime, task.durationMinutes, task.recurrence, piece, note]);
+  // The block's width decides which parts still fit.
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setBoxW(Math.round(el.clientWidth)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const blockRef = useCallback(
     (instance: unknown) => {
       dragRef(instance);
@@ -150,7 +165,7 @@ export default function TimeBlock({
       keysCleanup.current = null;
       const el = domNode(instance);
       elRef.current = el;
-      if (fullText) tipRef(blockTip(live.current.task, piece, note))(el);
+      if (tipped) tipRef(blockTip(live.current.task, piece, note))(el);
       if (!el) return;
       const onKey = (e: KeyboardEvent) => {
         if (e.target !== el || e.repeat) return;
@@ -186,7 +201,7 @@ export default function TimeBlock({
       keysCleanup.current = () => el.removeEventListener('keydown', onKey);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dragRef, scope, fullText],
+    [dragRef, scope, tipped],
   );
 
   // The bottom edge: dragging it changes the estimate.
@@ -219,7 +234,32 @@ export default function TimeBlock({
   // Resizing a cut task: the last piece follows the handle (its length is the new end less its own start).
   const resizedH = resizing === undefined ? undefined : piece ? blockHeightPx(Math.max(15, startMin + resizing - piece.startMin)) : blockHeightPx(resizing);
   const sized = resizedH !== undefined && lastPiece ? { ...positioned, height: resizedH } : positioned;
-  const compact = isCompactBlock(resizedH !== undefined && lastPiece ? resizedH : height);
+  const shownH = resizedH !== undefined && lastPiece ? resizedH : height;
+  // What the block shows at this height (lib/blockLayout.ts); the width then takes parts away one at a time.
+  const fitKey = `${shownH}|${boxW}|${task.title}|${task.emoji ?? ''}|${task.startTime}|${task.durationMinutes}|${!!task.recurrence}|${listEmoji ?? ''}|${piece?.index ?? ''}|${isMustDo(task)}|${resizing ?? ''}|${badge ?? ''}`;
+  const plan = blockPlan(shownH, fit.key === fitKey ? fit.dropped : 0);
+  const tier = plan.tier;
+  useLayoutEffect(() => {
+    if (tier === 3) return;
+    if (fit.key !== fitKey) {
+      setFit({ key: fitKey, dropped: 0 });
+      return;
+    }
+    const t = titleEl.current;
+    if (!t) return;
+    const rowW = t.parentElement?.clientWidth ?? t.clientWidth;
+    // The title is cut short of what it needs (and of 60% of the line), or the second line is wider than the block.
+    const squeezed = t.scrollWidth > t.clientWidth + 1 && t.clientWidth < Math.min(t.scrollWidth, rowW * 0.6);
+    const m = metaEl.current;
+    const metaOver = !!m && m.scrollWidth > m.clientWidth + 1;
+    if ((squeezed || metaOver) && fit.dropped < BLOCK_DROP_ORDER.length) setFit({ key: fitKey, dropped: fit.dropped + 1 });
+  });
+  // Tier 1's right hand text: a break and a later piece also say when they start.
+  const lengthText = headPiece ? formatDuration(task.durationMinutes) : formatDuration(piece?.leftMin) ? `${formatDuration(piece?.leftMin)} left` : undefined;
+  const clockText = formatTime(piece ? toTime(piece.startMin) : task.startTime ?? '');
+  const inlineText = lengthText ? `${task.cutsBelow || (piece && !piece.head) ? `${clockText} ` : ''}${lengthText}` : '';
+  // Tier 2's second line: the time, then the length ("left" on a later piece).
+  const metaText = [plan.showTime ? clockText : '', plan.showLeft ? lengthText ?? '' : ''].filter(Boolean).join(' ') + (task.completed && lastPiece && plan.showTime ? ' done' : '');
   const pieceData = piece ? { piece: String(piece.index + 1), pieceCount: String(piece.count) } : {};
   const baseData = scope ? { calBlock: `${scope}${blockKey}`, blockTask: task.id } : { blockId: blockKey, blockTask: task.id };
   const dataSet = { ...baseData, ...pieceData, ...(task.cutsBelow ? { cuts: '1' } : {}), ...(time ? { blockTime: time } : {}) };
@@ -235,6 +275,7 @@ export default function TimeBlock({
             look
               ? { backgroundColor: look.bg, borderLeftColor: look.edge }
               : { backgroundColor: (color ? tint(color) : undefined) ?? (task.cutsBelow ? BREAK_TINT : Colors.plainBlock), borderLeftColor: color?.edge ?? (task.cutsBelow ? Colors.textSecondary : Colors.accent) },
+            tier === 1 && styles.blockOne,
             continues && styles.continues,
             projected && styles.projected,
             late && styles.late,
@@ -244,52 +285,85 @@ export default function TimeBlock({
           accessibilityLabel={`${a11y}${time ? `, ${formatTime(time)}` : ''}${piece ? `, part ${piece.index + 1} of ${piece.count}` : ''}`}
           {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
-          <View style={[styles.titleRow, fullText && styles.titleRowTop]}>
-            <Text style={[styles.title, fullText && styles.titleWrap, task.completed && styles.titleDone, vt]} numberOfLines={fullText ? undefined : 1}>
-              {task.emoji ? `${task.emoji} ` : ''}
-              {task.title}
-            </Text>
-            {/* A short block shows one line: title and its true duration ("10m"). */}
-            {compact && resizing === undefined && (headPiece ? formatDuration(task.durationMinutes) : formatDuration(piece?.leftMin)) && (
-              <Text style={[styles.timeInline, vm]}>
-                {/* A break and a later piece also say when they start: their block is one line. */}
-                {task.cutsBelow || (piece && !piece.head) ? `${formatTime(piece ? toTime(piece.startMin) : task.startTime ?? '')} ` : ''}
-                {headPiece ? formatDuration(task.durationMinutes) : `${formatDuration(piece?.leftMin)} left`}
-              </Text>
-            )}
-            {/* A refused cut on a short block (no room for the badge): a small info mark with the whole sentence. */}
-            {badge && compact && resizing === undefined && (
-              <Text ref={tipRef(note) as never} style={[styles.cutInfo, vm]} accessibilityLabel={note} {...({ 'aria-label': note, dataSet: { cutNoteIcon: '1' } } as object)}>
-                {'ⓘ'}
-              </Text>
-            )}
-            {isMustDo(task) && <PriorityMark chip={!!look} />}
-            {task.recurrence && (
-              <View style={fullText ? styles.repeatTop : undefined}>
-                <Ionicons name="repeat" size={12} color={look ? VIBRANT_WHITE : Colors.textSecondary} accessibilityLabel="Repeats" />
+          {tier === 3 ? (
+            <>
+              <View style={[styles.titleRow, fullText && styles.titleRowTop]}>
+                <Text style={[styles.title, fullText && styles.titleWrap, task.completed && styles.titleDone, vt]} numberOfLines={fullText ? undefined : 1}>
+                  {task.emoji ? `${task.emoji} ` : ''}
+                  {task.title}
+                </Text>
+                {isMustDo(task) && <PriorityMark chip={!!look} />}
+                {task.recurrence && (
+                  <View style={fullText ? styles.repeatTop : styles.noShrink}>
+                    <Ionicons name="repeat" size={12} color={look ? VIBRANT_WHITE : Colors.textSecondary} accessibilityLabel="Repeats" />
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-          {resizing !== undefined ? (
-            <Text style={[styles.snap, vm]} {...({ dataSet: look ? {} : { mono: '1' } } as object)}>
-              {slotLabel(startMin, resizing)}
-            </Text>
+              {resizing !== undefined ? (
+                <Text style={[styles.snap, vm]} {...({ dataSet: look ? {} : { mono: '1' } } as object)}>
+                  {slotLabel(startMin, resizing)}
+                </Text>
+              ) : (
+                <Text style={[styles.time, vm]} {...({ dataSet: look ? {} : { mono: '1' } } as object)}>
+                  {piece && !piece.head
+                    ? pieceTimeText(formatTime(toTime(piece.startMin)), undefined, formatDuration(piece.leftMin), false)
+                    : `${formatTime(task.startTime ?? '')} ${formatDuration(task.durationMinutes) ?? ''}`}
+                  {listEmoji ? ' ' : ''}
+                  <ListEmoji emoji={listEmoji} name={listName} />{' '}
+                  {task.completed && lastPiece ? 'done' : ''}
+                </Text>
+              )}
+              {badge && resizing === undefined && (
+                <Text style={[styles.cutNote, vm]} {...({ dataSet: { cutNote: '1' } } as object)}>
+                  {badge}
+                </Text>
+              )}
+            </>
           ) : (
-            !compact && (
-              <Text style={[styles.time, vm]} {...({ dataSet: look ? {} : { mono: '1' } } as object)}>
-                {piece && !piece.head
-                  ? pieceTimeText(formatTime(toTime(piece.startMin)), undefined, formatDuration(piece.leftMin), false)
-                  : `${formatTime(task.startTime ?? '')} ${formatDuration(task.durationMinutes) ?? ''}`}
-                {listEmoji ? ' ' : ''}
-                <ListEmoji emoji={listEmoji} name={listName} />{' '}
-                {task.completed && lastPiece ? 'done' : ''}
-              </Text>
-            )
-          )}
-          {badge && !compact && resizing === undefined && (
-            <Text style={[styles.cutNote, vm]} {...({ dataSet: { cutNote: '1' } } as object)}>
-              {badge}
-            </Text>
+            <>
+              <View style={[styles.titleRow, tier === 1 && styles.titleRowOne]}>
+                <Text
+                  ref={((n: unknown) => { titleEl.current = domNode(n); }) as never}
+                  style={[styles.title, task.completed && styles.titleDone, vt]}
+                  numberOfLines={1}
+                >
+                  {task.emoji ? `${task.emoji} ` : ''}
+                  {task.title}
+                </Text>
+                {/* A refused cut on a short block (no room for the badge): a small info mark with the whole sentence. */}
+                {badge && resizing === undefined && (
+                  <Text ref={tipRef(note) as never} style={[styles.cutInfo, vm]} accessibilityLabel={note} {...({ 'aria-label': note, dataSet: { cutNoteIcon: '1' } } as object)}>
+                    {'ⓘ'}
+                  </Text>
+                )}
+                {isMustDo(task) && plan.showPriority && <PriorityMark chip={!!look} />}
+                {/* One line: the length (or the snapped time while resizing) on the right, if it fits. */}
+                {tier === 1 && (resizing !== undefined || (plan.showTime && !!inlineText)) && (
+                  <Text style={[styles.timeInline, styles.rightText, vm]} numberOfLines={1}>
+                    {resizing !== undefined ? slotLabel(startMin, resizing) : inlineText}
+                  </Text>
+                )}
+              </View>
+              {tier === 2 && (
+                <View style={styles.metaRow}>
+                  <Text
+                    ref={((n: unknown) => { metaEl.current = domNode(n); }) as never}
+                    style={[resizing !== undefined ? styles.snap : styles.time, styles.metaText, vm]}
+                    numberOfLines={1}
+                    {...({ dataSet: look ? {} : { mono: '1' } } as object)}
+                  >
+                    {resizing !== undefined ? slotLabel(startMin, resizing) : metaText}
+                    {resizing === undefined && !!listEmoji && plan.showListEmoji ? ' ' : ''}
+                    {resizing === undefined && plan.showListEmoji ? <ListEmoji emoji={listEmoji} name={listName} /> : null}
+                  </Text>
+                  {resizing === undefined && !!task.recurrence && plan.showRepeat && (
+                    <View style={styles.noShrink}>
+                      <Ionicons name="repeat" size={12} color={look ? VIBRANT_WHITE : Colors.textSecondary} accessibilityLabel="Repeats" />
+                    </View>
+                  )}
+                </View>
+              )}
+            </>
           )}
         </Pressable>
         {continues && (
@@ -328,13 +402,20 @@ const styles = StyleSheet.create({
   lifted: { opacity: 0.35 },
   // Flat: a 1px inset outline (no layout change), small 4px corners.
   base: { flex: 1, borderRadius: 4, overflow: 'hidden' } as object,
-  block: { flex: 1, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', borderLeftWidth: 3, boxShadow: `inset 0 0 0 1px ${Colors.border}` } as object,
+  block: { flex: 1, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3, minWidth: 0, overflow: 'hidden', borderLeftWidth: 3, boxShadow: `inset 0 0 0 1px ${Colors.border}` } as object,
+  // The shortest blocks (20px) fit one 16px line only with 1px above and below.
+  blockOne: { paddingVertical: 1, justifyContent: 'center' },
   continues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   projected: { opacity: 0.82 },
   late: { opacity: 0.5 },
   active: { boxShadow: `inset 0 0 0 1px ${Colors.accent}` } as object,
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  title: { flexShrink: 1, fontSize: 12, lineHeight: 16, fontWeight: '600', color: Colors.textPrimary },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' } as object,
+  titleRowOne: { flex: 1 },
+  rightText: { marginLeft: 'auto' },
+  noShrink: { flexShrink: 0 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' } as object,
+  metaText: { flexShrink: 1, minWidth: 0 },
+  title: { flexShrink: 1, minWidth: 0, fontSize: 12, lineHeight: 16, fontWeight: '600', color: Colors.textPrimary },
   cutInfo: { fontSize: 11, lineHeight: 16, color: Colors.textSecondary, flexShrink: 0 },
   cutNote: { fontSize: 10, lineHeight: 13, fontStyle: 'italic', color: Colors.textSecondary, minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
   titleRowTop: { alignItems: 'flex-start' },

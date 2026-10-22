@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.47.0 — 2026-10-22 (small Calendar and Timebox blocks no longer overlap their own text)
+
+**Desktop only. Look and behaviour only. No data, database or sync change.**
+- **Three tiers by block height** (`lib/blockLayout.ts`, one pure function `blockPlan`): under 36px (15, 20 and 30 minutes) one line, the title with an ellipsis and the length on the right only if it fits, plus the priority mark; 36 to 55px (45 minutes) the title on line 1 and the time and length ("left" on a later piece) on line 2, with the repeat icon and the list emoji only if they fit; 56px and up (60 minutes and more) the layout as before, the Calendar still wraps the whole title there.
+- **Width takes parts away in a fixed order:** list emoji, repeat icon, "left" text, time, priority mark last. The title never drops. Every text is one line with an ellipsis, `min-width: 0` on the flex children and `overflow: hidden` on the lines and the block, so nothing paints outside the block or over another element.
+- **The hover tooltip** (title, time, length, Repeats, the cut note) is now on every block under 56px in the Timebox too (before, only the Calendar had it).
+- **Changed on purpose:** a short Calendar block's title is now one line with an ellipsis (before, 2.28.0 let it run over the line); the tooltip carries the whole title. Real check `p12.js` A3 was reworded to match.
+- **Tests:** `blockLayout.test.ts` (4); new real check `p24.js` (146 checks): 15, 20, 30, 45, 60 and 90 minute blocks plus three narrow side by side blocks, in light and dark, on the Calendar's day view and the Timebox; no two text boxes in a block intersect, nothing is painted or cut outside the block, the tooltip holds the whole title. It fails 15 of 146 on the 2.46.0 block. Screenshots in `docs/screens-2.47/`.
+
+---
+
 ## 2.46.0 — 2026-10-21 (Ellie Planner look, step 8 of 8: the tokens, exported for Landis and Proload)
 
 **No app change. Files and documents only.**

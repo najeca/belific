@@ -94,7 +94,7 @@ async function run() {
   const geom = await I.js(`(() => { const r = ${blk}.getBoundingClientRect(); return Math.round(r.height); })()`);
   check('A3: the block height is still tied to real time (7h = 7 hours of grid)', geom > 7 * 40, String(geom));
   const short = await I.js(`(() => { const b = document.querySelector('[data-cal-block$="short"]'); const t = [...b.querySelectorAll('div,span')].find((e) => e.textContent.includes('A very long title')); return { overflow: getComputedStyle(t).textOverflow, tip: b.getAttribute('title'), h: Math.round(b.getBoundingClientRect().height) }; })()`);
-  check('A3: a short block never gets an ellipsis, and its tooltip has the full title', short.overflow !== 'ellipsis' && short.tip.includes('A very long title for a very short block'), JSON.stringify(short));
+  check('A3: a short block (2.47.0: one line, may end in an ellipsis) has a tooltip with the full title', short.tip.includes('A very long title for a very short block'), JSON.stringify(short));
   await I.shot('p12-A3-blocks');
 
   // ======== A2. The red ! marker ========

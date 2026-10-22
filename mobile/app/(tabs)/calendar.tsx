@@ -17,13 +17,19 @@ import { QuickAdd, type QuickAddWhere } from '../../components/phone/QuickAdd';
 import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
 import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
 import { DayView, type DayData } from '../../components/phone/calendar/DayView';
+import { MonthView, WeekView } from '../../components/phone/calendar/WeekMonth';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { dayItems } from '../../lib/phoneWeek';
+import { PAGE_ACTIVE_X, PAGE_FAIL_Y, pageTurn } from '../../lib/touchRules';
+import { haptic } from '../../components/phone/touch';
 import { useStyles, useTheme } from '../../components/phone/theme';
 import { Button, IconButton } from '../../components/phone/ui';
 import { inter, type } from '../../components/phone/type';
 import AddEventModal from '../components/AddEventModal';
 
-// The Calendar on the iPhone (PLAN_phone P8): Day, Week and Month at the top, the day or period moved
-// with the arrows (P9 adds the sideways swipe), Today to come back. Day is a touch timeline
+// The Calendar on the iPhone (PLAN_phone P8, P9): Day, Week and Month at the top; a sideways swipe (or
+// the arrows) moves to the next or previous day, week or month, Today comes back. A vertical scroll
+// always wins over the swipe (it needs a clearly sideways move first, lib/touchRules.ts). Day is a touch timeline
 // (components/phone/calendar/DayView.tsx); a tap on an empty slot adds a task at that time (Cancel is
 // one tap). The iPhone's own calendars are read only, asked for in context as before.
 const CALENDAR_PROMPT_KEY = 'belific_calendar_prompt_dismissed';
@@ -37,7 +43,6 @@ const make = (c: ColorTokens) => ({
   card: { marginHorizontal: 12, marginBottom: 8, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, gap: 8 },
   cardTitle: { ...inter(600), fontSize: 15, color: c.textPrimary },
   cardBody: { ...type.meta, color: c.textSecondary },
-  placeholder: { ...type.body, color: c.textSecondary, padding: 24, textAlign: 'center' as const },
 });
 
 export default function CalendarScreen() {
@@ -123,6 +128,23 @@ export default function CalendarScreen() {
   }
 
   const step = (delta: number) => setAnchor((a) => stepAnchor(view, a, delta));
+  const [pageWidth, setPageWidth] = useState(390);
+  const swipe = Gesture.Pan()
+    .activeOffsetX([-PAGE_ACTIVE_X, PAGE_ACTIVE_X])
+    .failOffsetY([-PAGE_FAIL_Y, PAGE_FAIL_Y])
+    .runOnJS(true)
+    .onEnd((e) => {
+      const turn = pageTurn(e.translationX, e.velocityX, pageWidth);
+      if (turn !== 0) {
+        haptic('light');
+        step(turn);
+      }
+    });
+  const itemsOf = useCallback((key: string) => dayItems({ tasks: data.tasks, dayKey: key, todayKey, events: eventsOn(key), device }), [data.tasks, todayKey, eventsOn, device]);
+  const openDay = (key: string) => {
+    setAnchor(key);
+    setView('day');
+  };
   const viewName = view === 'day' ? 'day' : view === 'week' ? 'week' : 'month';
   const dismiss = () => {
     setPromptDismissed(true);
@@ -168,20 +190,24 @@ export default function CalendarScreen() {
           </View>
         </View>
       ) : null}
-      <View style={{ flex: 1, borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.pane }}>
-        {view === 'day' ? (
-          <DayView
-            dayKey={anchor}
-            todayKey={todayKey}
-            nowMin={nowMin}
-            data={dayData}
-            onOpen={open}
-            onAddAt={(m) => setAdding({ dueDate: anchor, startTime: toTime(m), durationMinutes: 30, label: `${formatDayLabel(anchor)} at ${formatTime(toTime(m))}` })}
-          />
-        ) : (
-          <Text style={s.placeholder}>{view === 'week' ? 'Week' : 'Month'} view</Text>
-        )}
-      </View>
+      <GestureDetector gesture={swipe} touchAction="pan-y">
+        <View style={{ flex: 1, borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.pane }} onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)} {...({ dataSet: { calPage: view } } as object)}>
+          {view === 'day' ? (
+            <DayView
+              dayKey={anchor}
+              todayKey={todayKey}
+              nowMin={nowMin}
+              data={dayData}
+              onOpen={open}
+              onAddAt={(m) => setAdding({ dueDate: anchor, startTime: toTime(m), durationMinutes: 30, label: `${formatDayLabel(anchor)} at ${formatTime(toTime(m))}` })}
+            />
+          ) : view === 'week' ? (
+            <WeekView anchor={anchor} todayKey={todayKey} itemsOf={itemsOf} onPick={openDay} />
+          ) : (
+            <MonthView anchor={anchor} todayKey={todayKey} itemsOf={itemsOf} onPick={openDay} />
+          )}
+        </View>
+      </GestureDetector>
       <AddButton onPress={() => setAdding({ dueDate: anchor, label: anchor === todayKey ? 'Today' : formatDayLabel(anchor) })} a11y="Add a task on this day" />
       <QuickAdd visible={!!adding} where={adding ?? { label: '' }} onClose={() => setAdding(null)} onAdded={() => void load()} />
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />

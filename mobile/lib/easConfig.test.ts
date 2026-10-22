@@ -40,8 +40,8 @@ test('submit.production exists and is empty: Apple details are asked for interac
   assert.deepEqual(eas.submit.production, {});
 });
 
-test('the app is 2.56.0, bundle com.najeca.belific, scheme belific (the callback link)', () => {
-  assert.equal(app.expo.version, '2.56.0');
+test('the app is 2.57.0, bundle com.najeca.belific, scheme belific (the callback link)', () => {
+  assert.equal(app.expo.version, '2.57.0');
   assert.equal(app.expo.ios.bundleIdentifier, 'com.najeca.belific');
   assert.equal(app.expo.scheme, 'belific');
   assert.equal(app.expo.ios.usesAppleSignIn, true);

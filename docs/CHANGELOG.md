@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 2.57.0 — 2026-10-22 (iPhone catch-up P9: Week, Month and the sideways swipe)
+
+**iPhone. JavaScript only. The desktop is unchanged.**
+- **Week** (`components/phone/calendar/WeekMonth.tsx`): seven narrow columns, today tinted, short titles only (the first word or two, no emoji: `lib/phoneWeek.ts` shortTitle), up to eight a day then "+N".
+- **Month:** the weeks of the month, today filled, up to three marks a day (red for top priority, grey for events) and a count past three.
+- **A tap on a day in Week or Month opens that day in Day view. It never creates a task.**
+- **A sideways swipe** on any view moves to the next or previous day, week or month (a gesture handler pan on the page, with a light haptic): it needs a clearly sideways move (24 pt before 16 pt up or down, `lib/touchRules.ts`), so a vertical scroll always wins, and a quarter of the width or a quick flick turns the page.
+- **Tests:** `phoneWeek.test.ts` (2); real touch check `phone-p9.js` (11): swipe left and right on Day, a slanted vertical drag scrolls the timeline and turns nothing, Week's seven columns and short titles, a tap on a day opens it and creates nothing, the week and month swipes, Month's whole weeks.
+
+---
+
 ## 2.56.0 — 2026-10-22 (iPhone catch-up P8: the Calendar's Day view)
 
 **iPhone. JavaScript only. The desktop is unchanged.**

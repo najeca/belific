@@ -6,6 +6,8 @@ import { kv } from '../../lib/kv';
 export const PHONE_PREFS = {
   // Streaks on the Repeating chip (the desktop's own switch is "only on this computer").
   showStreaks: { key: 'belific_phone_show_streaks', fallback: true },
+  // Task reminders on this phone (decision 3: one switch per device, on by default on both).
+  remindTasks: { key: 'belific_phone_remind_tasks', fallback: true },
 } as const;
 
 const listeners = new Map<string, Set<(v: boolean) => void>>();

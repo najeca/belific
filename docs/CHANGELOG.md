@@ -8,6 +8,20 @@ to know the current version and recent history.
 
 ---
 
+## 2.55.0 — 2026-10-22 (iPhone catch-up P7: Repeat, times a day, reminders; "Remind me on this device")
+
+**iPhone, plus one desktop label. JavaScript only (expo-notifications is already in the app).**
+- **Repeat in the phone's details** (`components/phone/RepeatEditor.tsx`): Daily, Weekly with days (Weekdays, Weekends), Every 2 weeks, Monthly on a date, Every year (after the "Every device is updated" tick), with the line that says exactly what will happen and Apply. The desktop's rules and fields (`lib/repeat.ts`); "Does not repeat" ends the series, as on the desktop.
+- **Times a day** (`TimesEditor.tsx`): Add another time (the suggested time after the last), change or remove a later time; the times rules (`lib/times.ts`: never overlapping, up to six).
+- **Reminders** (`RemindersEditor.tsx`): Default, None, or up to five leads (at the start, 5, 10, 15, 30 minutes, 1 hour, 1 day before); "for each time" on a task with several times. Stored with the shared reminderPatch.
+- **The iPhone reminds** (`components/phone/reminderScheduler.ts`, rules in `lib/phoneReminders.ts`): local notifications for timed tasks over the next 14 days, at every lead and every time not done, projected repeating days included, with the desktop's keys; planned again at launch, on coming to the front, after each sync and after every change; at most the iPhone's 64 pending notifications, the event notifications counted. Nothing is scheduled on the web export.
+- **Decision 3, one switch per device, on by default on both:** the phone's Settings, On this iPhone, "Remind me on this device" (kv, never synced); on the desktop the switch "Tasks placed on the Timebox" is now named "Remind me on this device" with a line under it (the same per computer setting `notifyTasks`, default on).
+- **iOS marker gate:** `effectiveReminders` and `Add another time` removed on purpose (P7). `setDefaultReminders` and "Reminders for a timed task" stay markers (desktop only).
+- **Fixed a stale comment:** `syncCore.ts` no longer says migration 004 is not applied.
+- **Tests:** `phoneReminders.test.ts` (5: the default lead, a list of leads with passed ones skipped, each time not done, projected days and a skipped day, the limit); real touch check `phone-p7.js` (14). Changed on purpose: desktop check `cp9.js` toggles the switch by its new name.
+
+---
+
 ## 2.54.0 — 2026-10-22 (iPhone catch-up P6: task details, part 1)
 
 **iPhone. JavaScript only. The desktop looks and works the same (one shared file moved).**

@@ -24,19 +24,25 @@ import { MonthGrid } from './MonthGrid';
 import { TimeField } from './TimeField';
 import { inter, mono, type } from './type';
 import { Button, LabelDot, RoundCheck } from './ui';
+import { RepeatEditor } from './RepeatEditor';
+import { TimesEditor } from './TimesEditor';
+import { RemindersEditor } from './RemindersEditor';
+import { repeatKindOf, REPEAT_CHOICES, shortRepeat } from '../../lib/repeat';
+import { taskRemindersLabel } from '../../lib/reminder';
+import { isMultiTime, timesOf } from '../../lib/times';
 
 // A task's details on the iPhone (PLAN_phone P6): the desktop's details panel for a finger, as a full
 // sheet. Every change is written at once through the shared taskOps (a projected day of a repeating
 // series edits the series; its date moves only that day, stored first), with patches that name only
 // their own fields (lib/detailsPatches.ts), so nothing the phone does not show is ever lost.
-// P7 adds Repeat, extra times and reminders.
+// P7 (2.55.0): Repeat, extra times (several times a day) and reminders, with the desktop's rules.
 
 export interface DetailsTarget {
   task: Task;
   projected: boolean;
 }
 
-type Open = 'date' | 'time' | 'duration' | null;
+type Open = 'date' | 'time' | 'duration' | 'repeat' | 'times' | 'reminders' | null;
 
 const make = (c: ColorTokens) => ({
   screen: { flex: 1, backgroundColor: c.background },
@@ -297,6 +303,34 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                   }}
                   accessibilityLabel="Other length"
                 />
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={s.section}>Repeat and reminders</Text>
+          <View style={s.card}>
+            {row('repeat-outline', 'Repeat', task.recurrence ? (shortRepeat(task, todayKey) ?? REPEAT_CHOICES.find((r) => r.kind === repeatKindOf(task.recurrence))?.label ?? 'Repeats') : 'Does not repeat', () => setOpen(open === 'repeat' ? null : 'repeat'), 'Repeat', true, 'repeat')}
+            {open === 'repeat' ? (
+              <View style={s.panel}>
+                <RepeatEditor
+                  task={task}
+                  onApply={(fields) => {
+                    setOpen(null);
+                    void write(fields);
+                  }}
+                />
+              </View>
+            ) : null}
+            {row('time-outline', 'Times a day', task.startTime ? (isMultiTime(task) ? timesOf(task).map(formatTime).join(', ') : 'Once') : 'Pick a time first', () => task.startTime && setOpen(open === 'times' ? null : 'times'), 'Times a day', false, 'times')}
+            {open === 'times' && task.startTime ? (
+              <View style={s.panel}>
+                <TimesEditor task={task} onWrite={(fields) => void write(fields)} />
+              </View>
+            ) : null}
+            {row('notifications-outline', 'Reminders', `${taskRemindersLabel(task)}${isMultiTime(task) ? ', each time' : ''}`, () => setOpen(open === 'reminders' ? null : 'reminders'), 'Reminders', false, 'reminders')}
+            {open === 'reminders' ? (
+              <View style={s.panel}>
+                <RemindersEditor task={task} onWrite={(fields) => void write(fields)} />
               </View>
             ) : null}
           </View>

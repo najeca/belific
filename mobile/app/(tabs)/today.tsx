@@ -34,6 +34,7 @@ import { QuickAdd } from '../../components/phone/QuickAdd';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { PressRow, haptic } from '../../components/phone/touch';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
+import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
 import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
 import { useStyles, useTheme } from '../../components/phone/theme';
 import { Button, Card, LabelDot, RoundCheck, SectionHeader } from '../../components/phone/ui';
@@ -119,6 +120,8 @@ export default function TodayScreen() {
     setTodayKey(key);
     setNowMin(nowMinutes());
     setTasks(raw);
+    // Any change made here (a tick, an edit) is followed by a load: the reminders follow it.
+    refreshTaskReminders();
     setCustomEvents(custom);
     const template = starter ? getStarterEventsForDate(now) : getWeeklyEventsForDate(now);
     setEvents([...template, ...custom.filter((e) => e.date === key).map((e) => customToScheduleEvent(e, categories))]);

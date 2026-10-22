@@ -39,6 +39,7 @@ import { phoneGoogle } from '../lib/phoneGoogleAuth';
 import RoutineConvertSection from './components/RoutineConvertSection';
 import CalendarsSection from './components/CalendarsSection';
 import { usePhonePref } from '../components/phone/prefs';
+import { refreshTaskReminders } from '../components/phone/reminderScheduler';
 import type { Session } from '@supabase/supabase-js';
 
 // Read from app.json's expo.version at runtime rather than hardcoded —
@@ -48,6 +49,7 @@ const APP_VERSION = Constants.expoConfig?.version ?? '—';
 
 export default function SettingsScreen() {
   const [showStreaks, setShowStreaks] = usePhonePref('showStreaks');
+  const [remindTasks, setRemindTasks] = usePhonePref('remindTasks');
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -293,6 +295,20 @@ export default function SettingsScreen() {
         {/* On this iPhone (PLAN_phone P5): settings that stay on this phone, never synced. */}
         <Text style={styles.sectionHeader}>On this iPhone</Text>
         <View style={styles.card}>
+          <View style={styles.row} {...({ dataSet: { phoneRemind: '1' } } as object)}>
+            <Text style={styles.rowLabel}>Remind me on this device</Text>
+            <Switch
+              value={remindTasks}
+              onValueChange={(v) => {
+                setRemindTasks(v);
+                refreshTaskReminders();
+              }}
+              trackColor={{ false: Colors.border, true: Colors.accent }}
+              thumbColor={Colors.onAccent}
+              accessibilityLabel="Remind me on this device"
+            />
+          </View>
+          <Text style={[styles.rowLabel, { fontSize: 12, color: Colors.textSecondary, paddingHorizontal: 16, paddingBottom: 10 }]}>Reminders for timed tasks on this iPhone. Your computer has its own switch.</Text>
           <View style={styles.row} {...({ dataSet: { phoneStreaks: '1' } } as object)}>
             <Text style={styles.rowLabel}>Show streaks</Text>
             <Switch

@@ -13,6 +13,7 @@ import { watchGoogleLinks } from '../lib/phoneGoogleAuth';
 import { Colors } from '../lib/theme';
 import { PhoneThemeProvider, useTheme } from '../components/phone/theme';
 import { usePhoneFonts } from '../components/phone/phoneFonts';
+import { startTaskReminders } from '../components/phone/reminderScheduler';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -116,9 +117,12 @@ function RootLayoutInner() {
     const stopSync = startSyncLoop();
     // The Google sign in comes back as a belific://auth-callback link.
     const stopLinks = Platform.OS === 'web' ? () => {} : watchGoogleLinks();
+    // The iPhone's task reminders (PLAN_phone P7); nothing on the web export.
+    const stopReminders = startTaskReminders();
     return () => {
       stopSync();
       stopLinks();
+      stopReminders();
     };
   }, []);
 

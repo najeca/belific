@@ -288,7 +288,9 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
 
             <Section title="Notifications" icon="notifications-outline">
               <ToggleRow label="Event starts" value={prefs.notifyEvents} onChange={(v) => setPref({ notifyEvents: v })} />
-              <ToggleRow label="Tasks placed on the Timebox" value={prefs.notifyTasks} onChange={(v) => setPref({ notifyTasks: v })} />
+              {/* Decision 3 (PLAN_phone, 2.55.0): one switch per device for task reminders, on by default. */}
+              <ToggleRow label="Remind me on this device" value={prefs.notifyTasks} onChange={(v) => setPref({ notifyTasks: v })} />
+              <Text style={styles.body}>Reminders for tasks placed on the Timebox, on this computer. Your iPhone has its own switch.</Text>
               {prefs.notifyTasks && (
                 <>
                   <Text style={styles.body}>Reminders for a timed task</Text>

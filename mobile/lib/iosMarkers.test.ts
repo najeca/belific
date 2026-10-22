@@ -131,10 +131,12 @@ const PHONE_REMOVED: Record<string, string[]> = {
   P1: ['Match system'],
   // P5: the phone's own per phone "Show streaks" switch (Settings). seriesStreak is still a marker.
   P5: ['Show streaks'],
+  // P7: the phone's reminders and extra times. setDefaultReminders and the desktop's settings line stay markers.
+  P7: ['effectiveReminders', 'Add another time'],
 };
 test('PLAN_phone: markers removed on purpose, by phase; the desktop only theme functions stay markers', () => {
   for (const [phase, names] of Object.entries(PHONE_REMOVED)) {
     for (const n of names) assert.ok(!markers.MARKERS.includes(n), `${phase}: ${n} is no longer a marker`);
   }
-  for (const kept of ['seriesStreak', 'installTheme', 'setThemeMode', 'vibrantColor', 'resizeRefusal', 'searchEmoji', 'Smallest piece when a break splits a task']) assert.ok(markers.MARKERS.includes(kept), kept);
+  for (const kept of ['seriesStreak', 'setDefaultReminders', 'Reminders for a timed task', 'installTheme', 'setThemeMode', 'vibrantColor', 'resizeRefusal', 'searchEmoji', 'Smallest piece when a break splits a task']) assert.ok(markers.MARKERS.includes(kept), kept);
 });

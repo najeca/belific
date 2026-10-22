@@ -27,6 +27,7 @@ import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { PressRow, SwipeRow, haptic } from '../../components/phone/touch';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
 import { usePhonePref } from '../../components/phone/prefs';
+import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
 import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
 import { useStyles, useTheme } from '../../components/phone/theme';
 import { Card, LabelDot, Pill, RoundCheck, SectionHeader } from '../../components/phone/ui';
@@ -99,6 +100,8 @@ export default function TasksTab() {
   const load = useCallback(async () => {
     const [raw, dump, ls, ps, rs, comps] = await Promise.all([loadTasksRaw(), loadBrainDumpItems(), loadListsRaw(), loadProjects(), loadRoutines(), loadRoutineCompletions()]);
     setTasks(raw);
+    // Any change made here (a tick, an edit) is followed by a load: the reminders follow it.
+    refreshTaskReminders();
     setItems(dump);
     setLists(ls);
     setProjects(ps);

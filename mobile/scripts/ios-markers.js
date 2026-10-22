@@ -74,7 +74,9 @@ const MARKERS = [
   // 2.32.0 (Part B, P5): several reminders per task and the desktop's default list are desktop only
   // (lib/reminder.ts, reminderStore, Settings, Notifications). The phone notifies nothing until the
   // iPhone catch-up release; the synced field `reminders` is shared sync code and is NOT a marker.
-  'effectiveReminders',
+  // 'effectiveReminders' REMOVED ON PURPOSE in PLAN_phone P7 (2.55.0): the iPhone reminds for timed tasks
+  // (lib/phoneReminders.ts, components/phone/RemindersEditor.tsx use lib/reminder.ts). Risk: two devices
+  // remind for the same task; decision 3 gives each device its own "Remind me on this device" switch.
   'setDefaultReminders',
   'Reminders for a timed task',
   'Turn on Start with Windows',
@@ -91,7 +93,8 @@ const MARKERS = [
   // tickTimeProjected are NOT markers: taskActions.ts and seriesActions.ts are shared with the phone (the
   // whole-task tick, the quests), so those names ARE in the phone bundle (the gate found tickTimeProjected
   // on 2026-10-21, and the comment that called it desktop only was wrong); the phone shows a task once, at its start time.
-  'Add another time',
+  // 'Add another time' REMOVED ON PURPOSE in PLAN_phone P7 (2.55.0): extra times are edited on the iPhone
+  // (components/phone/TimesEditor.tsx), only through lib/times.ts (no overlap, at most six).
   // 2.37.0 (Part C, P4): dragging or resizing one time of a task with several times is desktop only (lib/drag.ts).
   'multiDropPatch',
   'resizeRefusal',

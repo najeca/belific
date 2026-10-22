@@ -171,7 +171,7 @@ export interface Caps {
   // timer, list and emoji columns, projects.emoji, and the lists and
   // user_settings tables. Optional for the same reason as taskExtras.
   planner?: boolean;
-  // Migration 004 (belific_schema/004_part_b.sql, NOT APPLIED until Jethro applies it):
+  // Migration 004 (belific_schema/004_part_b.sql, applied to the shared project 2026-10-21):
   // tasks.cuts_below and tasks.reminders. Optional for the same reason as the others.
   partB?: boolean;
   // Migration 004, Part C half (the same unapplied file): tasks.extra_times and tasks.times_done.

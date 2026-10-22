@@ -324,7 +324,7 @@ async function run() {
     check(`Toggle "${label}" persists (${key} = ${expected})`, settingsFile()[key] === expected, JSON.stringify(settingsFile()[key]));
   };
   await toggle('Event starts', 'notifyEvents', false);
-  await toggle('Tasks placed on the Timebox', 'notifyTasks', false);
+  await toggle('Remind me on this device', 'notifyTasks', false);
   await toggle('Close to the system tray', 'closeToTray', false);
   await toggle('Start with Windows', 'startWithWindows', true);
   await toggle('Start with Windows', 'startWithWindows', false);
@@ -335,7 +335,7 @@ async function run() {
   check('turning the daily reminder off hides its time box', !(await exists(q('input[aria-label="Daily reminder time"]'))));
   await toggle('Daily reminder of tasks planned for today', 'dailyReminder', true);
   await toggle('Event starts', 'notifyEvents', true);
-  await toggle('Tasks placed on the Timebox', 'notifyTasks', true);
+  await toggle('Remind me on this device', 'notifyTasks', true);
   await toggle('Close to the system tray', 'closeToTray', true);
 
   // Data section.

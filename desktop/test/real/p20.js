@@ -58,7 +58,7 @@ async function run() {
   const blk = (id) => `document.querySelector('[data-block-id="${id}"]')`;
   const PX = 56;
   const scrollTo = (hour) => I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); if (s) s.scrollTop = ${hour} * ${PX} - 20; })()`);
-  const box = (expr) => I.js(`(() => { const e = ${expr}; if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), t: Math.round(r.top), b: Math.round(r.bottom), l: Math.round(r.left), w: Math.round(r.width), text: e.innerText.replace(/\\s+/g, ' ').trim(), piece: e.getAttribute('data-piece'), count: e.getAttribute('data-piece-count') }; })()`);
+  const box = (expr) => I.js(`(() => { const e = ${expr}; if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), t: Math.round(r.top), b: Math.round(r.bottom), l: Math.round(r.left), w: Math.round(r.width), text: (e.innerText + ' ' + (e.getAttribute('title') || '')).replace(/\\s+/g, ' ').trim(), piece: e.getAttribute('data-piece'), count: e.getAttribute('data-piece-count') }; })()`);
   const wait = (fn, ms = 4000) => C.waitFor(fn, ms).catch(() => false);
   const near = (a, b, tol = 3) => Math.abs(a - b) <= tol;
   const dragTo = async (fromExpr, to, { hold = 200 } = {}) => {

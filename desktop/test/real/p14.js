@@ -69,7 +69,7 @@ async function run() {
   await C.sleep(3500);
 
   const cal = (dayKey, id) => `document.querySelector('[data-cal-block="cal${dayKey}:${id}"]')`;
-  const box = (expr) => I.js(`(() => { const e = ${expr}; if (!e) return null; const r = e.getBoundingClientRect(); const s = getComputedStyle(e); return { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height), bg: s.backgroundColor, text: e.innerText.replace(/\\s+/g, ' ').trim() }; })()`);
+  const box = (expr) => I.js(`(() => { const e = ${expr}; if (!e) return null; const r = e.getBoundingClientRect(); const s = getComputedStyle(e); return { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height), bg: s.backgroundColor, text: (e.innerText + ' ' + (e.getAttribute('title') || '')).replace(/\\s+/g, ' ').trim() }; })()`);
   const stored = (id) => JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_tasks.kv'), 'utf8')).find((t) => t.id === id);
   const scrollTo = (hour) => I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); if (s) s.scrollTop = ${hour} * 56 - 20; })()`);
   await scrollTo(9);

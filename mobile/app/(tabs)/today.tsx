@@ -1,903 +1,399 @@
-import { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Pressable,
-  StyleSheet,
-  RefreshControl,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { RefreshControl, Text, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../lib/theme';
+import { radius, type ColorTokens } from '../../lib/tokens';
 import {
-  getWeeklyEventsForDate,
   getStarterEventsForDate,
-  getDayTypeForDate,
-  computeCategoryStats,
+  getWeeklyEventsForDate,
   customToScheduleEvent,
-  getTopTasks,
-  timeToMinutes,
-  formatDateKey,
-  STARTER_ROUTINES,
-  STARTER_TOP_TASKS,
-  type CategoryStat,
+  formatTime,
 } from '../../lib/data';
 import {
-  loadCustomEventsForDate,
-  loadCustomEvents,
   loadCustomCategories,
-  loadNotificationsEnabled,
-  shouldShowStarterRoutine,
-  loadRoutines,
+  loadCustomEvents,
+  loadListsRaw,
+  loadProjects,
   loadRoutineCompletions,
-  addRoutineCompletion,
-  deleteRoutineCompletion,
-  loadTasks,
+  loadRoutines,
+  loadTasksRaw,
+  shouldShowStarterRoutine,
 } from '../../lib/storage';
-import { setTaskCompleted } from '../../lib/taskActions';
-import { scheduleEventNotifications } from '../../lib/notifications';
+import { dateKey } from '../../lib/kanban';
+import { buildToday, itemTitle, type TodayItem } from '../../lib/todayView';
+import { formatDuration } from '../../lib/duration';
+import { labelColor } from '../../lib/labelColors';
+import { liveLists } from '../../lib/lists';
+import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
+import { counter } from '../../lib/subtasks';
+import { deleteOne, deleteRepeating, duplicate, moveToList, skipDay, storedTask, tickRoutine, tickTask, toggleSubtask } from '../../lib/phoneActions';
+import type { CustomEvent, Project, Routine, ScheduleEvent, Task, TaskList } from '../../lib/types';
+import { AddButton, ScreenHeader } from '../../components/phone/chrome';
+import { QuickAdd } from '../../components/phone/QuickAdd';
+import { ActionMenu, type MenuItem } from '../../components/phone/menu';
+import { PressRow, haptic } from '../../components/phone/touch';
+import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
+import { useStyles, useTheme } from '../../components/phone/theme';
+import { Button, Card, LabelDot, RoundCheck, SectionHeader } from '../../components/phone/ui';
+import { inter, mono, type } from '../../components/phone/type';
 import AddEventModal from '../components/AddEventModal';
 import RoutineFormModal from '../components/RoutineForm';
-import { AddButton } from '../../components/phone/chrome';
-import { QuickAdd } from '../../components/phone/QuickAdd';
-import type { ScheduleEvent, CustomEvent, CustomCategory, Routine, TimeOfDay, Task } from '../../lib/types';
+import TaskFormModal from '../components/TaskForm';
 
-const TIME_OF_DAY_ORDER: TimeOfDay[] = ['morning', 'afternoon', 'evening'];
-const TIME_OF_DAY_LABELS: Record<TimeOfDay, string> = {
-  morning: 'Morning',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
+// Today on the iPhone (PLAN_phone P4): only today, in time order, with an Anytime group below; a
+// small Now and Next line at the top; a tick takes the row away with Undo for a few seconds and
+// "Done today" shows them again; a tap opens the row in place (notes, steps, label, list, time) with
+// Edit; press and hold opens Edit, Duplicate, Move to list, Delete. The rules: lib/todayView.ts.
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const TIME_OF_DAY: Record<Routine['timeOfDay'], string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
+const nowMinutes = () => {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
 };
 
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-
-function formatHeaderDate(d: Date): string {
-  return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
-}
-
-function currentMinutes(): number {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
-}
-
-function findCurrentEvent(events: ScheduleEvent[], nowMins: number): ScheduleEvent | null {
-  return events.find(
-    (e) => timeToMinutes(e.start) <= nowMins && nowMins < timeToMinutes(e.end),
-  ) ?? null;
-}
-
-function findNextEvent(events: ScheduleEvent[], nowMins: number): ScheduleEvent | null {
-  return events.find((e) => timeToMinutes(e.start) > nowMins) ?? null;
-}
-
-function formatCountdown(endHHMM: string, nowMins: number): string {
-  const remaining = timeToMinutes(endHHMM) - nowMins;
-  if (remaining <= 0) return 'ending';
-  if (remaining < 60) return `${remaining}m remaining`;
-  const h = Math.floor(remaining / 60);
-  const m = remaining % 60;
-  return m === 0 ? `${h}h remaining` : `${h}h ${m}m remaining`;
-}
-
-function formatStartsIn(startHHMM: string, nowMins: number): string {
-  const diff = timeToMinutes(startHHMM) - nowMins;
-  if (diff <= 0) return 'now';
-  if (diff < 60) return `Starts in ${diff}m`;
-  const h = Math.floor(diff / 60);
-  const m = diff % 60;
-  return m === 0 ? `Starts in ${h}h` : `Starts in ${h}h ${m}m`;
-}
-
-function EventRow({
-  event,
-  onLongPress,
-  isLast,
-}: {
-  event: ScheduleEvent;
-  onLongPress?: () => void;
-  isLast?: boolean;
-}) {
-  const rowStyle = [styles.eventRow, isLast && styles.eventRowLast];
-  const inner = (
-    <>
-      <View style={[styles.eventBar, { backgroundColor: event.color }]} />
-      <View style={styles.eventTimes}>
-        <Text style={styles.eventStart}>{event.start}</Text>
-        <Text style={styles.eventEnd}>{event.end}</Text>
-      </View>
-      <Text style={styles.eventIcon}>{event.icon}</Text>
-      {/* 2.26.0: no priority flag or muted title; a stored priority is kept. */}
-      <Text style={styles.eventTitle} numberOfLines={2}>
-        {event.title}
-      </Text>
-      {event.isCustom && (
-        <Ionicons name="ellipsis-horizontal" size={14} color={Colors.textSecondary} style={styles.editHint} />
-      )}
-    </>
-  );
-
-  if (onLongPress) {
-    return (
-      <Pressable
-        style={({ pressed }) => [...rowStyle, pressed && { opacity: 0.85 }]}
-        onPress={onLongPress}
-        onLongPress={onLongPress}
-        delayLongPress={500}
-        accessibilityLabel={event.title}
-        accessibilityHint="Tap to edit"
-      >
-        {inner}
-      </Pressable>
-    );
-  }
-  return <View style={rowStyle}>{inner}</View>;
-}
-
-function StatCard({ stat }: { stat: CategoryStat }) {
-  const hours = (stat.totalMinutes / 60).toFixed(1);
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statIcon}>{stat.icon}</Text>
-      <Text style={styles.statHours}>{hours}h</Text>
-      <Text style={styles.statLabel} numberOfLines={1}>{stat.name}</Text>
-    </View>
-  );
-}
+const make = (c: ColorTokens) => ({
+  screen: { flex: 1, backgroundColor: c.background },
+  nowLine: { ...type.meta, color: c.textSecondary },
+  nowStrong: { ...inter(600), color: c.textPrimary },
+  row: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, minHeight: 56 },
+  rowSep: { borderTopWidth: 1, borderTopColor: c.border },
+  tick: { width: 52, minHeight: 56, alignItems: 'center' as const, justifyContent: 'center' as const },
+  body: { flex: 1, minHeight: 56, paddingVertical: 10, paddingRight: 12, justifyContent: 'center' as const },
+  line: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6 },
+  time: { ...mono(500), fontSize: 13, color: c.textSecondary, minWidth: 58 },
+  title: { ...inter(500), fontSize: 16, lineHeight: 21, color: c.textPrimary, flexShrink: 1 },
+  titleDone: { color: c.textSecondary, textDecorationLine: 'line-through' as const },
+  eventTitle: { color: c.textSecondary },
+  meta: { ...type.meta, color: c.textSecondary },
+  metaRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, marginTop: 3, flexWrap: 'wrap' as const },
+  mark: { fontSize: 12, color: c.danger },
+  expanded: { paddingLeft: 52, paddingRight: 12, paddingBottom: 12, gap: 8 },
+  notes: { ...type.body, fontSize: 15, color: c.textPrimary },
+  detail: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6 },
+  step: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, minHeight: 44 },
+  stepText: { ...type.body, fontSize: 15, color: c.textPrimary, flexShrink: 1 },
+  eventBar: { width: 4, height: 28, borderRadius: radius.xs },
+  empty: { ...type.meta, color: c.textSecondary, padding: 16 },
+  doneHead: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, minHeight: 48, paddingHorizontal: 14 },
+  doneText: { ...inter(600), fontSize: 15, color: c.textSecondary },
+});
 
 export default function TodayScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const today = new Date();
-  const dateKey = formatDateKey(today);
-
+  const s = useStyles(make);
+  const { c } = useTheme();
+  const [todayKey, setTodayKey] = useState(() => dateKey(new Date()));
+  const [nowMin, setNowMin] = useState(nowMinutes);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [customEvents, setCustomEvents] = useState<CustomEvent[]>([]);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
-  const [customEventsList, setCustomEventsList] = useState<CustomEvent[]>([]);
-  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
-  const [nowMins, setNowMins] = useState(currentMinutes);
-  const [refreshing, setRefreshing] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editEvent, setEditEvent] = useState<CustomEvent | undefined>(undefined);
-
   const [routines, setRoutines] = useState<Routine[]>([]);
-  const [completedRoutineIds, setCompletedRoutineIds] = useState<Set<string>>(new Set());
-  const [routineFormVisible, setRoutineFormVisible] = useState(false);
-  const [editRoutine, setEditRoutine] = useState<Routine | undefined>(undefined);
-
-  const [topTasks, setTopTasks] = useState<Task[]>([]);
-  const [starterMode, setStarterMode] = useState(false);
+  const [routinesDone, setRoutinesDone] = useState<Set<string>>(new Set());
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [lists, setLists] = useState<TaskList[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
+  const [undo, setUndo] = useState<UndoMessage | null>(null);
+  const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editTask, setEditTask] = useState<Task | undefined>();
+  const [editEvent, setEditEvent] = useState<CustomEvent | undefined>();
+  const [editRoutine, setEditRoutine] = useState<Routine | undefined>();
 
-  async function loadTopTasks() {
-    const allTasks = await loadTasks();
-    setTopTasks(getTopTasks(allTasks));
-  }
-
-  async function loadRoutinesData() {
-    const [allRoutines, completions] = await Promise.all([
-      loadRoutines(),
-      loadRoutineCompletions(),
-    ]);
-    setRoutines(allRoutines);
-    setCompletedRoutineIds(
-      new Set(completions.filter((c) => c.date === dateKey).map((c) => c.routineId)),
-    );
-  }
-
-  async function toggleRoutine(routine: Routine) {
-    if (completedRoutineIds.has(routine.id)) {
-      await deleteRoutineCompletion(routine.id, dateKey);
-    } else {
-      await addRoutineCompletion(routine.id, dateKey);
-    }
-    loadRoutinesData();
-  }
-
-  function openAddRoutine() {
-    setEditRoutine(undefined);
-    setRoutineFormVisible(true);
-  }
-
-  function openEditRoutine(routine: Routine) {
-    setEditRoutine(routine);
-    setRoutineFormVisible(true);
-  }
-
-  function handleRoutineFormClose() {
-    setRoutineFormVisible(false);
-    setEditRoutine(undefined);
-  }
-
-  function handleRoutineSaved() {
-    setRoutineFormVisible(false);
-    setEditRoutine(undefined);
-    loadRoutinesData();
-  }
-
-  // Updates the row in place rather than reloading from getTopTasks —
-  // that filters out completed tasks by design, which would make the
-  // row vanish/get replaced the instant it's tapped: no visible checked
-  // state, and no way to tap again to undo from this same view. Staying
-  // in place keeps the toggle genuinely reversible (matching Routine's
-  // toggle) until the next natural refresh (refocus/pull-to-refresh),
-  // which is when a newly-completed task should actually vacate its
-  // Top 3 slot.
-  async function toggleTopTask(task: Task) {
-    const updated: Task = {
-      ...task,
-      completed: !task.completed,
-      completedAt: !task.completed ? new Date().toISOString() : undefined,
-    };
-    // Through the shared function (checkpoint 5), so a recurring task made
-    // on the desktop creates its next occurrence when ticked here too.
-    await setTaskCompleted(task, !task.completed);
-    setTopTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
-  }
-
-  async function loadEvents() {
-    const [starter, allCustom, categories, enabled] = await Promise.all([
+  const load = useCallback(async () => {
+    const now = new Date();
+    const key = dateKey(now);
+    const [raw, starter, custom, categories, rs, comps, ps, ls] = await Promise.all([
+      loadTasksRaw(),
       shouldShowStarterRoutine(),
       loadCustomEvents(),
       loadCustomCategories(),
-      loadNotificationsEnabled(),
+      loadRoutines(),
+      loadRoutineCompletions(),
+      loadProjects(),
+      loadListsRaw(),
     ]);
-
-    setStarterMode(starter);
-    const todayCustom = allCustom.filter((e) => e.date === dateKey);
-    setCustomEventsList(allCustom);
-    setCustomCategories(categories);
-
-    const template = starter
-      ? getStarterEventsForDate(today)
-      : getWeeklyEventsForDate(today);
-    const customResolved = todayCustom.map((e) => customToScheduleEvent(e, categories));
-    const merged = [...template, ...customResolved].sort(
-      (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start),
-    );
-    setEvents(merged);
-
-    if (enabled) {
-      const dayEntries: Array<{ events: typeof merged; date: Date }> = [
-        { events: merged, date: today },
-      ];
-      for (let i = 1; i < 7; i++) {
-        const futureDate = new Date(today);
-        futureDate.setDate(today.getDate() + i);
-        dayEntries.push({
-          events: starter
-            ? getStarterEventsForDate(futureDate)
-            : getWeeklyEventsForDate(futureDate),
-          date: futureDate,
-        });
-      }
-      scheduleEventNotifications(dayEntries).catch(() => {});
-    }
-  }
+    setTodayKey(key);
+    setNowMin(nowMinutes());
+    setTasks(raw);
+    setCustomEvents(custom);
+    const template = starter ? getStarterEventsForDate(now) : getWeeklyEventsForDate(now);
+    setEvents([...template, ...custom.filter((e) => e.date === key).map((e) => customToScheduleEvent(e, categories))]);
+    setRoutines(rs);
+    setRoutinesDone(new Set(comps.filter((x) => x.date === key).map((x) => x.routineId)));
+    setProjects(ps);
+    setLists(ls);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadEvents();
-      loadRoutinesData();
-      loadTopTasks();
-      const timer = setInterval(() => setNowMins(currentMinutes()), 60_000);
+      load().catch(() => {});
+      const timer = setInterval(() => setNowMin(nowMinutes()), 60_000);
       return () => clearInterval(timer);
-    }, []),
+    }, [load]),
   );
 
-  async function handleRefresh() {
-    setRefreshing(true);
-    await Promise.all([loadEvents(), loadRoutinesData(), loadTopTasks()]);
-    setNowMins(currentMinutes());
-    setRefreshing(false);
+  const view = useMemo(() => buildToday({ tasks, todayKey, nowMin, events, routines, routinesDone }), [tasks, todayKey, nowMin, events, routines, routinesDone]);
+  const live = liveLists(lists);
+
+  async function tick(item: TodayItem, done: boolean, withUndo = true) {
+    if (item.kind === 'event') return;
+    haptic(done ? 'success' : 'light');
+    if (item.kind === 'routine') await tickRoutine(item.routine.id, todayKey, done);
+    // A projected day is stored by its first tick, so its Undo acts on the stored row.
+    else await tickTask(item.task, item.projected && done, done, item.time, item.multi);
+    if (expanded === item.key) setExpanded(null);
+    await load();
+    if (done && withUndo) setUndo({ id: Date.now(), text: `Done: ${itemTitle(item)}`, undo: () => void tick(item, false, false) });
   }
 
-  function handleEventSaved(_event: CustomEvent) {
-    setModalVisible(false);
-    setEditEvent(undefined);
-    loadEvents();
+  async function openEdit(task: Task, projected: boolean) {
+    const row = await storedTask(task, projected);
+    if (row) setEditTask(row);
   }
 
-  function handleModalClose() {
-    setModalVisible(false);
-    setEditEvent(undefined);
+  function openMenu(item: TodayItem) {
+    if (item.kind === 'event') {
+      const custom = item.event.isCustom ? customEvents.find((e) => e.id === item.event.id) : undefined;
+      if (custom) setEditEvent(custom);
+      return;
+    }
+    if (item.kind === 'routine') {
+      setMenu({ title: item.routine.title, items: [{ label: 'Edit routine', icon: 'create-outline', run: () => setEditRoutine(item.routine) }] });
+      return;
+    }
+    const { task, projected } = item;
+    const after = (fn: () => Promise<unknown>) => () => {
+      fn().then(load);
+    };
+    const moveItems: MenuItem[] = [
+      { label: 'Brain Dump', icon: 'file-tray-outline', run: after(() => moveToList(task, projected, undefined)) },
+      ...live.map((l) => ({ label: `${l.emoji ? `${l.emoji} ` : ''}${l.name}`, icon: 'list-outline' as const, run: after(() => moveToList(task, projected, l.key)) })),
+    ];
+    const items: MenuItem[] = [
+      { label: 'Edit', icon: 'create-outline', run: () => void openEdit(task, projected) },
+      { label: 'Duplicate', icon: 'copy-outline', run: after(() => duplicate(task, projected)) },
+      // The menu closes first; the list choice opens as a second menu.
+      { label: 'Move to list', icon: 'list-outline', run: () => setTimeout(() => setMenu({ title: `Move "${task.title}" to`, items: moveItems }), 250) },
+      ...(task.recurrence
+        ? [
+            { label: 'Skip this day', icon: 'play-skip-forward-outline' as const, run: after(() => skipDay(task)) },
+            { label: 'Delete repeating task', icon: 'trash-outline' as const, danger: true, run: after(() => deleteRepeating(task)) },
+          ]
+        : [{ label: 'Delete', icon: 'trash-outline' as const, danger: true, run: after(() => deleteOne(task)) }]),
+    ];
+    setMenu({ title: task.title, items });
   }
 
-  function openEditModal(scheduleEvent: ScheduleEvent) {
-    const found = customEventsList.find((c) => c.id === scheduleEvent.id);
-    if (!found) return;
-    setEditEvent(found);
-    setModalVisible(true);
+  const label = (t: Task) => {
+    const p = t.projectKey ? projects.find((x) => x.key === t.projectKey) : undefined;
+    return p ? { name: `${p.emoji ? `${p.emoji} ` : ''}${p.name}`, color: labelColor(p.colorKey)?.edge ?? c.textTertiary } : null;
+  };
+  const listOf = (t: Task) => {
+    const l = t.listKey ? live.find((x) => x.key === t.listKey) : undefined;
+    return l ? `${l.emoji ? `${l.emoji} ` : ''}${l.name}` : null;
+  };
+
+  function renderEvent(item: Extract<TodayItem, { kind: 'event' }>, first: boolean) {
+    const e = item.event;
+    const editable = e.isCustom && customEvents.some((x) => x.id === e.id);
+    const a11y = `Event ${e.title}, ${formatTime(e.start)} to ${formatTime(e.end)}${editable ? '' : ', read only'}`;
+    const inner = (
+      <View style={s.row}>
+        <View style={s.tick}>
+          <View style={[s.eventBar, { backgroundColor: c.borderStrong }]} />
+        </View>
+        <View style={s.body}>
+          <View style={s.line}>
+            <Text style={s.time}>{formatTime(e.start)}</Text>
+            <Text style={[s.title, s.eventTitle]} numberOfLines={2}>
+              {e.icon ? `${e.icon} ` : ''}
+              {e.title}
+            </Text>
+          </View>
+          <Text style={[s.meta, { marginLeft: 64 }]}>until {formatTime(e.end)}</Text>
+        </View>
+      </View>
+    );
+    return (
+      <View key={item.key} style={!first && s.rowSep} {...({ dataSet: { todayEvent: e.title } } as object)}>
+        {editable ? (
+          <PressRow onTap={() => openMenu(item)} a11y={a11y} hint="Tap to edit the event.">
+            {inner}
+          </PressRow>
+        ) : (
+          <View accessible accessibilityLabel={a11y}>
+            {inner}
+          </View>
+        )}
+      </View>
+    );
   }
 
-  const dayType = getDayTypeForDate(today);
-  const currentEvent = findCurrentEvent(events, nowMins);
-  const nextEvent = findNextEvent(events, nowMins);
-  const stats = computeCategoryStats(events, customCategories);
+  function renderRow(item: TodayItem, first: boolean) {
+    if (item.kind === 'event') return renderEvent(item, first);
+    const open = expanded === item.key;
+    const done = item.done;
+    const t = item.kind === 'task' ? item.task : null;
+    const projected = item.kind === 'task' && item.projected;
+    const title = item.kind === 'task' ? `${item.task.emoji ? `${item.task.emoji} ` : ''}${item.task.title}` : item.routine.title;
+    const lab = t ? label(t) : null;
+    const lst = t ? listOf(t) : null;
+    const steps = t?.subtasks ?? [];
+    const count = counter(steps);
+    const timeText = item.kind === 'task' && item.time ? formatTime(item.time) : null;
+    return (
+      <View key={item.key} style={!first && s.rowSep} {...({ dataSet: { todayRow: item.kind === 'task' ? item.task.title : item.routine.title, todayKey: item.key } } as object)}>
+        <View style={s.row}>
+          <PressRow onTap={() => void tick(item, !done)} a11y={done ? `Mark ${title} not done` : `Mark ${title} done`} style={s.tick} data={{ tick: item.key }}>
+            <RoundCheck done={done} />
+          </PressRow>
+          <PressRow
+            style={s.body}
+            onTap={() => setExpanded(open ? null : item.key)}
+            onHold={done ? undefined : () => openMenu(item)}
+            a11y={`${title}${timeText ? `, ${timeText}` : ''}${done ? ', done' : ''}`}
+            hint="Tap to open. Press and hold for more."
+            data={{ todayBody: item.key }}
+          >
+            <View style={s.line}>
+              {timeText ? <Text style={s.time}>{timeText}</Text> : null}
+              <Text style={[s.title, done && s.titleDone]} numberOfLines={open ? undefined : 2}>
+                {title}
+              </Text>
+              {t && isMustDo(t) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
+              {t?.recurrence || item.kind === 'routine' ? <Ionicons name="repeat" size={14} color={c.textSecondary} accessibilityLabel="Repeats" /> : null}
+            </View>
+            <View style={[s.metaRow, timeText ? { marginLeft: 64 } : null]}>
+              {item.kind === 'routine' ? <Text style={s.meta}>{TIME_OF_DAY[item.routine.timeOfDay]} routine</Text> : null}
+              {lab ? (
+                <View style={s.detail}>
+                  <LabelDot color={lab.color} />
+                  <Text style={s.meta}>{lab.name}</Text>
+                </View>
+              ) : null}
+              {lst ? <Text style={s.meta}>{lst}</Text> : null}
+              {t?.durationMinutes ? <Text style={s.meta}>{formatDuration(t.durationMinutes)}</Text> : null}
+              {count.total ? <Text style={s.meta}>{`${count.done}/${count.total} steps`}</Text> : null}
+            </View>
+          </PressRow>
+        </View>
+        {open && t ? (
+          <View style={s.expanded} {...({ dataSet: { todayExpanded: item.key } } as object)}>
+            {t.notes ? <Text style={s.notes}>{t.notes}</Text> : null}
+            {steps.map((st) => (
+              <PressRow key={st.id} onTap={() => void toggleSubtask(t, projected, st.id).then(load)} a11y={`Step ${st.title}${st.done ? ', done' : ''}`} style={s.step} data={{ step: st.title }}>
+                <RoundCheck done={st.done} size={20} />
+                <Text style={[s.stepText, st.done && s.titleDone]}>{st.title}</Text>
+              </PressRow>
+            ))}
+            {timeText ? (
+              <Text style={s.meta}>
+                {timeText}
+                {t.durationMinutes ? ` for ${formatDuration(t.durationMinutes)}` : ''}
+              </Text>
+            ) : null}
+            {!lab && !lst && !t.notes && !steps.length ? <Text style={s.meta}>No notes, steps, label or list yet.</Text> : null}
+            <View style={{ flexDirection: 'row' }}>
+              <Button label="Edit" icon="create-outline" onPress={() => void openEdit(t, projected)} a11y={`Edit ${t.title}`} />
+            </View>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
 
-  const routineGroups = TIME_OF_DAY_ORDER.map((timeOfDay) => ({
-    timeOfDay,
-    label: TIME_OF_DAY_LABELS[timeOfDay],
-    items: routines.filter((r) => r.timeOfDay === timeOfDay),
-  })).filter((g) => g.items.length > 0);
-
-  const starterRoutineGroups = TIME_OF_DAY_ORDER.map((timeOfDay) => ({
-    timeOfDay,
-    label: TIME_OF_DAY_LABELS[timeOfDay],
-    items: STARTER_ROUTINES.filter((r) => r.timeOfDay === timeOfDay),
-  })).filter((g) => g.items.length > 0);
+  const today = new Date();
+  const headerSub = `${DAYS[today.getDay()]} ${today.getDate()} ${MONTHS[today.getMonth()]}`;
+  const until = (i: TodayItem) => (i.kind !== 'routine' && i.endMin !== undefined ? `, until ${formatTime(toHHMM(i.endMin))}` : '');
+  const at = (i: TodayItem) => (i.kind !== 'routine' && i.startMin !== undefined ? ` at ${formatTime(toHHMM(i.startMin))}` : '');
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={s.screen}>
+      <ScreenHeader title="Today" sub={headerSub} />
+      <View style={{ paddingHorizontal: 16, paddingBottom: 4, gap: 2 }} {...({ dataSet: { nowNext: '1' } } as object)}>
+        <Text style={s.nowLine} numberOfLines={1}>
+          <Text style={s.nowStrong}>Now </Text>
+          {view.now ? `${itemTitle(view.now)}${until(view.now)}` : 'Nothing planned'}
+        </Text>
+        {view.next ? (
+          <Text style={s.nowLine} numberOfLines={1}>
+            <Text style={s.nowStrong}>Next </Text>
+            {`${itemTitle(view.next)}${at(view.next)}`}
+          </Text>
+        ) : null}
+      </View>
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={Colors.accent}
+            tintColor={c.accent}
+            onRefresh={() => {
+              setRefreshing(true);
+              load().finally(() => setRefreshing(false));
+            }}
           />
         }
-        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Today</Text>
-            <Text style={styles.subtitle}>{formatHeaderDate(today)}</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <View style={[styles.statusPill, { backgroundColor: dayType.color + '33' }]}>
-              <Text style={[styles.statusText, { color: dayType.color }]}>{dayType.name}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push('/settings')}
-              style={styles.settingsBtn}
-              accessibilityLabel="Profile and settings"
-              accessibilityRole="button"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              {...({ dataSet: { profileAvatar: '1' } } as object)}
-            >
-              <Ionicons name="person-circle-outline" size={28} color={Colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* NOW card */}
-        {currentEvent ? (
-          <View style={styles.nowCard}>
-            <View style={styles.nowBorder} />
-            <View style={styles.nowContent}>
-              <Text style={styles.nowLabel}>Now</Text>
-              <Text style={styles.nowTitle}>{currentEvent.icon} {currentEvent.title}</Text>
-              <Text style={styles.nowTime}>{currentEvent.start} – {currentEvent.end}</Text>
-              <Text style={styles.nowCountdown}>{formatCountdown(currentEvent.end, nowMins)}</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={[styles.nowCard, styles.emptyNowCard]}>
-            <View style={[styles.nowBorder, { backgroundColor: Colors.textSecondary }]} />
-            <View style={styles.nowContent}>
-              <Text style={styles.nowLabel}>Now</Text>
-              <Text style={[styles.nowTitle, { color: Colors.textSecondary }]}>No current event</Text>
-            </View>
-          </View>
-        )}
-
-        {/* NEXT UP card */}
-        {nextEvent && (
-          <View style={styles.nextCard}>
-            <View style={[styles.nowBorder, { backgroundColor: Colors.border }]} />
-            <View style={styles.nowContent}>
-              <Text style={styles.nextLabel}>Next up</Text>
-              <Text style={styles.nextTitle}>{nextEvent.icon} {nextEvent.title}</Text>
-              <Text style={styles.nextTime}>{formatStartsIn(nextEvent.start, nowMins)}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Routines */}
-        <View style={styles.sectionBlock}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionLabel}>Routines</Text>
-            <TouchableOpacity
-              style={styles.sectionAddBtn}
-              onPress={openAddRoutine}
-              accessibilityLabel="Add routine"
-              accessibilityRole="button"
-            >
-              <Ionicons name="add" size={16} color={Colors.accentText} />
-            </TouchableOpacity>
-          </View>
-          {routines.length === 0 ? (
-            starterMode ? (
-              <View style={styles.routineListContainer}>
-                {starterRoutineGroups.map((group, gi) => (
-                  <View key={group.timeOfDay}>
-                    <Text style={styles.routineGroupLabel}>{group.label}</Text>
-                    {group.items.map((item, ri) => {
-                      const isLast = gi === starterRoutineGroups.length - 1 && ri === group.items.length - 1;
-                      return (
-                        <View
-                          key={item.title}
-                          style={[styles.routineRow, isLast && styles.routineRowLast]}
-                        >
-                          <Ionicons name="ellipse-outline" size={20} color={Colors.textSecondary} />
-                          <Text style={styles.routineTitle}>{item.title} {item.icon}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>No routines yet</Text>
-                <Text style={styles.emptyStateSubtext}>Tap + to add your first routine</Text>
-              </View>
-            )
-          ) : (
-            <View style={styles.routineListContainer}>
-              {routineGroups.map((group, gi) => (
-                <View key={group.timeOfDay}>
-                  <Text style={styles.routineGroupLabel}>{group.label}</Text>
-                  {group.items.map((routine, ri) => {
-                    const isLast = gi === routineGroups.length - 1 && ri === group.items.length - 1;
-                    const done = completedRoutineIds.has(routine.id);
-                    return (
-                      <Pressable
-                        key={routine.id}
-                        style={({ pressed }) => [
-                          styles.routineRow,
-                          isLast && styles.routineRowLast,
-                          pressed && { opacity: 0.85 },
-                        ]}
-                        onPress={() => toggleRoutine(routine)}
-                        onLongPress={() => openEditRoutine(routine)}
-                        accessibilityLabel={routine.title}
-                        accessibilityHint="Tap to mark done, long press to edit"
-                      >
-                        <Ionicons
-                          name={done ? 'checkmark-circle' : 'ellipse-outline'}
-                          size={20}
-                          color={done ? Colors.accent : Colors.textSecondary}
-                        />
-                        <Text style={[styles.routineTitle, done && styles.routineTitleDone]}>
-                          {routine.title}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Top 3 Tasks */}
-        <View style={styles.sectionBlock}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionLabel}>Top 3 tasks</Text>
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/tasks')}
-              accessibilityLabel="See all tasks"
-              accessibilityRole="button"
-            >
-              <Text style={styles.seeAllText}>See all</Text>
-            </TouchableOpacity>
-          </View>
-          {topTasks.length === 0 ? (
-            starterMode ? (
-              <View style={styles.routineListContainer}>
-                {STARTER_TOP_TASKS.map((title, i) => (
-                  <View
-                    key={title}
-                    style={[styles.routineRow, i === STARTER_TOP_TASKS.length - 1 && styles.routineRowLast]}
-                  >
-                    <Ionicons name="ellipse-outline" size={20} color={Colors.textSecondary} />
-                    <Text style={styles.routineTitle}>{title}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>Nothing due</Text>
-                <Text style={styles.emptyStateSubtext}>Add a task from Brain Dump or the full list</Text>
-              </View>
-            )
-          ) : (
-            <View style={styles.routineListContainer}>
-              {topTasks.map((task, i) => (
-                <Pressable
-                  key={task.id}
-                  style={({ pressed }) => [
-                    styles.routineRow,
-                    i === topTasks.length - 1 && styles.routineRowLast,
-                    pressed && { opacity: 0.85 },
-                  ]}
-                  onPress={() => router.push('/(tabs)/tasks')}
-                  accessibilityLabel={task.title}
-                  accessibilityHint="Tap to open Tasks"
-                >
-                  <TouchableOpacity
-                    onPress={() => toggleTopTask(task)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessibilityLabel={task.completed ? 'Mark incomplete' : 'Mark complete'}
-                    accessibilityRole="button"
-                  >
-                    <Ionicons
-                      name={task.completed ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={20}
-                      color={task.completed ? Colors.accent : Colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                  {task.origin === 'dump' && <Text style={styles.taskOriginEmoji}>🧠</Text>}
-                  <Text
-                    style={[
-                      styles.routineTitle,
-                      task.completed && styles.routineTitleDone,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {task.title}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Summary row */}
-        {stats.length > 0 && (
-          <View style={styles.sectionBlock}>
-            <Text style={styles.sectionLabel}>Today's breakdown</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
-              {stats.map((s) => (
-                <StatCard key={s.category} stat={s} />
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Full Schedule */}
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionLabel}>Full schedule</Text>
-          {events.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateTitle}>No events scheduled</Text>
-              <Text style={styles.emptyStateSubtext}>Tap + to add your first event</Text>
-            </View>
-          ) : (
-            <View style={styles.eventListContainer}>
-              {events.map((e, i) => (
-                <EventRow
-                  key={e.id}
-                  event={e}
-                  onLongPress={e.isCustom ? () => openEditModal(e) : undefined}
-                  isLast={i === events.length - 1}
-                />
-              ))}
-            </View>
-          )}
-        </View>
-
-        <View style={{ height: 100 }} />
+        {view.timed.length > 0 ? (
+          <>
+            <SectionHeader>Planned</SectionHeader>
+            <Card>{view.timed.map((i, n) => renderRow(i, n === 0))}</Card>
+          </>
+        ) : null}
+        <SectionHeader>Anytime</SectionHeader>
+        <Card>{view.anytime.length === 0 ? <Text style={s.empty}>Nothing without a time. Tap + to add a task for today.</Text> : view.anytime.map((i, n) => renderRow(i, n === 0))}</Card>
+        {view.done.length > 0 ? (
+          <Card style={{ marginTop: 18 }}>
+            <PressRow onTap={() => setShowDone((v) => !v)} a11y={`Done today, ${view.done.length}. ${showDone ? 'Hide' : 'Show'}`} style={s.doneHead} data={{ doneToday: String(view.done.length) }}>
+              <Text style={s.doneText}>{`Done today, ${view.done.length}`}</Text>
+              <Ionicons name={showDone ? 'chevron-up' : 'chevron-down'} size={18} color={c.textSecondary} />
+            </PressRow>
+            {showDone ? view.done.map((i) => renderRow(i, false)) : null}
+          </Card>
+        ) : null}
       </ScrollView>
-
-      {/* The round + adds a task for today (PLAN_phone P3); an old event is still edited by tapping it. */}
+      <UndoBar message={undo} onDone={() => setUndo(null)} />
       <AddButton onPress={() => setAdding(true)} a11y="Add a task for today" />
-      <QuickAdd visible={adding} where={{ dueDate: dateKey, label: 'Today' }} onClose={() => setAdding(false)} onAdded={() => loadTopTasks()} />
-
-      <AddEventModal
-        visible={modalVisible}
-        date={today}
-        onClose={handleModalClose}
-        onSaved={handleEventSaved}
-        editEvent={editEvent}
+      <QuickAdd visible={adding} where={{ dueDate: todayKey, label: 'Today' }} onClose={() => setAdding(false)} onAdded={() => void load()} />
+      <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
+      <TaskFormModal
+        visible={!!editTask}
+        editTask={editTask}
+        onClose={() => setEditTask(undefined)}
+        onSaved={() => {
+          setEditTask(undefined);
+          void load();
+        }}
       />
-
+      <AddEventModal
+        visible={!!editEvent}
+        date={today}
+        editEvent={editEvent}
+        onClose={() => setEditEvent(undefined)}
+        onSaved={() => {
+          setEditEvent(undefined);
+          void load();
+        }}
+      />
       <RoutineFormModal
-        visible={routineFormVisible}
-        onClose={handleRoutineFormClose}
-        onSaved={handleRoutineSaved}
+        visible={!!editRoutine}
         editRoutine={editRoutine}
+        onClose={() => setEditRoutine(undefined)}
+        onSaved={() => {
+          setEditRoutine(undefined);
+          void load();
+        }}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 20,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  settingsBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statusPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  nowCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: 10,
-    minHeight: 90,
-  },
-  emptyNowCard: {
-    opacity: 0.6,
-  },
-  nowBorder: {
-    width: 4,
-    backgroundColor: Colors.accent,
-  },
-  nowContent: {
-    flex: 1,
-    padding: 16,
-  },
-  nowLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.accentText,
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  nowTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  nowTime: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 4,
-  },
-  nowCountdown: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.accentText,
-  },
-  nextCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: 20,
-    minHeight: 72,
-  },
-  nextLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  nextTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  nextTime: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  sectionBlock: {
-    marginBottom: 20,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionAddBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  seeAllText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.accentText,
-    marginBottom: 12,
-  },
-  routineListContainer: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    overflow: 'hidden',
-    paddingHorizontal: 16,
-  },
-  routineGroupLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginTop: 14,
-    marginBottom: 4,
-  },
-  routineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 44,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  routineRowLast: {
-    borderBottomWidth: 0,
-    marginBottom: 4,
-  },
-  routineTitle: {
-    fontSize: 14,
-    color: Colors.textPrimary,
-  },
-  routineTitleDone: {
-    color: Colors.textSecondary,
-  },
-  statsScroll: {
-    flexDirection: 'row',
-  },
-  statCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginRight: 10,
-    alignItems: 'center',
-    minWidth: 80,
-  },
-  statIcon: {
-    fontSize: 22,
-    marginBottom: 6,
-  },
-  statHours: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    marginTop: 2,
-    maxWidth: 70,
-    textAlign: 'center',
-  },
-  eventListContainer: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  eventRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 56,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  eventRowLast: {
-    borderBottomWidth: 0,
-  },
-  eventBar: {
-    width: 4,
-    alignSelf: 'stretch',
-  },
-  eventTimes: {
-    width: 52,
-    paddingVertical: 12,
-    paddingLeft: 10,
-    alignItems: 'flex-start',
-  },
-  eventStart: {
-    fontSize: 11,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  eventEnd: {
-    fontSize: 10,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  eventIcon: {
-    fontSize: 16,
-    marginHorizontal: 8,
-  },
-  eventTitle: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    paddingRight: 4,
-    paddingVertical: 12,
-  },
-  eventTitleHigh: {
-    fontWeight: '700',
-  },
-  eventTitleLow: {
-    color: Colors.textSecondary,
-  },
-  priorityFlag: {
-    marginRight: 4,
-  },
-  taskOriginEmoji: {
-    fontSize: 14,
-    marginRight: 2,
-  },
-  editHint: {
-    paddingRight: 12,
-  },
-  emptyState: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  emptyStateTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginBottom: 6,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    opacity: 0.7,
-  },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+function toHHMM(min: number): string {
+  const m = ((Math.round(min) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}

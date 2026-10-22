@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 2.52.0 — 2026-10-22 (iPhone catch-up P4: Today)
+
+**iPhone. JavaScript only. The desktop is unchanged.**
+- **Today is only today:** timed tasks in time order under Planned, tasks with no time under Anytime (top priority first), a small Now and Next line under the date. Repeating tasks show their day for today exactly as the desktop's Timebox reads it; a task with several times a day is one row per time. Rules: `lib/todayView.ts` (pure).
+- **A tick** takes the row away with an Undo message for 5 seconds (`components/phone/UndoBar.tsx`); "Done today, N" at the bottom shows them again. A projected repeating day is stored by its tick, as on the desktop.
+- **A tap opens the row in place:** notes, steps (each ticks; the last one completes the task, the shared rule), label with its colour dot, list, time and length, and Edit (the old task form until P6). **Press and hold:** Edit, Duplicate, Move to list (Brain Dump or a list), Delete; a repeating task offers Skip this day and Delete repeating task instead of Delete. The actions: `lib/phoneActions.ts` (seriesActions, taskActions, taskCommands, the desktop's paths).
+- **Routines until the iOS catch-up:** a routine not yet converted is a row at the top of Anytime (Morning, Afternoon, Evening order) and ticks a routine completion for today exactly as before; a routine whose series `rt_<id>` exists is shown once, as the repeating task. Nothing was converted.
+- **Old events (decision 4)** are grey rows among the timed ones; your own events still open their edit form with a tap.
+- **Changed on purpose:** ticking a dated repeating task on the phone no longer stores the next day (the phone now shows the next days like the desktop does, decision 023); an undated one still gets its next dated copy. The old Today's Routines, Top 3, breakdown and Full schedule sections are replaced by this list; a new routine can no longer be added (repeating tasks replace them).
+- **Tests:** `todayView.test.ts` (6); real touch check `phone-p4.js` (26).
+
+---
+
 ## 2.51.0 — 2026-10-22 (iPhone catch-up P3: three tabs, the round +, Settings behind the avatar)
 
 **iPhone. JavaScript only. The desktop is unchanged.**

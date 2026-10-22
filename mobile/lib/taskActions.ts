@@ -37,12 +37,13 @@ export function setTaskCompleted(task: Task, completed: boolean, keepTimes = fal
     };
     await updateTask(done);
     // The next occurrence copies the subtasks, all unticked (from the ticked or
-    // unticked list alike). On the desktop a repeating task is a series whose
-    // next days are only SHOWN (lib/series.ts, decision 023), so nothing is
-    // created when a dated one is completed; one with no Day has nothing to
-    // project from and still gets its next dated copy. The iPhone, which shows
-    // only stored tasks, always creates it.
-    if (completed && task.recurrence && (!globalThis.belificDesktop || !isDateKey(task.dueDate))) {
+    // unticked list alike). A repeating task is a series whose next days are
+    // only SHOWN (lib/series.ts, decision 023), so nothing is created when a
+    // dated one is completed; one with no Day has nothing to project from and
+    // still gets its next dated copy. Since 2.52.0 (PLAN_phone P4) the iPhone
+    // shows the projected days too, so it follows the same rule (before, it
+    // showed only stored tasks and always created the next one).
+    if (completed && task.recurrence && !isDateKey(task.dueDate)) {
       await createNextOccurrence(task);
     }
   });

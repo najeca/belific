@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 2.50.0 — 2026-10-22 (iPhone catch-up P2: the touch kit)
+
+**iPhone. Needs a new EAS build to try on a phone (new native module `expo-haptics`). The desktop is unchanged.**
+- **Touch rules in one place:** `lib/touchRules.ts` (pure): a tap is a still touch (under 10 pt of drift) that lifts within 250 ms; press and hold is a still touch of 400 ms; a swipe on a row commits past 35% of its width; a sideways page change needs a clearly sideways move (used in P9).
+- **`components/phone/touch.tsx`:** `PressRow` (gesture handler Tap and LongPress, exclusive: a moving finger fails both, so a scroll never opens anything; the hold gives a selection haptic), `SwipeRow` (gesture handler's Swipeable with React Native's own Animated, no Reanimated: swipe right commits the row's main action, swipe left reveals its buttons), `haptic()`, `useReducedMotion()`. Every gesture is also a screen reader action.
+- **`components/phone/menu.tsx`:** the quick menu (a sheet from the bottom, large rows, Cancel). Presses in the first 350 ms after it opens are ignored: the finger that held the row lifts over the menu, and that is not a choice.
+- **Brain Dump cards use the kit** (until P5 moves Brain Dump into Tasks): tap edits, hold opens Edit and Delete, swipe left shows Delete.
+- **New: the phone touch harness** `desktop/test/real/phone-common.js`: the real app's page emulated at 390 x 844 (Chrome DevTools Protocol) with real touch events (touch start, timed small moves, touch end). First check `phone-p2.js` (14): tap opens, a 160 px and a 25 px move open nothing and the list scrolls, a slow lift opens nothing, a 480 ms hold opens the menu, Cancel closes it, a swipe left shows Delete and Delete deletes.
+- **Tests:** `touchRules.test.ts` (4).
+
+---
+
 ## 2.49.0 — 2026-10-22 (iPhone catch-up P1: the phone's theme, fonts and small pieces)
 
 **iPhone groundwork. Nothing on screen changes yet; the desktop is unchanged.** Plan: `docs/PLAN_phone.md`.

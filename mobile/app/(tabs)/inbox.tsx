@@ -4,8 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Pressable,
-  FlatList,
   Modal,
   KeyboardAvoidingView,
   StyleSheet,
@@ -13,7 +11,9 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+import { FlatList as GHFlatList } from 'react-native-gesture-handler';
+import { PressRow, SwipeRow } from '../../components/phone/touch';
+import { ActionMenu } from '../../components/phone/menu';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,14 +58,9 @@ if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
-const DELETE_WIDTH = 88;
-
-// Swipe-left-to-delete card, built on react-native-gesture-handler's
-// Swipeable. A hand-rolled PanResponder version shipped first to avoid a
-// native dependency, but on-device testing showed it only completing
-// partial swipes instead of a clean full reveal — the risk flagged when
-// that choice was made. Swipeable is the standard, battle-tested
-// component for exactly this and needs no reanimated dependency.
+// The card (PLAN_phone P2): the phone's touch kit. A tap only counts when the finger barely moves,
+// so scrolling the list never opens a card; press and hold opens a small menu (Edit, Delete); swipe
+// left reveals Delete. Brain Dump moves into the Tasks tab in P5.
 function DumpCard({
   item,
   onPress,
@@ -75,56 +70,38 @@ function DumpCard({
   onPress: () => void;
   onDelete: () => void;
 }) {
-  const swipeableRef = useRef<Swipeable>(null);
-  const isOpenRef = useRef(false);
-
-  function handlePress() {
-    if (isOpenRef.current) {
-      swipeableRef.current?.close();
-      return;
-    }
-    onPress();
-  }
-
-  function handleDeletePress() {
-    swipeableRef.current?.close();
-    onDelete();
-  }
-
+  const [menu, setMenu] = useState(false);
   return (
-    <Swipeable
-      ref={swipeableRef}
-      containerStyle={styles.swipeContainer}
-      overshootRight={false}
-      rightThreshold={DELETE_WIDTH / 2}
-      onSwipeableWillOpen={() => { isOpenRef.current = true; }}
-      onSwipeableClose={() => { isOpenRef.current = false; }}
-      renderRightActions={() => (
-        <TouchableOpacity
-          style={styles.deleteAction}
-          onPress={handleDeletePress}
-          accessibilityLabel="Delete"
-          accessibilityRole="button"
+    <View style={styles.swipeContainer}>
+      <SwipeRow left={[{ label: 'Delete', icon: 'trash-outline', tone: 'danger', run: onDelete }]} data={{ dumpRow: item.title }}>
+        <PressRow
+          style={styles.card}
+          onTap={onPress}
+          onHold={() => setMenu(true)}
+          a11y={item.title}
+          hint="Tap to edit. Press and hold for more. Swipe left to delete."
+          actions={[{ name: 'Delete', run: onDelete }]}
+          data={{ dumpCard: item.title }}
         >
-          <Ionicons name="trash-outline" size={20} color={Colors.onAccent} />
-        </TouchableOpacity>
-      )}
-    >
-      <Pressable
-        style={styles.card}
-        onPress={handlePress}
-        accessibilityLabel={item.title}
-        accessibilityHint="Tap to edit. Swipe left to delete."
-      >
-        <View style={styles.cardHeader}>
-          <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
-          <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-        </View>
-        {!!item.notes && (
-          <Text style={styles.cardNotes} numberOfLines={3}>{item.notes}</Text>
-        )}
-      </Pressable>
-    </Swipeable>
+          <View style={styles.cardHeader}>
+            <Ionicons name="bulb-outline" size={18} color={Colors.accentText} />
+            <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+          </View>
+          {!!item.notes && (
+            <Text style={styles.cardNotes} numberOfLines={3}>{item.notes}</Text>
+          )}
+        </PressRow>
+      </SwipeRow>
+      <ActionMenu
+        visible={menu}
+        title={item.title}
+        onClose={() => setMenu(false)}
+        items={[
+          { label: 'Edit', icon: 'create-outline', run: onPress },
+          { label: 'Delete', icon: 'trash-outline', danger: true, run: onDelete },
+        ]}
+      />
+    </View>
   );
 }
 
@@ -313,7 +290,7 @@ export default function InboxScreen() {
           </View>
         )
       ) : (
-        <FlatList
+        <GHFlatList
           data={sorted}
           keyExtractor={(item) => rowId(item)}
           style={styles.list}
@@ -396,12 +373,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderRadius: 14,
     overflow: 'hidden',
-  },
-  deleteAction: {
-    width: DELETE_WIDTH,
-    backgroundColor: Colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   card: {
     backgroundColor: Colors.surface,

@@ -2,7 +2,7 @@
 
 Update this at every session close. It replaces `current-state-audit.md` and `architecture.md` (both historical, July 2026) in the session protocol.
 
-Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 2.49.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
+Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 2.50.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
 
 **Since 2026-10-16 the work follows `docs/belific-build-plan.md` (phases 1 to 9) and `docs/build-progress.md` (checkpoint per phase, decisions, what is next).** Phases 1 to 8 are done (phase 8 in code: its Edge Function is not deployed and its grant 003 is not applied; Jethro does both); phase 9 has not started.
 
@@ -24,6 +24,7 @@ Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its f
 
 ## iPhone catch-up (PLAN_phone, 2026-10-22)
 - **2.49.0 (P1):** the phone's theme store (`components/phone/theme.tsx`, the desktop tokens, Light default, per phone mode), its fonts (`.ttf` copies of the desktop's Inter, Newsreader, Roboto Mono, loaded on iOS only) and its kit (`components/phone/ui.tsx`). Old screens unchanged (still `phoneColors`). Marker `Match system` removed on purpose.
+- **2.50.0 (P2):** the touch kit (`components/phone/touch.tsx`: `PressRow`, `SwipeRow`, `haptic`, `useReducedMotion`; `menu.tsx`: `ActionMenu`), rules in `lib/touchRules.ts`. `expo-haptics` added (**native: needs an EAS build**). Brain Dump cards use it. The phone touch harness `desktop/test/real/phone-common.js` (390 x 844, real touch events through the DevTools Protocol) and `phone-p2.js`.
 
 ## Part C (2026-10-21, desktop from 2.34.1; plan `docs/PLAN_part_c.md`)
 - **2.34.1 (P1):** the timer can be started on any task, including a shown (not stored) day of a repeating task, which is stored first; a start that cannot happen shows a note; "Start from HH:mm" counts from a time that has begun today. Desktop only, no schema change.

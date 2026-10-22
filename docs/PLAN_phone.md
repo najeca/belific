@@ -49,7 +49,7 @@ The iOS marker gate (`mobile/scripts/ios-markers.js`) fails the build if a liste
 |---|---|---|---|
 | `seriesStreak`, `Show streaks` | P5 | The Repeating chip shows current and best streak small, the same numbers as the desktop | A streak shown wrongly on the phone would break the no guilt rules (decisions 007, 027). Mitigation: reuse `seriesStreak.ts` unchanged and the same `streakText` wording; never show zero. `Show streaks` enters the bundle with `STREAK_TEXT`. The desktop switch is "only on this computer" (not synced), so the phone gets its own per device "Show streaks" row in Settings (default on, chosen here). |
 | `Add another time` | P7 | Extra times are one of the required detail fields | The phone could write `extraTimes`/`timesDone` badly. Mitigation: only through `times.ts` (`addTimeFields`, `moveTimeFields`, `removeTimeFields`), which already refuses overlaps and limits to 6. |
-| `effectiveReminders`, `setDefaultReminders`, `Reminders for a timed task` | P7 | Reminders are a required field, and the phone must actually notify | Two devices signed in to one account will both notify for the same task (the desktop already notifies). See open question 3. Also the phone's notification count limit (64 pending on iOS); mitigation in P7. |
+| `effectiveReminders`, `setDefaultReminders`, `Reminders for a timed task` | P7 | Reminders are a required field, and the phone must actually notify | Two devices signed in to one account will both notify for the same task (the desktop already notifies). Decision 3 ("Remind me on this device") limits this. Also the phone's notification count limit (64 pending on iOS); mitigation in P7. |
 | `planCuts`, `refusalNote` | P8 | The Day timeline must draw a break the same way the desktop does, or the two apps disagree about what a day looks like | Only drawing moves. The Split switch text (`Splits the tasks it overlaps...`, `Smallest piece when a break splits a task`) stays a marker, so the setting cannot leak. Risk: a cut drawn wrongly on a small screen; `blockLayout.ts` tiers and the p24 style check apply. |
 | `multiDropPatch` | P10 | Dragging one time of a task with several times must move only that time, as on the desktop | Low: pure function, already tested (`timeBlocks.test.ts`). |
 | `Match system` | P1 (wording only) and P11 (setting shown) | The Theme setting (Light, Dark, Match system) is required on the phone | None for data: the theme is a per device setting, never synced. `installTheme` and `setThemeMode` stay markers: they are the desktop's DOM functions; the phone gets its own store with other names. |
@@ -91,7 +91,7 @@ The iOS marker gate (`mobile/scripts/ios-markers.js`) fails the build if a liste
 - Calendar: Day timeline (block view built on the same `blockPlan` tiers as `TimeBlock`), Week strip, Month grid, quick add sheet.
 - Phone UI kit: Pill, LabelDot, RoundCheck, OutlinedButton, IconHeading, Sheet, the phone's own popover replacement (an action sheet style menu).
 
-**Retired at P11:** `app/(tabs)/inbox.tsx`, `quests.tsx`, the old `today.tsx` and `calendar.tsx`, `app/tasks.tsx`, `app/components/TaskForm.tsx`. `AddEventModal.tsx` and `RoutineForm.tsx` stay only while custom events and routines exist (see open question 4).
+**Retired at P11:** `app/(tabs)/inbox.tsx`, `quests.tsx`, the old `today.tsx` and `calendar.tsx`, `app/tasks.tsx`, `app/components/TaskForm.tsx`. `AddEventModal.tsx` and `RoutineForm.tsx` stay while custom events and routines exist (decision 4: custom events stay).
 
 ---
 
@@ -108,7 +108,7 @@ The iOS marker gate (`mobile/scripts/ios-markers.js`) fails the build if a liste
 
 **Fonts.** The desktop's font files are `.woff2` (`mobile/assets/fonts`). **iOS cannot load woff2.** The phone needs `.ttf` (or `.otf`) files of the same families and the same versions (Inter, Newsreader, Roboto Mono, all OFL or Apache, licences already beside the files). Add them beside the woff2 files and load them with `useFonts` in the root layout (JavaScript assets, so they do not need the native plugin config; but no build reaches a phone without EAS anyway). Desktop keeps using woff2. P1 adds a test that every family the phone names has a ttf file and a licence beside it.
 
-**No Reanimated (chosen here).** `app.json` has `newArchEnabled: false`. Expo SDK 54 pairs with Reanimated 4, which needs the New Architecture. Turning the New Architecture on changes every native module at once (Apple and Google sign in, notifications, calendar, datetimepicker) and is its own risky step. Gesture handler 2.28 works on the old architecture with callbacks on the JavaScript thread, and React Native's own `Animated` with the native driver is enough for swipe rows, the Undo bar and paging. If drag in P10 feels too slow on a real phone, the New Architecture move becomes its own plan (open question 5).
+**No Reanimated (chosen here).** `app.json` has `newArchEnabled: false`. Expo SDK 54 pairs with Reanimated 4, which needs the New Architecture. Turning the New Architecture on changes every native module at once (Apple and Google sign in, notifications, calendar, datetimepicker) and is its own risky step. Gesture handler 2.28 works on the old architecture with callbacks on the JavaScript thread, and React Native's own `Animated` with the native driver is enough for swipe rows, the Undo bar and paging. If drag in P10 feels too slow on a real phone, the New Architecture move becomes its own plan (decision 5).
 
 ---
 
@@ -131,7 +131,7 @@ The iOS marker gate (`mobile/scripts/ios-markers.js`) fails the build if a liste
 - After conversion, the routine is a daily series `rt_<id>`, its row is tombstoned, and Today shows the series' occurrence as a normal repeating task. `todayView.ts` never shows both: a routine whose series `rt_<id>` exists is skipped. Test this in P4.
 - The Repeating chip (P5) shows unconverted routines too, read only with a "Convert in Settings to give it a streak and Skip" note. Chosen here so the chip is never missing a daily habit.
 
-**Custom events.** The phone's own "custom events" (the old Full schedule) are a separate table with their own notifications. They are not tasks. See open question 4.
+**Custom events.** The phone's own "custom events" (the old Full schedule) are a separate table with their own notifications. They are not tasks. Decision 4: they stay, as grey read only blocks in Day view and rows in Today.
 
 **No schema change, no migration, no backup.** Nothing in this plan changes the database.
 
@@ -168,7 +168,7 @@ Each phase: one Sonnet or Opus batch step, its own targeted tests, typecheck, iO
 - Done: every old function reachable; deep link `belific://` and Google sign in callback still work (`+native-intent.ts`); the export and marker gate are green.
 
 **P4 Today (L, Sonnet).**
-- `lib/todayView.ts` plus tests: time order, the Anytime group, Now and Next from timed tasks (and today's custom events, see open question 4), repeating occurrences projected for today (`series.projectOccurrences`), routines (section 5), Done today.
+- `lib/todayView.ts` plus tests: time order, the Anytime group, Now and Next from timed tasks and today's custom events (decision 4), repeating occurrences projected for today (`series.projectOccurrences`), routines (section 5), Done today.
 - Screen:
   - Tick: the row leaves with an Undo bar for about 5 seconds; Undo restores it (`setTaskCompleted` both ways).
   - "Done today, N" at the bottom expands the done ones.
@@ -196,7 +196,7 @@ Each phase: one Sonnet or Opus batch step, its own targeted tests, typecheck, iO
 - Reminders (`reminder.ts`, markers removed): schedule local notifications with expo-notifications on save, on sync pull, on app start, and on tick (cancel).
   - Keys as the desktop scheduler: `task#HH:mm`.
   - Only the next 14 days (chosen here) to stay under the 64 pending notification limit.
-  - Off when signed into the same account on a computer? See open question 3.
+  - "Remind me on this device" (decision 3) turns this device's task reminders off; the desktop gets the same setting.
 - Fix the "NOT APPLIED" comment in `syncCore.ts`.
 - Done: unit tests for the phone scheduling plan (pure function: which notifications for which tasks, limit, keys); a real iPhone hand test (notifications cannot be proven in the web export).
 
@@ -212,7 +212,7 @@ Each phase: one Sonnet or Opus batch step, its own targeted tests, typecheck, iO
 - Done: real check that a vertical scroll never pages, a sideways swipe pages once, a tap in Week or Month never creates a task.
 
 **P10 Drag a block (M, Opus).**
-- Press and hold 400 ms (haptic), then pan; snaps to 15 minutes (chosen here: the desktop uses 30; a finger needs finer steps on a short day; see open question 6).
+- Press and hold 400 ms (haptic), then pan; snaps to 15 minutes (decision 6; the desktop uses 30).
 - Writes through `drag.ts` (`multiDropPatch` for a task with several times, marker removed; `patchSeries` for a projected occurrence); never onto a past day.
 - Auto scroll near the top and bottom edges.
 - Done: unit tests reuse `drag.test.ts` style; real check of a hold-and-drag in the web export; hand test on a phone.
@@ -224,7 +224,7 @@ Each phase: one Sonnet or Opus batch step, its own targeted tests, typecheck, iO
 - Done: every gate; the full real regression (desktop and phone checks).
 
 **P12 Release prep (S, Opus review).**
-- Version (open question 1), build number, the hand checklist (section 8).
+- Version 3.0.0 (decision 1), build number, the hand checklist (section 8).
 - Jethro runs `eas build` and submits to TestFlight. **The agent never runs EAS** (paid, outward facing).
 
 ---
@@ -249,15 +249,15 @@ Each phase: one Sonnet or Opus batch step, its own targeted tests, typecheck, iO
 
 | Risk | Likely | Bad | Reduce it |
 |---|---|---|---|
-| The live App Store build (the repo says **2.1.0**; the request says 1.0.1, see open question 2) uses the **old** Supabase project. Users on it never see the shared project's data | certain | medium | Nothing in this plan touches the old project. The catch-up release is the move; the project guard already handles first launch (CURRENT_TRUTH). Linking Apple and Google logins must come before any public release (decided 2026-10-15). |
-| TestFlight 2.18.1 was built but CURRENT_TRUTH says the move was "never run on a device" | likely | medium | P12 hand checklist starts with sign in on the shared project and a first sync before any phone writes. |
+| The live App Store build (**2.18.1**, decision 2) uses the **old** Supabase project. Users on it never see the shared project's data | certain | medium | Nothing in this plan touches the old project. The catch-up release is the move; the project guard already handles first launch (CURRENT_TRUTH). Linking Apple and Google logins must come before any public release (decided 2026-10-15). |
+| The new build moves the phone from the old project to the shared one (CURRENT_TRUTH: the move was never run on a device) | likely | medium | P12 hand checklist starts with sign in on the shared project and a first sync before any phone writes. |
 | Pressing Convert routines before the new phone build is installed hides routines on the old build | possible | medium | Section 5; P12 checklist says when to press it. |
 | A phone edit drops a Part B or C field | low | high | Spread rule plus the P6 test; the server keeps unsent columns anyway. |
-| Two devices notify twice for one reminder | likely | low | Open question 3. |
+| Two devices notify twice for one reminder | likely | low | Decision 3: "Remind me on this device" on each device. |
 | Gesture conflicts: a swipe or scroll selects a row, or the sideways swipe fights the iOS back gesture | medium | medium | Tap with max distance and duration, `activeOffsetX` on paging, the touch real checks, a real phone hand test after P2. |
 | Drag too slow without Reanimated (old architecture) | medium | low | Try on a phone after P2's build; if poor, a separate New Architecture plan. |
 | woff2 fonts not loadable on iOS | certain | low | ttf files of the same version (P1). |
-| Version numbers: `app.json` is shared by desktop and phone (2.48.0 today); build number is set by hand ("1") | certain | low | Open question 1; P12 raises the build number. |
+| Version numbers: `app.json` is shared by desktop and phone; build number is set by hand ("1") | certain | low | Decision 1: 3.0.0 at P12; P12 raises the build number. |
 | Notification limit (64 pending on iOS) | low | low | Schedule a rolling 14 day window (P7). |
 | Bundle size grows with shared modules | low | low | Marker gate plus checking the export size per phase (note it in the changelog). |
 
@@ -279,11 +279,14 @@ Nothing in this plan is irreversible. Irreversible actions stay with Jethro: the
 
 ---
 
-## 10. Open questions (only where the decision is yours)
+## 10. Decisions (Jethro, 2026-10-22, final)
 
-1. **Phone version number.** The phone and desktop share `app.json` (2.48.0). Ship the catch-up as the next shared version (say 2.5x.0), or start the phone at **3.0.0** so App Store users see a clear new release? (Recommended: 3.0.0 for the catch-up release, then shared numbering continues.)
-2. **The live App Store version.** The repo says 2.1.0 (CURRENT_TRUTH); your note says 1.0.1. Which is right? It only changes the release notes and the risk wording.
-3. **Reminders on two devices.** When the same task has a reminder and both the phone and the computer are on, should both notify (simplest, recommended for now), or should the phone notify only when the desktop app has not been seen for a while?
-4. **Custom events and the "Full schedule".** The phone's own events (and the weekly template events) are not tasks. Keep them on the Calendar and in Now and Next as read only rows until a later conversion (recommended), or drop them from the new screens?
-5. **New Architecture.** If dragging feels sluggish on a real phone after P2's build, do you want a separate plan to turn on the New Architecture and add Reanimated, or accept it as is for the first release?
-6. **Drag snap.** 15 minutes on the phone (recommended for a finger) or 30 minutes like the desktop?
+1. **Phone version:** 3.0.0, set in P12 (not before). Phases P1 to P11 keep the shared numbering (2.49.0 upwards).
+2. **The live App Store version is 2.18.1** (it replaces the 2.1.0 and 1.0.1 notes in this plan). It still uses the old Supabase project.
+3. **Reminders:** one per device setting, "Remind me on this device", on by default on the phone and on the desktop. Off = this device schedules no task reminders (the other device still does).
+4. **Old custom events stay:** grey read only blocks in Day view and rows in Today (Now and Next included).
+5. **New Architecture stays off.** A migration is planned only if drag feels slow on a real phone.
+6. **Drag snap on the phone: 15 minutes.**
+7. Layout and behaviour as in this plan: Today, Calendar, Tasks tabs; Repeating chip inside Tasks; Today in time order with the Anytime group, Undo on tick, expand in place; Calendar Day, Week, Month with swipe, tap an empty slot in Day to quick add, hold then drag to move; Tasks with the list switcher and the full task details; tap only counts if the finger barely moves, hold about 400 ms with a haptic.
+
+Build rules for the batch: no database change, migration, backup, EAS run or push; nothing is pressed or built for "Convert routines"; one commit and version bump per phase; `docs/build-progress.md` updated after every phase; at the end of P5, P9 and P12 the security scan, the full real Electron regression and the touch runner at 390 x 844.

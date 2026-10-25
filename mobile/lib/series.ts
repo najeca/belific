@@ -22,7 +22,7 @@
 // row can restart it. A tombstone left by "Skip this day" never ends a series
 // and is only a template of last resort (when nothing else is live).
 import type { Subtask, Task, WeekDay } from './types.ts';
-import { WEEKDAYS, addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
+import { WEEKDAYS, addDays, dateKey, formatDayLabel, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
 import { effectiveDays, monthDayOf, occursAnnually } from './repeat.ts';
 import { nextOccurrenceId, rootTaskId } from './recurrence.ts';
 import { copyForNextOccurrence } from './subtasks.ts';
@@ -112,6 +112,17 @@ export const MOVE_THIS_DAY_NOTE = 'Only this day moves. The other days stay as t
 // The day a moved occurrence came from ('YYYY-MM-DD'), or undefined when it is not moved.
 export function movedFrom(row: Pick<Task, 'id' | 'dueDate'>): string | undefined {
   return isMovedRow(row) ? idDate(row.id) : undefined;
+}
+
+// What a moved day shows (3.3.0): "Moved from Sat" on a card, a row and a block; the long form
+// "Moved from Sat 31 Oct · this day only" in tooltips and the details. Undefined when not moved.
+export function movedCaption(row: Pick<Task, 'id' | 'dueDate'>): string | undefined {
+  const from = movedFrom(row);
+  return from ? `Moved from ${WEEKDAYS[parseDateKey(from).getDay()]}` : undefined;
+}
+export function movedCaptionLong(row: Pick<Task, 'id' | 'dueDate'>): string | undefined {
+  const from = movedFrom(row);
+  return from ? `Moved from ${formatDayLabel(from)} · this day only` : undefined;
 }
 
 function laterRow(a: Task, b: Task): boolean {

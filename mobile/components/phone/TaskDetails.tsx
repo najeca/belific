@@ -14,7 +14,7 @@ import { liveLists } from '../../lib/lists';
 import { addSubtask, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { opsForProjected, opsForTask } from '../../lib/taskOps';
 import { materialise, moveDay } from '../../lib/seriesActions';
-import { MOVE_THIS_DAY_NOTE } from '../../lib/series';
+import { MOVE_THIS_DAY_NOTE, movedCaptionLong } from '../../lib/series';
 import { loadListsRaw, loadTasksRaw } from '../../lib/storage';
 import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, priorityPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -242,6 +242,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
             />
           </View>
           {projected ? <Text style={[s.note, { marginTop: 4 }]}>A day of a repeating task: changes apply to every day from today, except the date.</Text> : null}
+          {movedCaptionLong(task) ? <Text style={[s.note, { marginTop: 4 }]} {...({ dataSet: { detailMoved: '1' } } as object)}>{`↪ ${movedCaptionLong(task)}`}</Text> : null}
 
           <Text style={s.section}>When</Text>
           <View style={s.card}>

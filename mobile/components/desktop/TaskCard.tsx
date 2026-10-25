@@ -7,6 +7,7 @@ import { counter } from '../../lib/subtasks';
 import { dateKey } from '../../lib/kanban';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
 import { tipRef } from './tip';
+import { movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { isEditableTarget } from '../../lib/editable';
@@ -242,7 +243,9 @@ export default function TaskCard({
   const labelOpen = useIsOpen(`${id}:label`);
   const moreOpen = useIsOpen(`${id}:more`);
   const dayText = showDay && task.dueDate ? dayLabel(task.dueDate, todayKey) : null;
-  const hasMeta = !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText;
+  // 3.3.0: a day of a repeating task moved on its own says where it came from.
+  const moved = movedCaption(task);
+  const hasMeta = !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved;
 
   return (
     <HoverPressable
@@ -321,6 +324,16 @@ export default function TaskCard({
                   <Text style={styles.metaDay} {...({ dataSet: { cardDay: '1' } } as object)}>
                     {dayText}
                     {placed ? ` · ${timesLabel(task)}` : ''}
+                  </Text>
+                )}
+                {moved && (
+                  <Text
+                    ref={tipRef(movedCaptionLong(task)) as never}
+                    style={styles.metaDay}
+                    accessibilityLabel={movedCaptionLong(task)}
+                    {...({ dataSet: { movedFrom: movedFrom(task) } } as object)}
+                  >
+                    ↪ {moved}
                   </Text>
                 )}
                 {steps.total > 0 && (

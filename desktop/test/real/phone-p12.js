@@ -10,6 +10,7 @@ const C = require('./common');
 const { dayKeyFrom } = require('./input');
 const { phoneWindow } = require('./phone-common');
 
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 process.env.BELIFIC_NO_PROTOCOL_REGISTER = '1';
 const userData = C.isolate();
 console.log(`USERDATA ${userData}`);
@@ -37,7 +38,11 @@ async function run() {
     T('walk', 'Morning walk', { dueDate: day(-7), startTime: '07:00', durationMinutes: 30, recurrence: 'daily', completed: true, completedAt: stamp }),
     // A new series whose only row is its first row, today.
     T('first', 'First class', { dueDate: today, startTime: '18:00', durationMinutes: 60, recurrence: 'daily' }),
+    // 3.3.0: tomorrow's yoga already moved onto today, in the Health list.
+    T('yoga', 'Yoga', { dueDate: day(-6), recurrence: 'weekly', recurrenceDays: [WD[new Date(`${day(1)}T12:00:00`).getDay()]], completed: true, completedAt: stamp, listKey: 'L1' }),
+    T(`yoga:${day(1)}`, 'Yoga', { dueDate: today, startTime: '08:00', durationMinutes: 45, recurrence: 'weekly', recurrenceDays: [WD[new Date(`${day(1)}T12:00:00`).getDay()]], listKey: 'L1' }),
   ]);
+  write('belific_lists', [{ key: 'L1', name: 'Health', emoji: '💪', sortOrder: 0, createdAt: stamp, updatedAt: stamp }]);
   const read = (k) => {
     try {
       return JSON.parse(fs.readFileSync(path.join(dataDir, `${k}.kv`), 'utf8'));
@@ -106,6 +111,24 @@ async function run() {
   check('the sheet now shows the moved copy (its date is tomorrow)', /Tomorrow/.test(await P.js(`(${inSheet('[data-detail-row="date"]')} || {}).innerText || ''`)));
   await P.finger.tap(visible('[aria-label="Done"]'), 900);
   check('today does not show the first class again (problem A)', (await todayRows('First class')) === 0);
+
+  // ======== 3.3.0: moved days say where they came from ========
+  const fromName = WD[new Date(`${day(1)}T12:00:00`).getDay()];
+  const rowMoved = (sel) => P.js(`(() => { const r = document.querySelector('${sel}'); const m = r && r.querySelector('[data-moved-from]'); return m ? { text: m.innerText, from: m.getAttribute('data-moved-from') } : null; })()`);
+  const todayYoga = await rowMoved('[data-today-row="Yoga"]');
+  check('Today: the moved yoga row says "Moved from <its day>"', !!todayYoga && todayYoga.text.includes(`Moved from ${fromName}`) && todayYoga.from === day(1), JSON.stringify(todayYoga));
+  check('Today: a row that was not moved has no caption', !(await P.js(`!!document.querySelector('[data-today-row] [data-moved-from]:not([data-moved-from="${day(1)}"])')`)));
+  await shot('phone-p12-today-moved');
+  await openFromToday('Yoga');
+  const detail = await P.js(`(${inSheet('[data-detail-moved]')} || {}).innerText || ''`);
+  check('the details say where it came from, this day only', detail.includes(`Moved from ${fromName}`) && /this day only/.test(detail), detail);
+  await shot('phone-p12-details-moved');
+  await P.finger.tap(visible('[aria-label="Done"]'), 900);
+  await P.finger.tap(tab('Tasks'), 1000);
+  await P.finger.tap(visible('[data-list-chip="L1"]'), 900);
+  const tasksYoga = await rowMoved('[data-task-row="Yoga"]');
+  check('Tasks: the moved row in its list says where it came from', !!tasksYoga && tasksYoga.text.includes(`Moved from ${fromName}`), JSON.stringify(tasksYoga));
+  await shot('phone-p12-tasks-moved');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

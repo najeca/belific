@@ -21,6 +21,7 @@ import {
   shouldShowStarterRoutine,
 } from '../../lib/storage';
 import { dateKey } from '../../lib/kanban';
+import { movedCaption, movedFrom } from '../../lib/series';
 import { buildToday, itemTitle, type TodayItem } from '../../lib/todayView';
 import { formatDuration } from '../../lib/duration';
 import { labelColor } from '../../lib/labelColors';
@@ -258,7 +259,7 @@ export default function TodayScreen() {
             style={s.body}
             onTap={() => setExpanded(open ? null : item.key)}
             onHold={done ? undefined : () => openMenu(item)}
-            a11y={`${title}${timeText ? `, ${timeText}` : ''}${done ? ', done' : ''}`}
+            a11y={`${title}${timeText ? `, ${timeText}` : ''}${done ? ', done' : ''}${t && movedCaption(t) ? `, ${movedCaption(t)}` : ''}`}
             hint="Tap to open. Press and hold for more."
             data={{ todayBody: item.key }}
           >
@@ -281,6 +282,7 @@ export default function TodayScreen() {
               {lst ? <Text style={s.meta}>{lst}</Text> : null}
               {t?.durationMinutes ? <Text style={s.meta}>{formatDuration(t.durationMinutes)}</Text> : null}
               {count.total ? <Text style={s.meta}>{`${count.done}/${count.total} steps`}</Text> : null}
+              {t && movedCaption(t) ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t) } } as object)}>{`↪ ${movedCaption(t)}`}</Text> : null}
             </View>
           </PressRow>
         </View>

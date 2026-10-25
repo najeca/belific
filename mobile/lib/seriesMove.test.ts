@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   deleteSeriesRows,
   isMovedRow,
+  movedCaption,
+  movedCaptionLong,
   movedFrom,
   planMoveDay,
   planSkip,
@@ -175,6 +177,20 @@ test('an All days edit after a move reaches the moved day too (its time), never 
   const moved = rows.find((r) => r.id === `w:${SAT}`)!;
   const patch = templatePatch(moved, { startTime: '10:00', dueDate: SUN } as Partial<Task>);
   assert.deepEqual(patch, { startTime: '10:00' });
+});
+
+test('the moved caption: short on a card or row, long in a tooltip or the details; nothing when not moved', () => {
+  const rows = apply(shift(), planMoveDay(shift(), SAT, FRI, NOW));
+  const moved = rows.find((r) => r.id === `w:${SAT}`)!;
+  assert.equal(movedCaption(moved), 'Moved from Sat');
+  assert.equal(movedCaptionLong(moved), 'Moved from Sat 31 Oct · this day only');
+  for (const plain of [rows[0], rows[1], projectOccurrences(rows, [SUN], TODAY)[0], row('x', { dueDate: FRI })]) {
+    assert.equal(movedCaption(plain), undefined, plain.id);
+    assert.equal(movedCaptionLong(plain), undefined, plain.id);
+  }
+  // The first row's moved copy reads the same way.
+  const first = apply([row('f', { dueDate: SAT })], planMoveDay([row('f', { dueDate: SAT })], SAT, SUN, NOW, { id: 'f' }));
+  assert.equal(movedCaption(first.find((r) => r.id === `f:${SAT}`)!), 'Moved from Sat');
 });
 
 test('putting a moved day back on its own day undoes the move', () => {

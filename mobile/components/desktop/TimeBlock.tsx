@@ -14,6 +14,7 @@ import { shortcutFor } from '../../lib/shortcuts';
 import { updateTask } from '../../lib/storage';
 import { moveDay, patchSeries } from '../../lib/seriesActions';
 import { withoutDay } from '../../lib/taskOps';
+import { movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { domNode, useDrag } from './DragProvider';
@@ -150,7 +151,7 @@ export default function TimeBlock({
   const tipped = !!fullText || blockPlan(height).tier !== 3;
   useEffect(() => {
     if (tipped) tipRef(blockTip(task, piece, note))(elRef.current);
-  }, [tipped, task.title, task.emoji, task.startTime, task.durationMinutes, task.recurrence, piece, note]);
+  }, [tipped, task.id, task.dueDate, task.title, task.emoji, task.startTime, task.durationMinutes, task.recurrence, piece, note]);
   // The block's width decides which parts still fit.
   useEffect(() => {
     const el = elRef.current;
@@ -233,6 +234,14 @@ export default function TimeBlock({
   // slot" button was removed: nothing sits on top of a block's text.)
   // The panes redraw every 30 seconds, so a block turns late on its own.
   const late = isLate(task, new Date(), projected);
+  // 3.3.0: a day of a repeating task moved on its own: a line on a tall block, an arrow on a short one.
+  const moved = movedCaption(task);
+  const movedLong = movedCaptionLong(task);
+  const movedArrow = moved ? (
+    <Text ref={tipRef(movedLong) as never} style={[styles.movedIcon, vm]} accessibilityLabel={movedLong} {...({ 'aria-label': movedLong, dataSet: { movedIcon: '1' } } as object)}>
+      ↪
+    </Text>
+  ) : null;
 
   // Resizing a cut task: the last piece follows the handle (its length is the new end less its own start).
   const resizedH = resizing === undefined ? undefined : piece ? blockHeightPx(Math.max(15, startMin + resizing - piece.startMin)) : blockHeightPx(resizing);
@@ -285,7 +294,7 @@ export default function TimeBlock({
             resizing !== undefined && styles.active,
           ]}
           accessibilityRole="button"
-          accessibilityLabel={`${a11y}${time ? `, ${formatTime(time)}` : ''}${piece ? `, part ${piece.index + 1} of ${piece.count}` : ''}`}
+          accessibilityLabel={`${a11y}${time ? `, ${formatTime(time)}` : ''}${piece ? `, part ${piece.index + 1} of ${piece.count}` : ''}${moved ? `, ${moved}` : ''}`}
           {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
           {tier === 3 ? (
@@ -321,6 +330,11 @@ export default function TimeBlock({
                   {badge}
                 </Text>
               )}
+              {moved && resizing === undefined && (
+                <Text style={[styles.movedLine, vm]} numberOfLines={1} {...({ dataSet: { movedFrom: movedFrom(task) } } as object)}>
+                  ↪ {moved}
+                </Text>
+              )}
             </>
           ) : (
             <>
@@ -333,6 +347,7 @@ export default function TimeBlock({
                   {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
+                {movedArrow}
                 {/* A refused cut on a short block (no room for the badge): a small info mark with the whole sentence. */}
                 {badge && resizing === undefined && (
                   <Text ref={tipRef(note) as never} style={[styles.cutInfo, vm]} accessibilityLabel={note} {...({ 'aria-label': note, dataSet: { cutNoteIcon: '1' } } as object)}>
@@ -385,7 +400,7 @@ export default function TimeBlock({
 function blockTip(task: Task, piece?: CutPiece, note?: string): string {
   const dur = formatDuration(task.durationMinutes);
   const when = piece && !piece.head ? `${formatTime(toTime(piece.startMin))} ${formatDuration(piece.leftMin)} left` : [formatTime(task.startTime ?? ''), dur].filter(Boolean).join(' ');
-  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, when, task.recurrence ? 'Repeats' : '', note ?? ''].filter(Boolean).join(', ');
+  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, when, task.recurrence ? 'Repeats' : '', movedCaptionLong(task) ?? '', note ?? ''].filter(Boolean).join(', ');
 }
 
 // Where a drag would land on a time grid: a dashed outline at the snapped slot
@@ -411,6 +426,8 @@ const styles = StyleSheet.create({
   continues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   projected: { opacity: 0.82 },
   late: { opacity: 0.5 },
+  movedLine: { fontSize: 11, fontWeight: '500', color: Colors.textSecondary, marginTop: 1 },
+  movedIcon: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary, flexShrink: 0 },
   active: { boxShadow: `inset 0 0 0 1px ${Colors.accent}` } as object,
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' } as object,
   titleRowOne: { flex: 1 },

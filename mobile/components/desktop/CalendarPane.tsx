@@ -35,7 +35,7 @@ import {
 import { openingMinutes } from '../../lib/dayStart';
 import { formatDuration } from '../../lib/duration';
 import { tasksForTimebox, type DayTask } from '../../lib/timeboxTasks';
-import { projectOccurrences } from '../../lib/series';
+import { movedCaption, movedCaptionLong, projectOccurrences } from '../../lib/series';
 import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
 import { calendarTitle, minutesOfDay, monthGrid, nowLineTop, splitAllDay, stepAnchor, visibleDayKeys } from '../../lib/calendarView';
 import type { CalendarView } from '../../lib/paneState';
@@ -624,7 +624,7 @@ export default function CalendarPane({
                                 onPress={() => openDetail(t.id)}
                                 style={[styles.chip, { backgroundColor: look?.bg ?? (color ? tint(color) : Colors.plainBlock), borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent, borderLeftWidth: 3 }, projected && styles.projected]}
                                 accessibilityRole="button"
-                                accessibilityLabel={`All day task ${t.title}`}
+                                accessibilityLabel={`All day task ${t.title}${movedCaption(t) ? `, ${movedCaption(t)}` : ''}`}
                                 {...({ dataSet: { calBlock: `${scope}${t.id}` } } as object)}
                               >
                                 <View style={styles.chipRow}>
@@ -632,6 +632,12 @@ export default function CalendarPane({
                                     {t.emoji ? `${t.emoji} ` : ''}
                                     {t.title}
                                   </Text>
+                                  {/* 3.3.0: a repeating day moved on its own (the whole sentence in the tooltip). */}
+                                  {movedCaption(t) ? (
+                                    <Text ref={tipRef(movedCaptionLong(t)) as never} style={[styles.chipText, vt]} {...({ dataSet: { movedIcon: '1' } } as object)}>
+                                      ↪
+                                    </Text>
+                                  ) : null}
                                   <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
                                   {isMustDo(t) && <PriorityMark chip={!!look} />}
                                 </View>

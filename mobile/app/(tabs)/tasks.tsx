@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { radius, type ColorTokens } from '../../lib/tokens';
 import { formatTime } from '../../lib/data';
 import { addDays, dateKey, formatDayTitle, parseDateKey } from '../../lib/kanban';
+import { movedCaption, movedFrom } from '../../lib/series';
 import { deleteBrainDumpItem, loadBrainDumpItems, loadListsRaw, loadProjects, loadRoutineCompletions, loadRoutines, loadTasksRaw, updateTask } from '../../lib/storage';
 import { convertDumpItem } from '../../lib/taskActions';
 import { createTaskIn } from '../../lib/taskCommands';
@@ -199,6 +200,8 @@ export default function TasksTab() {
     const steps = counter(t?.subtasks);
     const when = t?.dueDate ? `${formatDayTitle(t.dueDate, todayKey)}${t.startTime ? `, ${formatTime(t.startTime)}` : ''}` : null;
     const repeating = !!t?.recurrence;
+    // 3.3.0: a day of a repeating task moved on its own says where it came from.
+    const moved = t ? movedCaption(t) : undefined;
     return (
       <View key={id} style={[s.rowWrap, !first && s.sep]}>
         <SwipeRow
@@ -222,7 +225,7 @@ export default function TasksTab() {
               style={s.body}
               onTap={() => void open(row)}
               onHold={() => holdMenu(row)}
-              a11y={`${title}${when ? `, ${when}` : ''}`}
+              a11y={`${title}${when ? `, ${when}` : ''}${moved ? `, ${moved}` : ''}`}
               hint="Tap to open. Press and hold for more. Swipe right for done, left for tomorrow or delete."
               actions={[
                 { name: 'Done', run: () => void done(row) },
@@ -241,6 +244,7 @@ export default function TasksTab() {
               {when || lab || steps.total || t?.durationMinutes ? (
                 <View style={s.metaRow}>
                   {when ? <Text style={[s.meta, { ...mono(400), fontSize: 12 }]}>{when}</Text> : null}
+                  {moved ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t!) } } as object)}>{`↪ ${moved}`}</Text> : null}
                   {lab ? (
                     <View style={[s.line, { gap: 5 }]}>
                       <LabelDot color={lab.color} />

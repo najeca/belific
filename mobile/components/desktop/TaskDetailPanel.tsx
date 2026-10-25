@@ -7,7 +7,7 @@ import { isTimerRunning } from '../../lib/taskTimer';
 import { formatTaskTime } from '../../lib/taskTotals';
 import { addSubtask, counterLabel, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { generateId } from '../../lib/data';
-import { idDate, projectOccurrences } from '../../lib/series';
+import { idDate, movedCaptionLong, projectOccurrences } from '../../lib/series';
 import { taskRemindersLabel } from '../../lib/reminder';
 import { useDefaultReminders } from './reminderStore';
 import { effectiveListKey, listOptionText, listTitle } from '../../lib/lists';
@@ -266,6 +266,11 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {projected && <SeriesNote />}
+        {movedCaptionLong(task) ? (
+          <Text style={styles.quietSub} {...({ dataSet: { detailMoved: '1' } } as object)}>
+            ↪ {movedCaptionLong(task)}
+          </Text>
+        ) : null}
         <StreakLine task={task} />
         <DetailRow icon="calendar-outline" label="Task date">
           <View style={styles.row}>

@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.3.0 — 2026-10-25 (Repeating, this day only P3: show moved days)
+
+**Desktop and iPhone. Nothing stored: a day is moved when its id's day is not its Day (`series.movedFrom`).**
+- **"↪ Moved from Sat"** (`series.movedCaption`) on the task card's meta line, a tall Calendar or Timebox block's own line, the phone's Today and Tasks rows, and in their screen reader labels. A short block (one or two lines) and a Calendar all day chip show only the ↪ arrow.
+- **The whole sentence** "Moved from Sat 31 Oct · this day only" (`movedCaptionLong`) in the tooltips (card caption, block, arrow, chip) and at the top of the details (desktop and phone).
+- **Tests:** `seriesMove.test.ts` (the caption, short and long, and nothing when not moved); real checks `p26.js` (+8: card, a tall and a short Timebox block, a Calendar block, no caption on an unmoved card) and `phone-p12.js` (+4: Today row, details, Tasks row).
+
+---
+
 ## 3.2.0 — 2026-10-25 (Repeating, this day only P2: move a day on the desktop and the phone)
 
 **Desktop and iPhone. No schema change.**

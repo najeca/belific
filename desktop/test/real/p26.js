@@ -47,6 +47,11 @@ async function run() {
       // A new series whose only row is its first row, on SAT.
       T('first', 'First shift', { recurrence: 'weekly', recurrenceDays: [wd(SAT)], dueDate: SAT }),
       T('plain', 'Plain task', { dueDate: day(0) }),
+      // 3.3.0: days already moved onto today: one a full hour (a tall block), one 20 minutes (a short one).
+      T('gym', 'Gym class', { recurrence: 'weekly', recurrenceDays: [wd(SAT)], dueDate: day(-5), completed: true, completedAt: stamp }),
+      T('gym:' + SAT, 'Gym class', { recurrence: 'weekly', recurrenceDays: [wd(SAT)], dueDate: day(0), startTime: '10:00', durationMinutes: 60 }),
+      T('call', 'Quick call', { recurrence: 'weekly', recurrenceDays: [wd(SUN)], dueDate: day(-4), completed: true, completedAt: stamp }),
+      T('call:' + SUN, 'Quick call', { recurrence: 'weekly', recurrenceDays: [wd(SUN)], dueDate: day(0), startTime: '12:00', durationMinutes: 20 }),
     ]),
   );
   fs.writeFileSync(path.join(dataDir, 'belific_desktop_panes.kv'), JSON.stringify({ leftCollapsed: false, rightCollapsed: false, center: 'kanban', calendar: 'day' }));
@@ -135,6 +140,27 @@ async function run() {
   check('the first row\'s own day does not come back (problem A)', (await countIn(SAT, 'First shift')) === 0);
   check('the moved copy shows on the new Day', (await countIn(day(1), 'First shift')) === 1);
   await I.shot('p26-04-first-row');
+
+  // ======== 3.3.0: moved days say where they came from ========
+  const satName = wd(SAT);
+  const cardMoved = (key, title) => I.js(`(() => { const c = ${cardsIn(key, title)}[0]; const m = c && c.querySelector('[data-moved-from]'); return m ? { text: m.innerText, from: m.getAttribute('data-moved-from'), label: m.getAttribute('aria-label') } : null; })()`);
+  const c1 = await cardMoved(day(1), 'Weekend shift');
+  check('the moved card says "Moved from <its day>"', !!c1 && c1.text.includes(`Moved from ${satName}`) && c1.from === SAT, JSON.stringify(c1));
+  check('its full caption says this day only', !!c1 && /this day only/.test(c1.label || ''), JSON.stringify(c1));
+  check('a card that was not moved has no caption', !(await I.js(`!!${cardsIn(day(0), 'Plain task')}[0].querySelector('[data-moved-from]')`)));
+  check('the moved first row\'s copy has the caption too', !!(await cardMoved(day(1), 'First shift')));
+  const tb = (id) => `document.querySelector('[data-block-id="${id}"]')`;
+  const tall = await I.js(`(() => { const b = ${tb(`gym:${SAT}`)}; return b ? { text: b.innerText, label: b.getAttribute('aria-label'), line: !!b.querySelector('[data-moved-from]') } : null; })()`);
+  check('Timebox: a tall moved block shows the caption line', !!tall && tall.line && tall.text.includes(`Moved from ${satName}`), JSON.stringify(tall));
+  check('Timebox: its label says it was moved', !!tall && /Moved from/.test(tall.label || ''), JSON.stringify(tall));
+  const short = await I.js(`(() => { const b = ${tb(`call:${SUN}`)}; const i = b && b.querySelector('[data-moved-icon]'); return b ? { icon: !!i, iconLabel: i && i.getAttribute('aria-label'), line: !!b.querySelector('[data-moved-from]') } : null; })()`);
+  check('Timebox: a short moved block shows the arrow (no room for the line)', !!short && short.icon && !short.line && /Moved from .* this day only/.test(short.iconLabel || ''), JSON.stringify(short));
+  await I.shot('p26-05-captions-tasks');
+  await I.click(`document.querySelector('[aria-label="Show the Calendar"]') || document.querySelector('[aria-label="Show Calendar"]')`, 1200);
+  await C.waitFor(() => I.exists(`document.querySelector('[data-cal-block$="gym:${SAT}"]')`), 6000).catch(() => {});
+  const cal = await I.js(`(() => { const b = document.querySelector('[data-cal-block$="gym:${SAT}"]'); return b ? { text: b.innerText, label: b.getAttribute('aria-label'), mark: !!b.querySelector('[data-moved-from], [data-moved-icon]') } : null; })()`);
+  check('Calendar: the moved block shows the caption (line or arrow) and says so in its label', !!cal && cal.mark && /Moved from/.test(cal.label || ''), JSON.stringify(cal));
+  await I.shot('p26-06-captions-calendar');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

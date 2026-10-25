@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 3.1.0 — 2026-10-25 (Repeating, this day only P1: move one day)
+
+**Shared logic (desktop and iPhone). No new column, no migration: a moved day is a stored occurrence whose `id` keeps the day it stands for (`root:2026-10-31`) while `due_date` is where it is now.**
+- **Move one day** (`lib/series.ts` `planMoveDay`, `lib/seriesActions.ts` `moveDay`): that day alone goes to another Day, with an optional time or length for that day alone. The moved row keeps its repeat rule; the rule, the template and every other day are unchanged. A projected day is stored first. A new Day on a stored day of a repeating task (details, Move to day, a quest put on today) now goes through it (`lib/taskOps.ts`); a Day set together with a repeat change is still a series edit.
+- **Fixed A, the series' first row:** its id has no day, so moving it brought its own day back as a second card (and an old weekly task with no weekdays moved the whole series). Now its day is skipped (the row is tombstoned keeping its rule, as Skip this day does) and the day is stored as `root:day` on the new Day, a copy with its ticks, time and steps. Not in the Trash, not a skipped day for the streak.
+- **Fixed B, the template:** a moved row is never the template while another row is left, so a change made to a moved day never reaches the later days.
+- **Fixed C, taken days:** a row takes only the day it stands for (`ownDay`). Moving Saturday onto Sunday no longer hides Sunday's own occurrence.
+- Skip this day on a moved card skips that row (by its id); Delete repeating task removes moved days with the rest. New `isMovedRow` and `movedFrom`.
+- The calendar feed's copy of `series.ts` is in step (`node scripts/vendor-feed.js`).
+- **Tests:** `seriesMove.test.ts` (19): Saturday to Friday, Saturday to Sunday, the first row (also weekly with no weekdays, and as template), a time change on one day, back to its own day, skip and delete, sync round trips through the server shape, two devices, the older client's rule. Changed on purpose: `series.test.ts` (the day a row was moved to keeps its own occurrence) and `quests.test.ts` (a moved row is not the template).
+
+---
+
 ## 3.0.0 — 2026-10-22 (iPhone catch-up P12: release preparation)
 
 **Version only, and the hand checklist. No code change. Nothing was built or sent (decision 1: 3.0.0 at P12).**

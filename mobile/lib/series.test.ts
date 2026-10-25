@@ -116,14 +116,15 @@ test('a day that has a stored occurrence shows the stored one, never a duplicate
   assert.equal(cols.days['2026-10-08'][0].projected, undefined);
 });
 
-test('an occurrence that was moved to another Day still takes its own date (no duplicate on either day)', () => {
+// Changed on purpose in 3.1.0 (problem C): the day a row was moved TO keeps its own occurrence.
+test('an occurrence that was moved to another Day takes its own date, not the Day it sits on', () => {
   const rows = [
     row('d', { dueDate: '2026-10-05', completed: true, recurrence: 'daily' }),
     row('d:2026-10-08', { dueDate: '2026-10-10', recurrence: 'daily' }),
   ];
   const out = dates(projectOccurrences(rows, WEEK, TODAY));
   assert.equal(out.includes('2026-10-08'), false); // its id date is taken
-  assert.equal(out.includes('2026-10-10'), false); // its Day is taken
+  assert.equal(out.includes('2026-10-10'), true); // the 10th still has its own day
 });
 
 test('a past stored occurrence that was not completed is not carried forward or projected', () => {

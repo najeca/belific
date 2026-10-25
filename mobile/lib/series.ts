@@ -12,7 +12,8 @@
 // id (the existing tombstone mechanism, so sync needs no new column and
 // tombstones win everywhere).
 //
-// The template is the latest stored LIVE row of the series by its Day. It
+// The template is the latest stored LIVE row of the series by its own day,
+// never a moved day while another row is left (isMovedRow). It
 // decides the title, label, rule and time of every projection. Its completed
 // state, completion time and subtask ticks are IGNORED: a projection is always
 // not completed with every subtask unticked. A series is alive while its
@@ -79,8 +80,8 @@ export interface Series {
   // Where the rule is counted from (every N weeks, the month day of an old
   // monthly task, the date of an annual one): the template's own day.
   anchorKey: string;
-  // Every Day that already has a row (live or tombstoned), by Day or by id:
-  // a projection never lands on one of these.
+  // Every day that already has a row (live or tombstoned) standing for it (its
+  // own day, see ownDay): a projection never lands on one of these.
   taken: Set<string>;
 }
 
@@ -90,6 +91,23 @@ export interface Series {
 // one can never change which row is the template or where the rule is anchored.
 export function ownDay(row: Pick<Task, 'id' | 'dueDate'>): string | undefined {
   return idDate(row.id) ?? (isDateKey(row.dueDate) ? row.dueDate : undefined);
+}
+
+// A MOVED day (3.1.0, "this day only"): a stored occurrence whose Day is not the
+// day in its id, for example this Saturday's shift put on Friday. Nothing new
+// is stored for it: the id keeps the day it stands for and due_date is where it
+// is now, so every device (older ones too) reads it from the existing columns.
+// A moved row is never the template (a change made to it alone never reaches
+// the other days) and only its id day counts as taken (the day it now sits on
+// still shows its own occurrence, if the rule has one there).
+export function isMovedRow(row: Pick<Task, 'id' | 'dueDate'>): boolean {
+  const own = idDate(row.id);
+  return !!own && isDateKey(row.dueDate) && row.dueDate !== own;
+}
+
+// The day a moved occurrence came from ('YYYY-MM-DD'), or undefined when it is not moved.
+export function movedFrom(row: Pick<Task, 'id' | 'dueDate'>): string | undefined {
+  return isMovedRow(row) ? idDate(row.id) : undefined;
 }
 
 function laterRow(a: Task, b: Task): boolean {
@@ -112,18 +130,20 @@ export function seriesOfRows(root: string, rows: Task[]): Series | null {
   const dated = rows.filter((r) => isDateKey(r.dueDate));
   if (dated.length === 0) return null;
   const live = dated.filter((r) => !r.deletedAt);
-  const template = latestOf(live) ?? latestOf(dated.filter((r) => !!r.recurrence));
+  const ruled = dated.filter((r) => !!r.recurrence);
+  const unmoved = (list: Task[]) => list.filter((r) => !isMovedRow(r));
+  // A moved row is the template only when nothing else is left (3.1.0).
+  const template = latestOf(unmoved(live)) ?? latestOf(unmoved(ruled)) ?? latestOf(live) ?? latestOf(ruled);
   if (!template || !template.recurrence) return null;
   const taken = new Set<string>();
   const anchorKey = ownDay(template) as string;
   let startKey = anchorKey;
+  // A row takes the day it stands for, never the day it was moved to (3.1.0).
   for (const r of rows) {
-    const dates = [isDateKey(r.dueDate) ? r.dueDate : undefined, idDate(r.id)];
-    for (const d of dates) {
-      if (!d) continue;
-      taken.add(d);
-      if (d < startKey) startKey = d;
-    }
+    const d = ownDay(r);
+    if (!d) continue;
+    taken.add(d);
+    if (d < startKey) startKey = d;
   }
   return { root, template, startKey, anchorKey, taken };
 }
@@ -366,20 +386,27 @@ export interface SkipPlan {
   templatePatch?: { id: string; fields: Partial<Task> };
 }
 
-// Plans "Skip this day" for `dayKey` of the series made of `rows`. null when
-// there is nothing to skip: no series, or that day's occurrence is completed.
-export function planSkip(rows: Task[], dayKey: string, nowIso: string): SkipPlan | null {
+// The live stored row a card stands for: the row with its id when there is one
+// (a stored card, moved or not), else the row whose own day is `dayKey`.
+function liveRowFor(rows: Task[], dayKey: string, id?: string): Task | undefined {
+  return (id ? rows.find((r) => !r.deletedAt && r.id === id) : undefined) ?? rows.find((r) => !r.deletedAt && ownDay(r) === dayKey);
+}
+
+// Plans "Skip this day" for `dayKey` of the series made of `rows` (`id`: the
+// card's own id, so a moved day is found by its row). null when there is
+// nothing to skip: no series, or that day's occurrence is completed.
+export function planSkip(rows: Task[], dayKey: string, nowIso: string, id?: string): SkipPlan | null {
   if (rows.length === 0) return null;
   const root = rootTaskId(rows[0].id);
   const series = seriesOfRows(root, rows);
   if (!series) return null;
-  const existing = rows.find((r) => !r.deletedAt && (r.dueDate === dayKey || idDate(r.id) === dayKey));
+  const existing = liveRowFor(rows, dayKey, id);
   if (existing) {
     if (existing.completed) return null;
     const tombstone: Task = { ...existing, deletedAt: nowIso, updatedAt: nowIso };
     if (series.template.id !== existing.id) return { tombstone };
     const others = rows.filter((r) => !r.deletedAt && r.id !== existing.id && isDateKey(r.dueDate));
-    const heir = latestOf(others);
+    const heir = latestOf(others.filter((r) => !isMovedRow(r))) ?? latestOf(others);
     if (!heir) return { tombstone };
     // Every template field is copied, a cleared one included.
     const carried: Partial<Task> = {};
@@ -388,4 +415,79 @@ export function planSkip(rows: Task[], dayKey: string, nowIso: string): SkipPlan
   }
   if (series.taken.has(dayKey)) return null; // already a tombstone
   return { tombstone: { ...occurrenceFromTemplate(series.template, dayKey, nowIso), deletedAt: nowIso } };
+}
+
+// ---- Moving one day (3.1.0, "this day only") ----
+
+export interface RowWrite {
+  row: Task;
+  // Added as a new row, else it replaces the stored row with its id.
+  isNew: boolean;
+}
+
+export interface MovePlan {
+  // Written in this order.
+  writes: RowWrite[];
+  // The row that stands for the day afterwards (its id is the card's id from now on).
+  moved: Task;
+}
+
+// Fields a move may never take from the caller: the row's identity and state.
+const MOVE_FORBIDDEN = ['id', 'dueDate', 'deletedAt', 'createdAt'] as const;
+
+// Plans moving ONE day of the series made of `rows` to `toDay`, with `fields`
+// (a time, a length, cleared times) applied to that day alone. `fromDay` is the
+// day the card stands for (its own day); `id` the card's id when it is stored.
+// The rule, the template and every other day are untouched:
+//  - a stored occurrence (`root:date`) gets the new Day (its id keeps its day);
+//  - a projected day is stored from the template, on the new Day;
+//  - the series' first row (its id has no day, so it cannot show a move) has
+//    its day skipped instead: the row is tombstoned keeping its rule, exactly as
+//    "Skip this day" does, and the day is stored as `root:fromDay` on the new
+//    Day, a copy of the row (ticks, time and steps included);
+//  - an occurrence put back on its own day is no longer moved.
+// null when there is nothing to move: no series, the day is skipped, a Day is
+// not a date, or nothing would change.
+export function planMoveDay(
+  rows: Task[],
+  fromDay: string,
+  toDay: string,
+  nowIso: string,
+  opts: { id?: string; fields?: Partial<Task> } = {},
+): MovePlan | null {
+  if (rows.length === 0 || !isDateKey(fromDay) || !isDateKey(toDay)) return null;
+  const root = rootTaskId(rows[0].id);
+  const series = seriesOfRows(root, rows);
+  if (!series) return null;
+  const fields: Partial<Task> = { ...(opts.fields ?? {}) };
+  for (const k of MOVE_FORBIDDEN) delete fields[k];
+  const hasFields = Object.keys(fields).length > 0;
+  const existing = liveRowFor(rows, fromDay, opts.id);
+  if (!existing) {
+    if (series.taken.has(fromDay)) return null; // skipped
+    if (toDay === fromDay && !hasFields) return null;
+    const row: Task = { ...occurrenceFromTemplate(series.template, fromDay, nowIso), ...fields, dueDate: toDay };
+    return { writes: [{ row, isNew: true }], moved: row };
+  }
+  if (existing.dueDate === toDay && !hasFields) return null;
+  const day = ownDay(existing) as string;
+  if (idDate(existing.id) || toDay === day) {
+    const row: Task = { ...existing, ...fields, dueDate: toDay, updatedAt: nowIso };
+    return { writes: [{ row, isNew: false }], moved: row };
+  }
+  // The first row, moved off its own day.
+  const id = nextOccurrenceId(root, day);
+  if (rows.some((r) => r.id === id)) return null; // that day already has a row of its own
+  const row: Task = { ...existing, ...fields, id, dueDate: toDay, updatedAt: nowIso };
+  const writes: RowWrite[] = [{ row, isNew: true }, { row: { ...existing, deletedAt: nowIso, updatedAt: nowIso }, isNew: false }];
+  if (series.template.id === existing.id) {
+    // As for a skip: an older live row takes over the template, with its content.
+    const heir = latestOf(rows.filter((r) => !r.deletedAt && r.id !== existing.id && isDateKey(r.dueDate) && !isMovedRow(r)));
+    if (heir) {
+      const carried: Partial<Task> = {};
+      for (const key of TEMPLATE_FIELDS) (carried as Record<string, unknown>)[key] = existing[key];
+      writes.push({ row: { ...heir, ...templatePatch(heir, carried), updatedAt: nowIso }, isNew: false });
+    }
+  }
+  return { writes, moved: row };
 }

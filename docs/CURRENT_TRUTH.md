@@ -2,7 +2,7 @@
 
 Update this at every session close. It replaces `current-state-audit.md` and `architecture.md` (both historical, July 2026) in the session protocol.
 
-Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 3.0.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
+Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 3.1.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
 
 **Since 2026-10-16 the work follows `docs/belific-build-plan.md` (phases 1 to 9) and `docs/build-progress.md` (checkpoint per phase, decisions, what is next).** Phases 1 to 8 are done (phase 8 in code: its Edge Function is not deployed and its grant 003 is not applied; Jethro does both); phase 9 has not started.
 
@@ -35,6 +35,10 @@ Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its f
 - **2.58.0 (P10):** hold a block on the Day timeline, then drag it in 15 minute steps (`DraggableBlock.tsx`, `lib/phoneDrag.ts` on the desktop's drop rules), with Undo and auto scroll; screen reader actions move it 15 minutes. Markers `multiDropPatch` and `resizeRefusal` removed on purpose.
 - **2.59.0 (P11):** Theme (Light, Dark, Match system) in the phone's Settings; every phone screen follows it; `phoneColors` removed (Colors on the phone = the light tokens); the old screens and task form deleted; `userInterfaceStyle` automatic (next build). Audit `phone-p11.js` (12 screens, both themes).
 - **3.0.0 (P12):** the iPhone catch-up release, prepared, not built: `docs/PHONE_RELEASE_3.0.0.md` holds the hand steps (EAS build and submit, TestFlight hand test, when Convert routines is safe). The live App Store version is 2.18.1 (decision 2) on the old project.
+
+## Repeating, this day only (2026-10-25, from 3.1.0)
+A day of a repeating task can be moved on its own. **No new column:** a moved day is a stored occurrence whose `id` keeps the day it stands for (`root:2026-10-31`) while `due_date` is where it is now (`series.isMovedRow`, `movedFrom`). It keeps its repeat rule, is never the template while another row is left, and takes only its own day (the day it sits on still shows its own occurrence). The series' first row cannot carry a move (no day in its id): moving it tombstones it with its rule (its day skipped) and stores the day as `root:day` on the new Day. Every move goes through `seriesActions.moveDay` (`series.planMoveDay`).
+- **3.1.0 (P1):** the shared logic, the fixes A, B and C, and a new Day on a stored repeating day (details, Move to day, Plan today) through it. "This and following" (a series end date) is not built: it needs a migration.
 
 ## Part C (2026-10-21, desktop from 2.34.1; plan `docs/PLAN_part_c.md`)
 - **2.34.1 (P1):** the timer can be started on any task, including a shown (not stored) day of a repeating task, which is stored first; a start that cannot happen shows a note; "Start from HH:mm" counts from a time that has begun today. Desktop only, no schema change.

@@ -3,6 +3,7 @@ import {
   completeProjected,
   deleteSeries,
   endSeries,
+  moveDay,
   patchSeries,
   skipOccurrence,
   tickTimeProjected,
@@ -10,6 +11,7 @@ import {
 } from './seriesActions';
 import { deleteBrainDumpItem, deleteTask } from './storage';
 import { dumpItemToTask } from './thoughts';
+import { isDateKey } from './kanban';
 import type { BrainDumpItem, Task } from './types';
 
 // What a card (or a Timebox block popover, or a phone row or details sheet) can do to its task.
@@ -43,7 +45,9 @@ export function opsForTask(task: Task): TaskOps {
     patch: (fields) =>
       repeating && 'recurrence' in fields && fields.recurrence === undefined
         ? endSeries(task, fields)
-        : patchTask(task.id, fields),
+        : repeating && movesOneDay(task, fields)
+          ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
+          : patchTask(task.id, fields),
     setCompleted: (done) => completeTaskById(task.id, done),
     setTimeDone: (time, done) => setTimeDoneById(task.id, time, done),
     toggleSubtask: (sid) => toggleSubtaskById(task.id, sid),
@@ -52,6 +56,20 @@ export function opsForTask(task: Task): TaskOps {
       ? { series: { projected: false, skipDay: () => skipOccurrence(task), deleteSeries: () => deleteSeries(task) } }
       : {}),
   };
+}
+
+// A new Day for a stored day of a repeating task, with its rule left alone, moves
+// that day only (3.1.0, seriesActions.moveDay): the first row's day becomes a
+// moved occurrence, so the series' own day is skipped rather than lost. A Day
+// set together with a repeat change (the Repeat editor lining the start up with
+// the chosen weekdays) is a series edit and stays a plain patch.
+const RULE_KEYS = ['recurrence', 'recurrenceDays', 'recurrenceMonthDay'] as const;
+function movesOneDay(task: Task, fields: Partial<Task>): boolean {
+  return isDateKey(fields.dueDate) && fields.dueDate !== task.dueDate && !RULE_KEYS.some((k) => k in fields);
+}
+function withoutDay(fields: Partial<Task>): Partial<Task> {
+  const { dueDate: _day, ...rest } = fields;
+  return rest;
 }
 
 // A projected occurrence of a repeating series (lib/series.ts): edits go to the

@@ -199,8 +199,9 @@ test('an occurrence moved to another day counts on its own day and never moves t
     done('f:2026-10-16', '2026-10-14', { recurrence: 'biweekly', recurrenceDays: ['Fri'] }),
   ];
   const series = seriesOfRows('f', rows)!;
-  assert.equal(series.template.id, 'f:2026-10-16');
-  assert.equal(series.anchorKey, '2026-10-16', 'the template stands for its own day');
+  // Changed on purpose in 3.1.0 (problem B): a moved row is never the template while another row is left.
+  assert.equal(series.template.id, 'f');
+  assert.equal(series.anchorKey, '2026-10-02', 'the template stands for its own day');
   assert.equal(occursOn(series.template, '2026-10-30', series.anchorKey), true);
   assert.equal(occursOn(series.template, '2026-10-23', series.anchorKey), false);
   const s = sd(rows);

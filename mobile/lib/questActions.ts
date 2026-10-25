@@ -1,5 +1,5 @@
 import { completeTaskById, patchTask } from './taskActions';
-import { completeProjected, materialise, skipOccurrence } from './seriesActions';
+import { completeProjected, materialise, moveDay, skipOccurrence } from './seriesActions';
 import { ownDay } from './series';
 import type { Task } from './types';
 
@@ -35,11 +35,11 @@ export async function skipQuest(target: QuestTarget): Promise<void> {
 // Put the target occurrence on today's plan: it is stored (if needed) and its
 // Day becomes today. Its id keeps its own day, so the rule and the streak are
 // unchanged (series.ownDay). The caller checks quests.canPlanToday first.
+// It goes through seriesActions.moveDay (3.1.0), so the series' first row is moved as a copy and
+// its own day skipped, and the returned row has the id the day has from now on.
 export async function planQuestToday(target: QuestTarget, todayKey: string): Promise<Task | null> {
-  const row = target.stored ? target.task : await materialise(target.task);
-  if (!row) return null;
-  if (row.dueDate !== todayKey) await patchTask(row.id, { dueDate: todayKey });
-  return { ...row, dueDate: todayKey };
+  if (target.task.dueDate === todayKey) return target.stored ? target.task : await materialise(target.task);
+  return moveDay(target.task, todayKey);
 }
 
 // Put it on today's Timebox at `startTime` (the next half hour, quests.nextHalfHour).

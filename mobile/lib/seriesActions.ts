@@ -5,6 +5,8 @@ import {
   deleteSeriesRows,
   endSeriesRows,
   occurrenceFromTemplate,
+  ownDay,
+  planMoveDay,
   planSkip,
   seriesEditTargets,
   seriesOfRows,
@@ -116,14 +118,33 @@ export function deleteSeries(task: Task): Promise<void> {
 
 // "Skip this day": a tombstoned stored occurrence with that day's id (the
 // existing tombstone mechanism, so sync needs nothing new and a tombstone wins).
+// A moved day is skipped by its own row (its id), on its own day.
 export function skipOccurrence(task: Task): Promise<void> {
   return serial(async () => {
-    if (!task.dueDate) return;
+    const day = ownDay(task);
+    if (!day) return;
     const { rows } = await rowsOfRoot(task.id);
-    const plan = planSkip(rows, task.dueDate, nowIso());
+    const plan = planSkip(rows, day, nowIso(), task.id);
     if (!plan) return;
     if (rows.some((r) => r.id === plan.tombstone.id)) await updateTask(plan.tombstone);
     else await addTask(plan.tombstone);
     if (plan.templatePatch) await writeRow(plan.templatePatch.id, plan.templatePatch.fields);
+  });
+}
+
+// "Move this day" (3.1.0): that day alone goes to `toDay`, with `fields` (a time,
+// a length) for that day alone; the rule and every other day stay (series.planMoveDay).
+// Returns the row that now stands for the day (the first row's day gets a new
+// id), or null when nothing moved.
+export function moveDay(task: Task, toDay: string, fields: Partial<Task> = {}): Promise<Task | null> {
+  return serial(async () => {
+    const day = ownDay(task);
+    if (!day) return null;
+    const { rows } = await rowsOfRoot(task.id);
+    const stored = rows.some((r) => r.id === task.id && !r.deletedAt);
+    const plan = planMoveDay(rows, day, toDay, nowIso(), { id: stored ? task.id : undefined, fields });
+    if (!plan) return null;
+    for (const w of plan.writes) await (w.isNew ? addTask(w.row) : updateTask(w.row));
+    return plan.moved;
   });
 }

@@ -126,11 +126,14 @@ export function seriesDays(root: string, rows: Task[], legacyDates?: ReadonlySet
   const series = seriesOfRows(root, rows);
   if (!series) return null;
   const marks = new Map<string, DayMark>();
+  // A day with a live row is not skipped: the first row moved off its day
+  // leaves a tombstone on that day beside the moved copy (series.planMoveDay).
+  const liveDays = new Set(rows.filter((r) => !r.deletedAt).map((r) => ownDay(r)));
   for (const r of rows) {
     const day = ownDay(r);
     if (!day) continue;
     if (r.deletedAt) {
-      if (!marks.has(day)) marks.set(day, 'skipped');
+      if (!marks.has(day) && !liveDays.has(day)) marks.set(day, 'skipped');
     } else if (r.completed) marks.set(day, 'done');
   }
   const legacy = root.startsWith(SERIES_PREFIX) && !!legacyDates && legacyDates.size > 0;

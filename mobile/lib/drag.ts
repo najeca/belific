@@ -256,8 +256,9 @@ export function edgeAction(dir: -1 | 0 | 1, scrollLeft: number, maxScrollLeft: n
 // 30 minutes earlier or later, the day before or after, or 30 minutes shorter
 // or longer, by the same rules as a drag: the start stays inside the day, the
 // length between 30 minutes and the longest duration, never onto a past day.
-// A projected occurrence of a repeating series can change its time and length
-// (the whole series) but not its day. Returns the fields to change, or null.
+// A projected occurrence of a repeating series changes the whole series' time and
+// length; its day moves that day only (3.2.0, the caller writes it through
+// seriesActions.moveDay). Returns the fields to change, or null.
 export type BlockNudge = 'earlier' | 'later' | 'dayBefore' | 'dayAfter' | 'shorter' | 'longer';
 
 export function nudgeBlock(
@@ -277,7 +278,6 @@ export function nudgeBlock(
     const next = resizedDuration(start, start + duration + (nudge === 'longer' ? SNAP_MINUTES : -SNAP_MINUTES));
     return next === duration ? null : { durationMinutes: next };
   }
-  if (projected) return null;
   const d = new Date(`${task.dueDate}T12:00:00`);
   d.setDate(d.getDate() + (nudge === 'dayAfter' ? 1 : -1));
   const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

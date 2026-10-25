@@ -28,12 +28,13 @@ import { labelColor } from '../../lib/labelColors';
 import StreakLine from './StreakLine';
 import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
-import { opsForProjected, opsForTask, type TaskOps } from './taskOps';
+import { movesOneDay, opsForProjected, opsForTask, withoutDay, type TaskOps } from './taskOps';
+import { moveDay } from '../../lib/seriesActions';
 import { toggleTimer, useNow } from './timerUi';
 import { startFromChoices } from '../../lib/timerSession';
 import { formatTime } from '../../lib/data';
 import { isMultiTime, MAX_TIMES, addTimeFields, isTimeDone, moveTimeFields, removeTimeFields, suggestNextTime, timesOf, type TimeEdit, type TimeRefusal } from '../../lib/times';
-import { closeDetail, getDetailFocus, notifyChanged, useDetailId } from './uiStore';
+import { closeDetail, getDetailFocus, notifyChanged, openDetail, useDetailId } from './uiStore';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
@@ -125,9 +126,18 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
 function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; onSaved: () => void }) {
   const ops: TaskOps = projected ? opsForProjected(task) : opsForTask(task);
   const patch = async (fields: Partial<Task>) => {
+    // A new Day on a repeating task moves this day only (3.2.0); the series' first row comes back
+    // under a new id (series.planMoveDay), so the details follow it there.
+    if (task.recurrence && movesOneDay(task, fields)) {
+      const row = await moveDay(task, fields.dueDate as string, withoutDay(fields));
+      if (row && row.id !== task.id) openDetail(row.id);
+      onSaved();
+      return;
+    }
     await ops.patch(fields);
     onSaved();
   };
+  const dayOps: TaskOps = { ...ops, patch };
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? '');
   const [confirming, setConfirming] = useState(false);
@@ -263,8 +273,9 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
               type="date"
               value={isDateKey(task.dueDate) ? task.dueDate : ''}
               aria-label="Day"
-              disabled={projected}
-              onChange={(e) => patch({ dueDate: e.target.value || undefined })}
+              min={task.recurrence ? dateKey(new Date()) : undefined}
+              // A day of a repeating task is never left without a Day (it would leave the series).
+              onChange={(e) => (e.target.value || !task.recurrence ? patch({ dueDate: e.target.value || undefined }) : undefined)}
               style={domSelect}
             />
             {/* A time of day belongs to a Day (patchTask clears it with the Day). */}
@@ -278,7 +289,7 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
                 style={domSelect}
               />
             )}
-            {!projected ? <DatePickField task={task} ops={ops} onSaved={onSaved} /> : null}
+            <DatePickField task={task} ops={dayOps} onSaved={onSaved} />
             {task.startTime && !multi ? (
               <Pressable onPress={() => patch({ startTime: undefined })} style={styles.xBtn} accessibilityRole="button" accessibilityLabel="Remove time" {...({ title: 'Remove time' } as object)}>
                 <Ionicons name="close" size={13} color={Colors.textSecondary} />

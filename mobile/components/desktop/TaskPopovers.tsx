@@ -44,6 +44,7 @@ import { notifyChanged, openDetail, openOverlay, useNewColorsOk } from './uiStor
 import { toggleTimer, useNow } from './timerUi';
 import { startFromChoices } from '../../lib/timerSession';
 import { EACH_TIME_NOTE, isMultiTime } from '../../lib/times';
+import { MOVE_THIS_DAY, MOVE_THIS_DAY_NOTE } from '../../lib/series';
 import { formatTime } from '../../lib/data';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
@@ -276,7 +277,10 @@ function leadsText(list: number[]): string {
 }
 
 // ---------------------------------------------------------------- Move to day
+// A repeating task (ops.series) moves that day only (3.2.0, seriesActions.moveDay): the heading says
+// so and there is no "Remove day" (a day of a series always has a Day).
 export function MoveToDayBody({ task, ops, done }: BodyProps) {
+  const oneDay = !!ops.series;
   const todayKey = dateKey(new Date());
   const today = parseDateKey(todayKey);
   const tomorrowKey = dateKey(addDays(today, 1));
@@ -291,13 +295,14 @@ export function MoveToDayBody({ task, ops, done }: BodyProps) {
   };
   return (
     <View style={styles.list}>
-      <PopoverHeading>Day</PopoverHeading>
+      <PopoverHeading>{oneDay ? MOVE_THIS_DAY : 'Day'}</PopoverHeading>
+      {oneDay ? <Text style={styles.seriesNote}>{MOVE_THIS_DAY_NOTE}</Text> : null}
       <Row icon="today-outline" label="Today" sub={weekdayDate(todayKey)} subRight selected={task.dueDate === todayKey} onPress={() => move(todayKey)} />
       <Row icon="sunny-outline" label="Tomorrow" sub={weekdayDate(tomorrowKey)} subRight selected={task.dueDate === tomorrowKey} onPress={() => move(tomorrowKey)} />
       <Row icon="arrow-forward-circle-outline" label="Next week" sub={weekdayDate(nextWeekKey)} subRight selected={task.dueDate === nextWeekKey} onPress={() => move(nextWeekKey)} />
       <View style={divider} />
       <MonthGrid selected={task.dueDate} min={todayKey} onPick={(key) => move(key)} a11y={(key) => `Move to ${key}`} />
-      {task.dueDate && (
+      {task.dueDate && !oneDay && (
         <>
           <View style={divider} />
           <Row icon="close-outline" label="Remove day" sub="Back to the Brain Dump list" onPress={() => move(undefined)} />
@@ -701,6 +706,7 @@ export function OverflowBody({
   onOpen?: () => void;
 }) {
   const [confirming, setConfirming] = useState(!!armed);
+  const [moving, setMoving] = useState(false);
   const feats = useFeatures();
   const series = ops.series;
   const openRow =
@@ -761,6 +767,8 @@ export function OverflowBody({
   // A repeating task (stored or projected): skip one day, or delete the series.
   if (series) {
     const canSkip = !!task?.dueDate && !task.completed;
+    // 3.2.0: the day picker opens inside this popover (only one popover is open at a time).
+    if (moving && task) return <MoveToDayBody task={task} ops={ops} done={done} />;
     return (
       <View style={styles.list}>
         {confirming ? (
@@ -785,6 +793,9 @@ export function OverflowBody({
             {openRow}
             {timerRows}
             {mustRow}
+            {canSkip && (
+              <Row label={MOVE_THIS_DAY} sub="Only this day" onPress={() => setMoving(true)} a11y={MOVE_THIS_DAY} />
+            )}
             {canSkip && (
               <Row
                 label="Skip this day"

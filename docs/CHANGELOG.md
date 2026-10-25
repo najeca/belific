@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 3.2.0 — 2026-10-25 (Repeating, this day only P2: move a day on the desktop and the phone)
+
+**Desktop and iPhone. No schema change.**
+- **Drag a day to another day:** a repeating day that is not stored yet can now be dragged to another Day column, or to a time slot on another day, and moves that day only (stored first). A stored day moves the same way (the series' first row through the copy of 3.1.0). Dropped on a time slot of its own day it still sets the series' time. The refusal "Repeating: set Repeat to Does not repeat to move it" is gone; only the left list still refuses ("A day of a repeating task stays on a day").
+- **Move this day** in the ⋮ menu of a repeating card or block (beside Skip this day): the day picker opens in the same popover, headed "Move this day", with "Only this day moves. The other days stay as they are." and no "Remove day". The card's ☀️ Move to today now works on a projected day too.
+- **Details:** the date of a projected day can be changed (the field and the date picker were off); a repeating day cannot be cleared to no date; the series' first row reopens under its new id. Keyboard: the day before or after on a block of a projected day moves that day only (it did nothing).
+- **Phone:** the details' date sheet moves a day of a repeating task (projected or stored) through the same helper, says only this day moves, and has no "No date".
+- **Tests:** real checks `desktop/test/real/p26.js` (17: drag a projected day, Move this day, the first row) and `phone-p12.js` (11: the date sheet, a projected day and the first row). Changed on purpose: `drag.test.ts` (a projected day's day nudge now moves that day).
+
+---
+
 ## 3.1.0 — 2026-10-25 (Repeating, this day only P1: move one day)
 
 **Shared logic (desktop and iPhone). No new column, no migration: a moved day is a stored occurrence whose `id` keeps the day it stands for (`root:2026-10-31`) while `due_date` is where it is now.**

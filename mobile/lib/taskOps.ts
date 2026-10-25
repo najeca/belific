@@ -64,10 +64,10 @@ export function opsForTask(task: Task): TaskOps {
 // set together with a repeat change (the Repeat editor lining the start up with
 // the chosen weekdays) is a series edit and stays a plain patch.
 const RULE_KEYS = ['recurrence', 'recurrenceDays', 'recurrenceMonthDay'] as const;
-function movesOneDay(task: Task, fields: Partial<Task>): boolean {
+export function movesOneDay(task: Task, fields: Partial<Task>): boolean {
   return isDateKey(fields.dueDate) && fields.dueDate !== task.dueDate && !RULE_KEYS.some((k) => k in fields);
 }
-function withoutDay(fields: Partial<Task>): Partial<Task> {
+export function withoutDay(fields: Partial<Task>): Partial<Task> {
   const { dueDate: _day, ...rest } = fields;
   return rest;
 }
@@ -75,9 +75,11 @@ function withoutDay(fields: Partial<Task>): Partial<Task> {
 // A projected occurrence of a repeating series (lib/series.ts): edits go to the
 // series template, ticking stores that day's occurrence, "Skip this day" writes
 // a tombstone and "Delete repeating task" ends the series.
+// A new Day moves that day only (stored first, 3.2.0), as on a stored day.
 export function opsForProjected(task: Task): TaskOps {
   return {
-    patch: (fields) => patchSeries(task, fields),
+    patch: (fields) =>
+      movesOneDay(task, fields) ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined) : patchSeries(task, fields),
     setCompleted: (done) => completeProjected(task, done),
     setTimeDone: (time, done) => tickTimeProjected(task, time, done),
     toggleSubtask: (sid) => toggleProjectedSubtask(task, sid),

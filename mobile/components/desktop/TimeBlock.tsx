@@ -12,7 +12,8 @@ import { moveTimeFields } from '../../lib/times';
 import { dateKey } from '../../lib/kanban';
 import { shortcutFor } from '../../lib/shortcuts';
 import { updateTask } from '../../lib/storage';
-import { patchSeries } from '../../lib/seriesActions';
+import { moveDay, patchSeries } from '../../lib/seriesActions';
+import { withoutDay } from '../../lib/taskOps';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { domNode, useDrag } from './DragProvider';
@@ -185,7 +186,9 @@ export default function TimeBlock({
           patch = { dueDate: patch.dueDate };
         }
         if (!patch || Object.keys(patch).length === 0) return;
-        const done = proj ? patchSeries(t, patch) : updateTask({ ...t, ...patch });
+        // 3.2.0: a new day for a day of a repeating task moves that day only.
+        const done =
+          t.recurrence && patch.dueDate ? moveDay(t, patch.dueDate, withoutDay(patch)) : proj ? patchSeries(t, patch) : updateTask({ ...t, ...patch });
         Promise.resolve(done).then(() => {
           onChanged();
           // The block is drawn again (maybe in another column): put the keyboard back on it.

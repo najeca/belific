@@ -27,7 +27,8 @@ import { updateTask } from '../../lib/storage';
 import { closePopover } from './Popover';
 import { isEditableTarget } from '../../lib/editable';
 import { convertDumpItem } from '../../lib/taskActions';
-import { patchSeries } from '../../lib/seriesActions';
+import { moveDay, patchSeries } from '../../lib/seriesActions';
+import { isDateKey } from '../../lib/kanban';
 import { isMultiTime } from '../../lib/times';
 import { showNotice } from './uiStore';
 import type { BrainDumpItem, Task } from '../../lib/types';
@@ -61,8 +62,9 @@ export interface DragItem {
   grabOffsetMin?: number;
   // Blocks of a task with several times a day (Part C): the time of the block that was grabbed.
   time?: string;
-  // A projected occurrence of a repeating series (decision 023): it can only be
-  // dropped on the Timebox, which sets the start time of the whole series.
+  // A projected occurrence of a repeating series (decision 023). On a time slot of
+  // its own day it sets the series' start time; on another day (a column or a
+  // slot) it moves that day only (3.2.0, seriesActions.moveDay); never the left list.
   projected?: boolean;
 }
 
@@ -215,9 +217,8 @@ export default function DragProvider({ children, onChanged }: { children: React.
       x,
       y,
       target,
-      // A projected occurrence only ever lands on the Timebox (its start time
-      // is the series' start time); no Day column and not the left list.
-      accepted: target ? canDrop(target, todayKey) && (!p.item.projected || target.kind === 'slot') : false,
+      // A projected occurrence never goes to the left list (a day of a series keeps a Day).
+      accepted: target ? canDrop(target, todayKey) && (!p.item.projected || target.kind !== 'left') : false,
       edge,
     };
     last.current = next;
@@ -318,33 +319,45 @@ export default function DragProvider({ children, onChanged }: { children: React.
     // or in the details window.
     if (!state.target || !state.accepted) return;
     const { task, item } = p.item;
+    // 3.2.0: a day of a repeating task dropped on ANOTHER day moves that day only, stored or projected
+    // (the series' first row included, see series.planMoveDay). On its own day a projected one sets the
+    // series' time, as before.
+    const target = state.target;
+    const otherDay = !!task && !!task.recurrence && target.kind !== 'left' && target.dayKey !== task.dueDate;
+    const write = async (fields: Partial<Task>) => {
+      if (!task) return;
+      if (task.recurrence && isDateKey(fields.dueDate) && fields.dueDate !== task.dueDate) {
+        const { dueDate, ...rest } = fields;
+        await moveDay(task, dueDate as string, rest);
+      } else if (p.item.projected) await patchSeries(task, fields);
+      else await updateTask({ ...task, ...fields });
+    };
     // A block of a task with several times a day (Part C): only its own time moves (see multiDropPatch).
     if (task && p.item.time && isMultiTime(task)) {
-      const res = multiDropPatch(task, p.item.time, state.target, todayKey, !!p.item.projected);
+      const res = multiDropPatch(task, p.item.time, target, todayKey, !!p.item.projected && !otherDay);
       if (!res) return;
       if (!res.ok) {
         showNotice(res.note);
         return;
       }
-      if (p.item.projected) await patchSeries(task, res.fields);
-      else await updateTask({ ...task, ...res.fields });
+      await write(res.fields);
       onChangedRef.current();
       return;
     }
-    if (task && p.item.projected) {
-      // Dropped on the Timebox: the start time (and the estimate, when it had
-      // none) is set for the whole series; the Day is never touched.
-      if (state.target.kind !== 'slot') return;
-      const patch = dropPatch(task, p.item.kind, state.target, todayKey);
+    if (task && p.item.projected && !otherDay) {
+      // Dropped on the Timebox of its own day: the start time (and the estimate,
+      // when it had none) is set for the whole series; the Day is never touched.
+      if (target.kind !== 'slot') return;
+      const patch = dropPatch(task, p.item.kind, target, todayKey);
       if (!patch) return;
       await patchSeries(task, {
         startTime: patch.startTime,
         ...(patch.durationMinutes !== undefined ? { durationMinutes: patch.durationMinutes } : {}),
       });
     } else if (task) {
-      const patch = dropPatch(task, p.item.kind, state.target, todayKey);
+      const patch = dropPatch(task, p.item.kind, target, todayKey);
       if (!patch) return;
-      await updateTask({ ...task, ...patch });
+      await write(patch);
     } else if (item) {
       const patch = dropPatch({}, 'row', state.target, todayKey);
       if (!patch) return;
@@ -500,7 +513,8 @@ export default function DragProvider({ children, onChanged }: { children: React.
 function LiftedCard({ drag }: { drag: DragState }) {
   const t = drag.target;
   let hint: string | null = null;
-  if (t && !drag.accepted && drag.item.projected && t.kind !== 'slot') hint = 'Repeating: set Repeat to Does not repeat to move it';
+  // 3.2.0: a repeating day can go to another day (that day only), just not to the list.
+  if (t && !drag.accepted && drag.item.projected && t.kind === 'left') hint = 'A day of a repeating task stays on a day';
   else if (t && !drag.accepted) hint = 'Past day';
   else if (t?.kind === 'slot') hint = slotLabel(t.startMin, drag.item.duration);
   return (

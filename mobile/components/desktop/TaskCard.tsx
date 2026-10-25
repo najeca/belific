@@ -107,7 +107,8 @@ export default function TaskCard({
   const placed = !!task.dueDate && !!task.startTime;
   const steps = counter(task.subtasks);
   const mustDo = isMustDo(task);
-  const canMoveToday = !projected && !task.completed && task.dueDate !== todayKey;
+  // A projected day moves that day only (3.2.0, taskOps), like a stored one.
+  const canMoveToday = !task.completed && task.dueDate !== todayKey;
   const open = (focus: DetailFocus = 'title') => (onOpen ? onOpen(focus) : openDetail(id, focus));
   const openRef = useRef(open);
   openRef.current = open;

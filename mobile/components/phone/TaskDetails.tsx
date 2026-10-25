@@ -13,7 +13,8 @@ import { createLabel, loadLabels } from '../../lib/labels';
 import { liveLists } from '../../lib/lists';
 import { addSubtask, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { opsForProjected, opsForTask } from '../../lib/taskOps';
-import { materialise } from '../../lib/seriesActions';
+import { materialise, moveDay } from '../../lib/seriesActions';
+import { MOVE_THIS_DAY_NOTE } from '../../lib/series';
 import { loadListsRaw, loadTasksRaw } from '../../lib/storage';
 import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, priorityPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -125,10 +126,17 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     onChanged();
   }
 
-  // The date of a projected day moves only that day: it is stored first, then edited.
+  // The date of a day of a repeating task (projected or stored) moves only that day (3.2.0): through
+  // seriesActions.moveDay, as on the desktop. The series' first row comes back under a new id.
   async function setDate(key: string | undefined) {
     if (!task) return;
     setOpen(null);
+    if (task.recurrence && key) {
+      const row = await moveDay(task, key);
+      if (row) show(row, false);
+      onChanged();
+      return;
+    }
     if (projected) {
       const row = await materialise(task);
       if (!row) return;
@@ -252,11 +260,13 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
             {row('calendar-outline', 'Date', dayText, () => setOpen(open === 'date' ? null : 'date'), `Date, ${dayText}`, false, 'date')}
             {open === 'date' ? (
               <View style={s.panel}>
+                {task.recurrence ? <Text style={s.note} {...({ dataSet: { moveDayNote: '1' } } as object)}>{MOVE_THIS_DAY_NOTE}</Text> : null}
                 <View style={s.chips}>
                   {[
                     ['Today', todayKey],
                     ['Tomorrow', tomorrowKey],
-                    ['No date', undefined],
+                    // A day of a repeating task keeps a Day.
+                    ...(task.recurrence ? [] : [['No date', undefined]]),
                   ].map(([text, key]) => (
                     <Pressable key={text} style={[s.chip, task.dueDate === key && s.chipOn]} onPress={() => void setDate(key)} accessibilityRole="button" accessibilityLabel={text as string}>
                       <Text style={[s.chipText, task.dueDate === key && s.chipTextOn]}>{text}</Text>

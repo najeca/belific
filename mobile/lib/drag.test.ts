@@ -263,7 +263,8 @@ test('2.26.0 keyboard moves on a time block: 30 minute steps, inside the day, ne
   assert.equal(nudgeBlock({ ...t, startTime: '00:00' }, 'earlier', '2026-10-17'), null, 'stays inside the day');
   assert.equal(nudgeBlock({ ...t, startTime: '23:30' }, 'later', '2026-10-17'), null);
   assert.deepEqual(nudgeBlock({ dueDate: '2026-10-31', startTime: '10:00' }, 'dayAfter', '2026-10-17'), { dueDate: '2026-11-01' }, 'across a month (and the clock change)');
-  assert.equal(nudgeBlock(t, 'dayAfter', '2026-10-17', true), null, 'a projected occurrence never changes its day');
+  // Changed on purpose in 3.2.0: a projected day can move (that day only, the caller writes it through moveDay).
+  assert.deepEqual(nudgeBlock(t, 'dayAfter', '2026-10-17', true), { dueDate: '2026-10-18' }, 'a projected day moves that day only');
   assert.deepEqual(nudgeBlock(t, 'later', '2026-10-17', true), { startTime: '09:30' });
   assert.equal(nudgeBlock({ dueDate: '2026-10-17' }, 'later', '2026-10-17'), null, 'an untimed task has no block');
 });

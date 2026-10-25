@@ -105,6 +105,10 @@ export function isMovedRow(row: Pick<Task, 'id' | 'dueDate'>): boolean {
   return !!own && isDateKey(row.dueDate) && row.dueDate !== own;
 }
 
+// The words for moving one day, the same on the desktop and the iPhone (3.2.0).
+export const MOVE_THIS_DAY = 'Move this day';
+export const MOVE_THIS_DAY_NOTE = 'Only this day moves. The other days stay as they are.';
+
 // The day a moved occurrence came from ('YYYY-MM-DD'), or undefined when it is not moved.
 export function movedFrom(row: Pick<Task, 'id' | 'dueDate'>): string | undefined {
   return isMovedRow(row) ? idDate(row.id) : undefined;

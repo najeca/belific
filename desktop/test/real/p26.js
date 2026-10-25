@@ -1,0 +1,141 @@
+'use strict';
+// Real check for 3.2.0 to 3.4.0: one day of a repeating task, this day only. Real mouse and key input into
+// the real app on an isolated data folder; Supabase is the in process fake (signed out, nothing leaves
+// the machine).
+//  3.2.0: a projected (not yet stored) day dragged to another Day column moves that day only; "Move this
+//         day" in the card's menu; the series' first row dragged to another day (its day skipped, a moved
+//         copy stored); no "Does not repeat to move it" refusal any more.
+// BELIFIC_SHOTS: a folder for screenshots.
+const fs = require('node:fs');
+const path = require('node:path');
+const { app } = require('electron');
+const C = require('./common');
+const { makeInput, dayKeyFrom, readKv } = require('./input');
+
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+process.env.BELIFIC_NO_PROTOCOL_REGISTER = '1';
+const userData = C.isolate();
+console.log(`USERDATA ${userData}`);
+
+run().catch((err) => {
+  console.log(`FAIL harness error: ${err.stack || err}`);
+  app.exit(1);
+});
+
+async function run() {
+  const { check, summary } = C.makeChecker();
+  app.whenReady().then(() => {
+    const fake = C.installFakeSupabase();
+    fake.store = { tables: {} };
+  });
+
+  const day = dayKeyFrom(new Date());
+  const wd = (k) => WEEKDAY[new Date(`${k}T12:00:00`).getDay()];
+  // "The weekend": the days two and three from today, every week. It started a week ago and was done then.
+  const SAT = day(2);
+  const SUN = day(3);
+  const stamp = '2026-09-01T07:00:00.000Z';
+  const dataDir = path.join(userData, 'data');
+  fs.mkdirSync(dataDir, { recursive: true });
+  const T = (id, title, extra = {}) => ({ id, title, completed: false, createdAt: stamp, updatedAt: stamp, ...extra });
+  const rule = { recurrence: 'weekly', recurrenceDays: [wd(SAT), wd(SUN)] };
+  fs.writeFileSync(
+    path.join(dataDir, 'belific_tasks.kv'),
+    JSON.stringify([
+      T('shift', 'Weekend shift', { ...rule, dueDate: day(-5), completed: true, completedAt: stamp }),
+      T('shift:' + day(-4), 'Weekend shift', { ...rule, dueDate: day(-4), completed: true, completedAt: stamp }),
+      // A new series whose only row is its first row, on SAT.
+      T('first', 'First shift', { recurrence: 'weekly', recurrenceDays: [wd(SAT)], dueDate: SAT }),
+      T('plain', 'Plain task', { dueDate: day(0) }),
+    ]),
+  );
+  fs.writeFileSync(path.join(dataDir, 'belific_desktop_panes.kv'), JSON.stringify({ leftCollapsed: false, rightCollapsed: false, center: 'kanban', calendar: 'day' }));
+
+  const read = readKv(dataDir);
+  const tasks = () => read('belific_tasks') || [];
+  const byId = (id) => tasks().find((t) => t.id === id);
+
+  require(C.MAIN);
+  await app.whenReady();
+  const win = await C.waitFor(() => C.firstWindow());
+  win.setSize(1440, 900);
+  win.show();
+  win.focus();
+  win.webContents.focus();
+  const I = makeInput(win, process.env.BELIFIC_SHOTS || '');
+  await I.waitBody('Plain task', 20000);
+  await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 600);
+  await C.sleep(1000);
+
+  const col = (key) => `document.querySelector('[data-day-col="${key}"]')`;
+  const cardsIn = (key, title) => `Array.from((${col(key)} || document.createElement('div')).querySelectorAll('[aria-label="Task ${title}"]'))`;
+  const countIn = (key, title) => I.js(`${cardsIn(key, title)}.length`);
+  const projectedIn = (key, title) => I.js(`${cardsIn(key, title)}.filter((c) => c.getAttribute('data-projected') === '1').length`);
+  const drag = async (fromExpr, toExpr, { release = true } = {}) => {
+    // Today at the left edge of the strip (as when the app opens), so neither end of the drag is in the
+    // board's edge auto scroll zone; measure only once it has settled.
+    await I.js(`(() => { const s = document.querySelector('[data-strip]'); const c = ${col(day(0))}; s.scrollLeft += c.getBoundingClientRect().left - s.getBoundingClientRect().left; })()`);
+    await C.sleep(600);
+    const a = await I.js(`(() => { const e = ${fromExpr}; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + 60), y: Math.round(r.top + 14) }; })()`);
+    const b = await I.js(`(() => { const e = ${toExpr}; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 140) }; })()`);
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y });
+    await C.sleep(80);
+    win.webContents.sendInputEvent({ type: 'mouseDown', x: a.x, y: a.y, button: 'left', clickCount: 1 });
+    for (let i = 1; i <= 12; i++) {
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(a.x + ((b.x - a.x) * i) / 12), y: Math.round(a.y + ((b.y - a.y) * i) / 12), modifiers: ['leftButtonDown'] });
+      await C.sleep(25);
+    }
+    await C.sleep(300);
+    const lifted = await I.js(`(document.querySelector('[data-lifted-card]') || {}).innerText || ''`);
+    if (process.env.P26_DEBUG) console.log('DRAG', JSON.stringify({ a, b, cols: await I.js(`[...document.querySelectorAll('[data-day-col]')].map((c) => [c.dataset.dayCol, Math.round(c.getBoundingClientRect().left), Math.round(c.getBoundingClientRect().width)])`), ph: await I.js(`[...document.querySelectorAll('[data-drop-placeholder]')].map((e) => e.dataset.dropPlaceholder)`) }));
+    if (release) {
+      win.webContents.sendInputEvent({ type: 'mouseUp', x: b.x, y: b.y, button: 'left', clickCount: 1 });
+      await C.sleep(700);
+    }
+    return lifted;
+  };
+
+  // ======== 3.2.0: drag a projected day to another day ========
+  check('Saturday shows the shift as a projected (not stored) card', (await projectedIn(SAT, 'Weekend shift')) === 1);
+  check('Sunday too', (await projectedIn(SUN, 'Weekend shift')) === 1);
+  await I.shot('p26-01-before');
+  const lifted = await drag(`${cardsIn(SAT, 'Weekend shift')}[0]`, col(day(1)));
+  check('no "Does not repeat to move it" refusal while it is over another day', !/Does not repeat/.test(lifted) && !/stays on a day/.test(lifted), lifted);
+  await C.sleep(400);
+  const moved = byId(`shift:${SAT}`);
+  check('the day is stored with its own id, on the new Day, keeping its rule', !!moved && moved.dueDate === day(1) && moved.recurrence === 'weekly' && !moved.deletedAt && !moved.completed, JSON.stringify(moved));
+  check('the moved day shows on the new Day as a stored card', (await countIn(day(1), 'Weekend shift')) === 1 && (await projectedIn(day(1), 'Weekend shift')) === 0);
+  check('Saturday no longer shows the shift', (await countIn(SAT, 'Weekend shift')) === 0);
+  check('Sunday still shows its own projected shift', (await projectedIn(SUN, 'Weekend shift')) === 1);
+  check('nothing else was written (the root and last week unchanged)', tasks().filter((t) => t.id.startsWith('shift')).length === 3 && byId('shift').dueDate === day(-5));
+  await I.shot('p26-02-dragged');
+
+  // ======== 3.2.0: Move this day from the card's menu ========
+  await I.click(`${cardsIn(SUN, 'Weekend shift')}[0].querySelector('[aria-label="More actions for Weekend shift"]')`);
+  const menu = await I.js(`(document.querySelector('[data-popover]') || {}).innerText || ''`);
+  check('the menu of a repeating card offers Move this day beside Skip this day', menu.includes('Move this day') && menu.includes('Skip this day'), menu);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Move this day"]')`);
+  const picker = await I.js(`(document.querySelector('[data-popover]') || {}).innerText || ''`);
+  check('the day picker says only this day moves, and has no Remove day', picker.includes('Only this day moves') && !picker.includes('Remove day'), picker);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Move to ${day(4)}"]')`);
+  await C.sleep(600);
+  const sun = byId(`shift:${SUN}`);
+  check('Move this day stores Sunday on the chosen Day with its rule', !!sun && sun.dueDate === day(4) && sun.recurrence === 'weekly', JSON.stringify(sun));
+  check('Sunday is empty now, the chosen day shows the moved card', (await countIn(SUN, 'Weekend shift')) === 0 && (await countIn(day(4), 'Weekend shift')) === 1);
+  await I.shot('p26-03-menu-moved');
+
+  // ======== 3.2.0: the series' first row ========
+  check('the first row shows on its own day as a stored card', (await countIn(SAT, 'First shift')) === 1 && (await projectedIn(SAT, 'First shift')) === 0);
+  await drag(`${cardsIn(SAT, 'First shift')}[0]`, col(day(1)));
+  await C.sleep(400);
+  const root = byId('first');
+  const copy = byId(`first:${SAT}`);
+  check('the first row is tombstoned keeping its rule (its day skipped)', !!root && !!root.deletedAt && root.recurrence === 'weekly', JSON.stringify(root));
+  check('its day is stored as a moved copy on the new Day', !!copy && copy.dueDate === day(1) && copy.recurrence === 'weekly' && !copy.deletedAt, JSON.stringify(copy));
+  check('the first row\'s own day does not come back (problem A)', (await countIn(SAT, 'First shift')) === 0);
+  check('the moved copy shows on the new Day', (await countIn(day(1), 'First shift')) === 1);
+  await I.shot('p26-04-first-row');
+
+  const failed = summary();
+  app.exit(failed === 0 ? 0 : 1);
+}

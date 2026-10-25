@@ -399,6 +399,24 @@ export interface SkipPlan {
   // content the skipped row carried is copied onto it so later edits are not
   // lost. Never touches its Day or completed state.
   templatePatch?: { id: string; fields: Partial<Task> };
+  // 3.4.0: instead, when the older live row is still open (it may hold a "this
+  // day only" change), the next day of the series is stored to carry the
+  // content, so that day's own change is never overwritten.
+  templateRow?: Task;
+}
+
+// The next day after `afterKey` the series would show (its rule, not taken by
+// any row), as an occurrence built from `template`; undefined when there is
+// none within the look ahead (a year, or ten for monthly and annual).
+function nextOccurrenceAfter(series: Series, template: Task, afterKey: string, nowIso: string): Task | undefined {
+  const ahead = template.recurrence === 'monthly' || template.recurrence === 'annual' ? LONG_TOMBSTONE_KEEP_DAYS : 366;
+  let day = parseDateKey(afterKey);
+  for (let i = 0; i < ahead; i++) {
+    day = addDays(day, 1);
+    const key = dateKey(day);
+    if (!series.taken.has(key) && occursOn(template, key, series.anchorKey)) return occurrenceFromTemplate(template, key, nowIso);
+  }
+  return undefined;
 }
 
 // The live stored row a card stands for: the row with its id when there is one
@@ -423,6 +441,10 @@ export function planSkip(rows: Task[], dayKey: string, nowIso: string, id?: stri
     const others = rows.filter((r) => !r.deletedAt && r.id !== existing.id && isDateKey(r.dueDate));
     const heir = latestOf(others.filter((r) => !isMovedRow(r))) ?? latestOf(others);
     if (!heir) return { tombstone };
+    if (!heir.completed) {
+      const next = nextOccurrenceAfter(series, existing, dayKey, nowIso);
+      if (next) return { tombstone, templateRow: next };
+    }
     // Every template field is copied, a cleared one included.
     const carried: Partial<Task> = {};
     for (const key of TEMPLATE_FIELDS) (carried as Record<string, unknown>)[key] = existing[key];
@@ -445,6 +467,45 @@ export interface MovePlan {
   writes: RowWrite[];
   // The row that stands for the day afterwards (its id is the card's id from now on).
   moved: Task;
+}
+
+// ---- A change to one day (3.4.0, "This day only") ----
+
+// Plans changing `fields` (a time, a length, its times) on ONE day of the series
+// made of `rows`, stored first when it is only projected. The day keeps its rule
+// and Day; the other days never see the change. The template is the latest
+// stored row, so a changed day that would become it (it is the latest) would
+// hand its change to every later day: the next day of the series is then stored
+// as well, from the series as it was, and carries the series instead. That
+// next day reads exactly as before (a stored open day of the series). A repeat
+// rule, a Day or the row's identity are never taken from `fields` (those are
+// series edits or moves). null when there is nothing to change.
+export function planThisDayEdit(
+  rows: Task[],
+  dayKey: string,
+  fields: Partial<Task>,
+  nowIso: string,
+  id?: string,
+): MovePlan | null {
+  if (rows.length === 0) return null;
+  const root = rootTaskId(rows[0].id);
+  const series = seriesOfRows(root, rows);
+  if (!series) return null;
+  const clean: Partial<Task> = { ...fields };
+  for (const k of [...MOVE_FORBIDDEN, ...RULE_FIELDS]) delete clean[k];
+  if (Object.keys(clean).length === 0) return null;
+  const existing = liveRowFor(rows, dayKey, id);
+  if (!existing && series.taken.has(dayKey)) return null; // skipped
+  const base = existing ?? occurrenceFromTemplate(series.template, dayKey, nowIso);
+  const row: Task = { ...base, ...clean, updatedAt: nowIso };
+  const writes: RowWrite[] = [{ row, isNew: !existing }];
+  const after = existing ? rows.map((r) => (r.id === row.id ? row : r)) : [...rows, row];
+  const next = seriesOfRows(root, after);
+  if (next && next.template.id === row.id) {
+    const carrier = nextOccurrenceAfter(next, series.template, ownDay(row) as string, nowIso);
+    if (carrier) writes.push({ row: carrier, isNew: true });
+  }
+  return { writes, moved: row };
 }
 
 // Fields a move may never take from the caller: the row's identity and state.

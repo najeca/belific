@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 3.4.0 — 2026-10-25 (Repeating, this day only P4: This day only / All days)
+
+**Desktop and iPhone. No schema change.**
+- **A new time or length for a day of a repeating task asks "This day only / All days"** (`lib/scopeAsk.ts`): a small popover where the pointer let go on the desktop (a drag or a resize of a block, the time or estimate in the details, the block keys), a sheet on the phone (the details' time and length, a hold-and-drag on the Calendar, whose Undo follows the answer). Dismissed (Escape, a click outside, Cancel), it does what the app did before: a projected day changes the series, a stored day changes only itself; that answer is marked Default.
+- **This day only** (`series.planThisDayEdit`, `seriesActions.editThisDay`): the day is stored with its own time. The series' template is its latest stored row, so a changed day that would become it would hand its time to every later day: the next day of the series is then stored too, from the series as it was, and carries the series. Skip this day on that carrying day keeps the change on the day before it (`planSkip` stores the next day instead of overwriting an open earlier row; a completed earlier row still takes the content over, as before).
+- **All days** is the old series edit (the template and every open stored day from today, a moved day's time included, never its Day).
+- One change arriving twice (the phone's time field commits on Enter and on blur) is asked once and both writes follow the one answer.
+- The series notes say so: desktop "Repeating: changes apply to every day. A new date moves this day only; a new time asks."; the phone's note likewise.
+- **Tests:** `seriesMove.test.ts` (+5: a projected Saturday, a stored day, the fields it never takes, a moved day, skip after a this-day change), `scopeAsk.test.ts` (5); real checks `p26.js` (+9: the prompt, its default, Escape, This day only with the next day carrying the series, All days on a stored moved day) and `phone-p12.js` (+4: the sheet, This day only, the carrying day, Cancel). Changed on purpose: `series.test.ts` (skipping the template with an open earlier row stores the next day).
+
+---
+
 ## 3.3.0 — 2026-10-25 (Repeating, this day only P3: show moved days)
 
 **Desktop and iPhone. Nothing stored: a day is moved when its id's day is not its Day (`series.movedFrom`).**

@@ -24,6 +24,7 @@ import { closePopover, isPopoverOpen } from './Popover';
 import { setHomeActive } from './viewActive';
 import AccountChoiceModal from './AccountChoiceModal';
 import TimerWidget from './TimerWidget';
+import ScopePrompt from './ScopePrompt';
 import TaskDetailPanel from './TaskDetailPanel';
 import ShortcutHelp from './ShortcutHelp';
 import { useHomeShortcuts } from './useHomeShortcuts';
@@ -505,6 +506,7 @@ export default function DesktopHome() {
       {view === 'home' && overlay?.kind === 'missed' && <MissedPanel refreshKey={refreshKey} />}
       {view === 'home' && <UndoBar />}
       <TimerWidget refreshKey={refreshKey} />
+      <ScopePrompt />
       <AccountChoiceModal />
     </View>
     </DragProvider>

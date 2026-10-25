@@ -2,7 +2,7 @@
 
 Update this at every session close. It replaces `current-state-audit.md` and `architecture.md` (both historical, July 2026) in the session protocol.
 
-Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 3.3.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
+Last verified: 2026-10-19 (build plan phases 1 to 8, the desktop redesign, its fix batch and the 2.27.1 small fix batch; app version 3.4.0; display batch Part A, see `docs/build-progress.md`) against branch `v2-redesign`.
 
 **Since 2026-10-16 the work follows `docs/belific-build-plan.md` (phases 1 to 9) and `docs/build-progress.md` (checkpoint per phase, decisions, what is next).** Phases 1 to 8 are done (phase 8 in code: its Edge Function is not deployed and its grant 003 is not applied; Jethro does both); phase 9 has not started.
 
@@ -41,6 +41,7 @@ A day of a repeating task can be moved on its own. **No new column:** a moved da
 - **3.1.0 (P1):** the shared logic, the fixes A, B and C, and a new Day on a stored repeating day (details, Move to day, Plan today) through it. "This and following" (a series end date) is not built: it needs a migration.
 - **3.2.0 (P2):** a projected or stored repeating day dragged to another Day column or another day's time slot moves that day only (desktop); "Move this day" in the ⋮ menu; the details' date works on a projected day; the phone's date sheet goes through `moveDay`. The left list still refuses a repeating day.
 - **3.3.0 (P3):** a moved day shows "↪ Moved from Sat" (card, tall block, phone Today and Tasks rows), the ↪ arrow alone on a short block or an all day chip, and "Moved from Sat 31 Oct · this day only" in tooltips and the details.
+- **3.4.0 (P4):** a new time or length on a repeating day asks "This day only / All days" (`lib/scopeAsk.ts`; desktop popover `ScopePrompt.tsx`, phone sheet `ScopeSheet.tsx`); dismissed, it keeps the old behaviour (projected: series; stored: that day). This day only stores the day (`series.planThisDayEdit`); when that day would become the template, the next day of the series is stored too and carries the series (no new column). Skipping the carrying day stores the next one rather than overwriting an open earlier row.
 
 ## Part C (2026-10-21, desktop from 2.34.1; plan `docs/PLAN_part_c.md`)
 - **2.34.1 (P1):** the timer can be started on any task, including a shown (not stored) day of a repeating task, which is stored first; a start that cannot happen shows a note; "Start from HH:mm" counts from a time that has begun today. Desktop only, no schema change.

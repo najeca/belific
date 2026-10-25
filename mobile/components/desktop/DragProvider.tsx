@@ -27,7 +27,9 @@ import { updateTask } from '../../lib/storage';
 import { closePopover } from './Popover';
 import { isEditableTarget } from '../../lib/editable';
 import { convertDumpItem } from '../../lib/taskActions';
-import { moveDay, patchSeries } from '../../lib/seriesActions';
+import { editRepeatingTime, moveDay, patchSeries } from '../../lib/seriesActions';
+import { isTimeEdit } from '../../lib/scopeAsk';
+import { withoutDay } from '../../lib/taskOps';
 import { isDateKey } from '../../lib/kanban';
 import { isMultiTime } from '../../lib/times';
 import { showNotice } from './uiStore';
@@ -308,8 +310,9 @@ export default function DragProvider({ children, onChanged }: { children: React.
         showNotice(refusal);
         return;
       }
-      // Resizing a projected block changes the estimate of the whole series.
-      if (p.item.projected) await patchSeries(task, { durationMinutes: state.resizeDuration });
+      // Resizing a day of a repeating task asks This day only / All days (3.4.0; dismissed: a projected
+      // block changes the series' length, a stored one its own, as before).
+      if (task.recurrence) await editRepeatingTime(task, !!p.item.projected, { durationMinutes: state.resizeDuration });
       else await updateTask({ ...task, durationMinutes: state.resizeDuration });
       onChangedRef.current();
       return;
@@ -329,7 +332,12 @@ export default function DragProvider({ children, onChanged }: { children: React.
       if (task.recurrence && isDateKey(fields.dueDate) && fields.dueDate !== task.dueDate) {
         const { dueDate, ...rest } = fields;
         await moveDay(task, dueDate as string, rest);
-      } else if (p.item.projected) await patchSeries(task, fields);
+        return;
+      }
+      // 3.4.0: a new time on the same day of a repeating task asks This day only / All days.
+      const sameDay = fields.dueDate === task.dueDate ? withoutDay(fields) : fields;
+      if (task.recurrence && isTimeEdit(sameDay)) await editRepeatingTime(task, !!p.item.projected, sameDay);
+      else if (p.item.projected) await patchSeries(task, fields);
       else await updateTask({ ...task, ...fields });
     };
     // A block of a task with several times a day (Part C): only its own time moves (see multiDropPatch).
@@ -350,7 +358,8 @@ export default function DragProvider({ children, onChanged }: { children: React.
       if (target.kind !== 'slot') return;
       const patch = dropPatch(task, p.item.kind, target, todayKey);
       if (!patch) return;
-      await patchSeries(task, {
+      // 3.4.0: asks This day only / All days (dismissed: the series, as before).
+      await editRepeatingTime(task, true, {
         startTime: patch.startTime,
         ...(patch.durationMinutes !== undefined ? { durationMinutes: patch.durationMinutes } : {}),
       });

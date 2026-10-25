@@ -658,7 +658,8 @@ export function LabelBody({ task, ops, done }: BodyProps) {
 // ---------------------------------------------------------------- Overflow
 // The quiet line on a card or block that stands for every day of a repeating
 // series (checkpoint 8.4, decision 023): its edits change the series.
-export const SERIES_NOTE = 'Repeating: changes apply to every day';
+// 3.4.0: the sentence keeps its start (older checks read it); a new date or time is now this day's own choice.
+export const SERIES_NOTE = 'Repeating: changes apply to every day. A new date moves this day only; a new time asks.';
 
 export function SeriesNote() {
   return <Text style={styles.seriesNote}>{SERIES_NOTE}</Text>;

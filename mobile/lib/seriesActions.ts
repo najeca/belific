@@ -8,11 +8,13 @@ import {
   ownDay,
   planMoveDay,
   planSkip,
+  planThisDayEdit,
   seriesEditTargets,
   seriesOfRows,
   templatePatch,
 } from './series';
 import { dateKey } from './kanban';
+import { askScope } from './scopeAsk';
 import type { Task } from './types';
 
 // What a card does to a repeating series (checkpoint 8.4, decision 023). Pure
@@ -129,7 +131,33 @@ export function skipOccurrence(task: Task): Promise<void> {
     if (rows.some((r) => r.id === plan.tombstone.id)) await updateTask(plan.tombstone);
     else await addTask(plan.tombstone);
     if (plan.templatePatch) await writeRow(plan.templatePatch.id, plan.templatePatch.fields);
+    if (plan.templateRow) await addTask(plan.templateRow);
   });
+}
+
+// "This day only" (3.4.0): `fields` (a time, a length) on that day alone (series.planThisDayEdit:
+// the day is stored if it was only shown, and the next day carries the series when needed).
+export function editThisDay(task: Task, fields: Partial<Task>): Promise<Task | null> {
+  return serial(async () => {
+    const day = ownDay(task);
+    if (!day) return null;
+    const { rows } = await rowsOfRoot(task.id);
+    const stored = rows.some((r) => r.id === task.id && !r.deletedAt);
+    const plan = planThisDayEdit(rows, day, fields, nowIso(), stored ? task.id : undefined);
+    if (!plan) return null;
+    for (const w of plan.writes) await (w.isNew ? addTask(w.row) : updateTask(w.row));
+    return plan.moved;
+  });
+}
+
+// A new time or length for a day of a repeating task asks "This day only / All days" (scopeAsk.ts).
+// Dismissed, it does what it did before the question: a projected day changes the series, a stored
+// day changes only itself (now without reaching the later days).
+export async function editRepeatingTime(task: Task, projected: boolean, fields: Partial<Task>): Promise<void> {
+  const answer = await askScope({ title: 'Change the time of a repeating task', fallback: projected ? 'all' : 'day' });
+  const scope = answer ?? (projected ? 'all' : 'day');
+  if (scope === 'all') await patchSeries(task, fields);
+  else await editThisDay(task, fields);
 }
 
 // "Move this day" (3.1.0): that day alone goes to `toDay`, with `fields` (a time,

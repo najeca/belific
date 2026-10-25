@@ -607,5 +607,12 @@ test('extra times are edited on the series (a template field); the ticks of a da
     row('brk:2026-10-06', { dueDate: '2026-10-06', startTime: '11:00', recurrence: 'daily' }),
   ];
   const plan = planSkip(rows, TODAY, NOW);
-  assert.deepEqual(plan?.templatePatch?.fields.extraTimes, ['15:00']);
+  // Changed on purpose in 3.4.0: the older row is still open (it may hold a "this day only" change), so
+  // the next day is stored to carry the series instead of overwriting it; it has the extra times.
+  assert.equal(plan?.templatePatch, undefined);
+  assert.equal(plan?.templateRow?.id, 'brk:2026-10-08');
+  assert.deepEqual(plan?.templateRow?.extraTimes, ['15:00']);
+  // a completed older row still takes the content over, as before
+  const done = [rows[0], { ...rows[1], completed: true }];
+  assert.deepEqual(planSkip(done, TODAY, NOW)?.templatePatch?.fields.extraTimes, ['15:00']);
 });

@@ -12,7 +12,7 @@ import { moveTimeFields } from '../../lib/times';
 import { dateKey } from '../../lib/kanban';
 import { shortcutFor } from '../../lib/shortcuts';
 import { updateTask } from '../../lib/storage';
-import { moveDay, patchSeries } from '../../lib/seriesActions';
+import { editRepeatingTime, moveDay } from '../../lib/seriesActions';
 import { withoutDay } from '../../lib/taskOps';
 import { movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
 import type { LabelColor } from '../../lib/labelColors';
@@ -188,8 +188,12 @@ export default function TimeBlock({
         }
         if (!patch || Object.keys(patch).length === 0) return;
         // 3.2.0: a new day for a day of a repeating task moves that day only.
-        const done =
-          t.recurrence && patch.dueDate ? moveDay(t, patch.dueDate, withoutDay(patch)) : proj ? patchSeries(t, patch) : updateTask({ ...t, ...patch });
+        // 3.4.0: a new time or length for it asks This day only / All days.
+        const done = t.recurrence
+          ? patch.dueDate
+            ? moveDay(t, patch.dueDate, withoutDay(patch))
+            : editRepeatingTime(t, !!proj, patch)
+          : updateTask({ ...t, ...patch });
         Promise.resolve(done).then(() => {
           onChanged();
           // The block is drawn again (maybe in another column): put the keyboard back on it.

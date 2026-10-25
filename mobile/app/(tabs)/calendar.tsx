@@ -20,7 +20,8 @@ import { DayView, type DayData } from '../../components/phone/calendar/DayView';
 import type { DragTarget } from '../../components/phone/calendar/DraggableBlock';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
 import { phoneDropPatch } from '../../lib/phoneDrag';
-import { patchSeries } from '../../lib/seriesActions';
+import { editThisDay, patchSeries } from '../../lib/seriesActions';
+import { askScope, type Scope } from '../../lib/scopeAsk';
 import { patchTask } from '../../lib/taskActions';
 import type { Task } from '../../lib/types';
 import { MonthView, WeekView } from '../../components/phone/calendar/WeekMonth';
@@ -145,7 +146,12 @@ export default function CalendarScreen() {
     }
     const before: Partial<Task> = {};
     for (const k of Object.keys(res.fields) as Array<keyof Task>) (before as Record<string, unknown>)[k] = full[k];
-    const write = (fields: Partial<Task>) => (res.series ? patchSeries(full, fields) : patchTask(full.id, fields));
+    // 3.4.0: a day of a repeating task asks This day only / All days (dismissed: as before, a projected
+    // day moves the series' time, a stored one its own); Undo puts back what the answer changed.
+    let scope: Scope = res.series ? 'all' : 'day';
+    if (full.recurrence) scope = (await askScope({ title: 'Change the time of a repeating task', fallback: scope })) ?? scope;
+    const write = (fields: Partial<Task>) =>
+      !full.recurrence ? patchTask(full.id, fields) : scope === 'all' ? patchSeries(full, fields) : editThisDay(full, fields).then(() => undefined);
     await write(res.fields);
     await load();
     setNotice({ id: Date.now(), text: `Moved to ${formatTime(toTime(startMin))}`, undo: () => void write(before).then(load) });

@@ -2,6 +2,7 @@ import { completeTaskById, editDumpItem, patchTask, setTimeDoneById, toggleSubta
 import {
   completeProjected,
   deleteSeries,
+  editRepeatingTime,
   endSeries,
   moveDay,
   patchSeries,
@@ -12,6 +13,7 @@ import {
 import { deleteBrainDumpItem, deleteTask } from './storage';
 import { dumpItemToTask } from './thoughts';
 import { isDateKey } from './kanban';
+import { isTimeEdit } from './scopeAsk';
 import type { BrainDumpItem, Task } from './types';
 
 // What a card (or a Timebox block popover, or a phone row or details sheet) can do to its task.
@@ -38,7 +40,8 @@ export interface SeriesOps {
 }
 
 // A stored task. A repeating one also gets the series actions, and setting it
-// to "Does not repeat" ends the whole series (every row of its root).
+// to "Does not repeat" ends the whole series (every row of its root). A new time
+// or length on a repeating day asks "This day only / All days" (3.4.0).
 export function opsForTask(task: Task): TaskOps {
   const repeating = !!task.recurrence;
   return {
@@ -47,7 +50,9 @@ export function opsForTask(task: Task): TaskOps {
         ? endSeries(task, fields)
         : repeating && movesOneDay(task, fields)
           ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
-          : patchTask(task.id, fields),
+          : repeating && isTimeEdit(fields)
+            ? editRepeatingTime(task, false, fields)
+            : patchTask(task.id, fields),
     setCompleted: (done) => completeTaskById(task.id, done),
     setTimeDone: (time, done) => setTimeDoneById(task.id, time, done),
     toggleSubtask: (sid) => toggleSubtaskById(task.id, sid),
@@ -75,11 +80,16 @@ export function withoutDay(fields: Partial<Task>): Partial<Task> {
 // A projected occurrence of a repeating series (lib/series.ts): edits go to the
 // series template, ticking stores that day's occurrence, "Skip this day" writes
 // a tombstone and "Delete repeating task" ends the series.
-// A new Day moves that day only (stored first, 3.2.0), as on a stored day.
+// A new Day moves that day only (stored first, 3.2.0), as on a stored day. A new
+// time or length asks "This day only / All days" (3.4.0, seriesActions.editRepeatingTime).
 export function opsForProjected(task: Task): TaskOps {
   return {
     patch: (fields) =>
-      movesOneDay(task, fields) ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined) : patchSeries(task, fields),
+      movesOneDay(task, fields)
+        ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
+        : isTimeEdit(fields)
+          ? editRepeatingTime(task, true, fields)
+          : patchSeries(task, fields),
     setCompleted: (done) => completeProjected(task, done),
     setTimeDone: (time, done) => tickTimeProjected(task, time, done),
     toggleSubtask: (sid) => toggleProjectedSubtask(task, sid),

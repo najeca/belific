@@ -9,6 +9,7 @@ import {
   movedFrom,
   planMoveDay,
   planSkip,
+  planThisDayEdit,
   projectOccurrences,
   seriesEditTargets,
   seriesOf,
@@ -252,6 +253,67 @@ test('Delete repeating task removes the moved day with the rest', () => {
   assert.ok(after.find((r) => r.id === `w:${SAT}`)!.deletedAt);
   assert.deepEqual(projectOccurrences(after, DAYS, TODAY), []);
   assert.deepEqual(board(after)(FRI), []);
+});
+
+// ---- 3.4.0: This day only ----
+
+test('This day only on a projected Saturday: stored with the new time; the next day carries the series', () => {
+  const plan = planThisDayEdit(shift(), SAT, { startTime: '06:00', durationMinutes: 360 }, NOW);
+  assert.equal(plan!.moved.id, `w:${SAT}`);
+  assert.equal(plan!.moved.startTime, '06:00');
+  assert.equal(plan!.moved.dueDate, SAT);
+  // Saturday would be the latest stored row (the template): Sunday is stored too, from the series as it was.
+  assert.deepEqual(plan!.writes.map((w) => [w.row.id, w.isNew]), [[`w:${SAT}`, true], [`w:${SUN}`, true]]);
+  const sunday = plan!.writes[1].row;
+  assert.equal(sunday.startTime, '09:00');
+  assert.equal(sunday.completed, false);
+  const rows = apply(shift(), plan);
+  assert.equal(seriesOf(rows, 'w')!.template.id, `w:${SUN}`);
+  // Every other day keeps 09:00 for 8 hours.
+  for (const t of projectOccurrences(rows, DAYS, TODAY)) assert.deepEqual([t.startTime, t.durationMinutes], ['09:00', 480], t.dueDate);
+  assert.deepEqual(board(rows)(SAT), [{ id: `w:${SAT}`, projected: false, start: '06:00' }]);
+  assert.deepEqual(board(rows)(SUN), [{ id: `w:${SUN}`, projected: false, start: '09:00' }]);
+});
+
+test('This day only on a stored day that is not the latest: only that row changes', () => {
+  const later = { ...projectOccurrences(shift(), [NEXT_SAT], TODAY)[0] };
+  const start = [...shift(), { ...projectOccurrences(shift(), [SAT], TODAY)[0] }, later];
+  const plan = planThisDayEdit(start, SAT, { startTime: '07:30' }, NOW, `w:${SAT}`);
+  assert.deepEqual(plan!.writes.map((w) => [w.row.id, w.isNew]), [[`w:${SAT}`, false]]);
+  const rows = apply(start, plan);
+  assert.equal(seriesOf(rows, 'w')!.template.id, `w:${NEXT_SAT}`);
+  assert.equal(projectOccurrences(rows, [SUN], TODAY)[0].startTime, '09:00');
+});
+
+test('This day only never takes a Day, an id or a repeat rule; nothing to change returns null', () => {
+  const plan = planThisDayEdit(shift(), SAT, { startTime: '06:00', dueDate: SUN, id: 'x', recurrence: undefined, recurrenceDays: ['Mon'] }, NOW);
+  assert.equal(plan!.moved.id, `w:${SAT}`);
+  assert.equal(plan!.moved.dueDate, SAT);
+  assert.equal(plan!.moved.recurrence, 'weekly');
+  assert.deepEqual(plan!.moved.recurrenceDays, ['Sat', 'Sun']);
+  assert.equal(planThisDayEdit(shift(), SAT, { dueDate: SUN }, NOW), null);
+  const skipped = [...shift(), { ...projectOccurrences(shift(), [SAT], TODAY)[0], deletedAt: NOW }];
+  assert.equal(planThisDayEdit(skipped, SAT, { startTime: '06:00' }, NOW), null, 'a skipped day');
+});
+
+test('This day only on a moved day: no carrier is needed (a moved row is never the template)', () => {
+  const moved = apply(shift(), planMoveDay(shift(), SAT, FRI, NOW));
+  const plan = planThisDayEdit(moved, SAT, { startTime: '05:00' }, NOW, `w:${SAT}`);
+  assert.equal(plan!.writes.length, 1);
+  assert.equal(plan!.moved.dueDate, FRI);
+});
+
+test('skipping the day that carries the series keeps a this-day change on the day before it', () => {
+  const rows = apply(shift(), planThisDayEdit(shift(), SAT, { startTime: '06:00' }, NOW));
+  // Sunday carries the series; skipping it must not hand the series' 09:00 back to Saturday.
+  const skip = planSkip(rows, SUN, NOW, `w:${SUN}`)!;
+  assert.equal(skip.templatePatch, undefined);
+  assert.equal(skip.templateRow!.id, `w:${NEXT_SAT}`);
+  assert.equal(skip.templateRow!.startTime, '09:00');
+  const after = [...rows.map((r) => (r.id === skip.tombstone.id ? skip.tombstone : r)), skip.templateRow!];
+  assert.equal(after.find((r) => r.id === `w:${SAT}`)!.startTime, '06:00');
+  assert.deepEqual(board(after)(SUN), []);
+  assert.equal(projectOccurrences(after, [NEXT_SUN], TODAY)[0].startTime, '09:00');
 });
 
 // ---- sync ----

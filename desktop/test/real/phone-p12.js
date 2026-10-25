@@ -43,6 +43,9 @@ async function run() {
     T(`yoga:${day(1)}`, 'Yoga', { dueDate: today, startTime: '08:00', durationMinutes: 45, recurrence: 'weekly', recurrenceDays: [WD[new Date(`${day(1)}T12:00:00`).getDay()]], listKey: 'L1' }),
   ]);
   write('belific_lists', [{ key: 'L1', name: 'Health', emoji: '💪', sortOrder: 0, createdAt: stamp, updatedAt: stamp }]);
+  // 3.4.0: a daily swim at 06:00; today's is projected.
+  const seeded = JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_tasks.kv'), 'utf8'));
+  write('belific_tasks', [...seeded, T('swim', 'Swim', { dueDate: day(-7), startTime: '06:00', durationMinutes: 30, recurrence: 'daily', completed: true, completedAt: stamp })]);
   const read = (k) => {
     try {
       return JSON.parse(fs.readFileSync(path.join(dataDir, `${k}.kv`), 'utf8'));
@@ -129,6 +132,41 @@ async function run() {
   const tasksYoga = await rowMoved('[data-task-row="Yoga"]');
   check('Tasks: the moved row in its list says where it came from', !!tasksYoga && tasksYoga.text.includes(`Moved from ${fromName}`), JSON.stringify(tasksYoga));
   await shot('phone-p12-tasks-moved');
+
+  // ======== 3.4.0: This day only / All days ========
+  const sheetMenu = () => P.js(`(() => { const m = [...document.querySelectorAll('[data-action-menu]')].pop(); return m ? m.innerText : ''; })()`);
+  const menuTap = async (label) => {
+    await C.sleep(600); // the sheet ignores a press in its first moments
+    await P.finger.tap(`[...document.querySelectorAll('[data-action-menu] [aria-label=${JSON.stringify(label)}]')].pop()`, 900);
+  };
+  const setTime = async (hhmm) => {
+    // The Time row opens and closes its field: tap it only while the field is closed.
+    if (!(await P.js(`!!${inSheet('[aria-label="Start time"]')}`))) await tapIn('[data-detail-row="time"]');
+    await scrollTo('[aria-label="Start time"]');
+    await P.js(`(() => { const e = ${inSheet('[aria-label="Start time"]')}; e.focus(); e.select && e.select(); })()`);
+    await win.webContents.insertText(hhmm);
+    await C.sleep(250);
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
+    win.webContents.sendInputEvent({ type: 'char', keyCode: '\r' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
+    await C.sleep(900);
+  };
+  await P.finger.tap(tab('Today'), 1200);
+  await openFromToday('Swim');
+  await setTime('07:15');
+  const asked = await sheetMenu();
+  check('a new time on a repeating day asks This day only / All days', asked.includes('This day only') && asked.includes('All days'), asked);
+  await shot('phone-p12-scope-sheet');
+  await menuTap('This day only');
+  const swimToday = task(`swim:${today}`);
+  check('This day only stores today at 07:15; the series keeps 06:00', !!swimToday && swimToday.startTime === '07:15' && task('swim').startTime === '06:00', JSON.stringify(swimToday));
+  const swimNext = task(`swim:${day(1)}`);
+  check('tomorrow is stored to carry the series at 06:00 (no leak)', !!swimNext && swimNext.startTime === '06:00' && !swimNext.completed, JSON.stringify(swimNext));
+  await setTime('07:45');
+  await menuTap('Cancel');
+  // The series is held by tomorrow's stored day now (the template), so the series edit lands there.
+  check('Cancel does what the app did before (a projected day: the series moves to 07:45)', task(`swim:${day(1)}`).startTime === '07:45', JSON.stringify(task(`swim:${day(1)}`)));
+  await P.finger.tap(visible('[aria-label="Done"]'), 900);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

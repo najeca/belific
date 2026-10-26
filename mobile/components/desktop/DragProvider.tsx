@@ -34,7 +34,7 @@ import { withoutDay } from '../../lib/taskOps';
 import { isDateKey } from '../../lib/kanban';
 import { isMultiTime } from '../../lib/times';
 import { showNotice } from './uiStore';
-import { LONGER_THAN_BREAK, hostDrop } from '../../lib/hosting';
+import { fitRefusal, hostDrop, longerNote } from '../../lib/hosting';
 import { dayBreaks } from './breakStore';
 import type { BrainDumpItem, Task } from '../../lib/types';
 
@@ -86,7 +86,8 @@ export interface DragState {
   resizeDuration?: number;
   // 3.6.0: the pointer is on a break: the task goes inside it (the target's time is already moved
   // there), or it is longer than the break and drops as before.
-  host?: { kind: 'host' | 'longer'; title: string };
+  // 3.11.0: 'longer' is refused (the drop snaps back) and `note` says why: "Longer than the break (1 h)".
+  host?: { kind: 'host' | 'longer'; title: string; note?: string };
 }
 
 type ZoneReg =
@@ -220,7 +221,12 @@ export default function DragProvider({ children, onChanged }: { children: React.
         if (hd.kind === 'host') {
           target = { ...target, startMin: hd.startMin };
           host = { kind: 'host', title: hd.brk.title };
-        } else if (hd.kind === 'longer') host = { kind: 'longer', title: hd.brk.title };
+        } else if (hd.kind === 'longer') host = { kind: 'longer', title: hd.brk.title, note: longerNote(hd.brk) };
+        else {
+          // 3.11.0: a start inside a break (the pointer below it) the task does not fit from is refused too.
+          const b2 = fitRefusal(breaks, [], [[target.startMin, target.startMin + p.item.duration]]);
+          if (b2) host = { kind: 'longer', title: b2.title, note: longerNote(b2) };
+        }
       }
     }
     const todayKey = dateKey(new Date());
@@ -241,7 +247,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
       y,
       target,
       // A projected occurrence never goes to the left list (a day of a series keeps a Day).
-      accepted: target ? canDrop(target, todayKey) && (!p.item.projected || target.kind !== 'left') : false,
+      accepted: target ? canDrop(target, todayKey) && (!p.item.projected || target.kind !== 'left') && host?.kind !== 'longer' : false,
       edge,
       ...(host ? { host } : {}),
     };
@@ -342,6 +348,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
     // 2.26.0: a drop is only ever a move to a day, a time or the list. Dropping
     // on another card never merges or nests it; subtasks are added on the card
     // or in the details window.
+    if (state.host?.kind === 'longer' && state.host.note) showNotice(state.host.note);
     if (!state.target || !state.accepted) return;
     const { task, item } = p.item;
     // 3.2.0: a day of a repeating task dropped on ANOTHER day moves that day only, stored or projected
@@ -546,10 +553,11 @@ function LiftedCard({ drag }: { drag: DragState }) {
   let hint: string | null = null;
   // 3.2.0: a repeating day can go to another day (that day only), just not to the list.
   if (t && !drag.accepted && drag.item.projected && t.kind === 'left') hint = 'A day of a repeating task stays on a day';
+  // 3.11.0: refused over a break the task does not fit: it snaps back on release.
+  else if (t && !drag.accepted && drag.host?.kind === 'longer') hint = drag.host.note ?? null;
   else if (t && !drag.accepted) hint = 'Past day';
-  // 3.6.0: on a break: "During Lunch, 12:30 to 12:45", or why it will not go inside.
+  // 3.6.0: on a break: "During Lunch, 12:30 to 12:45".
   else if (t?.kind === 'slot' && drag.host?.kind === 'host') hint = `During ${drag.host.title}, ${slotLabel(t.startMin, drag.item.duration)}`;
-  else if (t?.kind === 'slot' && drag.host?.kind === 'longer') hint = `${LONGER_THAN_BREAK}: ${slotLabel(t.startMin, drag.item.duration)}`;
   else if (t?.kind === 'slot') hint = slotLabel(t.startMin, drag.item.duration);
   return (
     <View pointerEvents="none" style={[styles.lifted, { left: drag.x + 12, top: drag.y + 10 }]} {...({ dataSet: { liftedCard: drag.item.id } } as object)}>

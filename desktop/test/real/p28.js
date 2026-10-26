@@ -43,6 +43,9 @@ async function run() {
     at('pod', 'Listen to a podcast', '12:10', 30, { projectKey: 'work' }),
     at('call', 'Call the bank', '12:15', 20),
     at('pill', 'Take a pill', '08:00', 10, { extraTimes: ['12:40'] }),
+    // 3.11.0: one exactly as long as Lunch (90 min), one a minute longer than the tea break (21 min).
+    at('exact', 'Exact fit', '19:00', 90),
+    at('plus1', 'Plus one', '21:00', 21),
   ];
   fs.writeFileSync(path.join(dataDir, 'belific_tasks.kv'), JSON.stringify(seed));
   fs.writeFileSync(path.join(dataDir, 'belific_projects.kv'), JSON.stringify([{ key: 'work', name: 'Work', colorKey: 'sky', createdAt: stamp, updatedAt: stamp }]));
@@ -171,7 +174,6 @@ async function run() {
   };
   await I.js(`(() => { const s = document.querySelector('[data-strip]'); const c = document.querySelector('${col}'); if (s && c) s.scrollLeft += c.getBoundingClientRect().left - s.getBoundingClientRect().left; })()`);
   await C.sleep(500);
-  if (process.env.P28_DEBUG) { console.log('DEBUG tea', await I.js(`(${V(tb('tea'))} || {}).getAttribute?.('data-host-count') + ' ' + (${V(tb('tea'))} || {}).getAttribute?.('title')`)); console.log('DEBUG walk rows', JSON.stringify(tasks().filter((t) => t.id.startsWith('walk')).map((t) => [t.id, t.dueDate, t.startTime, t.deletedAt]))); }
   await cardChecks('light');
   await I.shot('p28-04-cards-light');
 
@@ -217,6 +219,98 @@ async function run() {
   await I.click(V('[data-host-menu="task:pill@12:40"]'), 500);
   await I.shot('p28-09-chip-menu-dark');
   await I.key('Escape', [], 400);
+
+  // ======== 3.11.0: refuse, do not just warn (dark first, then light) ========
+  const dragBlockTo = async (id, toExpr, fracY) => {
+    await scrollTo(V(tb(id)));
+    await C.sleep(400);
+    const a = await I.js(`(() => { const r = ${V(tb(id))}.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 6) }; })()`);
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y });
+    await C.sleep(80);
+    win.webContents.sendInputEvent({ type: 'mouseDown', x: a.x, y: a.y, button: 'left', clickCount: 1 });
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y + 12, modifiers: ['leftButtonDown'] });
+    await C.sleep(100);
+    await I.js(`${toExpr}.scrollIntoView({ block: 'center' })`);
+    await C.sleep(400);
+    const b = await I.js(`(() => { const r = ${toExpr}.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height * ${fracY}) }; })()`);
+    for (let i = 1; i <= 10; i++) {
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(a.x + ((b.x - a.x) * i) / 10), y: Math.round(b.y - 30 + (30 * i) / 10), modifiers: ['leftButtonDown'] });
+      await C.sleep(30);
+    }
+    await C.sleep(300);
+    const hint = await I.textOf(`document.querySelector('[data-lifted-card]')`);
+    win.webContents.sendInputEvent({ type: 'mouseUp', x: b.x, y: b.y, button: 'left', clickCount: 1 });
+    await C.sleep(900);
+    return hint;
+  };
+  const noticeText = () => I.js(`(document.querySelector('[data-notice-bar]') || {}).innerText || ''`);
+  await I.click(`document.querySelector('[data-notice-bar] [aria-label="Dismiss"]')`, 200).catch(() => {});
+
+  const h1 = await dragBlockTo('plus1', V(tb('tea')), 0.5);
+  check('dragging a task 1 minute longer than the break over it says "Longer than the break (20 min)"', /Longer than the break \(20 min\)/.test(h1), h1);
+  check('and the drop snaps back: the task stays where it was', byId('plus1').startTime === '21:00', JSON.stringify(byId('plus1')));
+  check('the note stays on screen after the drop', /Longer than the break \(20 min\)/.test(await noticeText()), await noticeText());
+  await I.shot('p28-10-refused-drop-dark');
+  await dragBlockTo('exact', V(tb('lunch')), 0.3);
+  check('a task exactly as long as the break is hosted', byId('exact').startTime === '12:00' && (await I.js(`(${V(tb('lunch'))} || {}).getAttribute?.('data-host-count')`)) === '2', JSON.stringify(byId('exact')));
+
+  // The details refuse a time that makes a hosted task stick out of its break.
+  await scrollTo(chip('task:exact'));
+  await I.click(`${chip('task:exact')}.querySelector('div[dir="auto"]')`, 900);
+  await I.js(`(() => { const el = document.querySelector('[data-detail-panel] input[aria-label="Time"]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(el, '12:30'); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await C.sleep(900);
+  const tn = await I.textOf(`document.querySelector('[data-time-note]')`);
+  check('the details refuse it: "Longer than the break. Shorten it or move it out."', tn === 'Longer than the break. Shorten it or move it out.' && byId('exact').startTime === '12:00', tn + ' ' + JSON.stringify(byId('exact')));
+  check('the time field shows the old time again', (await I.js(`document.querySelector('[data-detail-panel] input[aria-label="Time"]').value`)) === '12:00');
+  await I.shot('p28-11-refused-details-dark');
+  await closeDetails();
+
+  // "Do during a break" lists only the breaks the task fits in.
+  await I.click(V(`${col} [aria-label="More actions for Plus one"]`), 600);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Do during a break"]')`, 900);
+  const pick = await I.textOf(`document.querySelector('[data-popover]')`);
+  const listed = pick.split('Longer than the break')[0];
+  check('"Do during a break" lists Lunch and not the 20 minute tea break', listed.includes('Lunch') && !listed.includes('Tea break'), pick);
+  await I.key('Escape', [], 400);
+
+  // Light from here.
+  await I.click(`document.querySelector('[aria-label="Profile and account"]') || document.querySelector('[aria-label="Profile, not signed in"]')`, 500);
+  await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 800);
+  await I.click(`document.querySelector('[data-theme-setting] [data-theme-mode="light"]')`, 900);
+  if (await I.exists(I.byLabel('Back'))) await I.click(I.byLabel('Back'), 700);
+  await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
+
+  // Shrinking a break is allowed: the tasks that no longer fit leave it, and a note says so.
+  await I.click(`document.querySelector('[data-notice-bar] [aria-label="Dismiss"]')`, 200).catch(() => {});
+  await scrollTo(V(tb('lunch')));
+  await C.sleep(400);
+  const hnd = await I.js(`(() => { const r = ${V('[aria-label="Resize Lunch"]')}.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+  win.webContents.sendInputEvent({ type: 'mouseMove', x: hnd.x, y: hnd.y });
+  await C.sleep(80);
+  win.webContents.sendInputEvent({ type: 'mouseDown', x: hnd.x, y: hnd.y, button: 'left', clickCount: 1 });
+  for (let i = 1; i <= 8; i++) {
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: hnd.x, y: hnd.y - Math.round((28 * i) / 8), modifiers: ['leftButtonDown'] });
+    await C.sleep(30);
+  }
+  await C.sleep(200);
+  win.webContents.sendInputEvent({ type: 'mouseUp', x: hnd.x, y: hnd.y - 28, button: 'left', clickCount: 1 });
+  await C.sleep(1000);
+  check('the break is shorter (1 h 30 min to 1 h)', byId('lunch').durationMinutes === 60, JSON.stringify(byId('lunch')));
+  check('"1 task no longer fits and moved out of the break"', (await noticeText()).includes('1 task no longer fits and moved out of the break'), await noticeText());
+  check('that task is a block again; the one that still fits stays a chip', (await I.exists(V(tb('exact')))) && (await I.exists(chip('task:pill@12:40'))) && byId('exact').startTime === '12:00');
+  await I.shot('p28-12-shrunk-light');
+
+  // Split turned off: its tasks go back to normal blocks.
+  await I.click(card('Tea break'), 900);
+  await I.click(`document.querySelector('[data-detail-panel] [data-cut-switch]')`, 900);
+  await closeDetails();
+  check('Split off: the walk is a block of its own again, the tea break hosts nothing', (await I.exists(V(tb(walkId)))) && !(await I.js(`!!(${V(tb('tea'))} || {}).getAttribute?.('data-host-count')`)));
+  // A break deleted: its tasks go back to normal blocks.
+  await I.click(V(`${col} [aria-label="More actions for Lunch"]`), 600);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Delete task"]')`, 500);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Confirm delete task"]')`, 1000);
+  check('the break deleted: the pill\'s 12:40 is a block again', !!byId('lunch').deletedAt && (await I.exists(V(tb('pill@12:40')))), JSON.stringify(byId('lunch')));
+  await I.shot('p28-13-reverted-light');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

@@ -15,7 +15,8 @@ import { setActualFor } from '../../lib/timerActions';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
-import { hostLinks, type HostLink } from '../../lib/hosting';
+import { DETAILS_LONGER, hostLinks, type HostLink } from '../../lib/hosting';
+import { breakRefusal } from '../../lib/hostActions';
 import { DuringBreak, InsideBreak } from './HostDetails';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -131,6 +132,15 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
 function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; onSaved: () => void }) {
   const ops: TaskOps = projected ? opsForProjected(task) : opsForTask(task);
   const patch = async (fields: Partial<Task>) => {
+    // 3.11.0: a hosted task changed so it would stick out of its break (or a new start inside a break it
+    // does not fit) is refused, and the Time row says why.
+    const refused = await breakRefusal(task, fields, 'details');
+    if (refused) {
+      setTimeNote(refused);
+      onSaved();
+      return;
+    }
+    if (timeNote === DETAILS_LONGER) setTimeNote(null);
     // A new Day on a repeating task moves this day only (3.2.0); the series' first row comes back
     // under a new id (series.planMoveDay), so the details follow it there.
     if (task.recurrence && movesOneDay(task, fields)) {

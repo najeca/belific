@@ -8,8 +8,8 @@ import { isMustDo } from '../../lib/mustDo';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { timeViews } from '../../lib/times';
 import { useCutMin } from './cutStore';
-import { hostDay, type HostEntry } from '../../lib/hosting';
-import { setDayBreaks, type DayBreak } from './breakStore';
+import { hostDay, hostSnapshot, type HostEntry, type HostSnapshot } from '../../lib/hosting';
+import { setDayBreaks, watchDay, type DayBreak } from './breakStore';
 import type { HostedGuest } from './HostChips';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
@@ -116,6 +116,7 @@ interface DayData {
   // 3.6.0: the tasks during each break (by the break's block id), and the day's breaks.
   hostedBy: Map<string, HostedGuest[]>;
   breaks: DayBreak[];
+  snap: HostSnapshot;
 }
 
 export default function CalendarPane({
@@ -293,12 +294,15 @@ export default function CalendarPane({
       }
       // 2.29.0: top priority first in the all day row (a stable sort; nothing stored).
       allDay.sort((a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)));
-      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.notes, badges: plan.badges, blocks: layoutItems(items).blocks, hostedBy, breaks };
+      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.notes, badges: plan.badges, blocks: layoutItems(items).blocks, hostedBy, breaks, snap: hostSnapshot(entries) };
     });
   }, [effView, keys, tasks, events, categories, filter, todayKey, imported, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
   useEffect(() => {
-    for (const d of days) setDayBreaks(d.key, d.breaks);
+    for (const d of days) {
+      setDayBreaks(d.key, d.breaks);
+      watchDay(d.key, d.snap);
+    }
   }, [days]);
 
   // The scroller and the grid (plain elements: they scroll both ways and hold

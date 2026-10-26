@@ -26,9 +26,9 @@ import {
 } from '../../lib/timebox';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { timeViews } from '../../lib/times';
-import { hostDay, hostedMinutes, type HostEntry } from '../../lib/hosting';
+import { hostDay, hostSnapshot, hostedMinutes, type HostEntry } from '../../lib/hosting';
 import { useBreakTwice } from './breakTwiceStore';
-import { setDayBreaks, type DayBreak } from './breakStore';
+import { setDayBreaks, watchDay, type DayBreak } from './breakStore';
 import type { HostedGuest } from './HostChips';
 import { useCutMin } from './cutStore';
 import { useTint } from './themeStore';
@@ -235,7 +235,7 @@ export default function TimeboxPane({
   const vibrant = useVibrant();
   const tint = useTint();
   const breakTwice = useBreakTwice();
-  const { sources, items, notes, badges, hostedBy, breaks, sharedMin } = useMemo(() => {
+  const { sources, items, notes, badges, hostedBy, breaks, sharedMin, snap } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: TimeboxItem[] = [];
     for (const e of getWeeklyEventsForDate(day)) {
@@ -316,10 +316,13 @@ export default function TimeboxPane({
       }
       list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
     }
-    return { sources: map, items: list, notes: plan.notes, badges: plan.badges, hostedBy, breaks, sharedMin: hostedMinutes(entries) };
+    return { sources: map, items: list, notes: plan.notes, badges: plan.badges, hostedBy, breaks, sharedMin: hostedMinutes(entries), snap: hostSnapshot(entries) };
   }, [day, key, todayKey, events, categories, tasks, filter, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
-  useEffect(() => setDayBreaks(key, breaks), [key, breaks]);
+  useEffect(() => {
+    setDayBreaks(key, breaks);
+    watchDay(key, snap);
+  }, [key, breaks, snap]);
 
   const layout = useMemo(() => layoutItems(items), [items]);
   // The blocks' time once; with "Count minutes done during a break twice" on, the minutes tasks share

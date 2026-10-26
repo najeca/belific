@@ -8,6 +8,7 @@ import { nowLineTop } from '../../../lib/calendarView';
 import { labelColor, tintFor } from '../../../lib/labelColors';
 import { isMustDo, MUST_DO_MARK } from '../../../lib/mustDo';
 import { HostedSheet } from './HostedSheet';
+import { lostGuests, lostNote, type HostSnapshot } from '../../../lib/hosting';
 import { moveOutOfBreak } from '../../../lib/hostActions';
 import { opsForProjected, opsForTask } from '../../../lib/taskOps';
 import { taskDuration } from '../../../lib/drag';
@@ -93,6 +94,16 @@ export function DayView({
     return moved;
   };
   const day = useMemo(() => buildPhoneDay({ tasks: data.tasks, dayKey, todayKey, events: data.events, device: data.device }), [data, dayKey, todayKey]);
+  // 3.11.0: a break moved or shrunk so its tasks no longer fit: they go back to normal blocks, and a note says so.
+  const lastSnap = useRef<{ key: string; snap: HostSnapshot } | null>(null);
+  useEffect(() => {
+    const prev = lastSnap.current;
+    lastSnap.current = { key: day.key, snap: day.snap };
+    if (!prev || prev.key !== day.key) return;
+    const n = lostGuests(prev.snap, day.snap);
+    if (n > 0) onNote?.(lostNote(n));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day]);
 
   // Opens near now on today (an hour before), at 8:00 on another day.
   useEffect(() => {

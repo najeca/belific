@@ -20,6 +20,8 @@ import { DayView, type DayData } from '../../components/phone/calendar/DayView';
 import type { DragTarget } from '../../components/phone/calendar/DraggableBlock';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
 import { phoneDropPatch } from '../../lib/phoneDrag';
+import { breakAt, dayHostEntries, fitRefusal, hostStart, longerNote } from '../../lib/hosting';
+import { taskDuration } from '../../lib/drag';
 import { editThisDay, patchSeries } from '../../lib/seriesActions';
 import { askScope, type Scope } from '../../lib/scopeAsk';
 import { patchTask } from '../../lib/taskActions';
@@ -136,8 +138,19 @@ export default function CalendarScreen() {
   }
 
   // P10: a held block dragged to a new start (lib/phoneDrag.ts: the desktop's drop rules, 15 minute steps).
-  async function drop({ source, startMin }: DragTarget) {
+  async function drop({ source, startMin: dropped }: DragTarget) {
     const full: Task = source.full ?? source.task;
+    // 3.11.0: over a break the task fits in, it starts inside it (as on the desktop); one that does not
+    // fit is refused and stays where it was.
+    const len = taskDuration(source.task);
+    const breaks = dayHostEntries(data.tasks, anchor, todayKey).filter((e) => e.breaks && !e.cont && e.full.id !== full.id);
+    const over = full.cutsBelow ? undefined : breakAt(breaks, dropped);
+    const startMin = over ? (hostStart(dropped, len, over) ?? dropped) : dropped;
+    const refused = full.cutsBelow ? null : fitRefusal(breaks, [], [[startMin, startMin + len]]);
+    if (refused) {
+      setNotice({ id: Date.now(), text: longerNote(refused) });
+      return;
+    }
     const res = phoneDropPatch({ task: full, time: source.time, multi: !!source.full, projected: source.projected, dayKey: anchor, startMin, todayKey });
     if (!res) return;
     if ('note' in res) {

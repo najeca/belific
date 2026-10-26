@@ -170,6 +170,66 @@ export function removeTimeOutFields(full: Task, time: string | undefined): OutPl
   return { ok: true, fields: { startTime: undefined, extraTimes: undefined, timesDone: undefined } };
 }
 
+// 3.11.0: refuse, do not just warn. A task never ends up partly inside a break it starts in, and a
+// task inside a break never ends up sticking out of it:
+//  (a) a new start (a drop, a new time, a new day, a new task) inside a break, and the task does not fit
+//      there from that start;
+//  (b) a task that was inside a break, whose new times still overlap that break but do not fit in it.
+// A task that only starts before a break and runs into it is not refused (Split cuts it, as always), and
+// a length change of a task outside every break is not refused. A break itself is never refused (moving
+// or shrinking one is allowed: its tasks that no longer fit simply leave it, see lostGuests).
+export type Span = [number, number];
+export function fitRefusal<T extends BreakSpan>(breaks: T[], before: Span[], after: Span[]): T | null {
+  for (const [s, e] of after) {
+    const isNewStart = !before.some(([ps]) => ps === s);
+    for (const b of breaks) {
+      const fits = b.startMin <= s && e <= b.endMin;
+      if (fits) continue;
+      const startsIn = b.startMin <= s && s < b.endMin;
+      const overlaps = s < b.endMin && e > b.startMin;
+      const wasIn = before.some(([ps, pe]) => b.startMin <= ps && pe <= b.endMin);
+      if ((startsIn && isNewStart) || (wasIn && overlaps)) return b;
+    }
+  }
+  return null;
+}
+function lengthText(m: number): string {
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest === 0 ? `${h} h` : `${h} h ${rest} min`;
+}
+// The note of a refused drop or new task: "Longer than the break (1 h)".
+export const longerNote = (b: Pick<BreakSpan, 'startMin' | 'endMin'>): string => `${LONGER_THAN_BREAK} (${lengthText(b.endMin - b.startMin)})`;
+// The note of a refused change in a task's details.
+export const DETAILS_LONGER = 'Longer than the break. Shorten it or move it out.';
+
+// A day before and after a change: the tasks that were inside a break whose own times did not change but
+// which no longer fit in it because the break moved or shrank ("N tasks no longer fit and moved out of
+// the break"). A break that is gone (deleted, Split off) is not counted: its tasks just go back to normal.
+export interface HostSnapshot {
+  spans: Map<string, Span>;
+  hostOf: Map<string, string>;
+}
+export function hostSnapshot(entries: HostEntry[]): HostSnapshot {
+  return { spans: new Map(entries.map((e) => [e.id, [e.startMin, e.endMin] as Span])), hostOf: hostDay(entries).hostOf };
+}
+export function lostGuests(prev: HostSnapshot, next: HostSnapshot): number {
+  let n = 0;
+  for (const [g, b] of prev.hostOf) {
+    const was = prev.spans.get(b);
+    const now = next.spans.get(b);
+    const gWas = prev.spans.get(g);
+    const gNow = next.spans.get(g);
+    if (!was || !now || !gWas || !gNow) continue;
+    if (was[0] === now[0] && was[1] === now[1]) continue;
+    if (gWas[0] !== gNow[0] || gWas[1] !== gNow[1]) continue;
+    if (next.hostOf.get(g) !== b) n += 1;
+  }
+  return n;
+}
+export const lostNote = (n: number): string => (n === 1 ? '1 task no longer fits and moved out of the break' : `${n} tasks no longer fit and moved out of the break`);
+
 // "Do during a break": the breaks a task of this length fits in, earliest first.
 export function breaksFitting<T extends BreakSpan>(breaks: T[], lengthMin: number): T[] {
   return breaks.filter((b) => lengthMin <= b.endMin - b.startMin).sort((a, b) => a.startMin - b.startMin || a.id.localeCompare(b.id));

@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. A task during a break (3.5.0): hosted when fully inside a break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
+import { DETAILS_LONGER, fitRefusal, hostSnapshot, longerNote, lostGuests, lostNote, duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
 import { cutDay, planCuts } from './cuts.ts';
 import { COMPACT_BLOCK_PX, PX_PER_HOUR } from './timebox.ts';
 import type { Task } from './types.ts';
@@ -244,4 +244,48 @@ test('3.10.0: a repeating day moved into a break is hosted; Split off or a delet
   assert.equal(hostIndex(moved, [later], DAY).during.get('walk:' + later), 'lunch');
   assert.equal(hostIndex([{ ...moved[0], cutsBelow: false }, ...moved.slice(1)], [later], DAY).during.size, 0, 'Split off');
   assert.equal(hostIndex([{ ...moved[0], deletedAt: '2026-10-26T00:00:00.000Z' }, ...moved.slice(1)], [later], DAY).during.size, 0, 'deleted');
+});
+
+const LUNCH = { id: 'lunch', startMin: h(12), endMin: h(13) };
+
+test('3.11.0: exactly as long as the break fits; one minute longer is refused', () => {
+  assert.equal(fitRefusal([LUNCH], [], [[h(12), h(13)]]), null, 'exactly the break');
+  assert.equal(fitRefusal([LUNCH], [], [[h(12), h(13) + 1]])?.id, 'lunch', '61 minutes from 12:00');
+  assert.equal(fitRefusal([LUNCH], [], [[h(12, 30), h(13, 30)]])?.id, 'lunch', 'a new start inside that runs past the end');
+  assert.equal(longerNote(LUNCH), 'Longer than the break (1 h)');
+  assert.equal(longerNote({ startMin: h(10), endMin: h(10, 20) }), 'Longer than the break (20 min)');
+  assert.equal(longerNote({ startMin: h(10), endMin: h(11, 30) }), 'Longer than the break (1 h 30 min)');
+});
+
+test('3.11.0: a hosted task changed so it sticks out is refused; moved clear of the break it is not', () => {
+  const was: [number, number][] = [[h(12, 10), h(12, 30)]];
+  assert.equal(fitRefusal([LUNCH], was, [[h(12, 10), h(13, 10)]])?.id, 'lunch', 'a longer length');
+  assert.equal(fitRefusal([LUNCH], was, [[h(11, 50), h(12, 10)]])?.id, 'lunch', 'an earlier start that sticks out above');
+  assert.equal(fitRefusal([LUNCH], was, [[h(12, 40), h(13)]]), null, 'still inside');
+  assert.equal(fitRefusal([LUNCH], was, [[h(15), h(15, 20)]]), null, 'moved clear of it');
+  assert.equal(DETAILS_LONGER, 'Longer than the break. Shorten it or move it out.');
+});
+
+test('3.11.0: not refused: starting before a break and running into it (Split), or a longer task outside every break', () => {
+  assert.equal(fitRefusal([LUNCH], [], [[h(11), h(12, 30)]]), null, 'starts before: Split cuts it as always');
+  assert.equal(fitRefusal([LUNCH], [[h(14), h(14, 30)]], [[h(14), h(15)]]), null);
+  // A task that already started inside a break (from before 3.11.0) is not refused for an unrelated length change.
+  assert.equal(fitRefusal([LUNCH], [[h(12, 50), h(13, 20)]], [[h(12, 50), h(13, 30)]]), null);
+});
+
+test('3.11.0: a task with several times: only a new time that starts inside a break is checked', () => {
+  const before: [number, number][] = [[h(8), h(8, 10)], [h(18), h(18, 10)]];
+  assert.equal(fitRefusal([LUNCH], before, [...before, [h(12, 55), h(13, 5)]])?.id, 'lunch');
+  assert.equal(fitRefusal([LUNCH], before, [...before, [h(12, 40), h(12, 50)]]), null);
+});
+
+test('3.11.0: a break moved or shrunk: its tasks that no longer fit are counted; gone breaks and moved tasks are not', () => {
+  const e = (id: string, s: number, en: number, breaks = false) => ({ id, startMin: s, endMin: en, breaks });
+  const before = hostSnapshot([e('b', h(12), h(13), true), e('x', h(12, 10), h(12, 30)), e('y', h(12, 40), h(12, 55)), e('z', h(12), h(12, 20))]);
+  assert.equal(lostGuests(before, hostSnapshot([e('b', h(12), h(12, 35), true), e('x', h(12, 10), h(12, 30)), e('y', h(12, 40), h(12, 55)), e('z', h(12), h(12, 20))])), 1, 'shrunk: y no longer fits');
+  assert.equal(lostGuests(before, hostSnapshot([e('b', h(12, 30), h(13, 30), true), e('x', h(12, 10), h(12, 30)), e('y', h(12, 40), h(12, 55)), e('z', h(12), h(12, 20))])), 2, 'moved: x and z');
+  assert.equal(lostGuests(before, hostSnapshot([e('x', h(12, 10), h(12, 30)), e('y', h(12, 40), h(12, 55))])), 0, 'gone (deleted or Split off)');
+  assert.equal(lostGuests(before, hostSnapshot([e('b', h(12), h(13), true), e('x', h(14), h(14, 20)), e('y', h(12, 40), h(12, 55)), e('z', h(12), h(12, 20))])), 0, 'the task moved itself');
+  assert.equal(lostNote(1), '1 task no longer fits and moved out of the break');
+  assert.equal(lostNote(2), '2 tasks no longer fit and moved out of the break');
 });

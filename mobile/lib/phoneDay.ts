@@ -9,7 +9,7 @@ import { tasksForTimebox, type DayTask } from './timeboxTasks.ts';
 import { continuationOf, layoutItems, taskToItem, toMinutes, type PlacedBlock, type TimeboxItem } from './timebox.ts';
 import { timeViews } from './times.ts';
 import { planCuts, DEFAULT_CUT_MIN, type CutEntry, type CutPiece } from './cuts.ts';
-import { hostDay, type HostEntry } from './hosting.ts';
+import { hostDay, hostSnapshot, type HostEntry, type HostSnapshot } from './hosting.ts';
 import { isMustDo } from './mustDo.ts';
 import { segmentsForDay, type DaySegment } from './externalEvents.ts';
 import type { Occurrence } from './icsParse.ts';
@@ -37,6 +37,8 @@ export interface PhoneDay {
   blocks: Array<PlacedBlock & { source: DaySource }>;
   // A break that could not split a task: the sentence, by the break's block id.
   notes: Map<string, string>;
+  // 3.11.0: the day's hosting, to tell when a moved or shrunk break left tasks out (hosting.lostGuests).
+  snap: HostSnapshot;
 }
 
 export function buildPhoneDay(input: { tasks: Task[]; dayKey: string; todayKey: string; events?: ScheduleEvent[]; device?: Occurrence[]; cutMin?: number }): PhoneDay {
@@ -112,7 +114,7 @@ export function buildPhoneDay(input: { tasks: Task[]; dayKey: string; todayKey: 
   const blocks = layoutItems(items)
     .blocks.map((b) => ({ ...b, source: sources.get(b.id) as DaySource }))
     .filter((b) => !!b.source);
-  return { key: dayKey, allDay, deviceAllDay, blocks, notes: plan.notes };
+  return { key: dayKey, allDay, deviceAllDay, blocks, notes: plan.notes, snap: hostSnapshot(entries) };
 }
 
 // The time a tap on an empty part of the timeline stands for: the quarter hour under the finger

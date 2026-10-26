@@ -142,6 +142,56 @@ async function run() {
   await shot('phone-p14-break-details-dark');
   await close();
 
+  // ======== 3.11.0: refuse (dark is on) ========
+  await P.finger.tap(tab('Calendar'), 1200);
+  // The quick add: a tap just under the tea break is the 09:15 slot, inside it; 30 minutes do not fit.
+  await scrollToHour(8);
+  await C.sleep(400);
+  const slot = await P.point(`document.querySelector('[data-empty-slots]')`);
+  await P.finger.tapAt(slot.left + slot.w * 0.7, slot.top + 9.38 * 56, 900);
+  check('a tap just under the break opens the quick add at 9:15am', /9:15am/.test(await P.js(`(document.querySelector('[data-quick-add]') || {}).getAttribute?.('data-quick-add') || ''`)));
+  await P.finger.tap(visible('[data-quick-add] [aria-label="New task title"]'), 300);
+  await win.webContents.insertText('Snack');
+  await C.sleep(300);
+  const typed = await P.js(`(document.querySelector('[data-quick-add] [aria-label="New task title"]') || {}).value || ''`);
+  const n0 = read('belific_tasks').length;
+  await P.finger.tap(visible('[data-quick-add] [aria-label="Add task"]'), 1000);
+  const qn = await P.js(`(document.querySelector('[data-quick-add-note]') || {}).innerText || ''`);
+  check('the quick add refuses it: "Longer than the break (20 min)", nothing stored', qn === 'Longer than the break (20 min)' && read('belific_tasks').length === n0, `typed "${typed}", note "${qn}"`);
+  await shot('phone-p14-refused-quick-add-dark');
+  await P.finger.tap(visible('[data-quick-add] [aria-label="Cancel adding"]'), 700);
+
+  // The details: a hosted task given a length that sticks out of the break.
+  await openSheet();
+  await P.finger.tap(visible('[data-hosted-open="task:t2"]'), 1200);
+  await P.finger.tap(visible('[aria-label^="Length,"]'), 700);
+  await P.finger.tap(visible('[aria-label="Length 15 min"]'), 1000);
+  check('the details refuse it: "Longer than the break. Shorten it or move it out."', (await P.js(`(document.querySelector('[data-break-note]') || {}).innerText || ''`)) === 'Longer than the break. Shorten it or move it out.' && task('t2').durationMinutes === 10, JSON.stringify(task('t2')));
+  await shot('phone-p14-refused-details-dark');
+  await close();
+
+  // A hold-drag of a longer task onto the break.
+  await scrollToHour(8.5);
+  await C.sleep(400);
+  // About 5 h 50 min up: the start lands on 09:15 (15 minute steps), inside the 09:00 to 09:20 break.
+  await P.finger.holdDrag(visible('[data-block-tap="task:free"]'), 0, -320, 520, 700, 1000);
+  const bar2 = await P.js(`(document.querySelector('[data-undo-bar]') || {}).innerText || ''`);
+  check('a hold-drag of a 30 minute task onto the 20 minute break is refused and it stays', /Longer than the break \(20 min\)/.test(bar2) && task('free').startTime === '15:00', bar2 + ' ' + JSON.stringify(task('free')));
+
+  // Shrinking the break is allowed: the task that no longer fits leaves it, and a note says so.
+  await openSheet();
+  await P.finger.tap(visible('[data-hosted-sheet] [aria-label="Open Tea"]'), 1200);
+  await P.finger.tap(visible('[aria-label^="Length,"]'), 700);
+  await P.finger.tap(visible('[aria-label="Length 10 min"]'), 1000);
+  check('the break is 10 minutes now', task('tea').durationMinutes === 10, JSON.stringify(task('tea')));
+  await close();
+  await C.sleep(400);
+  const bar3 = await P.js(`(document.querySelector('[data-undo-bar]') || {}).innerText || ''`);
+  check('"1 task no longer fits and moved out of the break"', bar3.includes('1 task no longer fits and moved out of the break'), bar3);
+  const ids = await P.js(`[...document.querySelectorAll('[data-phone-block]')].map((e) => e.getAttribute('data-phone-block'))`);
+  check('that task is a block again; the one that still fits stays inside', ids.includes('task:t2') && !ids.includes('task:t1'), JSON.stringify(ids));
+  await shot('phone-p14-shrunk-dark');
+
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);
 }

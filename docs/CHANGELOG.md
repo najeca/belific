@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 3.11.0 — 2026-10-26 (Task during a break, follow up P3: refuse, do not just warn)
+
+**Desktop and iPhone. No schema change. A normal task still cannot host tasks (that needs a new column).**
+- **The rule** (`hosting.fitRefusal`, `hostActions.breakRefusal`): a change is refused when (a) a new start (a drop, a new time, a new day, a new task) falls inside a break the task does not fit in from there, or (b) a task that was inside a break would overlap it without fitting. A task exactly as long as the break fits; one minute longer does not. A task that starts before a break and runs into it is not refused (Split cuts it, as always), nor is a length change of a task outside every break, nor anything about a break itself.
+- **Drops snap back:** a task dragged over a break it does not fit in shows **"Longer than the break (1 h)"** on the lifted card and, released, stays where it came from, with the note in the notice bar (desktop); the phone's hold-drag the same (and, like the desktop, a task that fits starts inside the break when dropped on it). Before, the drop went through as a normal one with a warning.
+- **Details refuse:** a time, a length or a day that would leave a hosted task sticking out of its break: **"Longer than the break. Shorten it or move it out."** (desktop Time row; phone, under the break section, whichever row was open). The phone's quick add refuses a time inside a break the new task does not fit (a tap just under a 20 minute break is its 15 minute slot), with "Longer than the break (20 min)".
+- **"Do during a break"** lists only the breaks long enough (as before; the shorter ones are only named in its note).
+- **A break moved or shrunk is allowed:** its tasks that no longer fit go back to normal blocks and a note says **"1 task no longer fits and moved out of the break"** ("N tasks …"; `hosting.lostGuests`, desktop `breakStore.watchDay`, phone `DayView`). A break deleted or with Split turned off: its tasks go back to normal blocks, without a note.
+- **Tests:** `hosting.test.ts` +5 (exactly as long, one minute longer, the notes, a hosted task sticking out, moved clear, starting before, a task already over a break edge, several times, shrunk, moved, gone, a task that moved itself); `p28.js` +12 (a 21 minute task over a 20 minute break refused with its note and snapped back, a 90 minute task in a 90 minute break hosted, the details' refusal, Do during a break's list, the break shrunk with its note, Split off, a deleted break; dark and light); `phone-p14.js` +8 (quick add, details, hold-drag refused; the break shrunk with its note).
+
 ## 3.10.0 — 2026-10-26 (Task during a break, follow up P2: details and cards)
 
 **Desktop and iPhone. No schema change.**

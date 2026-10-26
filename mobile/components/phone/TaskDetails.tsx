@@ -33,7 +33,7 @@ import { repeatKindOf, REPEAT_CHOICES, shortRepeat } from '../../lib/repeat';
 import { taskRemindersLabel } from '../../lib/reminder';
 import { isMultiTime, timesOf } from '../../lib/times';
 import { hostLinks, type HostLink } from '../../lib/hosting';
-import { moveOutOfBreak } from '../../lib/hostActions';
+import { breakRefusal, moveOutOfBreak } from '../../lib/hostActions';
 import { toTime } from '../../lib/timebox';
 import { UNDO_MS } from './UndoBar';
 
@@ -117,6 +117,8 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   // 3.10.0: the task's day as the Calendar draws it, and the Undo of a Move out (5 seconds).
   const [links, setLinks] = useState<HostLink[]>([]);
   const [undo, setUndo] = useState<{ text: string; run: () => Promise<void> } | null>(null);
+  // 3.11.0: why a time, a length or a day was refused (shown whichever row was open).
+  const [breakNote, setBreakNote] = useState<string | null>(null);
   const refreshHost = useCallback(async (t: Task) => {
     setLinks(t.dueDate ? hostLinks(await loadTasksRaw(), t.dueDate, dateKey(new Date())) : []);
   }, []);
@@ -138,6 +140,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   useEffect(() => {
     if (!target) return;
     setUndo(null);
+    setBreakNote(null);
     show(target.task, target.projected);
     setOpen(null);
     setNote(null);
@@ -152,6 +155,13 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   // Writes a patch, then shows the task as stored (a projected day: the patch is shown on it).
   async function write(fields: Partial<Task> | null) {
     if (!task || !fields || Object.keys(fields).length === 0) return;
+    // 3.11.0: a time, a length or a day that would leave a task sticking out of a break is refused.
+    const refused = await breakRefusal(task, fields, 'details');
+    if (refused) {
+      setBreakNote(refused);
+      return;
+    }
+    setBreakNote(null);
     await ops.patch(fields);
     const stored = projected ? null : (await loadTasksRaw()).find((t) => t.id === task.id);
     show(stored ?? { ...task, ...fields }, projected);
@@ -163,6 +173,11 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   async function setDate(key: string | undefined) {
     if (!task) return;
     setOpen(null);
+    const refused = key ? await breakRefusal(task, { dueDate: key }, 'details') : null;
+    if (refused) {
+      setBreakNote(refused);
+      return;
+    }
     if (task.recurrence && key) {
       const row = await moveDay(task, key);
       if (row) show(row, false);
@@ -330,6 +345,11 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
               </Pressable>
             </View>
           ))}
+          {breakNote ? (
+            <Text style={[s.warn, { marginTop: 8 }]} accessibilityRole="alert" {...({ dataSet: { breakNote: '1' } } as object)}>
+              {breakNote}
+            </Text>
+          ) : null}
           {undo ? (
             <View style={s.undoRow} {...({ dataSet: { detailsUndo: '1' } } as object)}>
               <Text style={s.undoText} numberOfLines={2}>

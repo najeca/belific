@@ -5,7 +5,11 @@
 import type { Task } from './types.ts';
 import { loadTasksRaw, updateTask } from './storage';
 import { opsForProjected, opsForTask } from './taskOps';
-import { moveOutFields, removeTimeOutFields, type BreakSpan } from './hosting.ts';
+import { DETAILS_LONGER, dayHostEntries, fitRefusal, longerNote, moveOutFields, removeTimeOutFields, type BreakSpan, type Span } from './hosting.ts';
+import { timesOf } from './times.ts';
+import { toMinutes } from './timebox.ts';
+import { taskDuration } from './drag.ts';
+import { dateKey } from './kanban.ts';
 
 export interface HostedRef {
   // The real task (for a projected day, that day's occurrence) and the time inside the break.
@@ -61,4 +65,24 @@ export async function removeTimeInBreak(g: HostedRef): Promise<OutResult> {
   if (!plan.ok) return plan;
   const undo = await writeWithUndo(g, plan.fields);
   return { ok: true, text: `${g.full.title} has no time now`, undo };
+}
+
+// 3.11.0: may this change go ahead? `task` is the task as it is (null for a new one), `fields` the change.
+// A refusal is the note to show: 'drop' (a drag, a new task) "Longer than the break (1 h)", 'details'
+// "Longer than the break. Shorten it or move it out." Only a change of a time, a length or the day counts.
+export async function breakRefusal(task: Task | null, fields: Partial<Task>, kind: 'drop' | 'details'): Promise<string | null> {
+  if (!('startTime' in fields || 'extraTimes' in fields || 'durationMinutes' in fields || 'dueDate' in fields)) return null;
+  const next = { ...(task ?? {}), ...fields } as Task;
+  if (next.cutsBelow || !next.dueDate) return null;
+  const spans = (t: Task): Span[] => timesOf(t).flatMap((time) => {
+    const s = toMinutes(time);
+    return s === null ? [] : [[s, s + taskDuration(t)] as Span];
+  });
+  const after = spans(next);
+  if (after.length === 0) return null;
+  const before = task && task.dueDate === next.dueDate ? spans(task) : [];
+  const breaks = dayHostEntries(await loadTasksRaw(), next.dueDate, dateKey(new Date())).filter((e) => e.breaks && !e.cont && e.full.id !== next.id);
+  const b = fitRefusal(breaks, before, after);
+  if (!b) return null;
+  return kind === 'drop' ? longerNote(b) : DETAILS_LONGER;
 }

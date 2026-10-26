@@ -53,3 +53,24 @@ test('a tap snaps to the quarter hour under the finger, inside the day', () => {
   assert.equal(minuteAtY(-5, PX_PER_HOUR), 0);
   assert.equal(minuteAtY(30 * PX_PER_HOUR, PX_PER_HOUR), 23 * 60 + 45);
 });
+
+test('3.7.0: a task fully inside a break is hosted (no block of its own); one partly over it is split as before', () => {
+  const d = buildPhoneDay({
+    tasks: [
+      T('lunch', { startTime: '12:00', durationMinutes: 60, cutsBelow: true }),
+      T('call', { startTime: '12:10', durationMinutes: 20 }),
+      T('read', { startTime: '12:30', durationMinutes: 30 }),
+      T('long', { startTime: '11:00', durationMinutes: 180 }),
+    ],
+    dayKey: DAY,
+    todayKey: DAY,
+  });
+  assert.ok(!d.blocks.some((b) => b.id === 'task:call' || b.id === 'task:read'), 'hosted tasks have no block');
+  const lunch = d.blocks.find((b) => b.id === 'task:lunch')!;
+  assert.ok(lunch.source.kind === 'task');
+  assert.deepEqual(lunch.source.kind === 'task' ? lunch.source.hosted?.map((h) => h.task.title) : [], ['call', 'read']);
+  assert.equal(lunch.cols, 1, 'the break stays full width');
+  const pieces = d.blocks.filter((b) => b.source.kind === 'task' && b.source.piece);
+  assert.equal(pieces.length, 2, 'the long task is cut around the break as before');
+  assert.equal(d.notes.size, 0, 'no "it would cover the task" note for the hosted ones');
+});

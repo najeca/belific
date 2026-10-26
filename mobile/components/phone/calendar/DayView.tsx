@@ -7,6 +7,10 @@ import { GRID_HEIGHT_PX, PX_PER_HOUR, hourLabel } from '../../../lib/timebox';
 import { nowLineTop } from '../../../lib/calendarView';
 import { labelColor, tintFor } from '../../../lib/labelColors';
 import { isMustDo, MUST_DO_MARK } from '../../../lib/mustDo';
+import { formatDuration } from '../../../lib/duration';
+import { formatTime } from '../../../lib/data';
+import { ActionMenu } from '../menu';
+import { LabelDot } from '../ui';
 import { TAP_MAX_MOVE, TAP_MAX_MS } from '../../../lib/touchRules';
 import type { DeviceOccurrence } from '../../../lib/deviceCalendar';
 import type { Project, ScheduleEvent, Task, TaskList } from '../../../lib/types';
@@ -69,6 +73,8 @@ export function DayView({
   // P10: where the timeline is on screen and how far it is scrolled, for the auto scroll near its edges.
   const frame = useRef({ top: 0, height: 0, y: 0, max: 0 });
   const [dragging, setDragging] = useState(false);
+  // 3.7.0: the break whose tasks are listed in the sheet (a tap on a break with tasks during it).
+  const [sheet, setSheet] = useState<DaySource | null>(null);
   const autoScroll = (absY: number): number => {
     const f = frame.current;
     const step = absY < f.top + 56 ? -12 : absY > f.top + f.height - 56 ? 12 : 0;
@@ -97,8 +103,13 @@ export function DayView({
     const p = t.projectKey ? data.projects.find((x) => x.key === t.projectKey) : undefined;
     const col = labelColor(p?.colorKey);
     const list = t.listKey ? data.lists.find((l) => l.key === t.listKey && !l.deletedAt) : undefined;
-    return { bg: col ? tintFor(col, name === 'dark') : t.cutsBelow ? c.breakTint : c.plainBlock, edge: col?.edge ?? (t.cutsBelow ? c.textSecondary : c.accent), listEmoji: list?.emoji };
+    const dots = src.hosted ? Object.fromEntries(src.hosted.map((h) => [h.id, dotOf(h.task)])) : undefined;
+    return { bg: col ? tintFor(col, name === 'dark') : t.cutsBelow ? c.breakTint : c.plainBlock, edge: col?.edge ?? (t.cutsBelow ? c.textSecondary : c.accent), listEmoji: list?.emoji, ...(dots ? { dots } : {}) };
   };
+  // The label colour of a task during a break (its chip's dot), else a neutral.
+  const dotOf = (t: Task) => labelColor(data.projects.find((x) => x.key === t.projectKey)?.colorKey)?.edge ?? c.textSecondary;
+  // A tap on a break with tasks during it lists them; any other block opens.
+  const tap = (src: DaySource) => (src.kind === 'task' && src.hosted?.length ? setSheet(src) : onOpen(src));
 
   const area = width - GUTTER - 4;
   const empty = Gesture.Tap()
@@ -109,7 +120,13 @@ export function DayView({
       if (ok) onAddAt(minuteAtY(e.y, PX_PER_HOUR));
     });
 
-  const a11yOf = (src: DaySource) => (src.kind === 'task' ? `Task ${src.task.title}${src.task.startTime ? `, ${src.task.startTime}` : ''}` : src.kind === 'event' ? `Event ${src.event.title}, read only` : `Calendar event ${src.seg.occ.title}, read only`);
+  const a11yOf = (src: DaySource) =>
+    src.kind === 'task'
+      ? `Task ${src.task.title}${src.task.startTime ? `, ${src.task.startTime}` : ''}${src.hosted?.length ? `, during it: ${src.hosted.map((h) => h.task.title).join(', ')}` : ''}`
+      : src.kind === 'event'
+        ? `Event ${src.event.title}, read only`
+        : `Calendar event ${src.seg.occ.title}, read only`;
+  const sheetTask = sheet && sheet.kind === 'task' ? sheet : null;
 
   return (
     <View style={{ flex: 1 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} {...({ dataSet: { dayView: dayKey } } as object)}>
@@ -171,7 +188,7 @@ export function DayView({
                   <DraggableBlock
                     source={b.source}
                     a11y={a11yOf(b.source)}
-                    onTap={() => onOpen(b.source)}
+                    onTap={() => tap(b.source)}
                     onDrop={onDrop}
                     onDragging={setDragging}
                     autoScroll={autoScroll}
@@ -180,7 +197,7 @@ export function DayView({
                     <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source)} />
                   </DraggableBlock>
                 ) : (
-                  <PressRow onTap={() => onOpen(b.source)} a11y={a11yOf(b.source)} style={{ flex: 1 }} data={{ blockTap: b.id }}>
+                  <PressRow onTap={() => tap(b.source)} a11y={a11yOf(b.source)} style={{ flex: 1 }} data={{ blockTap: b.id }}>
                     <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source)} />
                   </PressRow>
                 )}
@@ -195,6 +212,25 @@ export function DayView({
           ) : null}
         </View>
       </ScrollView>
+      <ActionMenu
+        visible={!!sheetTask}
+        title={sheetTask ? `During ${sheetTask.task.title}` : undefined}
+        items={
+          sheetTask
+            ? [
+                ...(sheetTask.hosted ?? []).map((h) => ({
+                  label: [h.task.title, formatTime(h.task.startTime ?? ''), formatDuration(h.task.durationMinutes) ?? ''].filter(Boolean).join(', '),
+                  icon: 'ellipse' as const,
+                  leading: <LabelDot color={dotOf(h.task)} size={10} />,
+                  selected: h.task.completed,
+                  run: () => onOpen({ kind: 'task', task: h.task, projected: h.projected }),
+                })),
+                { label: `Open ${sheetTask.task.title}`, icon: 'cafe-outline' as const, run: () => onOpen(sheetTask) },
+              ]
+            : []
+        }
+        onClose={() => setSheet(null)}
+      />
     </View>
   );
 }

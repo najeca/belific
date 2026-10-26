@@ -140,13 +140,14 @@ export interface ChipPlan {
   more: number;
 }
 
-export function chipPlan(heightPx: number, widthPx: number, count: number, compactPx: number): ChipPlan {
+// The phone passes its own row and top (bigger text); its width 0 keeps a one line break to "+N".
+export function chipPlan(heightPx: number, widthPx: number, count: number, compactPx: number, rowPx = CHIP_ROW_PX, topPx = STACK_TOP_PX): ChipPlan {
   const n = Math.max(0, count);
   if (heightPx < compactPx) {
     const shown = widthPx >= INLINE_CHIP_MIN_W ? Math.min(1, n) : 0;
     return { mode: 'inline', shown, more: n - shown };
   }
-  const rows = Math.max(0, Math.floor((heightPx - STACK_TOP_PX) / CHIP_ROW_PX));
+  const rows = Math.max(0, Math.floor((heightPx - topPx) / rowPx));
   const shown = Math.min(n, rows);
   return { mode: 'stack', shown, more: n - shown };
 }

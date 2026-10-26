@@ -5,7 +5,8 @@ import { radius, type ColorTokens } from '../../../lib/tokens';
 import { blockPlan } from '../../../lib/blockLayout';
 import { formatTime } from '../../../lib/data';
 import { formatDuration } from '../../../lib/duration';
-import { toTime } from '../../../lib/timebox';
+import { COMPACT_BLOCK_PX, toTime } from '../../../lib/timebox';
+import { chipPlan } from '../../../lib/hosting';
 import { pieceTimeText } from '../../../lib/cuts';
 import { isMustDo, MUST_DO_MARK } from '../../../lib/mustDo';
 import type { DaySource } from '../../../lib/phoneDay';
@@ -22,7 +23,14 @@ export interface BlockLook {
   bg: string;
   edge: string;
   listEmoji?: string;
+  // 3.7.0: the label colour of each task during a break (the chip's dot), by its block id.
+  dots?: Record<string, string>;
 }
+
+// A task during a break (3.7.0): a one line break shows only "+N" (a tap opens the list); a taller one
+// stacks a chip per row under its title like the desktop, "+N" on the title row for the rest.
+const CHIP_ROW = 18;
+const CHIP_TOP = 22;
 
 const make = (c: ColorTokens) => ({
   block: { flex: 1, borderRadius: radius.xs, borderLeftWidth: 3, overflow: 'hidden' as const, paddingHorizontal: 6, borderWidth: 1, borderColor: c.border },
@@ -33,6 +41,12 @@ const make = (c: ColorTokens) => ({
   right: { ...mono(400), fontSize: 11, lineHeight: 17, color: c.textSecondary, marginLeft: 'auto' as const, flexShrink: 0 },
   mark: { fontSize: 11, color: c.danger, flexShrink: 0 },
   grey: { color: c.textSecondary },
+  chip: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, alignSelf: 'flex-start' as const, maxWidth: '100%' as const, height: 16, marginTop: 2, paddingLeft: 5, paddingRight: 7, borderRadius: 8, backgroundColor: c.hostChip, borderWidth: 1, borderColor: c.border, overflow: 'hidden' as const },
+  chipDot: { width: 7, height: 7, borderRadius: 4 },
+  chipText: { ...inter(600), fontSize: 11, lineHeight: 14, color: c.onHostChip, flexShrink: 1, minWidth: 0 },
+  chipLen: { ...inter(400), fontSize: 11, lineHeight: 14, color: c.onHostChip, flexShrink: 0 },
+  more: { height: 16, marginLeft: 'auto' as const, paddingHorizontal: 6, borderRadius: 8, backgroundColor: c.hostChip, borderWidth: 1, borderColor: c.border, justifyContent: 'center' as const, flexShrink: 0 },
+  moreText: { ...inter(700), fontSize: 11, lineHeight: 14, color: c.onHostChip },
 });
 
 export function PhoneBlock({ source, height, look }: { source: DaySource; height: number; look: BlockLook }) {
@@ -68,6 +82,37 @@ export function PhoneBlock({ source, height, look }: { source: DaySource; height
     title = source.seg.occ.title;
     const occ = source.seg.occ as typeof source.seg.occ & { calendarName?: string };
     timeText = `${toTime(source.seg.startMin)} ${occ.calendarName ?? ''}`.trim();
+  }
+  const hosted = source.kind === 'task' ? (source.hosted ?? []) : [];
+  if (hosted.length > 0) {
+    const plan = chipPlan(height, 0, hosted.length, COMPACT_BLOCK_PX, CHIP_ROW, CHIP_TOP);
+    return (
+      <View style={[s.block, { backgroundColor: look.bg, borderLeftColor: look.edge, paddingVertical: pad, justifyContent: tier === 1 ? 'center' : 'flex-start' }]} {...({ dataSet: { hostCount: String(hosted.length) } } as object)}>
+        <View style={s.line}>
+          <Text style={[s.title, done && s.done]} numberOfLines={1} maxFontSizeMultiplier={1.3} {...({ dataSet: { hostTitle: '1' } } as object)}>
+            {title}
+          </Text>
+          {plan.more > 0 ? (
+            <View style={s.more} accessibilityLabel={`${plan.more} more during the break`} {...({ dataSet: { hostMore: String(plan.more) } } as object)}>
+              <Text style={s.moreText} maxFontSizeMultiplier={1}>
+                +{plan.more}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        {hosted.slice(0, plan.shown).map((h) => (
+          <View key={h.id} style={s.chip} {...({ dataSet: { hostChip: h.id } } as object)}>
+            <View style={[s.chipDot, { backgroundColor: look.dots?.[h.id] ?? c.textSecondary }]} />
+            <Text style={[s.chipText, h.task.completed && s.done]} numberOfLines={1} maxFontSizeMultiplier={1}>
+              {(h.task.emoji ? h.task.emoji + ' ' : '') + h.task.title}
+            </Text>
+            <Text style={s.chipLen} maxFontSizeMultiplier={1}>
+              {formatDuration(h.task.durationMinutes) ?? ''}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
   }
   const right = tier === 1 ? (lengthText || timeText) : '';
   return (

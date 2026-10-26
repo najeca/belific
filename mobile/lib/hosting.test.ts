@@ -155,6 +155,10 @@ test('chipPlan: a 20 minute break is one line, a 45 and a 60 minute one stack', 
   assert.deepEqual(chipPlan(px(60), 300, 3, COMPACT_BLOCK_PX), { mode: 'stack', shown: 2, more: 1 });
   assert.deepEqual(chipPlan(px(120), 300, 3, COMPACT_BLOCK_PX), { mode: 'stack', shown: 3, more: 0 });
   assert.deepEqual(chipPlan(px(60), 300, 0, COMPACT_BLOCK_PX), { mode: 'stack', shown: 0, more: 0 });
+  // The phone: bigger rows, and a one line break is only "+N".
+  assert.deepEqual(chipPlan(px(20), 0, 2, COMPACT_BLOCK_PX, 18, 22), { mode: 'inline', shown: 0, more: 2 });
+  assert.deepEqual(chipPlan(px(60), 0, 3, COMPACT_BLOCK_PX, 18, 22), { mode: 'stack', shown: 1, more: 2 });
+  assert.deepEqual(chipPlan(px(90), 0, 3, COMPACT_BLOCK_PX, 18, 22), { mode: 'stack', shown: 3, more: 0 });
 });
 
 test('hostedMinutes: the hosted lengths (what counting once takes off); the setting reads safely', () => {

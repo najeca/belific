@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.7.0 — 2026-10-26 (Task during a break P3: the phone's Day view)
+
+**iPhone. No schema change, nothing stored.**
+- **The Calendar's Day view hosts tasks like the desktop** (`lib/phoneDay.ts` uses `lib/hosting.ts`): a task fully inside a break has no block of its own; the break stays one full width block. A break of one line (20 or 30 minutes) cannot show chips and shows a "+N" badge; a taller one stacks a chip per row under its title (light chip, dark text in both themes, a dot in the label colour, title, length), "+N" on the title row for the ones that do not fit. Its screen reader label names the tasks during it.
+- **A tap on a break with tasks during it opens a small sheet** ("During Tea"): one row per task (dot, title, time, length; ✓ when done), a tap opens that task's details; "Open Tea" opens the break itself. A break with nothing inside opens as before. The chips themselves are not separate tap targets (too small for 44 pt).
+- Today, Tasks and the hold menu do not change.
+- **Tests:** `phoneDay.test.ts` +1 (hosted, no block, the break full width, the long task cut as before, no "cover" note), `hosting.test.ts` (the phone's chip plan); real touch check `desktop/test/real/phone-p13.js` (new, 17 checks at 390 x 844, light and dark: "+2" on a 20 minute break, one chip on 60 minutes, three on 90, no overlap, the sheet, a row opens its task, Open Tea, Today unchanged).
+
 ## 3.6.0 — 2026-10-26 (Task during a break P2: chips in the break, desktop)
 
 **Desktop. No schema change, nothing stored.**

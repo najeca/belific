@@ -9,14 +9,23 @@ import { tasksForTimebox, type DayTask } from './timeboxTasks.ts';
 import { continuationOf, layoutItems, taskToItem, toMinutes, type PlacedBlock, type TimeboxItem } from './timebox.ts';
 import { timeViews } from './times.ts';
 import { planCuts, DEFAULT_CUT_MIN, type CutEntry, type CutPiece } from './cuts.ts';
+import { hostDay, type HostEntry } from './hosting.ts';
 import { isMustDo } from './mustDo.ts';
 import { segmentsForDay, type DaySegment } from './externalEvents.ts';
 import type { Occurrence } from './icsParse.ts';
 
 export type DaySource =
-  | { kind: 'task'; task: Task; projected: boolean; full?: Task; time?: string; suffix?: string; piece?: CutPiece; continuation?: boolean }
+  // `hosted` (3.7.0, lib/hosting.ts): a break's tasks fully inside it, drawn as chips in its block.
+  | { kind: 'task'; task: Task; projected: boolean; full?: Task; time?: string; suffix?: string; piece?: CutPiece; continuation?: boolean; hosted?: HostedTask[] }
   | { kind: 'event'; event: ScheduleEvent }
   | { kind: 'device'; seg: DaySegment };
+
+export interface HostedTask {
+  // The task's own block id (task:<id><suffix>).
+  id: string;
+  task: Task;
+  projected: boolean;
+}
 
 export interface PhoneDay {
   key: string;
@@ -40,7 +49,7 @@ export function buildPhoneDay(input: { tasks: Task[]; dayKey: string; todayKey: 
   }
   const { own, spill } = tasksForTimebox(tasks, dayKey, todayKey);
   const allDay = own.filter((d) => !d.task.startTime).sort((a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)));
-  const entries: CutEntry[] = [];
+  const entries: Array<CutEntry & HostEntry> = [];
   const high = new Map<string, boolean>();
   for (const { task: t, projected } of own) {
     if (!t.startTime) continue;
@@ -59,7 +68,7 @@ export function buildPhoneDay(input: { tasks: Task[]; dayKey: string; todayKey: 
       if (!rest) continue;
       const id = `${rest.id}${v.suffix}`;
       sources.set(id, { kind: 'task', task: v.task, projected, continuation: true, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
-      entries.push({ id, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow });
+      entries.push({ id, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow, cont: true });
       high.set(id, isMustDo(t));
     }
   }
@@ -67,7 +76,19 @@ export function buildPhoneDay(input: { tasks: Task[]; dayKey: string; todayKey: 
     const s = sources.get(id);
     return s && s.kind === 'task' ? s.task.title : id;
   };
-  const plan = planCuts(entries, input.cutMin ?? DEFAULT_CUT_MIN, titleOf);
+  // 3.7.0: a task fully inside a break is a chip in it (lib/hosting.ts), as on the desktop.
+  const host = hostDay(entries);
+  for (const [breakId, ids] of host.hosted) {
+    const b = sources.get(breakId);
+    if (!b || b.kind !== 'task') continue;
+    const hosted: HostedTask[] = [];
+    for (const id of ids) {
+      const g = sources.get(id);
+      if (g && g.kind === 'task') hosted.push({ id, task: g.task, projected: g.projected });
+    }
+    sources.set(breakId, { ...b, hosted });
+  }
+  const plan = planCuts(entries.filter((e) => !host.hostOf.has(e.id)), input.cutMin ?? DEFAULT_CUT_MIN, titleOf);
   for (const it of plan.items) {
     if (it.piece) {
       const host = sources.get(it.piece.hostId);

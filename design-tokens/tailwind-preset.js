@@ -34,6 +34,8 @@ module.exports = {
         "on-label": "var(--ds-on-label)",
         "plain-block": "var(--ds-plain-block)",
         "break-tint": "var(--ds-break-tint)",
+        "host-chip": "var(--ds-host-chip)",
+        "on-host-chip": "var(--ds-on-host-chip)",
         "inverse-bg": "var(--ds-inverse-bg)",
         "inverse-text": "var(--ds-inverse-text)",
         "chart-actual": "var(--ds-chart-actual)",

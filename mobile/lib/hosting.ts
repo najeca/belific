@@ -9,7 +9,8 @@
 //  * Only a break hosts, and a break is never hosted (two breaks stay as they were).
 //  * Inside means break start <= task start and task end <= break end (the edges count).
 //  * A task inside two breaks goes to the shortest one (then the earlier, then by id).
-//  * The rest of yesterday's overnight task (`cont`) is never hosted: it keeps today's behaviour.
+//  * The rest of yesterday's overnight task (`cont`) is never hosted and never hosts: it keeps today's
+//    behaviour (its own day hosts it, or the tasks inside it).
 //  * Each time of a task with several times a day is its own entry, hosted on its own.
 //  * A task that only partly overlaps a break is not hosted: Split treats it exactly as before.
 import type { Task } from './types.ts';
@@ -43,7 +44,7 @@ const valid = (e: HostEntry) => Number.isFinite(e.startMin) && Number.isFinite(e
 export function hostDay(entries: HostEntry[]): HostResult {
   const res: HostResult = { hostOf: new Map(), hosted: new Map() };
   const breaks = entries
-    .filter((e) => e.breaks && valid(e))
+    .filter((e) => e.breaks && !e.cont && valid(e))
     .sort((a, b) => a.endMin - a.startMin - (b.endMin - b.startMin) || a.startMin - b.startMin || a.id.localeCompare(b.id));
   if (breaks.length === 0) return res;
   const guests = entries
@@ -105,6 +106,16 @@ export function breakAt<T extends BreakSpan>(breaks: T[], min: number): T | unde
 export function hostStart(dropMin: number, lengthMin: number, brk: Pick<BreakSpan, 'startMin' | 'endMin'>): number | null {
   if (lengthMin > brk.endMin - brk.startMin) return null;
   return dropMin >= brk.startMin && dropMin + lengthMin <= brk.endMin ? dropMin : brk.startMin;
+}
+
+// A drag over the grid (3.6.0): with the pointer on a break, the task starts inside it (`hostStart`
+// from the slot it would take). A break task is never hosted (pass no breaks for one).
+export type HostDrop<T extends BreakSpan> = { kind: 'none' } | { kind: 'host'; startMin: number; brk: T } | { kind: 'longer'; brk: T };
+export function hostDrop<T extends BreakSpan>(breaks: T[], pointerMin: number, slotMin: number, lengthMin: number): HostDrop<T> {
+  const brk = breakAt(breaks, pointerMin);
+  if (!brk) return { kind: 'none' };
+  const start = hostStart(slotMin, lengthMin, brk);
+  return start === null ? { kind: 'longer', brk } : { kind: 'host', startMin: start, brk };
 }
 
 // "Do during a break": the breaks a task of this length fits in, earliest first.

@@ -8,11 +8,21 @@ to know the current version and recent history.
 
 ---
 
+## 3.6.0 — 2026-10-26 (Task during a break P2: chips in the break, desktop)
+
+**Desktop. No schema change, nothing stored.**
+- **A hosted task is a chip inside its break** in the Timebox and the Calendar (day and week): the break stays one full width block; the chip is light with dark text in both themes (new tokens `hostChip`, `onHostChip`), with a dot in the task's label colour, its title and length. A short break (one line, under 36 px: 20 or 30 minutes) shows its title and one chip on the same line, the chip's text cut short, with "+N" on the right for the rest; too narrow for a chip (under 150 px, a week column) it shows only "+N". A taller break stacks one chip per row under its title, the first ones that fit and "+N" on the title row. Overlapping hosted tasks are a list, never lanes. The hosted task no longer gets a block of its own, a lane, or the old "Not split: it would cover a whole task" note.
+- The break's tooltip lists everything during it ("During it: …"). Clicking a chip opens its task; clicking its dot ticks (or reopens) it. A hosted task is still a card in Tasks (and on the phone's Today).
+- **Drag onto a break** (Timebox or Calendar): with the pointer on a break, the task starts inside it, at the slot it was dropped on if it fits there, else at the break's start; the lifted card says "During Lunch, 12:30 to 13:00". A task longer than the break is refused, "Longer than the break: …", and drops exactly as before (Split unchanged).
+- **"Do during a break"** in the ⋮ menu (not for a break, a done task, or a task with several times): today's breaks the task fits in, with their times; the shorter ones are named under "Longer than the break". Choosing one puts the task on today at the break's start (a repeating day asks This day only / All days, as any new time does).
+- iOS markers: `Do during a break`, `DuringBreakBody` (desktop only). `lib/hosting.ts` is not a marker (the phone uses it in P3).
+- **Tests:** `hosting.test.ts` +1 (`hostDrop`), `tokens.test.ts` +1 (chip text 6:1 in both themes, the chip 3:1 on every vibrant colour and the slate break); real check `desktop/test/real/p27.js` (new, 64 checks: 20 and 60 minute breaks with one and three hosted tasks, Timebox and Calendar, light and dark, no text overlapping, tooltip, chip opens and ticks, drag in, longer refused, moved out, the menu; screenshots in `docs/screens-3.6.0/`).
+
 ## 3.5.0 — 2026-10-26 (Task during a break P1: the hosting rule)
 
 **Logic only, no screen yet. No schema change, nothing stored.**
 - **`lib/hosting.ts`** (new, pure): a task that starts and ends fully inside a break (a task with Split on) is *hosted* by it (`hostDay`), derived from the times only. Edges count; a task inside two breaks goes to the shorter; a break is never hosted; the rest of yesterday's overnight task is never hosted; each time of a task with several times is judged on its own. A task that only partly overlaps a break is not hosted, so Split treats it exactly as before. Helpers for the next phases: `dayHostEntries` (a day's entries like the Timebox builds them, repeating days and extra times included), `breakAt`, `hostStart` (the dropped time if the task fits inside the break from there, else the break start; refused, `LONGER_THAN_BREAK`, when the task is longer than the break), `breaksFitting`, `chipPlan` (one line or stacked chips and the "+N" count for a block's size), `hostedMinutes`, and the setting row `planner.break_count_twice`.
-- **Tests:** `hosting.test.ts` (17: inside, partly overlapping, longer than the break, several tasks, the Split plan unchanged for the rest of the day, breaks and yesterday's rest never hosted, Split off, extra times on the task and on the break, repeating days, moved out, the drop start, chip plans for 20, 45, 60 and 120 minutes).
+- **Tests:** `hosting.test.ts` (16: inside, partly overlapping, longer than the break, several tasks, the Split plan unchanged for the rest of the day, breaks and yesterday's rest never hosted, Split off, extra times on the task and on the break, repeating days, moved out, the drop start, chip plans for 20, 45, 60 and 120 minutes).
 
 ## 3.4.1 — 2026-10-26 (Repeating, this day only: the desktop question above the drop-down)
 

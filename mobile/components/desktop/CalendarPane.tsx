@@ -8,6 +8,9 @@ import { isMustDo } from '../../lib/mustDo';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { timeViews } from '../../lib/times';
 import { useCutMin } from './cutStore';
+import { hostDay, type HostEntry } from '../../lib/hosting';
+import { setDayBreaks, type DayBreak } from './breakStore';
+import type { HostedGuest } from './HostChips';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { taskDuration } from '../../lib/drag';
@@ -109,6 +112,9 @@ interface DayData {
   notes: Map<string, string>;
   badges: Map<string, string>;
   blocks: ReturnType<typeof layoutItems>['blocks'];
+  // 3.6.0: the tasks during each break (by the break's block id), and the day's breaks.
+  hostedBy: Map<string, HostedGuest[]>;
+  breaks: DayBreak[];
 }
 
 export default function CalendarPane({
@@ -219,7 +225,7 @@ export default function CalendarPane({
       const { allDay, timed } = splitAllDay(visibleOwn);
       // The timed tasks and yesterday's overnight rest; a task with "Cut tasks underneath" cuts the
       // others they overlap into pieces (lib/cuts.ts, derived each time, nothing stored).
-      const entries: CutEntry[] = [];
+      const entries: Array<CutEntry & HostEntry> = [];
       const high = new Map<string, boolean>();
       for (const { task: t, projected } of timed) {
         for (const v of timeViews(t)) {
@@ -238,7 +244,7 @@ export default function CalendarPane({
           if (!rest) continue;
           const cid = `${rest.id}${v.suffix}`;
           sources.set(cid, { kind: 'continuation', task: v.task, projected, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
-          entries.push({ id: cid, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow });
+          entries.push({ id: cid, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow, cont: true });
           high.set(cid, isMustDo(t));
         }
       }
@@ -246,7 +252,24 @@ export default function CalendarPane({
         const s = sources.get(id);
         return s && (s.kind === 'task' || s.kind === 'continuation') ? s.task.title : id;
       };
-      const plan = planCuts(entries, cutMin, titleOf);
+      // 3.6.0: a task fully inside a break is a chip in it (lib/hosting.ts), not cut, not beside it.
+      const host = hostDay(entries);
+      const hostedBy = new Map<string, HostedGuest[]>();
+      for (const [breakId, ids] of host.hosted) {
+        const guests: HostedGuest[] = [];
+        for (const id of ids) {
+          const s = sources.get(id);
+          if (!s || s.kind !== 'task') continue;
+          const color = labelColor(labels.find((p) => p.key === s.task.projectKey)?.colorKey);
+          guests.push({ blockId: id, task: s.task, full: s.full ?? s.task, projected: s.projected, ...(s.time ? { time: s.time } : {}), dot: color?.edge ?? Colors.textSecondary });
+        }
+        hostedBy.set(breakId, guests);
+      }
+      const breaks: DayBreak[] = entries.flatMap((e) => {
+        const s = sources.get(e.id);
+        return e.breaks && !e.cont && s && s.kind === 'task' ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, taskId: s.task.id }] : [];
+      });
+      const plan = planCuts(entries.filter((e) => !host.hostOf.has(e.id)), cutMin, titleOf);
       for (const it of plan.items) {
         if (it.piece) {
           const host = sources.get(it.piece.hostId);
@@ -268,9 +291,13 @@ export default function CalendarPane({
       }
       // 2.29.0: top priority first in the all day row (a stable sort; nothing stored).
       allDay.sort((a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)));
-      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.notes, badges: plan.badges, blocks: layoutItems(items).blocks };
+      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.notes, badges: plan.badges, blocks: layoutItems(items).blocks, hostedBy, breaks };
     });
-  }, [effView, keys, tasks, events, categories, filter, todayKey, imported, cutMin]);
+  }, [effView, keys, tasks, events, categories, filter, todayKey, imported, cutMin, labels]);
+  // A drag over one of these breaks starts the task inside it (DragProvider).
+  useEffect(() => {
+    for (const d of days) setDayBreaks(d.key, d.breaks);
+  }, [days]);
 
   // The scroller and the grid (plain elements: they scroll both ways and hold
   // sticky rows). The scroller is a drag scroller (top and bottom) and, in the
@@ -774,6 +801,7 @@ export default function CalendarPane({
                         blockSuffix={source.suffix}
                         note={d.notes.get(b.id)}
                         badge={d.badges.get(b.id)}
+                        hosted={d.hostedBy.get(b.id)}
                         fullText
                         gridNode={() => gridEl.current}
                         onChanged={onChanged}

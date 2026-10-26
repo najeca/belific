@@ -26,6 +26,9 @@ import {
 } from '../../lib/timebox';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { timeViews } from '../../lib/times';
+import { hostDay, type HostEntry } from '../../lib/hosting';
+import { setDayBreaks, type DayBreak } from './breakStore';
+import type { HostedGuest } from './HostChips';
 import { useCutMin } from './cutStore';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
@@ -230,7 +233,7 @@ export default function TimeboxPane({
   // "Vibrant task colours" (Settings): saturated cards with bold white text; off = as before.
   const vibrant = useVibrant();
   const tint = useTint();
-  const { sources, items, notes, badges } = useMemo(() => {
+  const { sources, items, notes, badges, hostedBy, breaks } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: TimeboxItem[] = [];
     for (const e of getWeeklyEventsForDate(day)) {
@@ -255,7 +258,7 @@ export default function TimeboxPane({
     projectedIds.current.clear();
     const { own, spill } = tasksForTimebox(tasks, key, todayKey);
     // A task with "Cut tasks underneath" cuts the others it overlaps into pieces (lib/cuts.ts).
-    const entries: CutEntry[] = [];
+    const entries: Array<CutEntry & HostEntry> = [];
     const high = new Map<string, boolean>();
     for (const { task: t, projected } of own) {
       if (!taskVisible(t, filter)) continue;
@@ -277,11 +280,28 @@ export default function TimeboxPane({
         if (!rest) continue;
         const cid = `${rest.id}${v.suffix}`;
         map.set(cid, { kind: 'continuation', task: v.task, projected, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
-        entries.push({ id: cid, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow });
+        entries.push({ id: cid, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow, cont: true });
         high.set(cid, isMustDo(t));
       }
     }
-    const plan = planCuts(entries, cutMin, (id) => {
+    // 3.6.0: a task fully inside a break is drawn as a chip in it (lib/hosting.ts), not cut, not beside it.
+    const host = hostDay(entries);
+    const hostedBy = new Map<string, HostedGuest[]>();
+    for (const [breakId, ids] of host.hosted) {
+      const guests: HostedGuest[] = [];
+      for (const id of ids) {
+        const s = map.get(id);
+        if (!s || s.kind !== 'task') continue;
+        const color = labelColor(labels.find((p) => p.key === s.task.projectKey)?.colorKey);
+        guests.push({ blockId: id, task: s.task, full: s.full ?? s.task, projected: !!s.projected, ...(s.time ? { time: s.time } : {}), dot: color?.edge ?? Colors.textSecondary });
+      }
+      hostedBy.set(breakId, guests);
+    }
+    const breaks: DayBreak[] = entries.flatMap((e) => {
+      const s = map.get(e.id);
+      return e.breaks && !e.cont && s && s.kind === 'task' ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, taskId: s.task.id }] : [];
+    });
+    const plan = planCuts(entries.filter((e) => !host.hostOf.has(e.id)), cutMin, (id) => {
       const s = map.get(id);
       return s && (s.kind === 'task' || s.kind === 'continuation') ? s.task.title : id;
     });
@@ -294,8 +314,10 @@ export default function TimeboxPane({
       }
       list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
     }
-    return { sources: map, items: list, notes: plan.notes, badges: plan.badges };
-  }, [day, key, todayKey, events, categories, tasks, filter, cutMin]);
+    return { sources: map, items: list, notes: plan.notes, badges: plan.badges, hostedBy, breaks };
+  }, [day, key, todayKey, events, categories, tasks, filter, cutMin, labels]);
+  // A drag over one of these breaks starts the task inside it (DragProvider).
+  useEffect(() => setDayBreaks(key, breaks), [key, breaks]);
 
   const layout = useMemo(() => layoutItems(items), [items]);
   const total = totalScheduledMinutes(items);
@@ -471,6 +493,7 @@ export default function TimeboxPane({
                     blockSuffix={source.suffix}
                     note={notes.get(b.id)}
                     badge={badges.get(b.id)}
+                    hosted={hostedBy.get(b.id)}
                     a11y={`Task ${t.title}`}
                     gridNode={() => gridNode.current}
                     onChanged={onChanged}

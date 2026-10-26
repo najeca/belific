@@ -108,6 +108,10 @@ const MARKERS = [
   // 'Match system' REMOVED ON PURPOSE in PLAN_phone P1 (2.49.0): the phone's own theme store
   // (components/phone/theme.tsx) imports lib/themeMode.ts, whose labels include it; the Theme row is
   // shown on the phone in P11. A per device setting, never synced: no data risk.
+  // 3.6.0 (task during a break): the ⋮ menu's "Do during a break" is desktop only. lib/hosting.ts is NOT a
+  // marker: the iPhone's Day view draws hosted tasks with it (3.7.0).
+  'Do during a break',
+  'DuringBreakBody',
 ];
 
 const ALLOWED = {

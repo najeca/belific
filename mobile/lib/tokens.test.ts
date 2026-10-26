@@ -107,3 +107,17 @@ test('each app brings its own accent and Belific stays sage (brighter on dark)',
     assert.ok(contrast(a.dark.accentText, darkTokens.surface) >= 4.5, `${app} dark accentText`);
   }
 });
+
+// 3.6.0 (task during a break): the chip of a hosted task is light with dark text in both themes, so it
+// reads the same on a plain break, a label tinted one and a vibrant (slate or saturated) one.
+test('a task during a break: the chip text is 6:1 in both themes and the chip stands out on vibrant blocks', async () => {
+  const { VIBRANT_NEUTRAL, vibrantColor } = await import('./vibrant.ts');
+  for (const t of [lightTokens, darkTokens]) {
+    assert.match(t.hostChip, HEX);
+    assert.match(t.onHostChip, HEX);
+    assert.ok(contrast(t.onHostChip, t.hostChip) >= 6, `chip text ${contrast(t.onHostChip, t.hostChip).toFixed(2)}`);
+    for (const bg of [VIBRANT_NEUTRAL, ...[...LABEL_COLORS, ...LEGACY_COLORS].map((c) => vibrantColor(c.edge))]) {
+      assert.ok(contrast(t.hostChip, bg) >= 3, `chip on vibrant ${bg} ${contrast(t.hostChip, bg).toFixed(2)}`);
+    }
+  }
+});

@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. A task during a break (3.5.0): hosted when fully inside a break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LONGER_THAN_BREAK, breakAt, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
+import { LONGER_THAN_BREAK, breakAt, hostDrop, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
 import { cutDay, planCuts } from './cuts.ts';
 import { COMPACT_BLOCK_PX, PX_PER_HOUR } from './timebox.ts';
 import type { Task } from './types.ts';
@@ -52,19 +52,21 @@ test('the hosted task leaves the Split plan: no "covers" refusal, a cut elsewher
   assert.deepEqual(pieces(after), pieces(before), 'the day long task is cut exactly as before');
 });
 
-test('a break is never hosted, the rest of yesterday is never hosted, the shortest break wins', () => {
+test('a break is never hosted, the rest of yesterday never hosts and is never hosted, the shortest break wins', () => {
   const r = hostDay([
     brk('big', h(12), h(14)),
     brk('small', h(12, 30), h(13)),
     task('in-both', h(12, 35), h(12, 50)),
     task('in-big', h(13, 10), h(13, 30)),
     { ...task('cont:night', 0, h(0, 20)), cont: true },
-    brk('cont:b', 0, h(1)),
+    { ...brk('cont:b', 0, h(1)), cont: true },
+    task('early', h(0, 10), h(0, 30)),
   ]);
   assert.equal(r.hostOf.get('in-both'), 'small');
   assert.equal(r.hostOf.get('in-big'), 'big');
   assert.equal(r.hostOf.has('small'), false, 'a break inside a break stays a break');
   assert.equal(r.hostOf.has('cont:night'), false);
+  assert.equal(r.hostOf.has('early'), false, "yesterday's break goes on hosting nothing today");
 });
 
 test('Split off: a task of the same span hosts nothing', () => {
@@ -161,4 +163,13 @@ test('hostedMinutes: the hosted lengths (what counting once takes off); the sett
   assert.equal(parseBreakTwice('false'), false);
   assert.equal(parseBreakTwice(undefined), false);
   assert.equal(parseBreakTwice('yes'), false);
+});
+
+test('hostDrop: over a break the task starts inside it; longer is refused; elsewhere nothing changes', () => {
+  const list = [{ id: 'lunch', startMin: h(12), endMin: h(13) }, { id: 'tea', startMin: h(15), endMin: h(15, 20) }];
+  assert.deepEqual(hostDrop(list, h(12, 40), h(12, 30), 15), { kind: 'host', startMin: h(12, 30), brk: list[0] });
+  assert.deepEqual(hostDrop(list, h(15, 10), h(15), 15), { kind: 'host', startMin: h(15), brk: list[1] });
+  assert.deepEqual(hostDrop(list, h(15, 10), h(15), 30), { kind: 'longer', brk: list[1] });
+  assert.deepEqual(hostDrop(list, h(14), h(14), 15), { kind: 'none' });
+  assert.deepEqual(hostDrop([], h(12), h(12), 15), { kind: 'none' });
 });

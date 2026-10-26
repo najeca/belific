@@ -31,7 +31,10 @@ import {
   weekdayOf,
   type RepeatKind,
 } from '../../lib/repeat';
-import { loadTasks } from '../../lib/storage';
+import { loadTasks, loadTasksRaw } from '../../lib/storage';
+import { LONGER_THAN_BREAK, breaksFitting, dayHostEntries } from '../../lib/hosting';
+import { taskDuration } from '../../lib/drag';
+import { toTime } from '../../lib/timebox';
 import { setLabelEmoji } from '../../lib/labels';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import { setActualFor } from '../../lib/timerActions';
@@ -691,6 +694,57 @@ export function StartFromRows({ task, done }: { task: Task; done: () => void }) 
   );
 }
 
+// 3.6.0 (task during a break): the ⋮ menu's "Do during a break" lists today's breaks the task fits in;
+// choosing one puts the task on today at the break's start (lib/hosting.ts then draws it as a chip in
+// the break). A repeating day asks This day only / All days, as any new time does (ops.patch).
+export const DURING_BREAK = 'Do during a break';
+export function canDoDuringBreak(task?: Task): task is Task {
+  return !!task && !task.id.startsWith('dump:') && !task.completed && !task.cutsBelow && !isMultiTime(task);
+}
+export function DuringBreakBody({ task, ops, done }: BodyProps) {
+  const todayKey = dateKey(new Date());
+  const [breaks, setBreaks] = useState<Array<{ id: string; startMin: number; endMin: number; title: string }> | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadTasksRaw().then((all) => {
+      if (!live) return;
+      setBreaks(dayHostEntries(all, todayKey, todayKey).flatMap((e) => (e.breaks && !e.cont && e.full.id !== task.id ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: e.task.title }] : [])));
+    });
+    return () => {
+      live = false;
+    };
+  }, [todayKey, task.id]);
+  const len = taskDuration(task);
+  const fit = breaks ? breaksFitting(breaks, len) : [];
+  const short = breaks ? breaks.filter((b) => !fit.includes(b)) : [];
+  const span = (b: { startMin: number; endMin: number }) => `${formatTime(toTime(b.startMin))} to ${formatTime(toTime(b.endMin % 1440))}`;
+  return (
+    <View style={styles.list} {...({ dataSet: { duringBreak: '1' } } as object)}>
+      <PopoverHeading>{DURING_BREAK}</PopoverHeading>
+      {fit.map((b) => (
+        <Row
+          key={b.id}
+          label={b.title}
+          sub={span(b)}
+          subRight
+          onPress={async () => {
+            await ops.patch({ dueDate: todayKey, startTime: toTime(b.startMin), ...(task.durationMinutes === undefined ? { durationMinutes: len } : {}) });
+            notifyChanged();
+            done();
+          }}
+          a11y={`Do during ${b.title}, ${span(b)}`}
+        />
+      ))}
+      {breaks && breaks.length === 0 && <Text style={styles.hint}>No breaks today. A break is a task with Split on.</Text>}
+      {short.length > 0 && (
+        <Text style={styles.hint} {...({ dataSet: { duringBreakShort: '1' } } as object)}>
+          {LONGER_THAN_BREAK}: {short.map((b) => b.title).join(', ')}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 export function OverflowBody({
   task,
   ops,
@@ -708,7 +762,11 @@ export function OverflowBody({
 }) {
   const [confirming, setConfirming] = useState(!!armed);
   const [moving, setMoving] = useState(false);
+  const [duringBreak, setDuringBreak] = useState(false);
   const feats = useFeatures();
+  const breakRow = canDoDuringBreak(task) ? (
+    <Row label={DURING_BREAK} leading={<Text>☕</Text>} onPress={() => setDuringBreak(true)} a11y={DURING_BREAK} />
+  ) : null;
   const series = ops.series;
   const openRow =
     task && (onOpen || !task.id.startsWith('dump:')) ? (
@@ -770,6 +828,7 @@ export function OverflowBody({
     const canSkip = !!task?.dueDate && !task.completed;
     // 3.2.0: the day picker opens inside this popover (only one popover is open at a time).
     if (moving && task) return <MoveToDayBody task={task} ops={ops} done={done} />;
+    if (duringBreak && task) return <DuringBreakBody task={task} ops={ops} done={done} />;
     return (
       <View style={styles.list}>
         {confirming ? (
@@ -794,6 +853,7 @@ export function OverflowBody({
             {openRow}
             {timerRows}
             {mustRow}
+            {breakRow}
             {canSkip && (
               <Row label={MOVE_THIS_DAY} sub="Only this day" onPress={() => setMoving(true)} a11y={MOVE_THIS_DAY} />
             )}
@@ -814,6 +874,7 @@ export function OverflowBody({
       </View>
     );
   }
+  if (duringBreak && task) return <DuringBreakBody task={task} ops={ops} done={done} />;
   return (
     <View style={styles.list}>
       {confirming ? (
@@ -838,6 +899,7 @@ export function OverflowBody({
           {openRow}
           {timerRows}
           {mustRow}
+          {breakRow}
           {task?.id && !task.id.startsWith('dump:') && (
             <>
               <Row

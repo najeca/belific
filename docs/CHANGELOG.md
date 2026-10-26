@@ -8,6 +8,12 @@ to know the current version and recent history.
 
 ---
 
+## 3.5.0 — 2026-10-26 (Task during a break P1: the hosting rule)
+
+**Logic only, no screen yet. No schema change, nothing stored.**
+- **`lib/hosting.ts`** (new, pure): a task that starts and ends fully inside a break (a task with Split on) is *hosted* by it (`hostDay`), derived from the times only. Edges count; a task inside two breaks goes to the shorter; a break is never hosted; the rest of yesterday's overnight task is never hosted; each time of a task with several times is judged on its own. A task that only partly overlaps a break is not hosted, so Split treats it exactly as before. Helpers for the next phases: `dayHostEntries` (a day's entries like the Timebox builds them, repeating days and extra times included), `breakAt`, `hostStart` (the dropped time if the task fits inside the break from there, else the break start; refused, `LONGER_THAN_BREAK`, when the task is longer than the break), `breaksFitting`, `chipPlan` (one line or stacked chips and the "+N" count for a block's size), `hostedMinutes`, and the setting row `planner.break_count_twice`.
+- **Tests:** `hosting.test.ts` (17: inside, partly overlapping, longer than the break, several tasks, the Split plan unchanged for the rest of the day, breaks and yesterday's rest never hosted, Split off, extra times on the task and on the break, repeating days, moved out, the drop start, chip plans for 20, 45, 60 and 120 minutes).
+
 ## 3.4.1 — 2026-10-26 (Repeating, this day only: the desktop question above the drop-down)
 
 **Desktop. No schema change.**

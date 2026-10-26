@@ -32,7 +32,8 @@ async function run() {
   fs.mkdirSync(dataDir, { recursive: true });
   const T = (id, title, start, len, extra = {}) => ({ id, title, completed: false, createdAt: stamp, updatedAt: stamp, dueDate: today, startTime: start, durationMinutes: len, ...extra });
   const write = (k, v) => fs.writeFileSync(path.join(dataDir, `${k}.kv`), JSON.stringify(v));
-  write('belific_tasks', [T('tea', 'Tea', '09:00', 20, { cutsBelow: true }), T('t1', 'Water the plants', '09:00', 5), T('t2', 'Text Mum', '09:10', 10, { projectKey: 'work' })]);
+  write('belific_tasks', [T('tea', 'Tea', '09:00', 20, { cutsBelow: true }), T('t1', 'Water the plants', '09:00', 5), T('t2', 'Text Mum', '09:10', 10, { projectKey: 'work', listKey: 'L1' }), T('free', 'Free task', '15:00', 30)]);
+  write('belific_lists', [{ key: 'L1', name: 'Family', emoji: '🏠', sortOrder: 0, createdAt: stamp, updatedAt: stamp }]);
   write('belific_projects', [{ key: 'work', name: 'Work', colorKey: 'sky', createdAt: stamp, updatedAt: stamp }]);
   const read = (k) => {
     try {
@@ -90,6 +91,55 @@ async function run() {
   await P.finger.tap(visible('[data-hosted-open="task:t2"]'), 1200);
   const v = await P.js(`[...document.querySelectorAll('input, textarea')].filter((e) => e.getBoundingClientRect().height > 0).map((e) => e.value).join('|') + (document.body.innerText || '')`);
   check('Open (the title) opens the task', v.includes('Text Mum'), v.slice(0, 120));
+  await close();
+
+  // ======== 3.10.0: rows and details ========
+  // t1 is ticked; t2 is back in the break. Show the Today list.
+  const rowMeta = (title) => P.js(`(() => { const r = [...document.querySelectorAll('[data-today-row]')].find((e) => e.getAttribute('data-today-row') === '${title}'); if (!r) return null; const p = r.querySelector('[data-host-pill]'); const c = r.querySelector('[data-host-caption]'); return (p ? 'pill:' + p.innerText : '') + '|' + (c ? 'cap:' + c.innerText : ''); })()`);
+  const todayChecks = async (theme) => {
+    await P.finger.tap(tab('Today'), 1200);
+    check(`${theme}: Today: the break's row shows "2 inside"`, (await rowMeta('Tea')) === 'pill:2 inside|', await rowMeta('Tea'));
+    check(`${theme}: Today: a hosted task's row says "During Tea"`, (await rowMeta('Text Mum')) === '|cap:During Tea', await rowMeta('Text Mum'));
+    check(`${theme}: Today: a task outside has neither`, (await rowMeta('Free task')) === '|', await rowMeta('Free task'));
+    await shot(`phone-p14-today-${theme}`);
+  };
+  await todayChecks('light');
+  // Tasks: a list with a dated task in it.
+  await P.finger.tap(tab('Tasks'), 1200);
+  await P.finger.tap(visible('[data-list-chip="L1"]'), 1000);
+  const listCap = await P.js(`(() => { const r = [...document.querySelectorAll('[data-task-row]')].find((e) => e.getAttribute('data-task-row') === 'Text Mum'); const c = r && r.querySelector('[data-host-caption]'); return c ? c.innerText : null; })()`);
+  check('Tasks: the row of a hosted task in a list says "During Tea"', listCap === 'During Tea', listCap);
+  await shot('phone-p14-tasks-light');
+
+  // The break's details: Inside this break, Move out with an Undo in the details.
+  await P.finger.tap(tab('Calendar'), 1200);
+  await openSheet();
+  await P.finger.tap(visible('[data-hosted-sheet] [aria-label="Open Tea"]'), 1200);
+  const inside = await P.js(`(document.querySelector('[data-inside-break]') || {}).innerText || ''`);
+  check('the break\'s details list Inside this break: tick, title and Move out (44 pt)', /INSIDE THIS BREAK/.test(inside) && inside.includes('Text Mum') && inside.includes('Water the plants') && (await P.js(`[...document.querySelectorAll('[data-inside-tick], [data-inside-open], [data-inside-out]')].every((e) => e.getBoundingClientRect().height >= 44)`)), inside);
+  await shot('phone-p14-break-details-light');
+  await P.finger.tap(visible('[data-inside-out="task:t2"]'), 1500);
+  check('Move out from the break\'s details', task('t2').startTime === '09:20', JSON.stringify(task('t2')));
+  check('the details show an Undo', /Moved Text Mum out of Tea/.test(await P.js(`(document.querySelector('[data-details-undo]') || {}).innerText || ''`)));
+  await P.finger.tap(visible('[data-details-undo] [aria-label="Undo"]'), 1500);
+  check('Undo there puts it back', task('t2').startTime === '09:10', JSON.stringify(task('t2')));
+  await P.finger.tap(visible('[data-inside-open="task:t2"]'), 1200);
+  check('a row\'s title opens that task, which says "During: Tea" with Move out', /During: Tea/.test(await P.js(`(document.querySelector('[data-during-break]') || {}).innerText || ''`)) && (await P.js(`!!document.querySelector('[data-during-out]')`)));
+  await shot('phone-p14-hosted-details-light');
+  await close();
+
+  // Dark.
+  await P.finger.tap(tab('Today'), 900);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-phone-theme] [data-seg="dark"]'), 900);
+  if (await P.js(`!!(${visible('[aria-label="Back"]')})`)) await P.finger.tap(visible('[aria-label="Back"]'), 900);
+  await todayChecks('dark');
+  const pill = await P.js(`(() => { const p = document.querySelector('[data-host-pill]'); return getComputedStyle(p).backgroundColor; })()`);
+  check('dark: the pill uses its dark token', pill === 'rgb(44, 58, 49)', pill);
+  await P.finger.tap(tab('Calendar'), 1200);
+  await openSheet();
+  await P.finger.tap(visible('[data-hosted-sheet] [aria-label="Open Tea"]'), 1200);
+  await shot('phone-p14-break-details-dark');
   await close();
 
   const failed = summary();

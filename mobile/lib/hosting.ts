@@ -88,6 +88,41 @@ export function dayHostEntries(tasks: Task[], dayKey: string, todayKey: string):
   return out;
 }
 
+// 3.10.0: every hosted time of a day with its break (the details' "Inside this break" and "During"),
+// and an index of a few days for the cards: a hosted task's break title and a break's count, by the id of
+// the task (for a projected day, that day's occurrence id).
+export interface HostLink {
+  guest: DayHostEntry;
+  brk: DayHostEntry;
+}
+export function hostLinks(tasks: Task[], dayKey: string, todayKey: string): HostLink[] {
+  const entries = dayHostEntries(tasks, dayKey, todayKey);
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const out: HostLink[] = [];
+  for (const [g, b] of hostDay(entries).hostOf) {
+    const guest = byId.get(g);
+    const brk = byId.get(b);
+    if (guest && brk) out.push({ guest, brk });
+  }
+  return out.sort((x, y) => x.guest.startMin - y.guest.startMin || x.guest.id.localeCompare(y.guest.id));
+}
+export interface HostIndex {
+  during: Map<string, string>;
+  inside: Map<string, number>;
+}
+export function hostIndex(tasks: Task[], dayKeys: string[], todayKey: string): HostIndex {
+  const idx: HostIndex = { during: new Map(), inside: new Map() };
+  for (const key of new Set(dayKeys)) {
+    for (const { guest, brk } of hostLinks(tasks, key, todayKey)) {
+      if (!idx.during.has(guest.full.id)) idx.during.set(guest.full.id, brk.full.title);
+      idx.inside.set(brk.full.id, (idx.inside.get(brk.full.id) ?? 0) + 1);
+    }
+  }
+  return idx;
+}
+export const duringCaption = (breakTitle: string): string => `During ${breakTitle}`;
+export const insidePill = (n: number): string => `${n} inside`;
+
 export interface BreakSpan {
   id: string;
   startMin: number;

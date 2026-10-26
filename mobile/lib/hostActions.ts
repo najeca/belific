@@ -18,8 +18,10 @@ export type OutResult = { ok: true; text: string; undo: () => Promise<void> } | 
 
 const TIME_KEYS = ['dueDate', 'startTime', 'extraTimes', 'timesDone', 'durationMinutes', 'completed', 'completedAt'] as const;
 
-// What undo writes: every row the action changed goes back as it was. A row the action created (a day
-// of a repeating task stored by This day only) takes back the times it showed before.
+// What undo writes: every row the action changed goes back as it was. The day row the action created
+// (a day of a repeating task stored by This day only, under that day's id) takes back the times it showed
+// before. Any other new row (the next day stored to carry the series) already matches the series: it is
+// left alone.
 async function writeWithUndo(g: HostedRef, fields: Partial<Task>): Promise<() => Promise<void>> {
   const before = new Map((await loadTasksRaw()).map((t) => [t.id, t]));
   const ops = g.projected ? opsForProjected(g.full) : opsForTask(g.full);
@@ -39,6 +41,7 @@ async function writeWithUndo(g: HostedRef, fields: Partial<Task>): Promise<() =>
         await updateTask(old);
         continue;
       }
+      if (row.id !== g.full.id) continue;
       const back: Task = { ...cur };
       for (const k of TIME_KEYS) (back as unknown as Record<string, unknown>)[k] = g.full[k];
       await updateTask(back);

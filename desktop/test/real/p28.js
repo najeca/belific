@@ -133,6 +133,8 @@ async function run() {
   await C.waitFor(() => I.exists(`document.querySelector('[data-undo-bar]')`), 3000).catch(() => {});
   await I.click(`document.querySelector('[data-undo-bar] [aria-label="Undo"]')`, 1000);
   check('Undo puts today\'s walk back in the break', byId(walkId)?.startTime === '09:05' && byId('walk').startTime === '09:05' && (await I.exists(chip(`task:${walkId}`))), JSON.stringify(byId(walkId)));
+  // Found by this check: the Undo once copied today onto the next day stored to carry the series.
+  check('Undo leaves one walk today (the day stored to carry the series keeps its own day)', tasks().filter((t) => t.title === 'Short walk' && t.dueDate === TODAY && !t.deletedAt).length === 1, JSON.stringify(tasks().filter((t) => t.id.startsWith('walk')).map((t) => [t.id, t.dueDate, t.startTime])));
 
   // ======== Drag a chip out ========
   await scrollTo(chip('task:call'));
@@ -154,6 +156,67 @@ async function run() {
   const moved = byId('call');
   check('dropped outside the break it is a normal move: a block of its own, same length', moved.startTime >= '14:00' && moved.durationMinutes === 20 && (await I.exists(V(tb('call')))) && !(await I.exists(chip('task:call'))), JSON.stringify(moved));
   await I.shot('p28-03-dragged-out');
+
+  // ======== 3.10.0: cards and details ========
+  // Now: the tea break hosts today's walk (stored at 09:05 by the Undo), Lunch hosts the pill's 12:40.
+  const col = `[data-day-col="${TODAY}"]`;
+  const card = (title) => V(`${col} [aria-label="Task ${title}"]`);
+  const pillOf = (title) => I.js(`(() => { const c = ${card(title)}; const p = c && c.querySelector('[data-host-pill]'); return p ? p.getAttribute('data-host-pill') + '|' + p.innerText : null; })()`);
+  const captionOf = (title) => I.js(`(() => { const c = ${card(title)}; const p = c && c.querySelector('[data-host-caption]'); return p ? p.innerText : null; })()`);
+  const cardChecks = async (theme) => {
+    check(`${theme}: a break's card shows "1 inside"`, (await pillOf('Tea break')) === '1|1 inside' && (await pillOf('Lunch')) === '1|1 inside', JSON.stringify([await pillOf('Tea break'), await pillOf('Lunch')]));
+    check(`${theme}: a hosted task's card says "During <break>"`, (await captionOf('Short walk')) === 'During Tea break' && (await captionOf('Take a pill')) === 'During Lunch', JSON.stringify([await captionOf('Short walk'), await captionOf('Take a pill')]));
+    check(`${theme}: a task not in a break has neither`, (await captionOf('Call the bank')) === null && (await pillOf('Call the bank')) === null);
+    check(`${theme}: Timebox blocks get no caption (no clutter on small blocks)`, !(await I.exists(`document.querySelector('[data-block-id] [data-host-caption], [data-block-id] [data-host-pill]')`)));
+  };
+  await I.js(`(() => { const s = document.querySelector('[data-strip]'); const c = document.querySelector('${col}'); if (s && c) s.scrollLeft += c.getBoundingClientRect().left - s.getBoundingClientRect().left; })()`);
+  await C.sleep(500);
+  if (process.env.P28_DEBUG) { console.log('DEBUG tea', await I.js(`(${V(tb('tea'))} || {}).getAttribute?.('data-host-count') + ' ' + (${V(tb('tea'))} || {}).getAttribute?.('title')`)); console.log('DEBUG walk rows', JSON.stringify(tasks().filter((t) => t.id.startsWith('walk')).map((t) => [t.id, t.dueDate, t.startTime, t.deletedAt]))); }
+  await cardChecks('light');
+  await I.shot('p28-04-cards-light');
+
+  // A break's details: Inside this break.
+  const detailText = () => I.textOf(`document.querySelector('[data-detail-panel]')`);
+  const closeDetails = async () => {
+    if (await I.exists(`document.querySelector('[data-detail-panel]')`)) await I.click(`document.querySelector('[aria-label="Close task details"]')`, 600);
+  };
+  await I.click(card('Lunch'), 900);
+  const lunchD = await I.textOf(`document.querySelector('[data-inside-break]')`);
+  check('the break\'s details list "Inside this break": title, time and length, tick and Move out', /Inside this break/i.test(lunchD) && lunchD.includes('Take a pill') && lunchD.includes('10m') && lunchD.includes('Move out') && (await I.exists(`document.querySelector('[data-inside-tick="task:pill@12:40"]')`)), lunchD);
+  await I.shot('p28-05-break-details-light');
+  await I.click(`document.querySelector('[data-inside-tick="task:pill@12:40"]')`, 900);
+  check('ticking there ticks the pill\'s 12:40 only', JSON.stringify(byId('pill').timesDone || []) === '["12:40"]' && !byId('pill').completed, JSON.stringify(byId('pill')));
+  await I.click(`document.querySelector('[data-inside-tick="task:pill@12:40"]')`, 900);
+  check('and again unticks it', !(byId('pill').timesDone || []).includes('12:40'), JSON.stringify(byId('pill')));
+  await I.click(`document.querySelector('[data-inside-open="task:pill@12:40"]')`, 900);
+  check('its title opens that task', (await I.js(`[...document.querySelectorAll('[data-detail-panel] input')].map((e) => e.value).join('|')`)).includes('Take a pill'));
+  check('a hosted task\'s details say "During: Lunch" with Move out', /During: Lunch/.test(await detailText()) && (await I.exists(`document.querySelector('[data-during-out]')`)), await detailText());
+  await I.shot('p28-06-hosted-details-light');
+  await I.click(`document.querySelector('[data-during-out]')`, 900);
+  check('Move out from the details moves only that time out, with Undo', JSON.stringify(byId('pill').extraTimes) === '["13:30"]' && /Moved Take a pill out of Lunch/.test(await undoText()), JSON.stringify(byId('pill')));
+  await I.click(`document.querySelector('[data-undo-bar] [aria-label="Undo"]')`, 1000);
+  check('Undo from there puts it back', JSON.stringify(byId('pill').extraTimes) === '["12:40"]');
+  await closeDetails();
+
+  // ======== Dark ========
+  await I.click(`document.querySelector('[aria-label="Profile and account"]') || document.querySelector('[aria-label="Profile, not signed in"]')`, 500);
+  await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 800);
+  await I.click(`document.querySelector('[data-theme-setting] [data-theme-mode="dark"]')`, 900);
+  if (await I.exists(I.byLabel('Back'))) await I.click(I.byLabel('Back'), 700);
+  await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
+  check('the dark theme is on', (await I.js(`document.documentElement.getAttribute('data-theme')`)) === 'dark');
+  await cardChecks('dark');
+  const pillColors = await I.js(`(() => { const p = ${card('Lunch')}.querySelector('[data-host-pill]'); return getComputedStyle(p).backgroundColor + ' ' + getComputedStyle(p.querySelector('div[dir="auto"]')).color; })()`);
+  check('dark: the pill uses its own tokens', pillColors === 'rgb(44, 58, 49) rgb(207, 228, 214)', pillColors);
+  await I.shot('p28-07-cards-dark');
+  await I.click(card('Tea break'), 900);
+  check('dark: the break\'s details list its task', (await I.textOf(`document.querySelector('[data-inside-break]')`)).includes('Short walk'));
+  await I.shot('p28-08-break-details-dark');
+  await closeDetails();
+  await scrollTo(chip('task:pill@12:40'));
+  await I.click(V('[data-host-menu="task:pill@12:40"]'), 500);
+  await I.shot('p28-09-chip-menu-dark');
+  await I.key('Escape', [], 400);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

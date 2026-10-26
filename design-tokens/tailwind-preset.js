@@ -36,6 +36,8 @@ module.exports = {
         "break-tint": "var(--ds-break-tint)",
         "host-chip": "var(--ds-host-chip)",
         "on-host-chip": "var(--ds-on-host-chip)",
+        "host-pill": "var(--ds-host-pill)",
+        "on-host-pill": "var(--ds-on-host-pill)",
         "inverse-bg": "var(--ds-inverse-bg)",
         "inverse-text": "var(--ds-inverse-text)",
         "chart-actual": "var(--ds-chart-actual)",

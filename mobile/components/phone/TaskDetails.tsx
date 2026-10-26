@@ -32,6 +32,10 @@ import { RemindersEditor } from './RemindersEditor';
 import { repeatKindOf, REPEAT_CHOICES, shortRepeat } from '../../lib/repeat';
 import { taskRemindersLabel } from '../../lib/reminder';
 import { isMultiTime, timesOf } from '../../lib/times';
+import { hostLinks, type HostLink } from '../../lib/hosting';
+import { moveOutOfBreak } from '../../lib/hostActions';
+import { toTime } from '../../lib/timebox';
+import { UNDO_MS } from './UndoBar';
 
 // A task's details on the iPhone (PLAN_phone P6): the desktop's details panel for a finger, as a full
 // sheet. Every change is written at once through the shared taskOps (a projected day of a repeating
@@ -75,6 +79,20 @@ const make = (c: ColorTokens) => ({
   note: { ...type.meta, color: c.textSecondary },
   warn: { ...type.meta, color: c.danger },
   mark: { fontSize: 18, color: c.danger },
+  // 3.10.0: "Inside this break" and "During: Lunch".
+  hostBox: { backgroundColor: c.hostPill, borderRadius: radius.lg, paddingHorizontal: 6, paddingVertical: 4, marginTop: 10 },
+  hostHead: { ...type.meta, ...inter(700), color: c.onHostPill, paddingHorizontal: 8, paddingTop: 6 },
+  hostRow: { flexDirection: 'row' as const, alignItems: 'center' as const, minHeight: 48, gap: 4 },
+  hostTick: { width: 44, height: 44, alignItems: 'center' as const, justifyContent: 'center' as const },
+  hostOpen: { flex: 1, minHeight: 44, justifyContent: 'center' as const },
+  hostName: { ...inter(600), fontSize: 15, color: c.onHostPill },
+  hostMeta: { ...type.meta, color: c.onHostPill },
+  hostOut: { minHeight: 44, minWidth: 64, paddingHorizontal: 10, borderRadius: radius.md, borderWidth: 1, borderColor: c.onHostPill, alignItems: 'center' as const, justifyContent: 'center' as const },
+  hostOutText: { ...inter(600), fontSize: 14, color: c.onHostPill },
+  undoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, marginTop: 8, minHeight: 44, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: c.inverseBg },
+  undoText: { ...inter(500), fontSize: 14, color: c.inverseText, flex: 1 },
+  undoBtn: { minWidth: 64, minHeight: 44, alignItems: 'center' as const, justifyContent: 'center' as const },
+  undoBtnText: { ...inter(700), fontSize: 14, color: c.inverseText, textDecorationLine: 'underline' as const },
 });
 
 export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTarget | null; onClose: () => void; onChanged: () => void }) {
@@ -96,17 +114,30 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
   const [newLabel, setNewLabel] = useState<string | null>(null);
   const todayKey = dateKey(new Date());
+  // 3.10.0: the task's day as the Calendar draws it, and the Undo of a Move out (5 seconds).
+  const [links, setLinks] = useState<HostLink[]>([]);
+  const [undo, setUndo] = useState<{ text: string; run: () => Promise<void> } | null>(null);
+  const refreshHost = useCallback(async (t: Task) => {
+    setLinks(t.dueDate ? hostLinks(await loadTasksRaw(), t.dueDate, dateKey(new Date())) : []);
+  }, []);
+  useEffect(() => {
+    if (!undo) return;
+    const timer = setTimeout(() => setUndo(null), UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [undo]);
 
   const show = useCallback((t: Task, proj: boolean) => {
     setTask(t);
     setProjected(proj);
+    void refreshHost(t);
     setTitle(t.title);
     setEmoji(t.emoji ?? '');
     setNotes(t.notes ?? '');
-  }, []);
+  }, [refreshHost]);
 
   useEffect(() => {
     if (!target) return;
+    setUndo(null);
     show(target.task, target.projected);
     setOpen(null);
     setNote(null);
@@ -160,6 +191,27 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     }
     setNote(null);
     await write(res.fields);
+  }
+
+  const inside = links.filter((l) => l.brk.full.id === task.id);
+  const during = links.filter((l) => l.guest.full.id === task.id);
+  async function tickHosted(l: HostLink) {
+    const o = l.guest.projected ? opsForProjected(l.guest.full) : opsForTask(l.guest.full);
+    await (l.guest.time ? o.setTimeDone(l.guest.time, !l.guest.task.completed) : o.setCompleted(!l.guest.task.completed));
+    if (task) await refreshHost(task);
+    onChanged();
+  }
+  async function moveOut(l: HostLink) {
+    if (!task) return;
+    const r = await moveOutOfBreak({ full: l.guest.full, time: l.guest.time, projected: l.guest.projected }, { endMin: l.brk.endMin, title: l.brk.task.title });
+    if (!r.ok) {
+      setNote(r.note);
+      return;
+    }
+    setUndo({ text: r.text, run: r.undo });
+    const stored = (await loadTasksRaw()).find((t) => t.id === task.id);
+    show(stored ?? task, projected && !stored);
+    onChanged();
   }
 
   const label = task.projectKey ? labels.find((l) => l.key === task.projectKey) : undefined;
@@ -244,6 +296,63 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
           </View>
           {projected ? <Text style={[s.note, { marginTop: 4 }]}>A day of a repeating task: changes apply to every day from today. A new date moves this day only; a new time or length asks.</Text> : null}
           {movedCaptionLong(task) ? <Text style={[s.note, { marginTop: 4 }]} {...({ dataSet: { detailMoved: '1' } } as object)}>{`↪ ${movedCaptionLong(task)}`}</Text> : null}
+          {inside.length > 0 ? (
+            <View style={s.hostBox} {...({ dataSet: { insideBreak: String(inside.length) } } as object)}>
+              <Text style={s.hostHead}>INSIDE THIS BREAK</Text>
+              {inside.map((l) => {
+                const g = l.guest.task;
+                return (
+                  <View key={l.guest.id} style={s.hostRow} {...({ dataSet: { insideRow: l.guest.id } } as object)}>
+                    <Pressable onPress={() => void tickHosted(l)} style={s.hostTick} accessibilityRole="checkbox" accessibilityState={{ checked: !!g.completed }} accessibilityLabel={g.completed ? `Untick ${g.title}` : `Tick ${g.title}`} {...({ dataSet: { insideTick: l.guest.id } } as object)}>
+                      <RoundCheck done={!!g.completed} />
+                    </Pressable>
+                    <Pressable onPress={() => show(g, l.guest.projected)} style={s.hostOpen} accessibilityRole="button" accessibilityLabel={`Open ${g.title}`} {...({ dataSet: { insideOpen: l.guest.id } } as object)}>
+                      <Text style={[s.hostName, g.completed && { textDecorationLine: 'line-through' as const }]} numberOfLines={1}>
+                        {g.title}
+                      </Text>
+                      <Text style={s.hostMeta}>{[formatTime(toTime(l.guest.startMin)), formatDuration(g.durationMinutes) ?? ''].filter(Boolean).join(', ')}</Text>
+                    </Pressable>
+                    <Pressable onPress={() => void moveOut(l)} style={s.hostOut} accessibilityRole="button" accessibilityLabel={`Move ${g.title} out`} {...({ dataSet: { insideOut: l.guest.id } } as object)}>
+                      <Text style={s.hostOutText}>Move out</Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+          {during.map((l) => (
+            <View key={l.guest.id} style={[s.hostBox, s.hostRow, { paddingLeft: 12 }]} {...({ dataSet: { duringBreak: l.brk.task.title } } as object)}>
+              <Text style={[s.hostName, { flex: 1 }]} numberOfLines={1}>
+                {`During: ${l.brk.task.title}`}
+              </Text>
+              <Pressable onPress={() => void moveOut(l)} style={s.hostOut} accessibilityRole="button" accessibilityLabel="Move out" {...({ dataSet: { duringOut: l.guest.id } } as object)}>
+                <Text style={s.hostOutText}>Move out</Text>
+              </Pressable>
+            </View>
+          ))}
+          {undo ? (
+            <View style={s.undoRow} {...({ dataSet: { detailsUndo: '1' } } as object)}>
+              <Text style={s.undoText} numberOfLines={2}>
+                {undo.text}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  const u = undo;
+                  setUndo(null);
+                  void u.run().then(async () => {
+                    const t = (await loadTasksRaw()).find((x) => x.id === task.id);
+                    show(t ?? task, projected && !t);
+                    onChanged();
+                  });
+                }}
+                style={s.undoBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Undo"
+              >
+                <Text style={s.undoBtnText}>Undo</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <Text style={s.section}>When</Text>
           <View style={s.card}>

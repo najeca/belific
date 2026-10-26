@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.10.0 — 2026-10-26 (Task during a break, follow up P2: details and cards)
+
+**Desktop and iPhone. No schema change.**
+- **A break's details: "Inside this break"** (desktop `HostDetails.tsx`, phone `TaskDetails.tsx`): each task during it with its tick, its title (opens it), its time and length, and **Move out** (a 5 second Undo: the desktop's bar, a row in the phone's details).
+- **A hosted task's details: "During: Lunch"** with **Move out** (a task with several times lists each time that is inside a break).
+- **Cards:** a break's card shows a small pill **"N inside"**; a hosted task's card says **"During Lunch"**: the desktop's Tasks board and left list, the phone's Today and Tasks rows. Timebox, Calendar and phone timeline blocks get neither (no clutter on small blocks). New tokens `hostPill` and `onHostPill` (6:1 on the pill and on cards, light and dark). `lib/hosting.ts` `hostLinks`, `hostIndex`, `duringCaption`, `insidePill`.
+- **Fix (3.9.0):** the Undo of a Move out on a day of a repeating task (This day only) also moved the next day that was stored to carry the series onto that day, so the task showed twice. Undo now leaves that carrying row alone (`hostActions.ts`).
+- **Tests:** `hosting.test.ts` +2 (links and the index, two overlapping tasks and a second time, a repeating day moved into a break, Split off, a deleted break), `tokens.test.ts` +1; `p28.js` +19 (pills and captions light and dark, not on blocks, break details with tick, open, Move out and Undo, hosted details, the pill's dark colours, the duplicate found above; failed before the fix); `phone-p14.js` +13 (Today and Tasks rows light and dark, break details, Move out with Undo in the details, During: Tea).
+
 ## 3.9.0 — 2026-10-26 (Task during a break, follow up P1: move out of a break)
 
 **Desktop and iPhone. No schema change.**

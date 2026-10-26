@@ -15,6 +15,7 @@ import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
 import { taskDuration } from '../../lib/drag';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
+import { hostIndex } from '../../lib/hosting';
 import { listEmojiOf } from '../../lib/lists';
 import { AWAY_ADD_WARNING } from '../../lib/awayDays';
 import DayMenu from './DayMenu';
@@ -200,6 +201,8 @@ export default function KanbanPane({
     }
     return out;
   }, [onlyToday, range.first, range.last, strip, todayKey]);
+  // 3.10.0: which tasks are during a break and how many each break has (the cards' caption and pill).
+  const hosts = useMemo(() => hostIndex(tasks, days.map((d) => d.key), todayKey), [tasks, days, todayKey]);
   // The filter (labels, no label, show complete) applies to tasks only.
   const shownTasks = useMemo(() => filterTasks(tasks, filter), [tasks, filter]);
   // Repeating series show on every matching day from today forward without
@@ -278,6 +281,8 @@ export default function KanbanPane({
                 label={proj}
                 color={labelColor(proj?.colorKey)}
                 listEmoji={listEmojiOf(task, lists)}
+                during={hosts.during.get(task.id)}
+                inside={hosts.inside.get(task.id)}
                 variant="card"
                 todayKey={todayKey}
                 onChanged={onChanged}

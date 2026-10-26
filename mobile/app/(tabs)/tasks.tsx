@@ -7,6 +7,7 @@ import { radius, type ColorTokens } from '../../lib/tokens';
 import { formatTime } from '../../lib/data';
 import { addDays, dateKey, formatDayTitle, parseDateKey } from '../../lib/kanban';
 import { movedCaption, movedFrom } from '../../lib/series';
+import { duringCaption, hostIndex, insidePill } from '../../lib/hosting';
 import { deleteBrainDumpItem, loadBrainDumpItems, loadListsRaw, loadProjects, loadRoutineCompletions, loadRoutines, loadTasksRaw, updateTask } from '../../lib/storage';
 import { convertDumpItem } from '../../lib/taskActions';
 import { createTaskIn } from '../../lib/taskCommands';
@@ -63,6 +64,10 @@ const make = (c: ColorTokens) => ({
   title: { ...inter(500), fontSize: 16, lineHeight: 21, color: c.textPrimary, flexShrink: 1 },
   done: { color: c.textSecondary, textDecorationLine: 'line-through' as const },
   meta: { ...type.meta, color: c.textSecondary },
+  // 3.10.0: a break's "2 inside" and a hosted task's "During Lunch".
+  hostPill: { paddingHorizontal: 8, minHeight: 20, borderRadius: radius.full, backgroundColor: c.hostPill, justifyContent: 'center' as const },
+  hostPillText: { ...type.meta, ...inter(600), color: c.onHostPill },
+  hostCaption: { ...type.meta, ...inter(600), color: c.onHostPill },
   metaRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, marginTop: 3, flexWrap: 'wrap' as const },
   mark: { fontSize: 12, color: c.danger },
   empty: { ...type.meta, color: c.textSecondary, padding: 16 },
@@ -122,6 +127,8 @@ export default function TasksTab() {
     () => splitThoughts(tasksInList(tasks, listKey, lists), listKey === undefined ? items : [], todayKey, { includeDated: listKey !== undefined }),
     [tasks, items, lists, listKey, todayKey],
   );
+  // 3.10.0: "During Lunch" and "2 inside" on the dated rows of a list.
+  const hosts = useMemo(() => hostIndex(tasks, rows.flatMap((r) => (r.kind === 'task' && r.task.dueDate && r.task.startTime ? [r.task.dueDate] : [])), todayKey), [tasks, rows, todayKey]);
   const quests = useMemo(() => (chosen === REPEATING ? buildQuests(tasks, completions, todayKey) : []), [chosen, tasks, completions, todayKey]);
   const listName = chosen === REPEATING ? 'Repeating' : listKey ? (live.find((l) => l.key === listKey)?.name ?? 'Brain Dump') : 'Brain Dump';
 
@@ -244,6 +251,12 @@ export default function TasksTab() {
               {when || lab || steps.total || t?.durationMinutes ? (
                 <View style={s.metaRow}>
                   {when ? <Text style={[s.meta, { ...mono(400), fontSize: 12 }]}>{when}</Text> : null}
+                  {t && hosts.inside.get(t.id) ? (
+                <View style={s.hostPill} {...({ dataSet: { hostPill: String(hosts.inside.get(t.id)) } } as object)}>
+                  <Text style={s.hostPillText}>{insidePill(hosts.inside.get(t.id) ?? 0)}</Text>
+                </View>
+              ) : null}
+              {t && hosts.during.get(t.id) ? <Text style={s.hostCaption} {...({ dataSet: { hostCaption: hosts.during.get(t.id) } } as object)}>{duringCaption(hosts.during.get(t.id) ?? '')}</Text> : null}
                   {moved ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t!) } } as object)}>{`↪ ${moved}`}</Text> : null}
                   {lab ? (
                     <View style={[s.line, { gap: 5 }]}>

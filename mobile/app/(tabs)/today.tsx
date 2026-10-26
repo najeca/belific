@@ -22,6 +22,7 @@ import {
 } from '../../lib/storage';
 import { dateKey } from '../../lib/kanban';
 import { movedCaption, movedFrom } from '../../lib/series';
+import { duringCaption, hostIndex, insidePill } from '../../lib/hosting';
 import { buildToday, itemTitle, type TodayItem } from '../../lib/todayView';
 import { formatDuration } from '../../lib/duration';
 import { labelColor } from '../../lib/labelColors';
@@ -70,6 +71,10 @@ const make = (c: ColorTokens) => ({
   titleDone: { color: c.textSecondary, textDecorationLine: 'line-through' as const },
   eventTitle: { color: c.textSecondary },
   meta: { ...type.meta, color: c.textSecondary },
+  // 3.10.0: a break's "2 inside" and a hosted task's "During Lunch".
+  hostPill: { paddingHorizontal: 8, minHeight: 20, borderRadius: radius.full, backgroundColor: c.hostPill, justifyContent: 'center' as const },
+  hostPillText: { ...type.meta, ...inter(600), color: c.onHostPill },
+  hostCaption: { ...type.meta, ...inter(600), color: c.onHostPill },
   metaRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, marginTop: 3, flexWrap: 'wrap' as const },
   mark: { fontSize: 12, color: c.danger },
   expanded: { paddingLeft: 52, paddingRight: 12, paddingBottom: 12, gap: 8 },
@@ -141,6 +146,7 @@ export default function TodayScreen() {
   );
 
   const view = useMemo(() => buildToday({ tasks, todayKey, nowMin, events, routines, routinesDone }), [tasks, todayKey, nowMin, events, routines, routinesDone]);
+  const hosts = useMemo(() => hostIndex(tasks, [todayKey], todayKey), [tasks, todayKey]);
   const live = liveLists(lists);
 
   async function tick(item: TodayItem, done: boolean, withUndo = true) {
@@ -283,6 +289,12 @@ export default function TodayScreen() {
               {t?.durationMinutes ? <Text style={s.meta}>{formatDuration(t.durationMinutes)}</Text> : null}
               {count.total ? <Text style={s.meta}>{`${count.done}/${count.total} steps`}</Text> : null}
               {t && movedCaption(t) ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t) } } as object)}>{`↪ ${movedCaption(t)}`}</Text> : null}
+              {t && hosts.inside.get(t.id) ? (
+                <View style={s.hostPill} {...({ dataSet: { hostPill: String(hosts.inside.get(t.id)) } } as object)}>
+                  <Text style={s.hostPillText}>{insidePill(hosts.inside.get(t.id) ?? 0)}</Text>
+                </View>
+              ) : null}
+              {t && hosts.during.get(t.id) ? <Text style={s.hostCaption} {...({ dataSet: { hostCaption: hosts.during.get(t.id) } } as object)}>{duringCaption(hosts.during.get(t.id) ?? '')}</Text> : null}
             </View>
           </PressRow>
         </View>

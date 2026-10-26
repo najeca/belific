@@ -15,6 +15,8 @@ import { setActualFor } from '../../lib/timerActions';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
+import { hostLinks, type HostLink } from '../../lib/hosting';
+import { DuringBreak, InsideBreak } from './HostDetails';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
@@ -60,6 +62,8 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
   const [projected, setProjected] = useState(false);
   const [labels, setLabels] = useState<Project[]>([]);
   const [lists, setLists] = useState<TaskList[]>([]);
+  // 3.10.0: the task's day, as the Timebox draws it: the tasks inside this break, or the break it is during.
+  const [links, setLinks] = useState<HostLink[]>([]);
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -74,6 +78,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     }
     setTask(found);
     setProjected(proj);
+    setLinks(found && found.dueDate ? hostLinks(tasks, found.dueDate, dateKey(new Date())) : []);
     setLabels(l);
     setLists(ls);
     // The task was deleted (here, or on the other device): nothing to show.
@@ -117,13 +122,13 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     <View style={styles.layer} {...({ dataSet: { detailLayer: '1' } } as object)}>
       <Pressable style={styles.scrim} onPress={closeDetail} accessibilityLabel="Close the task details" {...({ tabIndex: -1 } as object)} />
       <View style={styles.centre} pointerEvents="box-none">
-        <Panel key={task.id} task={task} projected={projected} labels={labels} lists={lists} onSaved={() => { notifyChanged(); reload(); }} />
+        <Panel key={task.id} task={task} projected={projected} labels={labels} lists={lists} links={links} onSaved={() => { notifyChanged(); reload(); }} />
       </View>
     </View>
   );
 }
 
-function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; onSaved: () => void }) {
+function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; onSaved: () => void }) {
   const ops: TaskOps = projected ? opsForProjected(task) : opsForTask(task);
   const patch = async (fields: Partial<Task>) => {
     // A new Day on a repeating task moves this day only (3.2.0); the series' first row comes back
@@ -272,6 +277,8 @@ function Panel({ task, projected, labels, lists, onSaved }: { task: Task; projec
           </Text>
         ) : null}
         <StreakLine task={task} />
+        <InsideBreak links={links.filter((l) => l.brk.full.id === task.id)} labels={labels} />
+        <DuringBreak links={links.filter((l) => l.guest.full.id === task.id)} labels={labels} />
         <DetailRow icon="calendar-outline" label="Task date">
           <View style={styles.row}>
             <input

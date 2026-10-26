@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. A task during a break (3.5.0): hosted when fully inside a break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
+import { duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
 import { cutDay, planCuts } from './cuts.ts';
 import { COMPACT_BLOCK_PX, PX_PER_HOUR } from './timebox.ts';
 import type { Task } from './types.ts';
@@ -213,4 +213,35 @@ test('3.9.0: a task with several times moves or loses only the time inside the b
   assert.deepEqual(gone.ok && [gone.fields.startTime, gone.fields.extraTimes], ['08:00', ['18:00']]);
   const clash = moveOutFields({ ...pill, extraTimes: ['12:40', '13:00'] }, '12:40', { endMin: h(13) });
   assert.equal(clash.ok, false, 'one of its own times is already there');
+});
+
+test('3.10.0: hostLinks pairs each hosted time with its break; hostIndex gives the cards their caption and count', () => {
+  const tasks = [
+    T('lunch', { startTime: '12:00', durationMinutes: 60, cutsBelow: true }),
+    T('call', { startTime: '12:10', durationMinutes: 20 }),
+    T('read', { startTime: '12:20', durationMinutes: 30 }),
+    T('pill', { startTime: '08:00', durationMinutes: 10, extraTimes: ['12:40'] }),
+    T('out', { startTime: '12:50', durationMinutes: 30 }),
+  ];
+  const links = hostLinks(tasks, DAY, DAY);
+  assert.deepEqual(links.map((l) => [l.guest.id, l.brk.full.id]), [['task:call', 'lunch'], ['task:read', 'lunch'], ['task:pill@12:40', 'lunch']]);
+  const idx = hostIndex(tasks, [DAY, DAY], DAY);
+  assert.equal(idx.inside.get('lunch'), 3, 'two overlapping tasks and a second time all count, the day once');
+  assert.equal(idx.during.get('pill'), 'lunch', 'the title of the break (T titles a task by its id)');
+  assert.equal(idx.during.has('out'), false);
+  assert.equal(duringCaption('Lunch'), 'During Lunch');
+  assert.equal(insidePill(3), '3 inside');
+});
+
+test('3.10.0: a repeating day moved into a break is hosted; Split off or a deleted break hosts nothing', () => {
+  const later = '2026-10-29';
+  const base = [
+    T('lunch', { startTime: '12:00', durationMinutes: 60, cutsBelow: true, dueDate: later }),
+    T('walk', { dueDate: '2026-10-20', startTime: '07:00', durationMinutes: 20, recurrence: 'daily' }),
+  ];
+  // That day of the walk moved to 12:10 (stored as root:day with its own time).
+  const moved = [...base, T('walk:' + later, { dueDate: later, startTime: '12:10', durationMinutes: 20, recurrence: 'daily' })];
+  assert.equal(hostIndex(moved, [later], DAY).during.get('walk:' + later), 'lunch');
+  assert.equal(hostIndex([{ ...moved[0], cutsBelow: false }, ...moved.slice(1)], [later], DAY).during.size, 0, 'Split off');
+  assert.equal(hostIndex([{ ...moved[0], deletedAt: '2026-10-26T00:00:00.000Z' }, ...moved.slice(1)], [later], DAY).during.size, 0, 'deleted');
 });

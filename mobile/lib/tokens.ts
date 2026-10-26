@@ -37,6 +37,8 @@ export interface ColorTokens {
   breakTint: string; // a break with no label colour
   hostChip: string; // a task during a break: its chip inside the break's block (light in both themes)
   onHostChip: string; // the chip's text (dark in both themes)
+  hostPill: string; // 3.10.0: "3 inside" on a break's card
+  onHostPill: string; // its text, and a hosted task's "During Lunch" caption
   inverseBg: string; // the undo bar, a tooltip
   inverseText: string;
   shadowSm: string; // a block lifted a hair
@@ -76,6 +78,8 @@ export const lightTokens: ColorTokens = {
   breakTint: '#EFEDE6',
   hostChip: '#FFFFFF',
   onHostChip: '#1B1B1B',
+  hostPill: '#E6EEE8',
+  onHostPill: '#3B5646',
   inverseBg: '#1B1B1B',
   inverseText: '#FFFFFF',
   shadowSm: '0 1px 2px rgba(27,27,27,0.06)',
@@ -115,6 +119,8 @@ export const darkTokens: ColorTokens = {
   breakTint: '#3A3A3A',
   hostChip: '#ECECEC',
   onHostChip: '#121212',
+  hostPill: '#2C3A31',
+  onHostPill: '#CFE4D6',
   inverseBg: '#F2F2F2',
   inverseText: '#121212',
   shadowSm: '0 1px 2px rgba(0,0,0,0.4)',

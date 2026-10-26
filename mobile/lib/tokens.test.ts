@@ -121,3 +121,12 @@ test('a task during a break: the chip text is 6:1 in both themes and the chip st
     }
   }
 });
+
+test('3.10.0: the "N inside" pill and the "During" caption read at 6:1 in both themes, on the pill and on a card', () => {
+  for (const t of [lightTokens, darkTokens]) {
+    assert.match(t.hostPill, HEX);
+    assert.match(t.onHostPill, HEX);
+    assert.ok(contrast(t.onHostPill, t.hostPill) >= 6, `pill ${contrast(t.onHostPill, t.hostPill).toFixed(2)}`);
+    for (const bg of [t.surface, t.pane, t.plainBlock]) assert.ok(contrast(t.onHostPill, bg) >= 6, `caption on ${bg} ${contrast(t.onHostPill, bg).toFixed(2)}`);
+  }
+});

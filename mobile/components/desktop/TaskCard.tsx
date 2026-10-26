@@ -8,6 +8,7 @@ import { dateKey } from '../../lib/kanban';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
 import { tipRef } from './tip';
 import { movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
+import { duringCaption, insidePill } from '../../lib/hosting';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { isEditableTarget } from '../../lib/editable';
@@ -52,6 +53,8 @@ export default function TaskCard({
   onOpen,
   showDay,
   listEmoji,
+  during,
+  inside,
 }: {
   task: Task;
   ops: TaskOps;
@@ -74,6 +77,9 @@ export default function TaskCard({
   // The emoji of the task's list (2.27.1), first on the meta line; none when the
   // task has no list or its list has no emoji.
   listEmoji?: string;
+  // 3.10.0: a hosted task's "During Lunch" and a break's "3 inside" (lib/hosting.ts hostIndex).
+  during?: string;
+  inside?: number;
 }) {
   // Ctrl+Delete opens the ⋮ menu already asking "Delete? Yes / No".
   const tint = useTint();
@@ -245,7 +251,7 @@ export default function TaskCard({
   const dayText = showDay && task.dueDate ? dayLabel(task.dueDate, todayKey) : null;
   // 3.3.0: a day of a repeating task moved on its own says where it came from.
   const moved = movedCaption(task);
-  const hasMeta = !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved;
+  const hasMeta = !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || !!during || !!inside;
 
   return (
     <HoverPressable
@@ -324,6 +330,16 @@ export default function TaskCard({
                   <Text style={styles.metaDay} {...({ dataSet: { cardDay: '1' } } as object)}>
                     {dayText}
                     {placed ? ` · ${timesLabel(task)}` : ''}
+                  </Text>
+                )}
+                {!!inside && (
+                  <View style={styles.hostPill} accessibilityLabel={`${insidePill(inside)} this break`} {...({ dataSet: { hostPill: String(inside) } } as object)}>
+                    <Text style={styles.hostPillText}>{insidePill(inside)}</Text>
+                  </View>
+                )}
+                {during && (
+                  <Text style={styles.hostCaption} numberOfLines={1} {...({ dataSet: { hostCaption: during } } as object)}>
+                    {duringCaption(during)}
                   </Text>
                 )}
                 {moved && (
@@ -507,6 +523,9 @@ const styles = StyleSheet.create({
   chipDone: { color: Colors.textTertiary },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20, paddingLeft: 26, overflow: 'hidden' },
   metaDay: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
+  hostPill: { height: 18, paddingHorizontal: 7, borderRadius: 9, backgroundColor: Colors.hostPill, justifyContent: 'center' },
+  hostPillText: { fontSize: 11, fontWeight: '600', color: Colors.onHostPill },
+  hostCaption: { fontSize: 11.5, fontWeight: '600', color: Colors.onHostPill, flexShrink: 1 },
   listEmoji: { fontSize: 11, lineHeight: 16 },
   // A label is a coloured dot and its name, not a filled chip.
   labelChip: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 18, maxWidth: 150, flexShrink: 1 },

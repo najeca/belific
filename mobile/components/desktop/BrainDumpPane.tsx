@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { dateKey } from '../../lib/kanban';
 import { splitThoughts, rowId } from '../../lib/thoughts';
-import { loadBrainDumpItems, loadLists, loadTasks } from '../../lib/storage';
+import { loadBrainDumpItems, loadLists, loadTasks, loadTasksRaw } from '../../lib/storage';
+import { hostIndex } from '../../lib/hosting';
 import { listCounts, listEmojiOf, resolveSelectedList, tasksInList } from '../../lib/lists';
 import { formatTotals, isOverEstimate, plannedText, totalsOf } from '../../lib/taskTotals';
 import { createTaskIn } from '../../lib/taskCommands';
@@ -46,6 +47,9 @@ export default function BrainDumpPane({
   filter: TaskFilter;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  // 3.10.0: every row, tombstones included (a skipped day of a repeating break hosts nothing), for the
+  // cards' "During Lunch" and "3 inside".
+  const [raw, setRaw] = useState<Task[]>([]);
   const [dumpItems, setDumpItems] = useState<BrainDumpItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [lists, setLists] = useState<TaskList[]>([]);
@@ -64,6 +68,7 @@ export default function BrainDumpPane({
 
   const reload = useCallback(() => {
     loadTasks().then(setTasks);
+    loadTasksRaw().then(setRaw);
     loadBrainDumpItems().then(setDumpItems);
     loadLabels().then(setProjects);
     loadLists().then(setLists);
@@ -74,6 +79,7 @@ export default function BrainDumpPane({
   }, [reload, refreshKey]);
 
   const todayKey = dateKey(new Date());
+  const hosts = useMemo(() => hostIndex(raw, tasks.flatMap((t) => (t.dueDate && t.startTime ? [t.dueDate] : [])), todayKey), [raw, tasks, todayKey]);
   // Only the label part of the filter applies here: the list already holds
   // just incomplete tasks, and Done today keeps its own line. A legacy phone
   // item has no label, so it shows with "No label" or with no label filter.
@@ -148,6 +154,8 @@ export default function BrainDumpPane({
                 label={proj}
                 color={labelColor(proj?.colorKey)}
                 listEmoji={listEmojiOf(task, lists)}
+                during={hosts.during.get(task.id)}
+                inside={hosts.inside.get(task.id)}
                 variant="row"
                 todayKey={todayKey}
                 showDay

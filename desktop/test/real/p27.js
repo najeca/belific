@@ -209,7 +209,8 @@ async function run() {
   const hint2 = await dragBlockTo('long', tbSel('nap'), 0.5);
   check('a task longer than the break is refused: "Longer than the break"', /Longer than the break/.test(hint2), hint2);
   const long = byId('long');
-  check('and it drops as before (a time on the grid, not hosted; the break splits it as before)', long.startTime && long.startTime !== '19:30' && (await I.exists(V('[data-block-task="long"]'))) && (await I.exists(V(`${tbSel('nap')}:not([data-host-count])`))), JSON.stringify(long));
+  // Changed on purpose in 3.11.0: refused, not warned: the drop snaps back (before, it went through).
+  check('and the drop snaps back: it stays where it was, the break hosts nothing', long.startTime === '19:30' && (await I.exists(V('[data-block-task="long"]'))) && (await I.exists(V(`${tbSel('nap')}:not([data-host-count])`))), JSON.stringify(long));
   const hint1 = await dragBlockTo('fits', tbSel('nap'), 0.6);
   check('over a break the lifted card says it goes inside it', /During Nap/.test(hint1), hint1);
   const fits = byId('fits');

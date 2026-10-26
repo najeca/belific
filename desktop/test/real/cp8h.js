@@ -261,6 +261,12 @@ async function run() {
   const SCROLLER = `(() => { let e = ${GRID}; while (e && !(['auto', 'scroll'].includes(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight)) e = e.parentElement; return e; })()`;
   const setScroll = (y) => js(`(() => { const s = ${SCROLLER}; s.scrollTop = ${y}; return s.scrollTop; })()`);
   const gridRect = () => js(`(() => { const r = ${GRID}.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; })()`);
+  // The Timebox shows the card's own day: since 3.2.0 a drop on another day's Timebox moves that day only.
+  const ahead = Math.round((Date.parse(shownDays[0]) - Date.parse(today)) / 864e5);
+  for (let i = 0; i < ahead; i++) {
+    await click(q('[aria-label="Next day"]'));
+    await C.sleep(150);
+  }
   await setScroll(5 * PX - 150);
   await C.sleep(250);
   const gr = await gridRect();
@@ -275,12 +281,16 @@ async function run() {
   }
   await C.sleep(200);
   mouse('mouseUp', to.x, to.y);
+  // 3.4.0: a new time on a repeating day asks "This day only / All days"; All days is the series edit.
+  await C.waitFor(() => js(`!!(${q('[data-scope-prompt] [data-scope-choice="all"]')})`), 5000).catch(() => {});
+  await click(q('[data-scope-prompt] [data-scope-choice="all"]'));
   await C.waitFor(() => rowById('rt') && rowById('rt').startTime === '05:00', 8000).catch(() => {});
   check('dropping a projected card on the Timebox at 05:00 sets the start time of the series', rowById('rt').startTime === '05:00', JSON.stringify(rowById('rt')));
   check('no row was added and no Day changed (nothing is stored for the projected days)', rows().length === rowsBefore && rowById('rt').dueDate === today);
   await C.waitFor(async () => (await cardTexts('Daily walk')).every((t) => t.includes('05:00')), 6000).catch(() => {});
   const timesNext = await cardTexts('Daily walk');
   check('every day of the next week now reads 05:00', timesNext.length === 7 && timesNext.every((tx) => tx.includes('05:00')), JSON.stringify(timesNext.slice(0, 2)));
+  await click(q('[aria-label="Go to today"]'));
   await thisWeek();
   await C.sleep(300);
   const afterUntimed = await js(`${cardsExpr('Daily walk')}.every((c) => { const left = Math.round(c.getBoundingClientRect().left); return Array.from(document.querySelectorAll('[data-task-card], [data-projected]')).filter((o) => Math.round(o.getBoundingClientRect().left) === left && !/\\d\\d:\\d\\d/.test(o.innerText)).every((o) => o.getBoundingClientRect().top < c.getBoundingClientRect().top); })`);
@@ -308,26 +318,12 @@ async function run() {
   await shot('cp8h-timebox-daily');
   await click(q('[aria-label="Go to today"]'));
 
-  // ================================================== 4. a projected card cannot go to another Day or the left list
+  // ================================================== 4. a projected card cannot go to the left list
+  // Since 3.2.0 a projected day may go to another Day column (that day only, checked in p26.js);
+  // the left list still refuses it.
   await nextWeek();
   await waitCards('Daily walk', 7);
   const src = await rectOf(inNth('Daily walk', 1, '[aria-label="Title Daily walk"]'));
-  const col2 = await rectOf(inNth('Daily walk', 2, '[aria-label="Title Daily walk"]'));
-  win.webContents.sendInputEvent({ type: 'mouseMove', x: src.x, y: src.y });
-  await C.sleep(120);
-  mouse('mouseDown', src.x, src.y);
-  for (let i = 1; i <= 12; i++) {
-    win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(src.x + ((col2.x - src.x) * i) / 12), y: Math.round(src.y + ((col2.y + 40 - src.y) * i) / 12), modifiers: ['leftButtonDown'] });
-    await C.sleep(18);
-  }
-  await C.sleep(700);
-  const lifted = await body();
-  check('over another Day column a projected card says it cannot go there (and there is no "Add as subtask")', lifted.includes('Does not repeat') && !lifted.includes('Add as subtask'));
-  const highlighted = await js(`Array.from(document.querySelectorAll('*')).some((e) => { const s = getComputedStyle(e); return s.outlineStyle === 'solid' && s.outlineWidth === '1px' && e.getBoundingClientRect().height > 300 && e.getBoundingClientRect().width < 300; })`);
-  check('no Day column is highlighted as a drop target', !highlighted);
-  mouse('mouseUp', col2.x, col2.y + 40);
-  await C.sleep(500);
-  check('releasing there changes nothing', rows().length === rowsBefore && (await countCards('Daily walk')) === 7);
   const left = await rectOf(q('[aria-label="Task Plain thought"]'));
   win.webContents.sendInputEvent({ type: 'mouseMove', x: src.x, y: src.y });
   await C.sleep(120);
@@ -337,7 +333,8 @@ async function run() {
     await C.sleep(18);
   }
   await C.sleep(400);
-  check('over the left list it says the same', (await body()).includes('Does not repeat'));
+  const lifted = await body();
+  check('over the left list it says a day of a repeating task stays on a day (and there is no "Add as subtask")', lifted.includes('A day of a repeating task stays on a day') && !lifted.includes('Add as subtask'));
   mouse('mouseUp', left.x, left.y);
   await C.sleep(500);
   check('and releasing there changes nothing', rows().length === rowsBefore && rootRows('rt').length === 1 && (await countCards('Daily walk')) === 7);
@@ -375,6 +372,12 @@ async function run() {
   // 2.27.1: the estimate is the time drop-down.
   await click(q(`${modal} [data-duration-select="Estimated time"]`));
   await click(q('[data-popover] [aria-label="Estimated time 45 min"]'));
+  // 3.4.0: a new length asks "This day only / All days"; All days is the series edit.
+  await C.waitFor(() => js(`!!(${q('[data-scope-prompt] [data-scope-choice="all"]')})`), 5000).catch(() => {});
+  // The question sits above the length drop-down, which stays open until it is answered.
+  const onTop = await js(`(() => { const b = ${q('[data-scope-prompt] [data-scope-choice="all"]')}; const r = b.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); const p = e && e.closest('[aria-label]'); return p ? p.getAttribute('aria-label') : 'none'; })()`);
+  check('the This day only / All days question is on top of the open length drop-down', onTop === 'All days', onTop);
+  await click(q('[data-scope-prompt] [data-scope-choice="all"]'));
   await C.waitFor(() => rowById('rt').durationMinutes === 45, 8000).catch(() => {});
   const total = await countCards('Daily walk');
   // 2.27.0: a placed card shows its start time; the estimate is in the details.
@@ -395,7 +398,8 @@ async function run() {
   await waitCards('Daily stroll', total);
   check('renaming a projected card renames the routine on every open day', (await countCards('Daily stroll')) === total && (await countCards('Daily walk')) === 0, `${await countCards('Daily stroll')} stroll, ${await countCards('Daily walk')} walk`);
   await openNth('Daily stroll', 1);
-  check('a duration change on one projected card shows on every day (another day\'s details read 45 min)', (await js(`(${q(modal)}.querySelector('[data-detail-row="Estimated time"]') || {}).innerText || ''`)).includes('45 min'));
+  const est = await js(`(${q(modal)}.querySelector('[data-detail-row="Estimated time"]') || {}).innerText || ''`);
+  check('a duration change on one projected card shows on every day (another day\'s details read 45 min)', est.includes('45 min'), `${est} | ${JSON.stringify(rootRows('rt').map((r) => [r.id, r.dueDate, r.durationMinutes, r.title]))}`);
   await closeModal();
   check('the ticked day is still completed after the rename', rowById(`rt:${tickedKey}`).completed === true);
 

@@ -8,6 +8,12 @@ to know the current version and recent history.
 
 ---
 
+## 3.4.1 — 2026-10-26 (Repeating, this day only: the desktop question above the drop-down)
+
+**Desktop. No schema change.**
+- **Fix:** picking a new length for a repeating day in the details left the length drop-down open over the "This day only / All days" question until it was answered, so a click meant for All days picked another length. `ScopePrompt.tsx` now renders into `document.body` like `Popover.tsx`, above the drop-down and the details panel.
+- **Tests:** `cp8h.js` +1 (the question is on top of the open drop-down; failed before the fix). Changed on purpose for 3.2.0 to 3.4.0: `cp8h.js` (a projected card dropped on its own day's Timebox, and a length change in its details, now answer the question with All days; a projected card is still refused by the left list, with the new hint, and may now go to another Day column, checked in `p26.js`) and `phone-p10.js` (the hold-and-drag on a repeating day answers All days).
+
 ## 3.4.0 — 2026-10-25 (Repeating, this day only P4: This day only / All days)
 
 **Desktop and iPhone. No schema change.**

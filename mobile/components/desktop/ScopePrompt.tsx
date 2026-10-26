@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { View, Text, StyleSheet } from 'react-native';
 import HoverPressable from './HoverPressable';
 import { Colors } from '../../lib/theme';
@@ -86,7 +87,9 @@ export default function ScopePrompt() {
       </HoverPressable>
     );
   };
-  return (
+  // In document.body like Popover.tsx, so it sits above an open drop-down (a length picked in the
+  // details stays open until the answer) and the details panel.
+  return createPortal(
     <View
       ref={((n: unknown) => { box.current = n as HTMLElement | null; }) as never}
       style={[styles.box, { left, top, width: W }]}
@@ -96,7 +99,8 @@ export default function ScopePrompt() {
       <Text style={styles.title}>{q.title}</Text>
       {choice('day', THIS_DAY_ONLY, 'The other days stay as they are')}
       {choice('all', ALL_DAYS, 'Every day from today')}
-    </View>
+    </View>,
+    document.body,
   );
 }
 

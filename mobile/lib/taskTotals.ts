@@ -9,6 +9,7 @@ import type { Task } from './types.ts';
 import { formatClock } from './duration.ts';
 import { shownMinutes } from './taskTimer.ts';
 import { timesCount, timesLeft } from './times.ts';
+import { hostedEstimate } from './hosting.ts';
 
 export interface Totals {
   count: number;
@@ -29,9 +30,13 @@ export function actualOf(task: Pick<Task, 'actualMinutes' | 'timerStartedAt'>, n
 // A task with several times a day (Part C) takes its length at every time: the estimate of the day
 // counts all of them, what is still to do counts the times not yet ticked.
 type TotalsInput = Pick<Task, 'durationMinutes' | 'actualMinutes' | 'timerStartedAt' | 'completed' | 'deletedAt'> &
-  Partial<Pick<Task, 'startTime' | 'extraTimes' | 'timesDone' | 'completedAt'>>;
+  Partial<Pick<Task, 'startTime' | 'extraTimes' | 'timesDone' | 'completedAt' | 'dueDate' | 'cutsBelow'>>;
 
-export function totalsOf(tasks: TotalsInput[], nowMs: number): Totals {
+// 3.8.0 (task during a break): a task fully inside a break shares its minutes with the break. Unless
+// "Count minutes done during a break twice" is on (`breakTwice`), the estimate counts them once
+// (lib/hosting.ts hostedEstimate). The actual time is never changed: one timer runs at a time, so a
+// task's and its break's timed minutes never overlap.
+export function totalsOf(tasks: TotalsInput[], nowMs: number, breakTwice = false): Totals {
   const t: Totals = { count: 0, done: 0, estimate: 0, actual: 0 };
   for (const task of tasks) {
     if (task.deletedAt) continue;
@@ -40,6 +45,7 @@ export function totalsOf(tasks: TotalsInput[], nowMs: number): Totals {
     t.estimate += estimateOf(task) * timesCount(task);
     t.actual += actualOf(task, nowMs);
   }
+  if (!breakTwice) t.estimate -= hostedEstimate(tasks);
   return t;
 }
 

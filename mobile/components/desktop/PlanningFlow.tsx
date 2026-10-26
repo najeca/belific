@@ -16,6 +16,7 @@ import MissedList, { type MissedActions } from './MissedList';
 import { useAwayDays } from './awayStore';
 import { finishFlow } from '../../lib/planningActions';
 import { estimateOf, formatTotals, totalsOf } from '../../lib/taskTotals';
+import { breakTwiceNow } from './breakTwiceStore';
 import { minutesOfDay, nowLineTop } from '../../lib/calendarView';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -162,7 +163,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     const targetList = mode === 'planning' ? todayList : [...tomorrowList, ...view.filter((t) => carry?.has(t.id) && canCarryToTomorrow(t, todayKey))];
     figures = [
       [mode === 'planning' ? 'For today' : 'For tomorrow', String(targetList.length)],
-      ['Estimated', formatClock(totalsOf(targetList, Date.now()).estimate)],
+      ['Estimated', formatClock(totalsOf(targetList, Date.now(), breakTwiceNow()).estimate)],
     ];
     columns = (
       <>
@@ -186,7 +187,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
       </>
     );
   } else if (mode === 'planning' && step === 2) {
-    const tot = totalsOf(todayList, Date.now());
+    const tot = totalsOf(todayList, Date.now(), breakTwiceNow());
     figures = [
       ['Tasks today', String(todayList.length)],
       ['Estimated', formatClock(tot.estimate)],

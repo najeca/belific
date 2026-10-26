@@ -60,3 +60,13 @@ test('2.26.0 the add task box total: estimated time still to do, "5h planned"', 
   assert.equal(plannedText([t(45)]), '45m planned');
   assert.equal(plannedText([t(45), t(600, true), t(60, false, '2026-10-01T00:00:00Z')]), '45m planned');
 });
+
+test('3.8.0: a task during a break counts its estimate once by default, twice with the setting on', () => {
+  const lunch = task({ id: 'lunch', dueDate: '2026-10-26', startTime: '12:00', durationMinutes: 60, cutsBelow: true });
+  const call = task({ id: 'call', dueDate: '2026-10-26', startTime: '12:10', durationMinutes: 20, actualMinutes: 15 });
+  const after = task({ id: 'after', dueDate: '2026-10-26', startTime: '13:00', durationMinutes: 30 });
+  assert.equal(totalsOf([lunch, call, after], T0).estimate, 90, 'the 20 minutes inside Lunch count once');
+  assert.equal(totalsOf([lunch, call, after], T0, true).estimate, 110, 'twice: every estimate in full');
+  assert.equal(totalsOf([lunch, call, after], T0).actual, 15, 'the actual time never changes');
+  assert.equal(totalsOf([call, after], T0).estimate, 50, 'without the break in the list nothing is shared');
+});

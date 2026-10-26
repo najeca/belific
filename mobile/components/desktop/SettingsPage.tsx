@@ -23,6 +23,7 @@ import { setFeature, useFeatures } from './featureStore';
 import { FEATURES } from '../../lib/features';
 import CalendarsSection from './CalendarsSection';
 import { setCutMin, useCutMin } from './cutStore';
+import { setBreakTwice, useBreakTwice } from './breakTwiceStore';
 import { setVibrant, useVibrant } from './vibrantStore';
 import { setThemeMode, useThemeMode } from './themeStore';
 import { THEME_MODES, THEME_MODE_LABEL } from '../../lib/themeMode';
@@ -56,6 +57,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   const [exportNote, setExportNote] = useState<string | null>(null);
   const features = useFeatures();
   const cutMin = useCutMin();
+  const breakTwice = useBreakTwice();
   const vibrant = useVibrant();
   const themeMode = useThemeMode();
   const defaultReminders = useDefaultReminders();
@@ -254,6 +256,12 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               </View>
               <Text style={styles.hint}>
                 A task with "Split" on (for example a break) splits the tasks it overlaps into pieces. It only does so when every piece left is at least this long; otherwise the two sit side by side and the break says why. Nothing is changed on the tasks themselves.
+              </Text>
+              <View {...({ dataSet: { breakTwiceSetting: '1' } } as object)}>
+                <ToggleRow label="Count minutes done during a break twice" value={breakTwice} onChange={(v) => setBreakTwice(v)} />
+              </View>
+              <Text style={styles.hint}>
+                A task that fits fully inside a break is shown inside it. Off: the minutes it shares with the break count once in the day's planned time and in Analytics. On: the break and the task each count in full. Time spent is never counted twice: one timer runs at a time.
               </Text>
             </Section>
 

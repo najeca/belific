@@ -11,6 +11,7 @@ import type { BrainDumpItem, Project, Task, TaskList } from './types.ts';
 import { addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
 import { toCsv } from './csv.ts';
 import { estimateOf } from './taskTotals.ts';
+import { hostedEstimate } from './hosting.ts';
 import { effectiveListKey } from './lists.ts';
 import { formatClock } from './duration.ts';
 
@@ -139,7 +140,9 @@ export interface TimeCard {
   text: string;
 }
 
-export function timeCard(tasks: Task[], r: DateRange): TimeCard {
+// 3.8.0: a done task inside a done break shares its estimated minutes with it; they count once unless
+// "Count minutes done during a break twice" is on (`breakTwice`, lib/hosting.ts).
+export function timeCard(tasks: Task[], r: DateRange, breakTwice = false): TimeCard {
   const done = completedIn(tasks, r);
   let estimated = 0;
   let actual = 0;
@@ -152,6 +155,7 @@ export function timeCard(tasks: Task[], r: DateRange): TimeCard {
       actual += act(t);
     }
   }
+  if (!breakTwice) estimated -= hostedEstimate(done);
   const withoutEstimate = done.length - withEstimate;
   const text = withEstimate === 0 ? '' : `${formatClock(actual)} spent of ${formatClock(estimated)} estimated`;
   return { estimated, actual, withEstimate, withoutEstimate, text };

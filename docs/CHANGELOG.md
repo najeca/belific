@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.8.0 — 2026-10-26 (Task during a break P4: the Settings switch and the totals)
+
+**Desktop. No schema change: one `user_settings` row (`planner.break_count_twice`, synced like `planner.cut_min`).**
+- **Settings, Planning: "Count minutes done during a break twice"** (off by default; `breakTwiceStore.ts`). Off: the minutes a task shares with the break it is inside count once: the day's estimate on a Tasks day column, the Calendar's header figure, the planning flow's Estimated and the Analytics time card take them off (`hosting.hostedEstimate`: only a task and a break that both have an estimate and are both in the figure, per break the time its tasks cover, so two tasks overlapping each other inside it share theirs once). On: every estimate counts in full, and the Timebox's "Scheduled" (the blocks' time, which already counts those minutes once) adds them again.
+- **Time spent (actual) never changes:** one timer runs at a time (`lib/timerSession.ts`: starting a timer stops the running one), so a task's and its break's timed minutes cannot overlap. Kept as it is.
+- iOS marker: `Count minutes done during a break twice`.
+- **Tests:** `hosting.test.ts` +2 (`hostedMinutes` with overlapping tasks, `hostedEstimate`), `taskTotals.test.ts` +1, `analytics.test.ts` +1; `p27.js` +4 (the switch, off by default, stored as a synced setting; on: Scheduled and the day's estimate both rise by the 115 shared minutes).
+
 ## 3.7.0 — 2026-10-26 (Task during a break P3: the phone's Day view)
 
 **iPhone. No schema change, nothing stored.**

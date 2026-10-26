@@ -296,6 +296,29 @@ async function run() {
   await scrollTo(calSel('lunch3'));
   await I.shot('p27-11-calendar-dark-60min');
 
+  // ======== 3.8.0: Count minutes done during a break twice ========
+  // Shared with breaks now: Stretch 10, Coffee's three 20, Listen 30, Long lunch's four (14:00 to 14:55) 55 = 115.
+  await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
+  const mins = (t) => { const h = /(\d+)h/.exec(t); const m = /(\d+)m/.exec(t); return (h ? +h[1] * 60 : 0) + (m ? +m[1] : 0); };
+  const clock = (t) => { const m = /\/ (\d+):(\d\d)/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : NaN; };
+  const figures = async () => ({
+    scheduled: mins(await I.js(`([...document.querySelectorAll('div')].find((d) => /^Scheduled /.test(d.innerText || '') && d.children.length === 0) || {}).innerText || ''`)),
+    estimate: clock(await I.js(`(${V(`[data-day-col="${TODAY}"] [aria-label^="Actual against estimated for the day"]`)} || {}).getAttribute?.('aria-label')`)),
+  });
+  const once = await figures();
+  await I.click(`document.querySelector('[aria-label="Profile and account"]') || document.querySelector('[aria-label="Profile, not signed in"]')`, 500);
+  await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 800);
+  const row = await I.js(`(document.querySelector('[data-break-twice-setting]') || {}).innerText || ''`);
+  check('Settings has "Count minutes done during a break twice", off by default', row.includes('Count minutes done during a break twice') && ['false', 'null'].includes(await I.js(`(() => { const s = document.querySelector('[data-break-twice-setting] [role="switch"]'); return s ? s.getAttribute('aria-checked') || String(s.checked) : 'missing'; })()`)), row);
+  await I.shot('p27-12-settings-switch');
+  await I.click(`document.querySelector('[data-break-twice-setting] [role="switch"]')`, 700);
+  check('the switch is stored as a synced setting', JSON.stringify(read('belific_user_settings') || []).includes('planner.break_count_twice'), JSON.stringify(read('belific_user_settings')));
+  if (await I.exists(I.byLabel('Back'))) await I.click(I.byLabel('Back'), 700);
+  await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
+  const twice = await figures();
+  check("on: the Timebox's Scheduled adds the 115 shared minutes again", twice.scheduled - once.scheduled === 115, JSON.stringify({ once, twice }));
+  check("on: the day's estimate counts every task in full (+115)", twice.estimate - once.estimate === 115, JSON.stringify({ once, twice }));
+
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);
 }

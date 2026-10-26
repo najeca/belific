@@ -112,6 +112,8 @@ const MARKERS = [
   // marker: the iPhone's Day view draws hosted tasks with it (3.7.0).
   'Do during a break',
   'DuringBreakBody',
+  // 3.8.0: its Settings switch (desktop only; the setting row itself is shared sync data, not a marker).
+  'Count minutes done during a break twice',
 ];
 
 const ALLOWED = {

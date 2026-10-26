@@ -186,3 +186,15 @@ test('many days are grouped so every bar stays readable', async () => {
   assert.deepEqual([q[0].from, q[q.length - 1].to], ['d0', 'd91']);
   assert.deepEqual(bucketBars([]), []);
 });
+
+test('3.8.0: the time card counts a done task inside a done break once, twice with the setting on', () => {
+  const r = rangeFor('last7', TODAY);
+  const tasks = [
+    done('lunch', TODAY, { dueDate: TODAY, startTime: '12:00', durationMinutes: 60, actualMinutes: 50, cutsBelow: true }),
+    done('call', TODAY, { dueDate: TODAY, startTime: '12:10', durationMinutes: 20, actualMinutes: 10 }),
+  ];
+  assert.equal(timeCard(tasks, r).estimated, 60);
+  assert.equal(timeCard(tasks, r, true).estimated, 80);
+  assert.equal(timeCard(tasks, r).actual, 60, 'actual unchanged');
+  assert.equal(timeCard([tasks[1]], r).estimated, 20, 'the break not done: nothing shared');
+});

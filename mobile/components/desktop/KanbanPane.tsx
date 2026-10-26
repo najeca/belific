@@ -21,6 +21,7 @@ import DayMenu from './DayMenu';
 import { useAwayDays } from './awayStore';
 import { createTaskIn } from '../../lib/taskCommands';
 import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
+import { useBreakTwice } from './breakTwiceStore';
 import { useTick } from './timerUi';
 import { useGoToday, useReveal } from './uiStore';
 import { loadLabels } from '../../lib/labels';
@@ -61,7 +62,7 @@ const STEP = COLUMN_WIDTH + COLUMN_GAP;
 // "0:25 / 1:30": actual against estimated for the day (build plan phase 2).
 // Nothing planned and nothing spent shows nothing.
 function DayTotals({ items, now }: { items: Task[]; now: number }) {
-  const totals = totalsOf(items, now);
+  const totals = totalsOf(items, now, useBreakTwice());
   const text = formatTotals(totals);
   if (!text) return null;
   return (

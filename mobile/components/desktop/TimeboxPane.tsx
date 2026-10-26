@@ -26,7 +26,8 @@ import {
 } from '../../lib/timebox';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { timeViews } from '../../lib/times';
-import { hostDay, type HostEntry } from '../../lib/hosting';
+import { hostDay, hostedMinutes, type HostEntry } from '../../lib/hosting';
+import { useBreakTwice } from './breakTwiceStore';
 import { setDayBreaks, type DayBreak } from './breakStore';
 import type { HostedGuest } from './HostChips';
 import { useCutMin } from './cutStore';
@@ -233,7 +234,8 @@ export default function TimeboxPane({
   // "Vibrant task colours" (Settings): saturated cards with bold white text; off = as before.
   const vibrant = useVibrant();
   const tint = useTint();
-  const { sources, items, notes, badges, hostedBy, breaks } = useMemo(() => {
+  const breakTwice = useBreakTwice();
+  const { sources, items, notes, badges, hostedBy, breaks, sharedMin } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: TimeboxItem[] = [];
     for (const e of getWeeklyEventsForDate(day)) {
@@ -314,13 +316,15 @@ export default function TimeboxPane({
       }
       list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
     }
-    return { sources: map, items: list, notes: plan.notes, badges: plan.badges, hostedBy, breaks };
+    return { sources: map, items: list, notes: plan.notes, badges: plan.badges, hostedBy, breaks, sharedMin: hostedMinutes(entries) };
   }, [day, key, todayKey, events, categories, tasks, filter, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
   useEffect(() => setDayBreaks(key, breaks), [key, breaks]);
 
   const layout = useMemo(() => layoutItems(items), [items]);
-  const total = totalScheduledMinutes(items);
+  // The blocks' time once; with "Count minutes done during a break twice" on, the minutes tasks share
+  // with their breaks are added again (3.8.0).
+  const total = totalScheduledMinutes(items) + (breakTwice ? sharedMin : 0);
 
   function go(delta: number) {
     setPickerOpen(false);

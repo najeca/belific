@@ -15,8 +15,8 @@
 //  * A task that only partly overlaps a break is not hosted: Split treats it exactly as before.
 import type { Task } from './types.ts';
 import { tasksForTimebox } from './timeboxTasks.ts';
-import { continuationOf, taskToItem } from './timebox.ts';
-import { timeViews } from './times.ts';
+import { continuationOf, taskToItem, toMinutes } from './timebox.ts';
+import { timeViews, timesOf } from './times.ts';
 
 export const LONGER_THAN_BREAK = 'Longer than the break';
 
@@ -152,13 +152,44 @@ export function chipPlan(heightPx: number, widthPx: number, count: number, compa
   return { mode: 'stack', shown, more: n - shown };
 }
 
-// The minutes a day's hosted tasks share with their breaks (each is fully inside, so its own
-// length). "Count minutes done during a break twice" off (the default) takes these off a total
-// that adds up lengths, so the overlapped minutes count once.
+// The minutes a day's hosted tasks share with their breaks: for each break, the time its tasks cover
+// (each is fully inside it; two that overlap each other share those minutes once). "Count minutes done
+// during a break twice" off (the default) takes these off a total that adds up lengths, so the
+// overlapped minutes count once; on, they are added to a total that already counts them once.
 export function hostedMinutes(entries: HostEntry[]): number {
-  const { hostOf } = hostDay(entries);
+  const { hosted } = hostDay(entries);
+  const byId = new Map(entries.map((e) => [e.id, e]));
   let m = 0;
-  for (const e of entries) if (hostOf.has(e.id)) m += e.endMin - e.startMin;
+  for (const ids of hosted.values()) {
+    const spans = ids.map((id) => byId.get(id) as HostEntry).sort((a, b) => a.startMin - b.startMin);
+    let end = -Infinity;
+    for (const s of spans) {
+      const from = Math.max(s.startMin, end);
+      if (s.endMin > from) m += s.endMin - from;
+      end = Math.max(end, s.endMin);
+    }
+  }
+  return m;
+}
+
+// The same for a list of tasks being totalled by their estimates (a day column, the Calendar's header,
+// the planning flow, Analytics): only a task and a break that both have an estimate count the shared
+// minutes twice, and only when both are in the list. Each time of a task with several is its own entry.
+type EstimateInput = Pick<Task, 'durationMinutes'> & Partial<Pick<Task, 'deletedAt' | 'dueDate' | 'startTime' | 'extraTimes' | 'cutsBelow'>>;
+export function hostedEstimate(tasks: EstimateInput[]): number {
+  const byDay = new Map<string, HostEntry[]>();
+  tasks.forEach((t, i) => {
+    const len = typeof t.durationMinutes === 'number' && Number.isFinite(t.durationMinutes) ? Math.round(t.durationMinutes) : 0;
+    if (t.deletedAt || !t.dueDate || len <= 0) return;
+    const list = byDay.get(t.dueDate) ?? [];
+    for (const time of timesOf(t)) {
+      const s = toMinutes(time);
+      if (s !== null) list.push({ id: `${i}@${time}`, startMin: s, endMin: s + len, breaks: !!t.cutsBelow });
+    }
+    byDay.set(t.dueDate, list);
+  });
+  let m = 0;
+  for (const list of byDay.values()) m += hostedMinutes(list);
   return m;
 }
 

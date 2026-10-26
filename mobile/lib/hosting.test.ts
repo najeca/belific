@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. A task during a break (3.5.0): hosted when fully inside a break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LONGER_THAN_BREAK, breakAt, hostDrop, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
+import { LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
 import { cutDay, planCuts } from './cuts.ts';
 import { COMPACT_BLOCK_PX, PX_PER_HOUR } from './timebox.ts';
 import type { Task } from './types.ts';
@@ -176,4 +176,22 @@ test('hostDrop: over a break the task starts inside it; longer is refused; elsew
   assert.deepEqual(hostDrop(list, h(15, 10), h(15), 30), { kind: 'longer', brk: list[1] });
   assert.deepEqual(hostDrop(list, h(14), h(14), 15), { kind: 'none' });
   assert.deepEqual(hostDrop([], h(12), h(12), 15), { kind: 'none' });
+});
+
+test('hostedMinutes: two tasks overlapping each other inside a break share their minutes once', () => {
+  assert.equal(hostedMinutes([brk('b', h(12), h(13)), task('a', h(12), h(12, 40)), task('c', h(12, 20), h(12, 50))]), 50);
+});
+
+test('hostedEstimate: only tasks and breaks with an estimate, in the list, on the same day', () => {
+  const D = (id: string, extra: Partial<Task>) => T(id, extra);
+  const lunch = D('lunch', { startTime: '12:00', durationMinutes: 60, cutsBelow: true });
+  const call = D('call', { startTime: '12:10', durationMinutes: 20 });
+  const read = D('read', { startTime: '12:30', durationMinutes: 15 });
+  assert.equal(hostedEstimate([lunch, call, read]), 35);
+  assert.equal(hostedEstimate([call, read]), 0, 'the break is not in the list');
+  assert.equal(hostedEstimate([{ ...lunch, durationMinutes: undefined }, call]), 0, 'a break with no estimate counts nothing twice');
+  assert.equal(hostedEstimate([lunch, { ...call, durationMinutes: undefined }]), 0, 'a task with no estimate counts nothing');
+  assert.equal(hostedEstimate([lunch, { ...call, dueDate: '2026-10-27' }]), 0, 'another day');
+  assert.equal(hostedEstimate([lunch, { ...call, deletedAt: '2026-10-26T00:00:00.000Z' }]), 0, 'deleted');
+  assert.equal(hostedEstimate([lunch, D('pill', { startTime: '08:00', durationMinutes: 10, extraTimes: ['12:40'] })]), 10, 'only the time inside the break');
 });

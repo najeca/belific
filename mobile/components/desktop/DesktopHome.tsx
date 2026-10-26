@@ -35,6 +35,7 @@ import SearchPalette from './SearchPalette';
 import { usePaneState } from './usePaneState';
 import { refreshFeatures, useFeatures } from './featureStore';
 import { refreshCutMin } from './cutStore';
+import { refreshBreakTwice } from './breakTwiceStore';
 import { refreshDefaultReminders } from './reminderStore';
 import { refreshVibrant } from './vibrantStore';
 import { refreshTheme } from './themeStore';
@@ -223,6 +224,7 @@ export default function DesktopHome() {
   useEffect(() => {
     refreshFeatures();
     refreshCutMin();
+    refreshBreakTwice();
     refreshDefaultReminders();
     refreshVibrant();
     refreshTheme();

@@ -229,6 +229,8 @@ export default function CalendarScreen() {
               nowMin={nowMin}
               data={dayData}
               onOpen={open}
+              onChanged={() => void load()}
+              onNote={(text, undo) => setNotice({ id: Date.now(), text, ...(undo ? { undo } : {}) })}
               onAddAt={(m) => setAdding({ dueDate: anchor, startTime: toTime(m), durationMinutes: 30, label: `${formatDayLabel(anchor)} at ${formatTime(toTime(m))}` })}
               onDrop={(t) => void drop(t)}
             />

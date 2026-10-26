@@ -7,10 +7,11 @@ import { GRID_HEIGHT_PX, PX_PER_HOUR, hourLabel } from '../../../lib/timebox';
 import { nowLineTop } from '../../../lib/calendarView';
 import { labelColor, tintFor } from '../../../lib/labelColors';
 import { isMustDo, MUST_DO_MARK } from '../../../lib/mustDo';
-import { formatDuration } from '../../../lib/duration';
-import { formatTime } from '../../../lib/data';
-import { ActionMenu } from '../menu';
-import { LabelDot } from '../ui';
+import { HostedSheet } from './HostedSheet';
+import { moveOutOfBreak } from '../../../lib/hostActions';
+import { opsForProjected, opsForTask } from '../../../lib/taskOps';
+import { taskDuration } from '../../../lib/drag';
+import { toMinutes } from '../../../lib/timebox';
 import { TAP_MAX_MOVE, TAP_MAX_MS } from '../../../lib/touchRules';
 import type { DeviceOccurrence } from '../../../lib/deviceCalendar';
 import type { Project, ScheduleEvent, Task, TaskList } from '../../../lib/types';
@@ -56,7 +57,12 @@ export function DayView({
   onOpen,
   onAddAt,
   onDrop,
+  onChanged,
+  onNote,
 }: {
+  // 3.9.0: something changed (a tick or a move out from the break sheet); and the message to show.
+  onChanged?: () => void;
+  onNote?: (text: string, undo?: () => void) => void;
   dayKey: string;
   todayKey: string;
   nowMin: number;
@@ -127,6 +133,19 @@ export function DayView({
         ? `Event ${src.event.title}, read only`
         : `Calendar event ${src.seg.occ.title}, read only`;
   const sheetTask = sheet && sheet.kind === 'task' ? sheet : null;
+  const tick = async (h: { full: Task; time?: string; projected: boolean; task: Task }) => {
+    const ops = h.projected ? opsForProjected(h.full) : opsForTask(h.full);
+    await (h.time ? ops.setTimeDone(h.time, !h.task.completed) : ops.setCompleted(!h.task.completed));
+    onChanged?.();
+  };
+  const moveOut = async (h: { full: Task; time?: string; projected: boolean }) => {
+    if (!sheetTask) return;
+    const start = toMinutes(sheetTask.task.startTime) ?? 0;
+    const r = await moveOutOfBreak(h, { endMin: start + taskDuration(sheetTask.task), title: sheetTask.task.title });
+    onChanged?.();
+    if (r.ok) onNote?.(r.text, () => void r.undo().then(() => onChanged?.()));
+    else onNote?.(r.note);
+  };
 
   return (
     <View style={{ flex: 1 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} {...({ dataSet: { dayView: dayKey } } as object)}>
@@ -212,23 +231,14 @@ export function DayView({
           ) : null}
         </View>
       </ScrollView>
-      <ActionMenu
-        visible={!!sheetTask}
-        title={sheetTask ? `During ${sheetTask.task.title}` : undefined}
-        items={
-          sheetTask
-            ? [
-                ...(sheetTask.hosted ?? []).map((h) => ({
-                  label: [h.task.title, formatTime(h.task.startTime ?? ''), formatDuration(h.task.durationMinutes) ?? ''].filter(Boolean).join(', '),
-                  icon: 'ellipse' as const,
-                  leading: <LabelDot color={dotOf(h.task)} size={10} />,
-                  selected: h.task.completed,
-                  run: () => onOpen({ kind: 'task', task: h.task, projected: h.projected }),
-                })),
-                { label: `Open ${sheetTask.task.title}`, icon: 'cafe-outline' as const, run: () => onOpen(sheetTask) },
-              ]
-            : []
-        }
+      <HostedSheet
+        breakTitle={sheetTask ? sheetTask.task.title : null}
+        hosted={sheetTask?.hosted ?? []}
+        dotOf={(h) => dotOf(h.task)}
+        onOpen={(h) => onOpen({ kind: 'task', task: h.task, projected: h.projected })}
+        onTick={(h) => void tick(h)}
+        onMoveOut={(h) => void moveOut(h)}
+        onOpenBreak={() => sheetTask && onOpen(sheetTask)}
         onClose={() => setSheet(null)}
       />
     </View>

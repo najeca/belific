@@ -25,6 +25,9 @@ export interface HostedTask {
   id: string;
   task: Task;
   projected: boolean;
+  // 3.9.0: the real task and the time inside the break (a task with several times), for Tick and Move out.
+  full: Task;
+  time?: string;
 }
 
 export interface PhoneDay {
@@ -84,7 +87,7 @@ export function buildPhoneDay(input: { tasks: Task[]; dayKey: string; todayKey: 
     const hosted: HostedTask[] = [];
     for (const id of ids) {
       const g = sources.get(id);
-      if (g && g.kind === 'task') hosted.push({ id, task: g.task, projected: g.projected });
+      if (g && g.kind === 'task') hosted.push({ id, task: g.task, projected: g.projected, full: g.full ?? g.task, ...(g.time ? { time: g.time } : {}) });
     }
     sources.set(breakId, { ...b, hosted });
   }

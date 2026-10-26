@@ -265,6 +265,8 @@ export default function TimeBlock({
   // 3.6.0: the chips of the tasks during this break (not while it is being resized).
   const guests = hosted && hosted.length > 0 && resizing === undefined ? hosted : undefined;
   const chips = guests ? chipPlan(shownH, boxW, guests.length, COMPACT_BLOCK_PX) : null;
+  // Where "Move out" puts a task: right after this break (this block's own time).
+  const hostBreak = { endMin: startMin + taskDuration(task), title: task.title };
   useLayoutEffect(() => {
     if (tier === 3 || chips) return;
     if (fit.key !== fitKey) {
@@ -319,7 +321,7 @@ export default function TimeBlock({
                   {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
-                {chips.mode === 'inline' && chips.shown > 0 && <HostChip g={guests[0]} onChanged={onChanged} inline />}
+                {chips.mode === 'inline' && chips.shown > 0 && <HostChip g={guests[0]} onChanged={onChanged} inline brk={hostBreak} scope={scope} gridNode={gridNode} />}
                 {chips.mode === 'stack' && !!inlineText && (
                   <Text style={[styles.timeInline, styles.hostTime, vm]} numberOfLines={1}>
                     {inlineText}
@@ -327,7 +329,7 @@ export default function TimeBlock({
                 )}
                 {chips.more > 0 && <MoreBadge n={chips.more} tip={hostTip} />}
               </View>
-              {chips.mode === 'stack' && guests.slice(0, chips.shown).map((g) => <HostChip key={g.blockId} g={g} onChanged={onChanged} />)}
+              {chips.mode === 'stack' && guests.slice(0, chips.shown).map((g) => <HostChip key={g.blockId} g={g} onChanged={onChanged} brk={hostBreak} scope={scope} gridNode={gridNode} />)}
             </>
           ) : tier === 3 ? (
             <>

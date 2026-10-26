@@ -19,7 +19,7 @@ export default function UndoBar() {
   }, [notice]);
   useEffect(() => {
     if (!offer) return;
-    const t = setTimeout(clearUndo, SHOW_MS);
+    const t = setTimeout(clearUndo, offer.ms ?? SHOW_MS);
     return () => clearTimeout(t);
   }, [offer]);
   if (!offer && notice) {

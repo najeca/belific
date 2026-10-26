@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
 import { formatDuration } from '../../lib/duration';
+import { toMinutes } from '../../lib/timebox';
+import { taskDuration, yToMinutes } from '../../lib/drag';
+import { moveOutOfBreak, removeTimeInBreak, type OutResult } from '../../lib/hostActions';
 import type { Task } from '../../lib/types';
 import { opsForProjected, opsForTask } from './taskOps';
-import { openDetail } from './uiStore';
+import { notifyChanged, offerUndo, openDetail, showNotice } from './uiStore';
 import { tipRef } from './tip';
+import { domNode, useDrag } from './DragProvider';
+import Popover, { Row, closePopover, openPopover, togglePopover, usePopoverAnchor } from './Popover';
 
 // A task during a break (3.6.0, lib/hosting.ts): the hosted task as a small rounded chip inside the
 // break's block, light with dark text in both themes (tokens hostChip and onHostChip) so it reads on a
@@ -28,14 +33,94 @@ export function guestText(g: HostedGuest): string {
   return `${g.task.emoji ? `${g.task.emoji} ` : ''}${g.task.title}${len ? ` ${len}` : ''}${g.task.completed ? ' (done)' : ''}`;
 }
 
+// 3.9.0: the chip's menu ("Move out of break", "Remove time") and the details' Move out: the result
+// is a 5 second Undo, or the note why nothing changed.
+export const OUT_UNDO_MS = 5000;
+export const MOVE_OUT = 'Move out of break';
+export async function showOutResult(r: OutResult): Promise<void> {
+  if (r.ok) offerUndo(r.text, r.undo, OUT_UNDO_MS);
+  else showNotice(r.note);
+  notifyChanged();
+}
+export const moveOut = (g: HostedGuest, brk: HostBreak) => moveOutOfBreak(g, brk).then(showOutResult);
+export const removeTime = (g: HostedGuest) => removeTimeInBreak(g).then(showOutResult);
+
+// The break a chip sits in: where "Move out" puts the task.
+export interface HostBreak {
+  endMin: number;
+  title: string;
+}
+
 // The break's tooltip line for everything it hosts.
 export function hostedTip(guests: HostedGuest[]): string {
   return guests.length ? `During it: ${guests.map(guestText).join('; ')}` : '';
 }
 
-export function HostChip({ g, onChanged, inline }: { g: HostedGuest; onChanged: () => void; inline?: boolean }) {
+export function HostChip({
+  g,
+  onChanged,
+  inline,
+  brk,
+  scope = '',
+  gridNode,
+}: {
+  g: HostedGuest;
+  onChanged: () => void;
+  inline?: boolean;
+  brk: HostBreak;
+  scope?: string;
+  gridNode: () => HTMLElement | null;
+}) {
   const t = g.task;
   const len = formatDuration(t.durationMinutes);
+  const menuId = `hostchip:${scope}${g.blockId}`;
+  const { ref: anchorRef, get: anchor } = usePopoverAnchor();
+  const { sourceRef } = useDrag();
+  const live = useRef(g);
+  live.current = g;
+  // 3.9.0: a chip drags like a block: dropped anywhere it is a normal move (and so ends the hosting).
+  const dragRef = sourceRef(`chip:${scope}${g.blockId}`, (e) => {
+    const grid = gridNode();
+    const cur = live.current;
+    const start = toMinutes(cur.task.startTime);
+    if (!grid || start === null) return null;
+    return {
+      kind: 'block',
+      task: cur.full,
+      ...(cur.time ? { time: cur.time } : {}),
+      id: cur.task.id,
+      title: cur.task.title,
+      emoji: cur.task.emoji,
+      duration: taskDuration(cur.task),
+      projected: cur.projected,
+      scope,
+      grabOffsetMin: Math.max(0, Math.min(taskDuration(cur.task), yToMinutes(e.clientY, grid.getBoundingClientRect().top) - start)),
+    };
+  });
+  // A right click opens the same menu as the small button.
+  const menuCleanup = useRef<(() => void) | null>(null);
+  const chipRef = useCallback(
+    (instance: unknown) => {
+      dragRef(instance);
+      tipRef(guestText(live.current))(instance);
+      menuCleanup.current?.();
+      menuCleanup.current = null;
+      const el = domNode(instance);
+      if (!el) return;
+      const onMenu = (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openPopover(menuId, anchor);
+      };
+      el.addEventListener('contextmenu', onMenu);
+      menuCleanup.current = () => el.removeEventListener('contextmenu', onMenu);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dragRef, menuId, anchor],
+  );
+  useEffect(() => {
+    tipRef(guestText(g))(anchor()?.parentElement ?? null);
+  });
   const tick = async () => {
     const ops = g.projected ? opsForProjected(g.full) : opsForTask(g.full);
     await (g.time ? ops.setTimeDone(g.time, !t.completed) : ops.setCompleted(!t.completed));
@@ -47,7 +132,7 @@ export function HostChip({ g, onChanged, inline }: { g: HostedGuest; onChanged: 
       style={[styles.chip, inline ? styles.chipInline : styles.chipStack]}
       accessibilityRole="button"
       accessibilityLabel={`${t.title}${len ? `, ${len}` : ''}, during the break${t.completed ? ', done' : ''}`}
-      ref={tipRef(guestText(g)) as never}
+      ref={chipRef as never}
       {...({ dataSet: { hostChip: g.blockId } } as object)}
     >
       <Pressable
@@ -66,6 +151,47 @@ export function HostChip({ g, onChanged, inline }: { g: HostedGuest; onChanged: 
         {t.title}
       </Text>
       {!!len && <Text style={styles.chipLen}>{len}</Text>}
+      <Pressable
+        ref={anchorRef as never}
+        onPress={() => togglePopover(menuId, anchor)}
+        hitSlop={4}
+        style={styles.menuBtn}
+        accessibilityRole="button"
+        accessibilityLabel={`More for ${t.title}`}
+        {...({ dataSet: { hostMenu: g.blockId } } as object)}
+      >
+        <Text style={styles.menuGlyph}>⋯</Text>
+      </Pressable>
+      <Popover id={menuId} anchor={anchor} width={220} label={`${t.title} during ${brk.title}`}>
+        <View style={styles.menu} {...({ dataSet: { hostChipMenu: g.blockId } } as object)}>
+          <Row
+            label="Open"
+            onPress={() => {
+              closePopover();
+              openDetail(t.id);
+            }}
+            a11y={`Open ${t.title}`}
+          />
+          <Row
+            label={MOVE_OUT}
+            sub={`After ${brk.title}`}
+            onPress={() => {
+              closePopover();
+              void moveOut(g, brk);
+            }}
+            a11y={MOVE_OUT}
+          />
+          <Row
+            label="Remove time"
+            sub="Anytime that day"
+            onPress={() => {
+              closePopover();
+              void removeTime(g);
+            }}
+            a11y="Remove time"
+          />
+        </View>
+      </Popover>
     </Pressable>
   );
 }
@@ -101,6 +227,9 @@ const styles = StyleSheet.create({
   chipTitle: { flexShrink: 1, minWidth: 0, fontSize: 10, lineHeight: 14, fontWeight: '600', color: Colors.onHostChip },
   chipDone: { textDecorationLine: 'line-through' },
   chipLen: { flexShrink: 0, fontSize: 10, lineHeight: 14, color: Colors.onHostChip },
+  menuBtn: { width: 12, height: 14, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: -2, marginRight: -4 },
+  menuGlyph: { fontSize: 10, lineHeight: 14, fontWeight: '700', color: Colors.onHostChip },
+  menu: { paddingVertical: 4 },
   more: { flexShrink: 0, height: 14, paddingHorizontal: 5, borderRadius: 7, backgroundColor: Colors.hostChip, justifyContent: 'center', boxShadow: `inset 0 0 0 1px ${Colors.border}` } as object,
   moreText: { fontSize: 10, lineHeight: 14, fontWeight: '700', color: Colors.onHostChip },
 });

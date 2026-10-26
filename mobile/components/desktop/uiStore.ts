@@ -56,6 +56,8 @@ export interface UndoOffer {
   text: string;
   run: () => Promise<unknown>;
   nonce: number;
+  // How long it shows (3.9.0: 5 seconds after a move out of a break); absent: the bar's 12 seconds.
+  ms?: number;
 }
 
 let state: State = { overlay: null, detailId: null, detailFocus: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0, undo: null, notice: null };
@@ -75,8 +77,8 @@ function use<T>(pick: (s: State) => T): T {
 
 // ---- undo ----
 export const useUndo = () => use((s) => s.undo);
-export function offerUndo(text: string, run: () => Promise<unknown>): void {
-  set({ undo: { text, run, nonce: Date.now() } });
+export function offerUndo(text: string, run: () => Promise<unknown>, ms?: number): void {
+  set({ undo: { text, run, nonce: Date.now(), ...(ms ? { ms } : {}) } });
 }
 export function clearUndo(): void {
   if (state.undo) set({ undo: null });

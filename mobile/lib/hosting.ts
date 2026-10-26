@@ -15,8 +15,8 @@
 //  * A task that only partly overlaps a break is not hosted: Split treats it exactly as before.
 import type { Task } from './types.ts';
 import { tasksForTimebox } from './timeboxTasks.ts';
-import { continuationOf, taskToItem, toMinutes } from './timebox.ts';
-import { timeViews, timesOf } from './times.ts';
+import { continuationOf, taskToItem, toMinutes, toTime } from './timebox.ts';
+import { isMultiTime, moveTimeFields, removeTimeFields, timeViews, timesOf } from './times.ts';
 
 export const LONGER_THAN_BREAK = 'Longer than the break';
 
@@ -116,6 +116,23 @@ export function hostDrop<T extends BreakSpan>(breaks: T[], pointerMin: number, s
   if (!brk) return { kind: 'none' };
   const start = hostStart(slotMin, lengthMin, brk);
   return start === null ? { kind: 'longer', brk } : { kind: 'host', startMin: start, brk };
+}
+
+// Moving a hosted task out (3.9.0). `full` is the real task, `time` the time that is inside the break
+// (a task with several times moves only that one). "Move out of break": the task starts when the break
+// ends, the same day, the same length. "Remove time": that time goes; a task with one time becomes an
+// Anytime task on its day.
+export type OutPlan = { ok: true; fields: Partial<Task> } | { ok: false; note: string };
+export const ENDS_AT_MIDNIGHT = 'The break ends at midnight: there is no time after it that day.';
+export function moveOutFields(full: Task, time: string | undefined, brk: Pick<BreakSpan, 'endMin'>): OutPlan {
+  if (brk.endMin >= 1440) return { ok: false, note: ENDS_AT_MIDNIGHT };
+  const to = toTime(brk.endMin);
+  if (time && isMultiTime(full)) return moveTimeFields(full, time, to);
+  return { ok: true, fields: { startTime: to } };
+}
+export function removeTimeOutFields(full: Task, time: string | undefined): OutPlan {
+  if (time && isMultiTime(full)) return removeTimeFields(full, time);
+  return { ok: true, fields: { startTime: undefined, extraTimes: undefined, timesDone: undefined } };
 }
 
 // "Do during a break": the breaks a task of this length fits in, earliest first.

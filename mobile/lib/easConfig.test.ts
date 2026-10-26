@@ -41,7 +41,7 @@ test('submit.production exists and is empty: Apple details are asked for interac
 });
 
 test('the app is 3.0.0, bundle com.najeca.belific, scheme belific (the callback link)', () => {
-  assert.equal(app.expo.version, '3.8.0');
+  assert.equal(app.expo.version, '3.9.0');
   assert.equal(app.expo.ios.bundleIdentifier, 'com.najeca.belific');
   assert.equal(app.expo.scheme, 'belific');
   assert.equal(app.expo.ios.usesAppleSignIn, true);

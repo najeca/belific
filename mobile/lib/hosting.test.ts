@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. A task during a break (3.5.0): hosted when fully inside a break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
+import { ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
 import { cutDay, planCuts } from './cuts.ts';
 import { COMPACT_BLOCK_PX, PX_PER_HOUR } from './timebox.ts';
 import type { Task } from './types.ts';
@@ -194,4 +194,23 @@ test('hostedEstimate: only tasks and breaks with an estimate, in the list, on th
   assert.equal(hostedEstimate([lunch, { ...call, dueDate: '2026-10-27' }]), 0, 'another day');
   assert.equal(hostedEstimate([lunch, { ...call, deletedAt: '2026-10-26T00:00:00.000Z' }]), 0, 'deleted');
   assert.equal(hostedEstimate([lunch, D('pill', { startTime: '08:00', durationMinutes: 10, extraTimes: ['12:40'] })]), 10, 'only the time inside the break');
+});
+
+test('3.9.0: moving out starts the task when the break ends, same day and length; Remove time makes it Anytime', () => {
+  const call = T('call', { startTime: '12:10', durationMinutes: 20 });
+  assert.deepEqual(moveOutFields(call, undefined, { endMin: h(13) }), { ok: true, fields: { startTime: '13:00' } });
+  assert.deepEqual(moveOutFields(call, undefined, { endMin: h(24) }), { ok: false, note: ENDS_AT_MIDNIGHT });
+  assert.deepEqual(removeTimeOutFields(call, undefined), { ok: true, fields: { startTime: undefined, extraTimes: undefined, timesDone: undefined } });
+});
+
+test('3.9.0: a task with several times moves or loses only the time inside the break', () => {
+  const pill = T('pill', { startTime: '08:00', durationMinutes: 10, extraTimes: ['12:40', '18:00'] });
+  const out = moveOutFields(pill, '12:40', { endMin: h(13) });
+  assert.ok(out.ok);
+  assert.deepEqual(out.ok && [out.fields.startTime, out.fields.extraTimes], ['08:00', ['13:00', '18:00']]);
+  const gone = removeTimeOutFields(pill, '12:40');
+  assert.ok(gone.ok);
+  assert.deepEqual(gone.ok && [gone.fields.startTime, gone.fields.extraTimes], ['08:00', ['18:00']]);
+  const clash = moveOutFields({ ...pill, extraTimes: ['12:40', '13:00'] }, '12:40', { endMin: h(13) });
+  assert.equal(clash.ok, false, 'one of its own times is already there');
 });

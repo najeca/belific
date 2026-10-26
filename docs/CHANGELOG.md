@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 3.9.0 — 2026-10-26 (Task during a break, follow up P1: move out of a break)
+
+**Desktop and iPhone. No schema change.**
+- **The chip's menu** (a right click on a chip, or its small ⋯ button): Open, **Move out of break** (the task starts when the break ends, the same day, the same length) and **Remove time** (an Anytime task that day). A task with several times moves or loses only its time inside the break. A day of a repeating task asks This day only / All days, as any new time does. A break that ends at midnight refuses Move out with a note.
+- Both show an **Undo** message for **5 seconds** (`offerUndo` takes a length); Undo puts back exactly the rows the action changed (a day stored by This day only takes back the time it showed). `lib/hostActions.ts` (new, shared), `hosting.moveOutFields`, `removeTimeOutFields`.
+- **A chip drags like a block:** dropped anywhere it is a normal move, so the hosting ends (dropped inside the same break again it is simply hosted again).
+- **iPhone:** the break's sheet (`HostedSheet.tsx`, new) has per task a tick, its title (Open) and **Move out**, each 44 pt; Move out shows the Undo bar for 5 seconds.
+- iOS marker: `Move out of break`.
+- **Tests:** `hosting.test.ts` +2; real checks `p28.js` (new, 18: right click and ⋯ menus, Move out, Remove time, Undo after 5 s gone, Undo, several times, a repeating day with This day only and its Undo, a chip dragged out) and `phone-p14.js` (new, 7: the sheet's 44 pt Tick, Open, Move out, Undo). Changed on purpose: `phone-p13.js` (the sheet's selectors).
+
 ## 3.8.0 — 2026-10-26 (Task during a break P4: the Settings switch and the totals)
 
 **Desktop. No schema change: one `user_settings` row (`planner.break_count_twice`, synced like `planner.cut_min`).**

@@ -114,6 +114,9 @@ const MARKERS = [
   'DuringBreakBody',
   // 3.8.0: its Settings switch (desktop only; the setting row itself is shared sync data, not a marker).
   'Count minutes done during a break twice',
+  // 3.9.0: the chip's menu wording (desktop only). lib/hostActions.ts is NOT a marker: the iPhone's break
+  // sheet moves tasks out with it.
+  'Move out of break',
 ];
 
 const ALLOWED = {

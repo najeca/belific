@@ -88,7 +88,8 @@ async function run() {
       }
       return { count: b.getAttribute('data-host-count'), chips: b.querySelectorAll('[data-host-chip]').length, more: m ? m.getAttribute('data-host-more') : '0', bad, label: (w.querySelector('[data-block-tap]') || {}).getAttribute?.('aria-label') || '' };
     })()`);
-  const menuText = () => P.js(`(document.querySelector('[data-action-menu]') || {}).innerText || ''`);
+  // 3.9.0: the sheet is HostedSheet (Tick, Open, Move out per row; changed on purpose from the hold menu).
+  const menuText = () => P.js(`(document.querySelector('[data-hosted-sheet]') || {}).innerText || ''`);
 
   const tour = async (theme) => {
     await P.finger.tap(tab('Calendar'), 1200);
@@ -122,7 +123,7 @@ async function run() {
   check('a tap on a break with tasks opens a sheet listing them, and Open Tea', /During Tea/.test(m1) && m1.includes('Water the plants') && m1.includes('Text Mum') && m1.includes('Open Tea'), m1);
   check('the tap did not open the break itself', !(await P.js(`!!document.querySelector('[data-task-details]')`)));
   await shot('phone-p13-sheet');
-  await P.finger.tap(visible('[data-action-menu] [aria-label^="Text Mum"]'), 1200);
+  await P.finger.tap(visible('[data-hosted-open="task:t2"]'), 1200);
   const d1 = await P.js(`(document.querySelector('[data-task-details]') || {}).parentElement?.innerText || ''`);
   const v1 = await P.js(`[...document.querySelectorAll('input, textarea')].filter((e) => e.getBoundingClientRect().height > 0).map((e) => e.value).join('|')`);
   check('a row opens that task', (d1 + v1).includes('Text Mum'), (d1 + '|' + v1).slice(0, 160));
@@ -132,7 +133,7 @@ async function run() {
   else if (await P.js(`!!(${visible('[aria-label="Close"]')})`)) await P.finger.tap(visible('[aria-label="Close"]'), 900);
   await C.sleep(400);
   await P.finger.tap(visible('[data-block-tap="task:tea"]'), 1000);
-  await P.finger.tap(visible('[data-action-menu] [aria-label="Open Tea"]'), 1200);
+  await P.finger.tap(visible('[data-hosted-sheet] [aria-label="Open Tea"]'), 1200);
   const v2 = await P.js(`[...document.querySelectorAll('input, textarea')].filter((e) => e.getBoundingClientRect().height > 0).map((e) => e.value).join('|')`);
   const d2 = await P.js(`(document.querySelector('[data-task-details]') || {}).parentElement?.innerText || ''`);
   check('"Open Tea" opens the break itself', (d2 + v2).includes('Tea'), (d2 + '|' + v2).slice(0, 160));

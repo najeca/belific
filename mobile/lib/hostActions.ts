@@ -1,6 +1,6 @@
 // Moving a task out of the break it is during (3.9.0, lib/hosting.ts), shared by the desktop and the
 // iPhone. Each action writes through the task's own ops (lib/taskOps.ts), so a day of a repeating task
-// asks This day only / All days as any new time does, and returns an undo that puts back exactly the
+// asks This day only / All days like every other new time, and returns an undo that puts back exactly the
 // rows it changed.
 import type { Task } from './types.ts';
 import { loadTasksRaw, updateTask } from './storage';

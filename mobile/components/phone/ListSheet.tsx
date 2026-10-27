@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, type ColorTokens } from '../../lib/tokens';
+import { createListState } from '../../lib/lists';
 import { createList, editList, removeList } from '../../lib/taskCommands';
 import type { TaskList } from '../../lib/types';
 import { useStyles, useTheme } from './theme';
@@ -25,7 +26,7 @@ const make = (c: ColorTokens) => ({
   note: { ...type.meta, color: c.textSecondary },
 });
 
-export function ListSheet({ visible, list, count, onClose, onSaved }: { visible: boolean; list: TaskList | null; count: number; onClose: () => void; onSaved: (key: string | null) => void }) {
+export function ListSheet({ visible, list, lists, count, onClose, onSaved }: { visible: boolean; list: TaskList | null; lists: TaskList[]; count: number; onClose: () => void; onSaved: (key: string | null) => void }) {
   const s = useStyles(make);
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -43,7 +44,12 @@ export function ListSheet({ visible, list, count, onClose, onSaved }: { visible:
     setConfirming(false);
   }, [visible, list]);
 
+  const create = createListState(lists, name);
   async function save() {
+    if (!list && !create.enabled) {
+      setProblem(create.why);
+      return;
+    }
     const result = list ? await editList(list.key, name, emoji || undefined) : await createList(name, emoji || undefined);
     if ('problem' in result) {
       setProblem(result.problem);
@@ -61,8 +67,9 @@ export function ListSheet({ visible, list, count, onClose, onSaved }: { visible:
               {list ? 'Edit list' : 'New list'}
             </Text>
             <Text style={s.label}>Name</Text>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <TextInput
-              style={s.input}
+              style={[s.input, { flex: 1, minWidth: 0 }]}
               value={name}
               onChangeText={(t) => {
                 setName(t);
@@ -75,12 +82,15 @@ export function ListSheet({ visible, list, count, onClose, onSaved }: { visible:
               onSubmitEditing={save}
               accessibilityLabel="List name"
             />
+            {list ? null : <Button label="Create list" kind="primary" onPress={save} disabled={!create.enabled} a11y="Create list" />}
+            </View>
+            {!list && create.why ? <Text style={s.note}>{create.why}</Text> : null}
             <Text style={s.label}>Emoji</Text>
             <TextInput style={[s.input, { width: 90, textAlign: 'center' }]} value={emoji} onChangeText={setEmoji} placeholder="🙂" placeholderTextColor={c.textTertiary} accessibilityLabel="List emoji" />
-            {problem ? <Text style={s.problem}>{problem}</Text> : null}
+            {problem && problem !== create.why ? <Text style={s.problem}>{problem}</Text> : null}
             <View style={s.row}>
               <Button label="Cancel" onPress={onClose} a11y="Cancel list edit" />
-              <Button label="Save" kind="primary" onPress={save} a11y={list ? `Save list ${list.name}` : 'Save new list'} />
+              {list ? <Button label="Save" kind="primary" onPress={save} a11y={`Save list ${list.name}`} /> : null}
             </View>
             {list ? (
               <View style={{ borderTopWidth: 1, borderTopColor: c.border, paddingTop: 12, gap: 8 }}>

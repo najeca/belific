@@ -160,7 +160,7 @@ async function run() {
   await P.finger.tap(chip('new'), 900);
   await P.finger.tap(visible('[data-list-sheet] input[aria-label="List name"]'), 300);
   await typeText('Reading');
-  await P.finger.tap(visible('[aria-label="Save new list"]'), 900);
+  await P.finger.tap(visible('[aria-label="Create list"]'), 900);
   const reading = read('belific_lists').find((l) => l.name === 'Reading');
   check('New list makes a list and shows it', !!reading && (await P.js(`!!document.querySelector('[data-list-chip="${reading && reading.key}"]')`)));
 

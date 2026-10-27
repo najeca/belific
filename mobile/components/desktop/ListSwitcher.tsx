@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { BRAIN_DUMP_EMOJI, DEFAULT_LIST_EMOJI } from '../../lib/emoji';
-import { BRAIN_DUMP_NAME, listTitle } from '../../lib/lists';
+import { BRAIN_DUMP_NAME, createListState, listTitle } from '../../lib/lists';
 import { createList, editList, removeList } from '../../lib/taskCommands';
 import type { TaskList } from '../../lib/types';
 import EmojiField from './EmojiField';
@@ -68,7 +68,12 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
     closePopover(true);
   };
 
+  const create = createListState(lists, name);
   async function add() {
+    if (!create.enabled) {
+      setProblem(create.why);
+      return;
+    }
     const result = await createList(name, emoji);
     if ('problem' in result) {
       setProblem(result.problem);
@@ -124,20 +129,41 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
 
       <PopoverHeading>New list</PopoverHeading>
       <View style={popoverStyles.pad}>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={(t) => {
-            setName(t);
-            setProblem(null);
-          }}
-          onSubmitEditing={add}
-          placeholder="Name, then Enter"
-          placeholderTextColor={Colors.textSecondary}
-          accessibilityLabel="New list name"
-        />
+        <View style={styles.nameRow}>
+          <TextInput
+            style={[styles.input, styles.nameInput]}
+            value={name}
+            onChangeText={(t) => {
+              setName(t);
+              setProblem(null);
+            }}
+            onSubmitEditing={add}
+            placeholder="Name, then Enter"
+            placeholderTextColor={Colors.textSecondary}
+            accessibilityLabel="New list name"
+          />
+          <Pressable
+            onPress={add}
+            disabled={!create.enabled}
+            style={(state) => {
+              const st = state as typeof state & { hovered?: boolean };
+              return [styles.btn, create.enabled ? styles.btnPrimary : styles.btnOff, create.enabled && st.hovered && { opacity: 0.9 }];
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Create list"
+            accessibilityState={{ disabled: !create.enabled }}
+            {...({ dataSet: { createList: create.enabled ? 'on' : 'off' } } as object)}
+          >
+            <Text style={[outlinedBtnText, create.enabled ? styles.btnPrimaryText : styles.btnOffText]}>Create list</Text>
+          </Pressable>
+        </View>
+        {create.why ? (
+          <Text style={popoverStyles.note} {...({ dataSet: { createWhy: '1' } } as object)}>
+            {create.why}
+          </Text>
+        ) : null}
         <EmojiField label="New list emoji" value={emoji} onChange={setEmoji} />
-        {problem ? <Text style={popoverStyles.noteWarn}>{problem}</Text> : null}
+        {problem && problem !== create.why ? <Text style={popoverStyles.noteWarn}>{problem}</Text> : null}
       </View>
     </View>
   );
@@ -238,6 +264,10 @@ const styles = StyleSheet.create({
   btn: { ...outlinedBtn, height: 30 },
   btnPrimary: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   btnPrimaryText: { color: Colors.onAccent, fontWeight: '700' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  nameInput: { flex: 1, minWidth: 0 },
+  btnOff: { borderColor: Colors.border, backgroundColor: Colors.background, opacity: 0.7 },
+  btnOffText: { color: Colors.textSecondary },
   sep: { height: 1, backgroundColor: Colors.border, marginHorizontal: 10 },
   count: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   input: { height: 34, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },

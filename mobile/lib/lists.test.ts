@@ -91,3 +91,16 @@ test('listNameOf gives the name of a live list only (the tooltip of a block\'s l
   assert.equal(listNameOf({ listKey: 'd' }, lists), undefined, 'a deleted list');
   assert.equal(listNameOf({ listKey: 'missing' }, lists), undefined);
 });
+
+test('3.12.0: the Create list button is off for an empty, a long, Brain Dump\'s or a duplicate name, and says why', async () => {
+  const { createListState, CREATE_NEEDS_NAME } = await import('./lists.ts');
+  const lists = [list('g', 'Games'), list('d', 'Gone', { deletedAt: NOW })];
+  assert.deepEqual(createListState(lists, ''), { enabled: false, why: CREATE_NEEDS_NAME });
+  assert.deepEqual(createListState(lists, '   '), { enabled: false, why: CREATE_NEEDS_NAME });
+  assert.deepEqual(createListState(lists, 'games'), { enabled: false, why: 'Another list has that name' });
+  assert.deepEqual(createListState(lists, '  GAMES  '), { enabled: false, why: 'Another list has that name' });
+  assert.deepEqual(createListState(lists, 'brain dump'), { enabled: false, why: 'Brain Dump is always there' });
+  assert.equal(createListState(lists, 'x'.repeat(41)).enabled, false);
+  assert.deepEqual(createListState(lists, 'Gone'), { enabled: true, why: null }, 'a deleted list\'s name is free');
+  assert.deepEqual(createListState(lists, 'Reading'), { enabled: true, why: null });
+});

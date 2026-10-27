@@ -458,6 +458,7 @@ export default function TasksTab() {
       <ListSheet
         visible={!!listSheet}
         list={listSheet?.list ?? null}
+        lists={live}
         count={listSheet?.list ? (counts.get(listSheet.list.key) ?? 0) : 0}
         onClose={() => setListSheet(null)}
         onSaved={(key) => {

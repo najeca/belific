@@ -26,6 +26,15 @@ export function listNameProblem(lists: Array<Pick<TaskList, 'key' | 'name' | 'de
   return null;
 }
 
+// 3.12.0: the Create list button. Disabled (with the sentence that says why) while the name is empty, too long,
+// Brain Dump's or another list's; an empty name asks for one in a calmer sentence than the command's.
+export const CREATE_NEEDS_NAME = 'Type a name to create the list';
+export function createListState(lists: Array<Pick<TaskList, 'key' | 'name' | 'deletedAt'>>, name: string): { enabled: boolean; why: string | null } {
+  if (!normalizeListName(name)) return { enabled: false, why: CREATE_NEEDS_NAME };
+  const problem = listNameProblem(lists, name);
+  return { enabled: !problem, why: problem };
+}
+
 export function nextSortOrder(lists: Array<Pick<TaskList, 'sortOrder' | 'deletedAt'>>): number {
   let max = -1;
   for (const l of lists) if (!l.deletedAt && l.sortOrder > max) max = l.sortOrder;

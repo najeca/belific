@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.12.0 — 2026-10-27 (Create list button)
+
+**Desktop and iPhone. No schema change.**
+- **A "Create list" button next to the name field** wherever a list is made: the desktop's list dropdown (New list) and the phone's New list sheet (the dashed "New list" chip). Enter still works on the desktop (and the phone keyboard's Done).
+- **Off while the name is empty or taken, and it says why** in a line under the field: "Type a name to create the list", "Another list has that name", "Brain Dump is always there", "Use 40 characters or fewer" (`lists.createListState`, the same rules `createList` has always enforced). A tap or Enter on the off button creates nothing.
+- The phone's New list sheet no longer has a separate Save (Create list replaces it); editing a list still has Save, Cancel and Delete list.
+- **Tests:** `lists.test.ts` +1; `p29.js` (new, 10 checks: on and off states, the reason, a click and Enter on a duplicate, Create list, Enter); `phone-p15.js` (new, 6 checks, 44 pt button). Changed on purpose: `phone-p5.js` (taps Create list instead of Save new list).
+
 ## 3.11.1 — 2026-10-27 (Resize and nudges keep tasks inside their break)
 
 **Desktop. No schema change, no data change.**

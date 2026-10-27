@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 3.13.0 — 2026-10-27 (Emoji picker for lists)
+
+**Desktop and iPhone. No schema change.**
+- **A better emoji picker for lists** (new list and the edit box on the desktop; the New list and Edit list sheets on the phone), light and dark:
+  - **The chosen emoji shown large** in a panel at the top (a dashed box and "No emoji chosen" when there is none). On a list the picker stays open after a pick, so the choice can be seen and changed; **Done** (desktop) closes it, Save writes it. Task and label emoji fields still close on a pick.
+  - **"Frequently used"** row at the top: the emoji chosen most often on this device (most often first, the latest first among equals), at most 8. Nothing is made up: until something is chosen it says "Emoji you choose often will show here." Kept on this device only (desktop `belific_desktop_emoji_use`, phone `belific_phone_emoji_use`, never synced); the desktop's old recent row counts once each, so it carries over (`lib/emojiUse.ts`).
+  - **Category tabs with an icon each:** Smileys, People, Animals, Food, Activities, Travel, Objects, Symbols (and Flags on the desktop, where the data has them), the full name above the grid (`lib/emojiCategories.ts`). Tabs are 36 px tall on the desktop and 44 pt on the phone, emoji cells 36 px and 44 pt.
+  - **Search:** the desktop keeps its search box (names and keywords). The phone has none: the full emoji data and `searchEmoji` stay desktop only (the iOS marker gate), so the phone has a hand-picked set per category (`lib/emojiCurated.ts`, about 30 each) and its emoji keyboard field (which has a search of its own) for any other emoji.
+  - **New tokens** `pickerPreview`, `pickerTabOn`, `pickerCellOn` (light and dark; `design-tokens/` too), text on them 7:1 and the tab icon 4.5:1.
+- The desktop's lists menu is wider (360 px) and taller so the picker fits.
+- **Tests:** `emojiUse.test.ts` (new, 5), `tokens.test.ts` +1; `p29.js` +12 (opens in place with the emoji large, tabs with icons and sizes, Frequently used empty then filled, a pick stays open, Done, Save, dark and its token); `phone-p15.js` +15 (large panel, 8 tabs 44 pt, 44 pt cells, no search box, pick, Clear, Frequently used, Save, dark and its token). Changed on purpose: `p11.js` (the tabs' names and order: Activities now before Travel, the short names).
+
 ## 3.12.0 — 2026-10-27 (Create list button)
 
 **Desktop and iPhone. No schema change.**

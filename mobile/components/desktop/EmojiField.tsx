@@ -14,10 +14,13 @@ export default function EmojiField({
   value,
   onChange,
   label,
+  keepOpen,
 }: {
   value: string | undefined;
   onChange: (emoji: string | undefined) => void;
   label: string;
+  // A pick keeps the picker open, with the chosen emoji shown large and a Done button (the lists, 3.13.0).
+  keepOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [button, setButton] = useState<HTMLElement | null>(null);
@@ -53,9 +56,10 @@ export default function EmojiField({
         <EmojiPicker
           label={label}
           value={value}
+          keepOpen={keepOpen}
           onPick={(e) => {
             onChange(firstEmoji(e) ?? e);
-            close();
+            if (!keepOpen) close();
           }}
           onClose={close}
         />

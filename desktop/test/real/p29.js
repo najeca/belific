@@ -1,6 +1,8 @@
 'use strict';
 // Real check for 3.12.0 to 3.14.1: the lists batch. Real mouse, key and text input into the real app on an
 // isolated data folder; Supabase is the in process fake (signed out, nothing leaves the machine).
+//  3.13.0: the emoji picker of a list: Frequently used, a tab with an icon per category, the chosen emoji large,
+//          Done; light and dark.
 //  3.12.0: the Create list button next to the name field (Enter still works; off while the name is empty or a
 //          duplicate, with the reason).
 // BELIFIC_SHOTS: a folder for screenshots.
@@ -95,6 +97,50 @@ async function run() {
   await I.type('Errands');
   await I.key('Return', [], 700);
   check('Enter still creates a list', lists().some((l) => l.name === 'Errands'), JSON.stringify(lists().map((l) => l.name)));
+
+  // ======== 3.13.0: the emoji picker ========
+  const strip = (e) => String(e || '').replace(/️/g, '');
+  const picker = `document.querySelector('[data-popover] [data-emoji-picker]')`;
+  const large = () => I.js(`(${picker}.querySelector('[data-emoji-large]') || {}).textContent || ''`);
+  const pickerOpen = async (label) => {
+    await I.click(`document.querySelector('[data-popover] [aria-label="${label}"]')`, 500);
+  };
+  await I.key('Escape', [], 300);
+  await openLists();
+  await I.click(`document.querySelector('[data-listedit="LG"], [data-list-edit="LG"]')`, 500);
+  check('the edit box opens', await I.exists(`document.querySelector('[data-popover] [data-list-edit-box="LG"]')`));
+  await pickerOpen('Emoji for list Games');
+  check('the picker opens in place with the emoji of the list shown large', (await I.exists(picker)) && strip(await large()) === '🎮', await large());
+  const tabs = await I.js(`[...${picker}.querySelectorAll('[role="tab"]')].map((t) => t.getAttribute('aria-label') + (t.querySelector('svg, [class*="css-"]') ? '+icon' : ''))`);
+  check('tabs: Smileys, People, Animals, Food, Activities, Travel, Objects, Symbols, Flags, each with an icon', JSON.stringify(tabs.map((t) => t.replace('+icon', ''))) === JSON.stringify(['Smileys', 'People', 'Animals', 'Food', 'Activities', 'Travel', 'Objects', 'Symbols', 'Flags']) && tabs.every((t) => t.endsWith('+icon')), JSON.stringify(tabs));
+  const tabBox = await I.js(`(() => { const r = ${picker}.querySelector('[role="tab"]').getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; })()`);
+  check('a tab is at least 32 px wide and 36 px tall (touch friendly)', tabBox.w >= 32 && tabBox.h >= 36, JSON.stringify(tabBox));
+  check('"Frequently used" is at the top, empty at first, with a note', (await I.textOf(picker)).toLowerCase().includes('frequently used') && (await I.textOf(picker)).includes('Emoji you choose often will show here.'), (await I.textOf(picker)).slice(0, 200));
+  await I.click(`${picker}.querySelector('[data-emoji-tab="animals"]')`, 300);
+  await I.click(`[...${picker}.querySelectorAll('[data-emoji-cell]')].find((b) => b.getAttribute('aria-label') === 'dog face')`, 500);
+  check('choosing keeps the picker open and shows the choice large', (await I.exists(picker)) && strip(await large()) === '🐶', await large());
+  check('Frequently used now has it', strip(await I.js(`[...${picker}.querySelectorAll('[data-emoji-frequent] button')].map((b) => b.textContent).join('')`)) === '🐶');
+  await I.shot('p29-02-picker-light');
+  await I.click(`${picker}.querySelector('[data-emoji-done]')`, 500);
+  check('Done closes the picker (the edit box stays)', !(await I.exists(picker)) && (await I.exists(`document.querySelector('[data-popover] [data-list-edit-box="LG"]')`)));
+  await I.click(`document.querySelector('[data-popover] [aria-label="Save list Games"]')`, 700);
+  check('Save writes the dog to Games', strip(lists().find((l) => l.key === 'LG').emoji) === '🐶', JSON.stringify(lists().find((l) => l.key === 'LG')));
+  // The new list's own picker, in dark.
+  await I.key('Escape', [], 300);
+  await I.click(`document.querySelector('[aria-label="Profile and account"]') || document.querySelector('[aria-label="Profile, not signed in"]')`, 500);
+  await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 800);
+  await I.click(`document.querySelector('[data-theme-setting] [data-theme-mode="dark"]')`, 900);
+  if (await I.exists(I.byLabel('Back'))) await I.click(I.byLabel('Back'), 700);
+  await openLists();
+  await pickerOpen('New list emoji');
+  check('dark: the picker for a new list, nothing chosen yet', (await I.exists(picker)) && (await I.textOf(picker)).includes('No emoji chosen'));
+  const frequentDark = strip(await I.js(`[...${picker}.querySelectorAll('[data-emoji-frequent] button')].map((b) => b.textContent).join('')`));
+  check('dark: Frequently used still has the dog (kept on this computer)', frequentDark === '🐶', frequentDark);
+  const pv = await I.js(`(() => { const p = ${picker}.querySelector('[data-emoji-preview]'); return getComputedStyle(p).backgroundColor; })()`);
+  check('dark: the panel uses its own token (not the light one)', pv === 'rgb(34, 42, 37)', pv);
+  await I.shot('p29-03-picker-dark');
+  await I.key('Escape', [], 300);
+  await I.key('Escape', [], 300);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

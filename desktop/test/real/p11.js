@@ -344,7 +344,8 @@ async function run() {
   await I.click(I.byLabel('Task emoji'), 500);
   check('5: the emoji button opens the picker with its search box ready', (await I.exists(picker)) && (await I.activeLabel()) === 'Search emoji for Task emoji', String(await I.activeLabel()));
   const tabs = await I.js(`[...${picker}.querySelectorAll('[role="tab"]')].map((t) => t.getAttribute('aria-label'))`);
-  check('5: category tabs', JSON.stringify(tabs) === JSON.stringify(['Smileys and emotion', 'People and body', 'Animals and nature', 'Food and drink', 'Travel and places', 'Activities', 'Objects', 'Symbols', 'Flags']), JSON.stringify(tabs));
+  // Changed on purpose in 3.13.0: icon tabs named Smileys, People, Animals, Food, Activities, Travel, Objects, Symbols, Flags.
+  check('5: category tabs', JSON.stringify(tabs) === JSON.stringify(['Smileys', 'People', 'Animals', 'Food', 'Activities', 'Travel', 'Objects', 'Symbols', 'Flags']), JSON.stringify(tabs));
   await I.type('game');
   await C.sleep(300);
   const found = await I.js(`[...${picker}.querySelectorAll('[data-emoji-cell]')].map((b) => b.getAttribute('aria-label'))`);

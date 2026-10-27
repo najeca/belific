@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, type ColorTokens } from '../../lib/tokens';
 import { createListState } from '../../lib/lists';
@@ -9,14 +9,15 @@ import { useStyles, useTheme } from './theme';
 import { useReducedMotion, useSettled } from './touch';
 import { inter, type } from './type';
 import { Button } from './ui';
+import { EmojiPick } from './EmojiPick';
 
 // A new list, or one list's name and emoji with Delete list (PLAN_phone P5): the desktop's list edit box
 // (2.48.0) for a finger. The same shared commands (createList, editList, removeList), so the name rules,
-// the key and the tasks stay exactly as on the desktop. The emoji is typed with the iPhone's emoji
-// keyboard; the first emoji is kept.
+// the key and the tasks stay exactly as on the desktop. The emoji is chosen from the picker (EmojiPick, 3.13.0)
+// or typed with the iPhone's emoji keyboard; the first emoji is kept.
 const make = (c: ColorTokens) => ({
   scrim: { flex: 1, backgroundColor: c.scrim, justifyContent: 'flex-end' as const },
-  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, padding: 16, gap: 12 },
+  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, padding: 16, maxHeight: '92%' as const },
   title: { ...type.sheetTitle, color: c.textPrimary },
   label: { ...type.small, color: c.textSecondary },
   input: { ...inter(500), fontSize: 17, color: c.textPrimary, minHeight: 48, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.pane },
@@ -63,6 +64,7 @@ export function ListSheet({ visible, list, lists, count, onClose, onSaved }: { v
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={s.scrim} onPress={() => settled() && onClose()} accessibilityLabel="Cancel">
           <Pressable style={[s.sheet, { paddingBottom: insets.bottom + 16 }]} onPress={() => {}} {...({ dataSet: { listSheet: list?.key ?? 'new' } } as object)}>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12 }}>
             <Text style={s.title} accessibilityRole="header">
               {list ? 'Edit list' : 'New list'}
             </Text>
@@ -86,7 +88,7 @@ export function ListSheet({ visible, list, lists, count, onClose, onSaved }: { v
             </View>
             {!list && create.why ? <Text style={s.note}>{create.why}</Text> : null}
             <Text style={s.label}>Emoji</Text>
-            <TextInput style={[s.input, { width: 90, textAlign: 'center' }]} value={emoji} onChangeText={setEmoji} placeholder="🙂" placeholderTextColor={c.textTertiary} accessibilityLabel="List emoji" />
+            <EmojiPick value={emoji} onChange={setEmoji} />
             {problem && problem !== create.why ? <Text style={s.problem}>{problem}</Text> : null}
             <View style={s.row}>
               <Button label="Cancel" onPress={onClose} a11y="Cancel list edit" />
@@ -117,6 +119,7 @@ export function ListSheet({ visible, list, lists, count, onClose, onSaved }: { v
                 )}
               </View>
             ) : null}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>

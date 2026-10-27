@@ -48,7 +48,7 @@ export default function ListSwitcher({
         </Text>
         <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
       </Pressable>
-      <Popover id={POPOVER_ID} anchor={get} width={300} label="Lists">
+      <Popover id={POPOVER_ID} anchor={get} width={360} maxHeight={640} label="Lists">
         <Body lists={lists} counts={counts} selected={selected} />
       </Popover>
     </>
@@ -162,7 +162,7 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
             {create.why}
           </Text>
         ) : null}
-        <EmojiField label="New list emoji" value={emoji} onChange={setEmoji} />
+        <EmojiField label="New list emoji" value={emoji} onChange={setEmoji} keepOpen />
         {problem && problem !== create.why ? <Text style={popoverStyles.noteWarn}>{problem}</Text> : null}
       </View>
     </View>
@@ -215,7 +215,7 @@ function EditBox({ list, count, onDone }: { list: TaskList; count: number; onDon
           autoFocus
           accessibilityLabel={`Name of list ${list.name}`}
         />
-        <EmojiField label={`Emoji for list ${list.name}`} value={emoji} onChange={setEmoji} />
+        <EmojiField label={`Emoji for list ${list.name}`} value={emoji} onChange={setEmoji} keepOpen />
         {problem ? <Text style={popoverStyles.noteWarn}>{problem}</Text> : null}
         <View style={styles.buttons}>
           {button('Save', `Save list ${list.name}`, save, true)}

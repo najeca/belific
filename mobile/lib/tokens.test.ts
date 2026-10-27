@@ -122,6 +122,16 @@ test('a task during a break: the chip text is 6:1 in both themes and the chip st
   }
 });
 
+test('3.13.0: the emoji picker panel, chosen tab and chosen emoji read in both themes', () => {
+  for (const t of [lightTokens, darkTokens]) {
+    for (const k of ['pickerPreview', 'pickerTabOn', 'pickerCellOn'] as const) assert.match(t[k], HEX);
+    assert.ok(contrast(t.textPrimary, t.pickerPreview) >= 7, 'text on the panel');
+    assert.ok(contrast(t.textSecondary, t.pickerPreview) >= 4.5, 'secondary on the panel');
+    assert.ok(contrast(t.accentText, t.pickerTabOn) >= 4.5, 'the tab icon on its chosen tab');
+    assert.ok(contrast(t.textPrimary, t.pickerCellOn) >= 7, 'text on the chosen emoji');
+  }
+});
+
 test('3.10.0: the "N inside" pill and the "During" caption read at 6:1 in both themes, on the pill and on a card', () => {
   for (const t of [lightTokens, darkTokens]) {
     assert.match(t.hostPill, HEX);

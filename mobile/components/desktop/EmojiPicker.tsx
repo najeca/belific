@@ -1,8 +1,11 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { firstEmoji } from '../../lib/emoji';
 import { EMOJI_DATA, EMOJI_GROUPS } from '../../lib/emojiData';
-import { parseEmojiData, parseRecent, pushRecent, searchEmoji, type EmojiEntry } from '../../lib/emojiSearch';
+import { parseEmojiData, parseRecent, searchEmoji, type EmojiEntry } from '../../lib/emojiSearch';
+import { PICKER_TABS } from '../../lib/emojiCategories';
+import { bumpUse, frequentRow, parseUse, useFromRecent, type EmojiUse } from '../../lib/emojiUse';
 import { kv } from '../../lib/kv';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 
@@ -10,31 +13,40 @@ import { DESKTOP_FONT_FAMILY } from './desktopFont';
 // lists. Offline: the bundled emojibase-data set (lib/emojiData.ts, MIT), drawn
 // by the system's emoji font. A search box that matches names and keywords
 // ("game" finds the controller; a pasted or Win+. emoji is taken as it is), the
-// recently used row, and a tab per category. Keyboard: Down from the search box
-// goes into the grid; the arrows move, Home and End jump, Enter or Space
-// chooses, Escape closes the picker (data-own-keys tells the popover, the
-// details and the Labels overlay to leave those keys to it).
-// The recent row is kept on this computer (kv), never synced.
+// chosen emoji shown large (3.13.0), a "Frequently used" row and a tab with an
+// icon per category. Keyboard: Down from the search box goes into the grid; the
+// arrows move, Home and End jump, Enter or Space chooses, Escape closes the
+// picker (data-own-keys tells the popover, the details and the Labels overlay
+// to leave those keys to it).
+// The use counts behind "Frequently used" are kept on this computer (kv), never synced.
 
 const ENTRIES = parseEmojiData(EMOJI_DATA);
 const RECENT_KEY = 'belific_desktop_recent_emoji';
+const USE_KEY = 'belific_desktop_emoji_use';
 const NAME_OF = new Map(ENTRIES.map((e) => [e.emoji, e.name]));
 const EMOJI_FONT = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
-const CELL = 32;
+const CELL = 36;
+// The display's tabs with the data's own group numbers (EMOJI_GROUPS' order is the data's, the tabs' the display's).
+const TABS = PICKER_TABS.flatMap((t) => {
+  const group = EMOJI_GROUPS.findIndex((g) => g.key === t.key);
+  return group < 0 ? [] : [{ ...t, group }];
+});
 
-let recentCache: string[] | null = null;
-async function loadRecent(): Promise<string[]> {
-  if (recentCache) return recentCache;
+let useCache: EmojiUse | null = null;
+async function loadUse(): Promise<EmojiUse> {
+  if (useCache) return useCache;
   try {
-    recentCache = parseRecent(await kv.getItem(RECENT_KEY));
+    const raw = await kv.getItem(USE_KEY);
+    // Before 3.13.0 the desktop kept a recent row: its emoji count once each.
+    useCache = raw === null ? useFromRecent(parseRecent(await kv.getItem(RECENT_KEY)), Date.now()) : parseUse(raw);
   } catch {
-    recentCache = [];
+    useCache = {};
   }
-  return recentCache;
+  return useCache;
 }
-function saveRecent(next: string[]): void {
-  recentCache = next;
-  kv.setItem(RECENT_KEY, JSON.stringify(next)).catch(() => {});
+function saveUse(next: EmojiUse): void {
+  useCache = next;
+  kv.setItem(USE_KEY, JSON.stringify(next)).catch(() => {});
 }
 
 export default function EmojiPicker({
@@ -42,16 +54,19 @@ export default function EmojiPicker({
   value,
   onPick,
   onClose,
+  keepOpen,
 }: {
   // What the emoji is for ("Task emoji"), for the screen reader.
   label: string;
   value: string | undefined;
   onPick: (emoji: string) => void;
   onClose: () => void;
+  // A pick does not close the picker (the caller keeps it open and the panel has a Done button): the lists' fields.
+  keepOpen?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState(0);
-  const [recent, setRecent] = useState<string[]>(recentCache ?? []);
+  const [use, setUse] = useState<EmojiUse>(useCache ?? {});
   const grid = useRef<HTMLDivElement | null>(null);
   const search = useRef<HTMLInputElement | null>(null);
 
@@ -61,18 +76,19 @@ export default function EmojiPicker({
     search.current?.focus({ preventScroll: true });
   }, []);
   useEffect(() => {
-    loadRecent().then(setRecent);
+    loadUse().then(setUse);
   }, []);
 
   const shown: Array<Pick<EmojiEntry, 'emoji' | 'name'>> = useMemo(
-    () => (query.trim() ? searchEmoji(ENTRIES, query) : ENTRIES.filter((e) => e.group === tab)),
+    () => (query.trim() ? searchEmoji(ENTRIES, query) : ENTRIES.filter((e) => e.group === TABS[tab].group)),
     [query, tab],
   );
+  const frequent = useMemo(() => frequentRow(use), [use]);
 
   const choose = (emoji: string) => {
-    const next = pushRecent(recent, emoji);
-    setRecent(next);
-    saveRecent(next);
+    const next = bumpUse(use, emoji, Date.now());
+    setUse(next);
+    saveUse(next);
     onPick(emoji);
   };
 
@@ -129,6 +145,22 @@ export default function EmojiPicker({
       onKeyDown={onKeyDown}
       style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8, borderRadius: 10, background: Colors.background, width: '100%', boxSizing: 'border-box' }}
     >
+      <div data-emoji-preview="1" style={previewStyle}>
+        <span data-emoji-large="1" aria-hidden="true" style={{ ...largeStyle, border: value ? 'none' : `1.5px dashed ${Colors.borderStrong}` }}>
+          {value ?? ''}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: Colors.textPrimary, fontFamily: DESKTOP_FONT_FAMILY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {value ? (NAME_OF.get(value) ?? 'Chosen emoji') : 'No emoji chosen'}
+          </div>
+          <div style={{ fontSize: 12, color: Colors.textSecondary, fontFamily: DESKTOP_FONT_FAMILY }}>{label}</div>
+        </div>
+        {keepOpen && (
+          <button type="button" data-emoji-done="1" aria-label="Done choosing an emoji" onClick={onClose} style={doneStyle}>
+            Done
+          </button>
+        )}
+      </div>
       <input
         ref={search}
         type="search"
@@ -146,40 +178,48 @@ export default function EmojiPicker({
         }}
         style={searchStyle}
       />
-      {!query.trim() && recent.length > 0 && (
-        <div role="group" aria-label="Recently used" style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }} data-emoji-recent="1">
-          {recent.map((e) => (
-            <EmojiCell key={`r${e}`} emoji={e} name={NAME_OF.get(e) ?? e} on={e === value} onPick={choose} recent />
-          ))}
+      {!query.trim() && (
+        <div data-emoji-frequent-box="1">
+          <div style={captionStyle}>Frequently used</div>
+          {frequent.length > 0 ? (
+            <div role="group" aria-label="Frequently used" style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }} data-emoji-recent="1" data-emoji-frequent="1">
+              {frequent.map((e) => (
+                <EmojiCell key={`r${e}`} emoji={e} name={NAME_OF.get(e) ?? e} on={e === value} onPick={choose} recent />
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: Colors.textSecondary, padding: '2px 2px 4px', fontFamily: DESKTOP_FONT_FAMILY }}>Emoji you choose often will show here.</div>
+          )}
         </div>
       )}
       {!query.trim() && (
-        <div role="tablist" aria-label="Emoji categories" style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          {EMOJI_GROUPS.map((g, i) => (
+        <div role="tablist" aria-label="Emoji categories" style={{ display: 'flex', gap: 2 }}>
+          {TABS.map((g, i) => (
             <button
               key={g.key}
               type="button"
               role="tab"
               aria-selected={tab === i}
-              aria-label={g.name}
-              title={g.name}
+              aria-label={g.label}
+              title={g.label}
               data-emoji-tab={g.key}
               onClick={() => {
                 setTab(i);
                 if (grid.current) grid.current.scrollTop = 0;
               }}
-              style={{ ...tabStyle, background: tab === i ? Colors.surface : 'transparent', boxShadow: tab === i ? `inset 0 -2px 0 ${Colors.accent}` : 'none' }}
+              style={{ ...tabStyle, background: tab === i ? Colors.pickerTabOn : 'transparent', boxShadow: tab === i ? `inset 0 -2px 0 ${Colors.accent}` : 'none' }}
             >
-              {g.icon}
+              <Ionicons name={g.icon as never} size={19} color={tab === i ? Colors.accentText : Colors.textSecondary} />
             </button>
           ))}
         </div>
       )}
+      {!query.trim() && <div style={captionStyle}>{TABS[tab].title}</div>}
       <div
         ref={grid}
         role="group"
-        aria-label={query.trim() ? `Emoji matching ${query.trim()}` : EMOJI_GROUPS[tab].name}
-        style={{ display: 'flex', flexWrap: 'wrap', maxHeight: CELL * 6, overflowY: 'auto', alignContent: 'flex-start' }}
+        aria-label={query.trim() ? `Emoji matching ${query.trim()}` : TABS[tab].title}
+        style={{ display: 'flex', flexWrap: 'wrap', maxHeight: CELL * 4, overflowY: 'auto', alignContent: 'flex-start' }}
       >
         {shown.length === 0 ? (
           <span style={{ fontSize: 12, color: Colors.textSecondary, padding: 6, fontFamily: DESKTOP_FONT_FAMILY }}>No emoji match “{query.trim()}”.</span>
@@ -210,9 +250,9 @@ function EmojiCell({ emoji, name, on, onPick, first, recent }: { emoji: string; 
         border: 'none',
         borderRadius: 8,
         cursor: 'pointer',
-        background: on ? Colors.surface : 'transparent',
+        background: on ? Colors.pickerCellOn : 'transparent',
         boxShadow: on ? `inset 0 0 0 1.5px ${Colors.accent}` : 'none',
-        fontSize: 20,
+        fontSize: 21,
         lineHeight: `${CELL}px`,
         fontFamily: EMOJI_FONT,
         outlineColor: Colors.accent,
@@ -224,7 +264,7 @@ function EmojiCell({ emoji, name, on, onPick, first, recent }: { emoji: string; 
 }
 
 const searchStyle: React.CSSProperties = {
-  height: 30,
+  height: 32,
   padding: '0 8px',
   borderRadius: 8,
   border: `1px solid ${Colors.border}`,
@@ -237,14 +277,21 @@ const searchStyle: React.CSSProperties = {
   width: '100%',
 };
 
+const previewStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', borderRadius: 10, background: Colors.pickerPreview };
+const largeStyle: React.CSSProperties = { width: 56, height: 56, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, fontSize: 38, lineHeight: '56px', fontFamily: EMOJI_FONT, boxSizing: 'border-box' };
+const doneStyle: React.CSSProperties = { height: 36, padding: '0 14px', borderRadius: 8, border: 'none', background: Colors.accent, color: Colors.onAccent, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: DESKTOP_FONT_FAMILY, outlineColor: Colors.accent };
+const captionStyle: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: Colors.textSecondary, fontFamily: DESKTOP_FONT_FAMILY, padding: '2px 2px 3px' };
+
 const tabStyle: React.CSSProperties = {
-  width: 28,
-  height: 28,
+  flex: 1,
+  minWidth: 0,
+  height: 36,
   padding: 0,
   border: 'none',
   borderRadius: 6,
   cursor: 'pointer',
-  fontSize: 16,
-  fontFamily: EMOJI_FONT,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   outlineColor: Colors.accent,
 };

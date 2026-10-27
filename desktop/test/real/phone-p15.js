@@ -1,5 +1,7 @@
 'use strict';
 // Real touch check for the lists batch (3.12.0 to 3.14.1) on the phone, 390 x 844.
+//  3.13.0: the emoji picker of a list's sheet: the chosen emoji large, Frequently used, a tab with an icon per
+//          category (44 pt), 44 pt cells, no search box (marker gate), the emoji keyboard field; light and dark.
 //  3.12.0: the New list sheet has a Create list button next to the name (44 pt, off while the name is empty
 //          or a duplicate, with the reason).
 const fs = require('node:fs');
@@ -75,6 +77,8 @@ async function run() {
   // ======== 3.12.0: Create list ========
   await P.finger.tap(tab('Tasks'), 1200);
   await P.finger.drag(chip('dump'), -300, 0, 300, 800);
+  await P.js(`document.querySelector('[data-list-chip="new"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
+  await C.sleep(400);
   await P.finger.tap(chip('new'), 900);
   let st = await createState();
   check('the New list sheet has Create list next to the name, 44 pt tall', !!st && st.h >= 44, JSON.stringify(st));
@@ -93,6 +97,50 @@ async function run() {
   await P.finger.tap(visible('[aria-label="Create list"]'), 900);
   const reading = lists().find((l) => l.name === 'Reading');
   check('Create list makes the list and shows it', !!reading && (await P.js(`!!document.querySelector('[data-list-chip="${reading && reading.key}"]')`)));
+
+  // ======== 3.13.0: the emoji picker ========
+  const strip = (e) => String(e || '').replace(/️/g, '');
+  const box = (sel) => P.js(`(() => { const e = ${visible(sel)}; if (!e) return null; const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; })()`);
+  const large = () => P.js(`(document.querySelector('[data-emoji-large]') || {}).textContent || ''`);
+  const pickerChecks = async (mode) => {
+    check(mode + ': the picker is in the sheet with its large panel', await P.js(`!!document.querySelector('[data-list-sheet] [data-emoji-pick] [data-emoji-large]')`));
+    const tabs = await P.js(`[...document.querySelectorAll('[data-emoji-tab]')].map((e) => { const r = e.getBoundingClientRect(); return { k: e.getAttribute('data-emoji-tab'), l: e.getAttribute('aria-label'), h: Math.round(r.height), w: Math.round(r.width) }; })`);
+    check(mode + ': eight tabs with their names, each at least 44 pt tall and wide', JSON.stringify(tabs.map((t) => t.l)) === JSON.stringify(['Smileys', 'People', 'Animals', 'Food', 'Activities', 'Travel', 'Objects', 'Symbols']) && tabs.every((t) => t.h >= 44 && t.w >= 40), JSON.stringify(tabs));
+    const cellBox = await box('[data-emoji-cell]');
+    check(mode + ': a cell is 44 pt', !!cellBox && cellBox.w >= 44 && cellBox.h >= 44, JSON.stringify(cellBox));
+    check(mode + ': no search box on the phone (the emoji keyboard has its own)', !(await P.js(`!!document.querySelector('[data-list-sheet] input[type="search"], [data-list-sheet] [aria-label^="Search emoji"]')`)));
+  };
+  await P.js(`document.querySelector('[data-list-chip="dump"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
+  await C.sleep(400);
+  await P.js(`document.querySelector('[data-list-chip="LG"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
+  await C.sleep(400);
+  await P.finger.hold(chip('LG'), 480, 900);
+  check('holding a list opens its sheet with the large emoji', strip(await large()) === '🎮', await large());
+  await pickerChecks('light');
+  check('Frequently used says so when empty', (await sheetText()).toLowerCase().includes('emoji you choose often will show here'));
+  await P.finger.tap(visible('[data-emoji-tab="animals"]'), 500);
+  await P.finger.tap(visible('[data-emoji-cell="🐶"]'), 600);
+  check('a tap on a cell chooses it, shown large', strip(await large()) === '🐶' && (await P.js(`(document.querySelector('[data-list-sheet] input[aria-label="List emoji"]') || {}).value`)).includes('🐶'), await large());
+  check('Frequently used has it', strip(await P.js(`[...document.querySelectorAll('[data-emoji-frequent-cell]')].map((e) => e.getAttribute('data-emoji-frequent-cell')).join('')`)) === '🐶');
+  await shot('phone-p15-picker-light');
+  await P.finger.tap(visible('[aria-label="Clear list emoji"]'), 500);
+  check('Clear empties it', (await large()) === '');
+  await P.finger.tap(visible('[data-emoji-frequent-cell="🐶"]'), 500);
+  await P.finger.tap(visible('[aria-label="Save list Games"]'), 900);
+  check('Save writes the dog to Games', strip(lists().find((l) => l.key === 'LG').emoji) === '🐶', JSON.stringify(lists().find((l) => l.key === 'LG')));
+  // Dark.
+  await P.finger.tap(tab('Today'), 900);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-phone-theme] [data-seg="dark"]'), 900);
+  if (await P.js(`!!(${visible('[aria-label="Back"]')})`)) await P.finger.tap(visible('[aria-label="Back"]'), 900);
+  await P.finger.tap(tab('Tasks'), 1000);
+  await P.js(`document.querySelector('[data-list-chip="LP"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
+  await C.sleep(400);
+  await P.finger.hold(chip('LP'), 480, 900);
+  await pickerChecks('dark');
+  const pv = await P.js(`(() => { const e = document.querySelector('[data-emoji-large]'); return getComputedStyle(e.parentElement).backgroundColor; })()`);
+  check('dark: the panel uses its own token', pv === 'rgb(34, 42, 37)', pv);
+  await shot('phone-p15-picker-dark');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

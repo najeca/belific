@@ -39,6 +39,9 @@ export interface ColorTokens {
   onHostChip: string; // the chip's text (dark in both themes)
   hostPill: string; // 3.10.0: "3 inside" on a break's card
   onHostPill: string; // its text, and a hosted task's "During Lunch" caption
+  pickerPreview: string; // 3.13.0: the emoji picker's panel with the chosen emoji shown large
+  pickerTabOn: string; // the picker's chosen category tab
+  pickerCellOn: string; // the picker's chosen emoji
   inverseBg: string; // the undo bar, a tooltip
   inverseText: string;
   shadowSm: string; // a block lifted a hair
@@ -80,6 +83,9 @@ export const lightTokens: ColorTokens = {
   onHostChip: '#1B1B1B',
   hostPill: '#E6EEE8',
   onHostPill: '#3B5646',
+  pickerPreview: '#EEF2EF',
+  pickerTabOn: '#DCE7E0',
+  pickerCellOn: '#D3E2D8',
   inverseBg: '#1B1B1B',
   inverseText: '#FFFFFF',
   shadowSm: '0 1px 2px rgba(27,27,27,0.06)',
@@ -121,6 +127,9 @@ export const darkTokens: ColorTokens = {
   onHostChip: '#121212',
   hostPill: '#2C3A31',
   onHostPill: '#CFE4D6',
+  pickerPreview: '#222A25',
+  pickerTabOn: '#2F3E35',
+  pickerCellOn: '#37493D',
   inverseBg: '#F2F2F2',
   inverseText: '#121212',
   shadowSm: '0 1px 2px rgba(0,0,0,0.4)',

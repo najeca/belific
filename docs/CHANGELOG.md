@@ -8,6 +8,13 @@ to know the current version and recent history.
 
 ---
 
+## 3.11.1 — 2026-10-27 (Resize and nudges keep tasks inside their break)
+
+**Desktop. No schema change, no data change.**
+- **Resize handle and keyboard nudges refuse what would take a task out of its break.** Shrinking a break with its bottom handle, or with the keys (30 minutes shorter, earlier, later, another day), is refused when a task it hosts would stick out: the break snaps back, nothing is written, and the notice bar says **"Longer than the break. Shorten it or move it out."** Making the break longer is still fine. The same rule covers a block of a task with several times: a resize or a nudge that would push its time inside a break past that break's end (or start it inside a break it does not fit) is refused with the same note. (`hostActions.blockChangeRefusal`, `hosting.breakLosesGuests`; `TimeBlock.tsx` keys, `DragProvider.tsx` resize.)
+- The details panel's own time and length fields are unchanged: a break shrunk there still lets its tasks go with the 3.11.0 note.
+- **Tests:** `hosting.test.ts` +1 (shorter, later, earlier, longer, off the day, unchanged, another task); `p28.js` (resize handle refused with the note and nothing moved, keys Shift+Up and Down refused, Shift+Down allowed). Changed on purpose: `p28.js` (the break shrunk by its handle used to let a task go with a note; it is now refused).
+
 ## 3.11.0 — 2026-10-26 (Task during a break, follow up P3: refuse, do not just warn)
 
 **Desktop and iPhone. No schema change. A normal task still cannot host tasks (that needs a new column).**

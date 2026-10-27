@@ -280,7 +280,8 @@ async function run() {
   if (await I.exists(I.byLabel('Back'))) await I.click(I.byLabel('Back'), 700);
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
 
-  // Shrinking a break is allowed: the tasks that no longer fit leave it, and a note says so.
+  // 3.12.0: shrinking a break by its resize handle, or by the keys, would take 'exact' out of it: refused,
+  // snapped back, nothing written, with the note.
   await I.click(`document.querySelector('[data-notice-bar] [aria-label="Dismiss"]')`, 200).catch(() => {});
   await scrollTo(V(tb('lunch')));
   await C.sleep(400);
@@ -295,10 +296,22 @@ async function run() {
   await C.sleep(200);
   win.webContents.sendInputEvent({ type: 'mouseUp', x: hnd.x, y: hnd.y - 28, button: 'left', clickCount: 1 });
   await C.sleep(1000);
-  check('the break is shorter (1 h 30 min to 1 h)', byId('lunch').durationMinutes === 60, JSON.stringify(byId('lunch')));
-  check('"1 task no longer fits and moved out of the break"', (await noticeText()).includes('1 task no longer fits and moved out of the break'), await noticeText());
-  check('that task is a block again; the one that still fits stays a chip', (await I.exists(V(tb('exact')))) && (await I.exists(chip('task:pill@12:40'))) && byId('exact').startTime === '12:00');
-  await I.shot('p28-12-shrunk-light');
+  const REFUSE = 'Longer than the break. Shorten it or move it out.';
+  check('resize handle: the break stays 1 h 30 min', byId('lunch').durationMinutes === 90, JSON.stringify(byId('lunch')));
+  check('resize handle: "Longer than the break. Shorten it or move it out."', (await noticeText()).includes(REFUSE), await noticeText());
+  check('resize handle: the tasks are still chips inside it, nothing moved', (await I.exists(chip('task:exact'))) && (await I.exists(chip('task:pill@12:40'))) && byId('exact').startTime === '12:00');
+  await I.shot('p28-12-resize-refused-light');
+  // Keys: 30 minutes shorter, and 30 minutes later (the 12:00 task would stick out at the start).
+  for (const [key, mods, label] of [['Up', ['shift'], 'shorter'], ['Down', [], 'later']]) {
+    await I.click(`document.querySelector('[data-notice-bar] [aria-label="Dismiss"]')`, 200).catch(() => {});
+    await I.js(`(() => { const b = ${V(tb('lunch'))}; b.focus(); return document.activeElement === b; })()`);
+    await I.key(key, mods, 900);
+    check(`key ${label}: refused with the note, the break unchanged`, (await noticeText()).includes(REFUSE) && byId('lunch').startTime === '12:00' && byId('lunch').durationMinutes === 90, (await noticeText()) + JSON.stringify(byId('lunch')));
+  }
+  // 30 minutes longer is fine: every task still fits.
+  await I.js(`(() => { const b = ${V(tb('lunch'))}; b.focus(); })()`);
+  await I.key('Down', ['shift'], 1200);
+  check('key longer: allowed (2 h)', byId('lunch').durationMinutes === 120, JSON.stringify(byId('lunch')));
 
   // Split turned off: its tasks go back to normal blocks.
   await I.click(card('Tea break'), 900);

@@ -35,6 +35,7 @@ import { isDateKey } from '../../lib/kanban';
 import { isMultiTime } from '../../lib/times';
 import { showNotice } from './uiStore';
 import { fitRefusal, hostDrop, longerNote } from '../../lib/hosting';
+import { blockChangeRefusal } from '../../lib/hostActions';
 import { dayBreaks } from './breakStore';
 import type { BrainDumpItem, Task } from '../../lib/types';
 
@@ -336,6 +337,13 @@ export default function DragProvider({ children, onChanged }: { children: React.
       const refusal = resizeRefusal(task, state.resizeDuration);
       if (refusal) {
         showNotice(refusal);
+        return;
+      }
+      // 3.12.0: a length that would take a task out of its break (the break shrinking, or a hosted time of this
+      // task growing past its own break) is refused, nothing written.
+      const brkNote = await blockChangeRefusal(task, { durationMinutes: state.resizeDuration }, task.dueDate ?? '');
+      if (brkNote) {
+        showNotice(brkNote);
         return;
       }
       // Resizing a day of a repeating task asks This day only / All days (3.4.0; dismissed: a projected

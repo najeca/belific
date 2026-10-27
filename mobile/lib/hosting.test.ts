@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. A task during a break (3.5.0): hosted when fully inside a break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DETAILS_LONGER, fitRefusal, hostSnapshot, longerNote, lostGuests, lostNote, duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
+import { DETAILS_LONGER, breakLosesGuests, fitRefusal, hostSnapshot, longerNote, lostGuests, lostNote, duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
 import { cutDay, planCuts } from './cuts.ts';
 import { COMPACT_BLOCK_PX, PX_PER_HOUR } from './timebox.ts';
 import type { Task } from './types.ts';
@@ -288,4 +288,21 @@ test('3.11.0: a break moved or shrunk: its tasks that no longer fit are counted;
   assert.equal(lostGuests(before, hostSnapshot([e('b', h(12), h(13), true), e('x', h(14), h(14, 20)), e('y', h(12, 40), h(12, 55)), e('z', h(12), h(12, 20))])), 0, 'the task moved itself');
   assert.equal(lostNote(1), '1 task no longer fits and moved out of the break');
   assert.equal(lostNote(2), '2 tasks no longer fit and moved out of the break');
+});
+
+test('3.11.1: a resize or a nudge of a break is refused when a task it hosts would stick out', () => {
+  const tasks = [
+    T('lunch', { startTime: '12:00', durationMinutes: 90, cutsBelow: true }),
+    T('call', { startTime: '12:00', durationMinutes: 60 }),
+    T('late', { startTime: '12:40', durationMinutes: 50 }),
+  ];
+  const day = (ts: Task[]) => dayHostEntries(ts, DAY, DAY);
+  const change = (fields: Partial<Task>) => tasks.map((t) => (t.id === 'lunch' ? { ...t, ...fields } : t));
+  assert.equal(breakLosesGuests(day(tasks), day(change({ durationMinutes: 60 })), 'lunch'), true, 'shorter: late ends at 13:30');
+  assert.equal(breakLosesGuests(day(tasks), day(change({ startTime: '12:30' })), 'lunch'), true, 'later: call starts at 12:00');
+  assert.equal(breakLosesGuests(day(tasks), day(change({ startTime: '11:30' })), 'lunch'), true, 'earlier: late ends at 13:30');
+  assert.equal(breakLosesGuests(day(tasks), day(change({ durationMinutes: 120 })), 'lunch'), false, 'longer keeps every task inside');
+  assert.equal(breakLosesGuests(day(tasks), day(tasks.filter((t) => t.id !== 'lunch')), 'lunch'), true, 'off the day');
+  assert.equal(breakLosesGuests(day(tasks), day(tasks), 'lunch'), false, 'unchanged');
+  assert.equal(breakLosesGuests(day(tasks), day(change({ durationMinutes: 60 })), 'other'), false, 'another task id is not this break');
 });

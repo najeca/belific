@@ -228,6 +228,22 @@ export function lostGuests(prev: HostSnapshot, next: HostSnapshot): number {
   }
   return n;
 }
+// 3.11.1: would this change to a break take a task it hosts out of it? `before` and `after` are the day's
+// entries around the change; `taskId` the break's task. True when a time that was inside it is not inside
+// it any more (it moved, shrank, was deleted from the day or lost Split).
+export function breakLosesGuests(before: DayHostEntry[], after: DayHostEntry[], taskId: string): boolean {
+  const was = hostDay(before);
+  const now = hostDay(after);
+  const taskOf = new Map(before.map((e) => [e.id, e.full.id]));
+  const taskOfAfter = new Map(after.map((e) => [e.id, e.full.id]));
+  for (const [guest, brk] of was.hostOf) {
+    if (taskOf.get(brk) !== taskId) continue;
+    if (!taskOfAfter.has(guest)) continue;
+    const host = now.hostOf.get(guest);
+    if (!host || taskOfAfter.get(host) !== taskId) return true;
+  }
+  return false;
+}
 export const lostNote = (n: number): string => (n === 1 ? '1 task no longer fits and moved out of the break' : `${n} tasks no longer fit and moved out of the break`);
 
 // "Do during a break": the breaks a task of this length fits in, earliest first.

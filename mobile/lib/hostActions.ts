@@ -5,7 +5,7 @@
 import type { Task } from './types.ts';
 import { loadTasksRaw, updateTask } from './storage';
 import { opsForProjected, opsForTask } from './taskOps';
-import { DETAILS_LONGER, dayHostEntries, fitRefusal, longerNote, moveOutFields, removeTimeOutFields, type BreakSpan, type Span } from './hosting.ts';
+import { DETAILS_LONGER, breakLosesGuests, dayHostEntries, fitRefusal, longerNote, moveOutFields, removeTimeOutFields, type BreakSpan, type Span } from './hosting.ts';
 import { timesOf } from './times.ts';
 import { toMinutes } from './timebox.ts';
 import { taskDuration } from './drag.ts';
@@ -85,4 +85,21 @@ export async function breakRefusal(task: Task | null, fields: Partial<Task>, kin
   const b = fitRefusal(breaks, before, after);
   if (!b) return null;
   return kind === 'drop' ? longerNote(b) : DETAILS_LONGER;
+}
+
+// 3.11.1: a resize or a keyboard nudge of a block. Refused (DETAILS_LONGER) when it would take a task out of
+// the break `task` is (it shrank, moved, or went to another day), or when it is a task whose new times fall
+// foul of 3.11.0's rule (a hosted time lengthened past its break, a start inside a break it does not fit).
+// `dayKey` is the day the block is drawn on. Nothing is written here.
+export async function blockChangeRefusal(task: Task, fields: Partial<Task>, dayKey: string): Promise<string | null> {
+  if (task.cutsBelow) {
+    if (!('startTime' in fields || 'extraTimes' in fields || 'durationMinutes' in fields || 'dueDate' in fields)) return null;
+    const tasks = await loadTasksRaw();
+    const today = dateKey(new Date());
+    const before = dayHostEntries(tasks, dayKey, today);
+    const gone = !!task.recurrence && 'dueDate' in fields && fields.dueDate !== dayKey;
+    const next = tasks.flatMap((t) => (t.id !== task.id ? [t] : gone ? [] : [{ ...t, ...fields }]));
+    return breakLosesGuests(before, dayHostEntries(next, dayKey, today), task.id) ? DETAILS_LONGER : null;
+  }
+  return breakRefusal(task, fields, 'details');
 }

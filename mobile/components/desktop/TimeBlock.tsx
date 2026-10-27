@@ -20,7 +20,8 @@ import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { domNode, useDrag } from './DragProvider';
 import { isPopoverOpen } from './Popover';
-import { openDetail } from './uiStore';
+import { blockChangeRefusal } from '../../lib/hostActions';
+import { openDetail, showNotice } from './uiStore';
 import { isLate } from '../../lib/lateTasks';
 import { tipRef } from './tip';
 import PriorityMark from './PriorityMark';
@@ -196,11 +197,20 @@ export default function TimeBlock({
         if (!patch || Object.keys(patch).length === 0) return;
         // 3.2.0: a new day for a day of a repeating task moves that day only.
         // 3.4.0: a new time or length for it asks This day only / All days.
-        const done = t.recurrence
-          ? patch.dueDate
-            ? moveDay(t, patch.dueDate, withoutDay(patch))
-            : editRepeatingTime(t, !!proj, patch)
-          : updateTask({ ...t, ...patch });
+        // 3.12.0: refused, and nothing written, when it would take a task out of its break.
+        const fields = patch;
+        const day = shown.dueDate ?? t.dueDate ?? '';
+        const done = (async () => {
+          const refused = await blockChangeRefusal(t, fields, day);
+          if (refused) {
+            showNotice(refused);
+            return;
+          }
+          if (t.recurrence) {
+            if (fields.dueDate) await moveDay(t, fields.dueDate, withoutDay(fields));
+            else await editRepeatingTime(t, !!proj, fields);
+          } else await updateTask({ ...t, ...fields });
+        })();
         Promise.resolve(done).then(() => {
           onChanged();
           // The block is drawn again (maybe in another column): put the keyboard back on it.

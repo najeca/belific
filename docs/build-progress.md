@@ -651,3 +651,5 @@ Step 4 was 8899291. Cause and fix are in the changelog (`listEmojiOf` and `listN
 
 ## UI fixes batch: final gates (2026-10-27), 3.14.2
 Commits: 4e63c8b (3.11.1), 8016a83 (3.12.0), 5313e0a (3.13.0), 8899291 (3.14.0), f90bb79 (3.14.1), then 3.14.2. The final run found the hand edited `design-tokens/tokens.css` stale (see the 3.14.2 changelog); fixed by regenerating it. Gate results are in the final report of the batch (see below).
+
+Final real regression of 3.14.2 (every check: cp6, cp8c to cp8h, cp9 to cp12, p2 to p30, run-cp7, run-cp8b, run-cp8f, phone-p2 to phone-p15): all green. First run had six that failed or gave no output: p3, p6, p7, p10, p15 (a harness timeout, no output) all passed on the rerun (the known harness hangs and hover flakes; not reproduced). p16 failed twice for a real reason: its text colour leaf check now saw the Brain Dump brain (dark text colour on a vibrant block, a colourless glyph); changed on purpose to skip `[data-block-list-emoji]` as p17 already does, then 45/45. Unit: mobile 996/996, desktop 109/109; tsc clean; iOS export and marker gate OK (37 markers, 0 hits); security scan passed.

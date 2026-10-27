@@ -88,7 +88,7 @@ async function run() {
   const look = (expr) =>
     I.js(`(() => { const e = ${expr}; if (!e) return null; const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
       const texts = []; const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
-      for (let n = w.nextNode(); n; n = w.nextNode()) { const t = n.textContent.trim(); if (t && !n.parentElement.closest('[data-priority-mark],[data-late-move],[aria-label="Repeats"]')) { const cs = getComputedStyle(n.parentElement); texts.push({ t, color: cs.color, fw: cs.fontWeight }); } }
+      for (let n = w.nextNode(); n; n = w.nextNode()) { const t = n.textContent.trim(); if (t && !n.parentElement.closest('[data-priority-mark],[data-late-move],[aria-label="Repeats"],[data-block-list-emoji]')) { const cs = getComputedStyle(n.parentElement); texts.push({ t, color: cs.color, fw: cs.fontWeight }); } }
       const icon = e.querySelector('[aria-label="Repeats"]'); const mark = e.querySelector('[data-priority-mark]');
       const anchor = e.closest('[data-cal-col],[data-timebox-grid],[data-cal-day],[data-all-day-cell]') || e.parentElement; const ar = anchor.getBoundingClientRect();
       return { l: Math.round(r.left - ar.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), bg: s.backgroundColor, bl: s.borderLeftColor, title: e.getAttribute('title'),

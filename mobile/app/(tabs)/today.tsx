@@ -26,7 +26,8 @@ import { duringCaption, hostIndex, insidePill } from '../../lib/hosting';
 import { buildToday, itemTitle, type TodayItem } from '../../lib/todayView';
 import { formatDuration } from '../../lib/duration';
 import { labelColor } from '../../lib/labelColors';
-import { liveLists } from '../../lib/lists';
+import { BRAIN_DUMP_EMOJI } from '../../lib/emoji';
+import { BRAIN_DUMP_NAME, liveLists } from '../../lib/lists';
 import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
 import { counter } from '../../lib/subtasks';
 import { deleteOne, deleteRepeating, duplicate, moveToList, skipDay, tickRoutine, tickTask, toggleSubtask } from '../../lib/phoneActions';
@@ -202,9 +203,10 @@ export default function TodayScreen() {
     const p = t.projectKey ? projects.find((x) => x.key === t.projectKey) : undefined;
     return p ? { name: `${p.emoji ? `${p.emoji} ` : ''}${p.name}`, color: labelColor(p.colorKey)?.edge ?? c.textTertiary } : null;
   };
+  // The list a row is in, with its emoji (Brain Dump with its brain, 3.14.1).
   const listOf = (t: Task) => {
     const l = t.listKey ? live.find((x) => x.key === t.listKey) : undefined;
-    return l ? `${l.emoji ? `${l.emoji} ` : ''}${l.name}` : null;
+    return l ? `${l.emoji ? `${l.emoji} ` : ''}${l.name}` : `${BRAIN_DUMP_EMOJI} ${BRAIN_DUMP_NAME}`;
   };
 
   function renderEvent(item: Extract<TodayItem, { kind: 'event' }>, first: boolean) {

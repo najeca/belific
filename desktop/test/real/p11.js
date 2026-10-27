@@ -234,7 +234,8 @@ async function run() {
   check('3: the label is a coloured chip with its emoji and name', !!m1 && m1.chip === '💼 Work' && (await I.js(`getComputedStyle(${card(today, 'Modal task')}.querySelector('[data-card-label] div')).backgroundColor`)) === 'rgb(111, 143, 126)', JSON.stringify(m1));
   const m4 = await metaOf(card(today, 'No emoji list'));
   check('3: a list with no emoji shows nothing (not the default list emoji)', !!m4 && m4.emoji === null && m4.chip === 'Home', JSON.stringify(m4));
-  check('3: a task with no list shows nothing', !(await I.exists(`${card(today, 'Plain task')}.querySelector('[data-card-list-emoji]')`)));
+  // Changed on purpose in 3.14.1: a task in Brain Dump shows its brain.
+  check('3: a task with no list shows the Brain Dump brain', (await I.js(`((${card(today, 'Plain task')}).querySelector('[data-card-list-emoji]') || {}).textContent || ''`)).replace(/️/g, '') === '🧠');
   const emojiSize = await I.js(`parseFloat(getComputedStyle(${card(today, 'Modal task')}.querySelector('[data-card-list-emoji]')).fontSize)`);
   check('3: it is small', emojiSize <= 12, String(emojiSize));
   // The left pane: the Games list.

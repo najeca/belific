@@ -37,10 +37,10 @@ async function run() {
   const L = (key, name, sortOrder, extra = {}) => ({ key, name, sortOrder, createdAt: stamp, updatedAt: stamp, ...extra });
   const write = (k, v) => fs.writeFileSync(path.join(dataDir, `${k}.kv`), JSON.stringify(v));
   write('belific_tasks', [
-    T('bd', 'Brain dump thing', { dueDate: today, startTime: '09:00', durationMinutes: 30 }),
-    T('gm', 'Play a game', { dueDate: today, startTime: '10:00', durationMinutes: 30, listKey: 'LG' }),
-    T('pl', 'Plain list thing', { dueDate: today, startTime: '11:00', durationMinutes: 30, listKey: 'LP' }),
-    T('rn', 'Renamed list thing', { dueDate: today, startTime: '12:00', durationMinutes: 30, listKey: 'LR' }),
+    T('bd', 'Brain dump thing', { dueDate: today, startTime: '07:00', durationMinutes: 90 }),
+    T('gm', 'Play a game', { dueDate: today, startTime: '09:00', durationMinutes: 90, listKey: 'LG' }),
+    T('pl', 'Plain list thing', { dueDate: today, startTime: '11:00', durationMinutes: 90, listKey: 'LP' }),
+    T('rn', 'Renamed list thing', { dueDate: today, startTime: '13:00', durationMinutes: 90, listKey: 'LR' }),
   ]);
   write('belific_lists', [L('LG', 'Games', 0, { emoji: '🎮' }), L('LP', 'Plain', 1), L('LR', 'Old name', 2, { emoji: '📚' }), L('LA', 'Twin A', 3, { emoji: '🍎' }), L('LB', 'Twin B', 4, { emoji: '🍎' })]);
   const read = (k) => {
@@ -181,6 +181,44 @@ async function run() {
   await typeText('Twin Bee');
   await P.finger.tap(visible('[aria-label="Save list Twin B"]'), 900);
   check('it can still be renamed and keeps the shared emoji', (lists().find((l) => l.key === 'LB') || {}).name === 'Twin Bee' && strip(lists().find((l) => l.key === 'LB').emoji) === '🍎', JSON.stringify(lists().find((l) => l.key === 'LB')));
+
+  // ======== 3.14.1: the list emoji of every list on Today, Tasks and the Calendar (Brain Dump's brain) ========
+  await reveal('LR');
+  await P.finger.hold(chip('LR'), 480, 900);
+  await P.js(`(() => { const i = document.querySelector('[data-list-sheet] input[aria-label="List name"]'); i.focus(); i.select(); })()`);
+  await typeText('Studies');
+  await P.finger.tap(visible('[aria-label="Save list Old name"]'), 900);
+  check('the list is renamed', (lists().find((l) => l.key === 'LR') || {}).name === 'Studies');
+  const chipTexts = await P.js(`[...document.querySelectorAll('[data-list-chip]')].map((e) => e.getAttribute('data-list-chip') + '=' + e.innerText.replace(/\\s+/g, ' ').trim())`);
+  check('Tasks: the chips show Brain Dump with its brain and each list with its emoji (a plain list the default)', chipTexts.some((t) => t.startsWith('dump=') && t.includes('🧠')) && chipTexts.some((t) => t.startsWith('LG=') && t.includes('🐶')) && chipTexts.some((t) => t.startsWith('LR=') && t.includes('📚') && t.includes('Studies')), JSON.stringify(chipTexts));
+  const surfaces = async (mode) => {
+    await P.finger.tap(tab('Today'), 1200);
+    const rowText = (title) => P.js(`(() => { const r = [...document.querySelectorAll('[data-today-row]')].find((e) => e.getAttribute('data-today-row') === ${JSON.stringify(title)}); return r ? r.innerText.replace(/\\s+/g, ' ') : null; })()`);
+    const want = [['Brain dump thing', '🧠 Brain Dump'], ['Play a game', 'Games'], ['Plain list thing', 'Plain'], ['Renamed list thing', '📚 Studies']];
+    for (const [title, text] of want) {
+      const t = await rowText(title);
+      check(`${mode}: Today row ${title} says "${text}"`, !!t && t.replace(/️/g, '').includes(text), String(t));
+    }
+    check(`${mode}: Today: the dog is on the Games row`, ((await rowText('Play a game')) || '').includes('🐶'));
+    await shot(`phone-p15-today-${mode}`);
+    await P.finger.tap(tab('Calendar'), 1500);
+    const blockOf = (id) => P.js(`(() => { const b = document.querySelector('[data-phone-block="task:${id}"]'); return b ? b.innerText.replace(/\\s+/g, ' ').replace(/️/g, '') : null; })()`);
+    const bwant = [['bd', '🧠'], ['gm', '🐶'], ['pl', ''], ['rn', '📚']];
+    for (const [id, emoji] of bwant) {
+      await P.js(`(() => { const b = document.querySelector('[data-phone-block="task:${id}"]'); if (b) b.scrollIntoView({ block: 'center' }); })()`);
+      await C.sleep(200);
+      const t = await blockOf(id);
+      const has = (e) => !!t && ['🧠', '🐶', '📚'].filter((x) => t.includes(x)).join('') === e;
+      check(`${mode}: Calendar block ${id} shows ${emoji || 'no list emoji'}`, has(emoji), String(t));
+    }
+    await shot(`phone-p15-calendar-${mode}`);
+  };
+  await surfaces('dark');
+  await P.finger.tap(tab('Today'), 900);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-phone-theme] [data-seg="light"]'), 900);
+  if (await P.js(`!!(${visible('[aria-label="Back"]')})`)) await P.finger.tap(visible('[aria-label="Back"]'), 900);
+  await surfaces('light');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

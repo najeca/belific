@@ -76,9 +76,9 @@ test('list emoji on a card (2.27.1): only a live named list with an emoji', () =
   const lists = [list('g', 'Games', { emoji: '🎮' }), list('p', 'Plain'), list('d', 'Gone', { emoji: '🗑️', deletedAt: NOW })];
   assert.equal(listEmojiOf(task('a', { listKey: 'g' }), lists), '🎮');
   assert.equal(listEmojiOf(task('b', { listKey: 'p' }), lists), undefined, 'a list with no emoji shows nothing (not the default)');
-  assert.equal(listEmojiOf(task('c'), lists), undefined, 'Brain Dump shows nothing');
-  assert.equal(listEmojiOf(task('d', { listKey: 'd' }), lists), undefined, 'a deleted list shows nothing');
-  assert.equal(listEmojiOf(task('e', { listKey: 'missing' }), lists), undefined);
+  assert.equal(listEmojiOf(task('c'), lists), '🧠', 'Brain Dump shows its brain (changed on purpose in 3.14.1)');
+  assert.equal(listEmojiOf(task('d', { listKey: 'd' }), lists), '🧠', 'a deleted list reads as Brain Dump');
+  assert.equal(listEmojiOf(task('e', { listKey: 'missing' }), lists), '🧠');
   assert.equal(listOptionText(lists[0]), '🎮 Games');
   assert.equal(listOptionText(lists[1]), 'Plain');
 });
@@ -87,9 +87,10 @@ test('listNameOf gives the name of a live list only (the tooltip of a block\'s l
   const { listNameOf } = await import('./lists.ts');
   const lists = [{ key: 'g', name: 'Gaming', deletedAt: undefined }, { key: 'd', name: 'Gone', deletedAt: '2026-10-01T00:00:00.000Z' }];
   assert.equal(listNameOf({ listKey: 'g' }, lists), 'Gaming');
-  assert.equal(listNameOf({}, lists), undefined, 'Brain Dump');
-  assert.equal(listNameOf({ listKey: 'd' }, lists), undefined, 'a deleted list');
-  assert.equal(listNameOf({ listKey: 'missing' }, lists), undefined);
+  assert.equal(listNameOf({}, lists), 'Brain Dump', 'Brain Dump (changed on purpose in 3.14.1)');
+  assert.equal(listNameOf({ listKey: 'd' }, lists), 'Brain Dump', 'a deleted list reads as Brain Dump');
+  assert.equal(listNameOf({ listKey: 'missing' }, lists), 'Brain Dump');
+  assert.equal(listNameOf({ listKey: 'g' }, [{ key: 'g', name: 'Renamed', deletedAt: undefined }]), 'Renamed', 'a rename shows at once');
 });
 
 test('3.12.0: the Create list button is off for an empty, a long, Brain Dump\'s or a duplicate name, and says why', async () => {

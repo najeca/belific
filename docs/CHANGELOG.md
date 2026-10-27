@@ -8,6 +8,13 @@ to know the current version and recent history.
 
 ---
 
+## 3.14.1 — 2026-10-27 (Brain Dump's emoji on cards and blocks)
+
+**Desktop and iPhone. No schema change. Fix.**
+- **Bug: the Brain Dump brain never showed** on task cards, Calendar blocks or Timebox blocks. **Cause:** `lists.listEmojiOf` (2.27.1) answered nothing for a task with no list, so every surface that draws a list emoji from it (cards on the Tasks board and the left pane, Timebox and Calendar blocks) drew nothing for Brain Dump, and the phone's Calendar blocks did the same by reading the list row themselves. It was a rule of the first version ("Brain Dump gives nothing"), not a loading problem.
+- **Fix:** Brain Dump (a task with no list, or on a list that was deleted here or on another device, which already reads as Brain Dump) gives its brain 🧠, and `listNameOf` its name, so the block's tooltip says "Brain Dump". A list with an emoji shows it, a list with none still shows nothing (never the default clipboard), a renamed list keeps its emoji and the tooltip follows the name. iPhone: the Calendar's Day blocks use the same rule, and Today's rows say "🧠 Brain Dump" the way a named list says "🎮 Games". (The Tasks tab's rows carry no list line, the chosen chip names the list, as before; its chips already showed 🧠.)
+- **Tests:** `lists.test.ts` (changed on purpose: Brain Dump, a deleted list and a missing list now answer 🧠 and "Brain Dump"; +a renamed list); `p30.js` (new, 58: Brain Dump, Games with an emoji, Plain without one, a renamed list and a task on a deleted list, on the board cards, the left pane's cards, the Timebox and the Calendar's day, with the tooltips; light, after a rename, dark; 37 of 58 failed before the fix); `phone-p15.js` +20 (the chips, Today's rows and the Calendar's blocks, a renamed list, dark and light). Changed on purpose: `p11.js` ("a task with no list shows nothing" now shows the brain).
+
 ## 3.14.0 — 2026-10-27 (One emoji per list)
 
 `**Desktop and iPhone. No schema change. No stored list is changed.**

@@ -8,6 +8,7 @@ import { nowLineTop } from '../../../lib/calendarView';
 import { labelColor, tintFor } from '../../../lib/labelColors';
 import { isMustDo, MUST_DO_MARK } from '../../../lib/mustDo';
 import { HostedSheet } from './HostedSheet';
+import { listEmojiOf } from '../../../lib/lists';
 import { lostGuests, lostNote, type HostSnapshot } from '../../../lib/hosting';
 import { moveOutOfBreak } from '../../../lib/hostActions';
 import { opsForProjected, opsForTask } from '../../../lib/taskOps';
@@ -119,9 +120,8 @@ export function DayView({
     const t = src.task;
     const p = t.projectKey ? data.projects.find((x) => x.key === t.projectKey) : undefined;
     const col = labelColor(p?.colorKey);
-    const list = t.listKey ? data.lists.find((l) => l.key === t.listKey && !l.deletedAt) : undefined;
     const dots = src.hosted ? Object.fromEntries(src.hosted.map((h) => [h.id, dotOf(h.task)])) : undefined;
-    return { bg: col ? tintFor(col, name === 'dark') : t.cutsBelow ? c.breakTint : c.plainBlock, edge: col?.edge ?? (t.cutsBelow ? c.textSecondary : c.accent), listEmoji: list?.emoji, ...(dots ? { dots } : {}) };
+    return { bg: col ? tintFor(col, name === 'dark') : t.cutsBelow ? c.breakTint : c.plainBlock, edge: col?.edge ?? (t.cutsBelow ? c.textSecondary : c.accent), listEmoji: listEmojiOf(t, data.lists), ...(dots ? { dots } : {}) };
   };
   // The label colour of a task during a break (its chip's dot), else a neutral.
   const dotOf = (t: Task) => labelColor(data.projects.find((x) => x.key === t.projectKey)?.colorKey)?.edge ?? c.textSecondary;

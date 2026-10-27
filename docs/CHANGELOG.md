@@ -8,6 +8,10 @@ to know the current version and recent history.
 
 ---
 
+## 3.14.2 — 2026-10-27 (regenerate the design tokens)
+
+**Fix, no behaviour change.** `design-tokens/tokens.css` is generated (`node scripts/export-tokens.mjs` in `mobile/`); 3.13.0 added the picker tokens to it by hand with the wrong indentation in the system dark block, which `designTokens.test.ts` caught in the final run. Regenerated.
+
 ## 3.14.1 — 2026-10-27 (Brain Dump's emoji on cards and blocks)
 
 **Desktop and iPhone. No schema change. Fix.**

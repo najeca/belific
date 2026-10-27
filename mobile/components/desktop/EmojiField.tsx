@@ -15,12 +15,15 @@ export default function EmojiField({
   onChange,
   label,
   keepOpen,
+  taken,
 }: {
   value: string | undefined;
   onChange: (emoji: string | undefined) => void;
   label: string;
   // A pick keeps the picker open, with the chosen emoji shown large and a Done button (the lists, 3.13.0).
   keepOpen?: boolean;
+  // Emojis another list has (greyed out in the picker, lib/lists.ts takenEmojis).
+  taken?: ReadonlyMap<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const [button, setButton] = useState<HTMLElement | null>(null);
@@ -57,6 +60,7 @@ export default function EmojiField({
           label={label}
           value={value}
           keepOpen={keepOpen}
+          taken={taken}
           onPick={(e) => {
             onChange(firstEmoji(e) ?? e);
             if (!keepOpen) close();

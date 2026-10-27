@@ -5,6 +5,7 @@ import { firstEmoji } from '../../lib/emoji';
 import { EMOJI_DATA, EMOJI_GROUPS } from '../../lib/emojiData';
 import { parseEmojiData, parseRecent, searchEmoji, type EmojiEntry } from '../../lib/emojiSearch';
 import { PICKER_TABS } from '../../lib/emojiCategories';
+import { emojiTakenNote } from '../../lib/lists';
 import { bumpUse, frequentRow, parseUse, useFromRecent, type EmojiUse } from '../../lib/emojiUse';
 import { kv } from '../../lib/kv';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -55,6 +56,7 @@ export default function EmojiPicker({
   onPick,
   onClose,
   keepOpen,
+  taken,
 }: {
   // What the emoji is for ("Task emoji"), for the screen reader.
   label: string;
@@ -63,10 +65,15 @@ export default function EmojiPicker({
   onClose: () => void;
   // A pick does not close the picker (the caller keeps it open and the panel has a Done button): the lists' fields.
   keepOpen?: boolean;
+  // 3.14.0: emojis that may not be chosen, from the emoji (without U+FE0F) to the name of the list that has it: greyed out
+  // with a caption saying which (one emoji per list, lib/lists.ts takenEmojis).
+  taken?: ReadonlyMap<string, string>;
 }) {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState(0);
   const [use, setUse] = useState<EmojiUse>(useCache ?? {});
+  const [note, setNote] = useState<string | null>(null);
+  const ownerOf = (emoji: string): string | undefined => taken?.get(emoji.replace(/️/g, ''));
   const grid = useRef<HTMLDivElement | null>(null);
   const search = useRef<HTMLInputElement | null>(null);
 
@@ -86,6 +93,11 @@ export default function EmojiPicker({
   const frequent = useMemo(() => frequentRow(use), [use]);
 
   const choose = (emoji: string) => {
+    const owner = ownerOf(emoji);
+    if (owner) {
+      setNote(emojiTakenNote(emoji, owner));
+      return;
+    }
     const next = bumpUse(use, emoji, Date.now());
     setUse(next);
     saveUse(next);
@@ -161,6 +173,11 @@ export default function EmojiPicker({
           </button>
         )}
       </div>
+      {taken && (
+        <div data-emoji-caption="1" role="status" style={{ minHeight: 16, fontSize: 12, color: note ? Colors.danger : Colors.textSecondary, fontFamily: DESKTOP_FONT_FAMILY, padding: '0 2px' }}>
+          {note ?? 'Greyed out emoji belong to another list.'}
+        </div>
+      )}
       <input
         ref={search}
         type="search"
@@ -184,7 +201,7 @@ export default function EmojiPicker({
           {frequent.length > 0 ? (
             <div role="group" aria-label="Frequently used" style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }} data-emoji-recent="1" data-emoji-frequent="1">
               {frequent.map((e) => (
-                <EmojiCell key={`r${e}`} emoji={e} name={NAME_OF.get(e) ?? e} on={e === value} onPick={choose} recent />
+                <EmojiCell key={`r${e}`} emoji={e} name={NAME_OF.get(e) ?? e} on={e === value} onPick={choose} recent owner={ownerOf(e)} onNote={setNote} />
               ))}
             </div>
           ) : (
@@ -224,24 +241,32 @@ export default function EmojiPicker({
         {shown.length === 0 ? (
           <span style={{ fontSize: 12, color: Colors.textSecondary, padding: 6, fontFamily: DESKTOP_FONT_FAMILY }}>No emoji match “{query.trim()}”.</span>
         ) : (
-          shown.map((e, i) => <EmojiCell key={e.emoji} emoji={e.emoji} name={e.name} on={e.emoji === value} onPick={choose} first={i === 0} />)
+          shown.map((e, i) => <EmojiCell key={e.emoji} emoji={e.emoji} name={e.name} on={e.emoji === value} onPick={choose} first={i === 0} owner={ownerOf(e.emoji)} onNote={setNote} />)
         )}
       </div>
     </div>
   );
 }
 
-function EmojiCell({ emoji, name, on, onPick, first, recent }: { emoji: string; name: string; on: boolean; onPick: (e: string) => void; first?: boolean; recent?: boolean }) {
+function EmojiCell({ emoji, name, on, onPick, first, recent, owner, onNote }: { emoji: string; name: string; on: boolean; onPick: (e: string) => void; first?: boolean; recent?: boolean; owner?: string; onNote?: (n: string | null) => void }) {
+  const say = () => owner && onNote?.(emojiTakenNote(emoji, owner));
+  const hush = () => owner && onNote?.(null);
   return (
     <button
       type="button"
       // The grid is one tab stop (roving): the arrows move inside it.
       tabIndex={first || recent ? 0 : -1}
       {...(recent ? { 'data-emoji-recent-cell': '1' } : { 'data-emoji-cell': '1' })}
-      aria-label={name}
+      aria-label={owner ? `${name}, used by ${owner}` : name}
       aria-pressed={on}
-      title={name}
+      aria-disabled={owner ? true : undefined}
+      {...(owner ? { 'data-emoji-taken': owner } : {})}
+      title={owner ? emojiTakenNote(emoji, owner) : name}
       onClick={() => onPick(emoji)}
+      onMouseEnter={say}
+      onMouseLeave={hush}
+      onFocus={say}
+      onBlur={hush}
       style={{
         width: CELL,
         height: CELL,
@@ -249,7 +274,9 @@ function EmojiCell({ emoji, name, on, onPick, first, recent }: { emoji: string; 
         padding: 0,
         border: 'none',
         borderRadius: 8,
-        cursor: 'pointer',
+        cursor: owner ? 'not-allowed' : 'pointer',
+        opacity: owner ? 0.35 : 1,
+        filter: owner ? 'grayscale(1)' : 'none',
         background: on ? Colors.pickerCellOn : 'transparent',
         boxShadow: on ? `inset 0 0 0 1.5px ${Colors.accent}` : 'none',
         fontSize: 21,

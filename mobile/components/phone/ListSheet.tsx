@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, type ColorTokens } from '../../lib/tokens';
-import { createListState } from '../../lib/lists';
+import { createListState, sharedEmojiNote, takenEmojis } from '../../lib/lists';
 import { createList, editList, removeList } from '../../lib/taskCommands';
 import type { TaskList } from '../../lib/types';
 import { useStyles, useTheme } from './theme';
@@ -46,6 +46,8 @@ export function ListSheet({ visible, list, lists, count, onClose, onSaved }: { v
   }, [visible, list]);
 
   const create = createListState(lists, name);
+  // 3.14.0: a list that already shares its emoji with another keeps it; this says so.
+  const shared = list ? sharedEmojiNote(lists, list.key) : null;
   async function save() {
     if (!list && !create.enabled) {
       setProblem(create.why);
@@ -88,7 +90,12 @@ export function ListSheet({ visible, list, lists, count, onClose, onSaved }: { v
             </View>
             {!list && create.why ? <Text style={s.note}>{create.why}</Text> : null}
             <Text style={s.label}>Emoji</Text>
-            <EmojiPick value={emoji} onChange={setEmoji} />
+            <EmojiPick value={emoji} onChange={setEmoji} taken={takenEmojis(lists, list?.key)} />
+            {list && shared && emoji === (list.emoji ?? '') ? (
+              <Text style={s.note} {...({ dataSet: { sharedEmoji: list.key } } as object)}>
+                {shared}
+              </Text>
+            ) : null}
             {problem && problem !== create.why ? <Text style={s.problem}>{problem}</Text> : null}
             <View style={s.row}>
               <Button label="Cancel" onPress={onClose} a11y="Cancel list edit" />

@@ -1,6 +1,8 @@
 'use strict';
 // Real check for 3.12.0 to 3.14.1: the lists batch. Real mouse, key and text input into the real app on an
 // isolated data folder; Supabase is the in process fake (signed out, nothing leaves the machine).
+//  3.14.0: one emoji per list: taken emojis greyed out with the list that has them, nothing chosen from them,
+//          Brain Dump keeps its brain, existing duplicates kept with a note in the edit box.
 //  3.13.0: the emoji picker of a list: Frequently used, a tab with an icon per category, the chosen emoji large,
 //          Done; light and dark.
 //  3.12.0: the Create list button next to the name field (Enter still works; off while the name is empty or a
@@ -42,7 +44,7 @@ async function run() {
     T('rn', 'Renamed list thing', { dueDate: TODAY, startTime: '12:00', durationMinutes: 30, listKey: 'LR' }),
   ];
   fs.writeFileSync(path.join(dataDir, 'belific_tasks.kv'), JSON.stringify(seed));
-  fs.writeFileSync(path.join(dataDir, 'belific_lists.kv'), JSON.stringify([L('LG', 'Games', 0, { emoji: '🎮' }), L('LP', 'Plain', 1), L('LR', 'Old name', 2, { emoji: '📚' })]));
+  fs.writeFileSync(path.join(dataDir, 'belific_lists.kv'), JSON.stringify([L('LG', 'Games', 0, { emoji: '🎮' }), L('LP', 'Plain', 1), L('LR', 'Old name', 2, { emoji: '📚' }), L('LA', 'Twin A', 3, { emoji: '🍎' }), L('LB', 'Twin B', 4, { emoji: '🍎' })]));
   fs.writeFileSync(path.join(dataDir, 'belific_desktop_panes.kv'), JSON.stringify({ leftCollapsed: false, rightCollapsed: false, center: 'kanban', calendar: 'day' }));
 
   const read = readKv(dataDir);
@@ -76,9 +78,9 @@ async function run() {
   await C.sleep(200);
   check('a duplicate name (any case): off, "Another list has that name"', !(await btnOn()) && (await why()) === 'Another list has that name', await why());
   await I.click(createBtn, 400);
-  check('a click on the off button creates nothing', lists().length === 3);
+  check('a click on the off button creates nothing', lists().length === 5);
   await I.key('Return', [], 400);
-  check('Enter on a duplicate creates nothing', lists().length === 3);
+  check('Enter on a duplicate creates nothing', lists().length === 5);
   await I.js(`(() => { const i = document.querySelector('[data-popover] [aria-label="New list name"]'); i.focus(); i.select(); })()`);
   await I.type('Brain Dump');
   await C.sleep(200);
@@ -89,7 +91,7 @@ async function run() {
   check('a free name: on, no reason', (await btnOn()) && (await why()) === '', await why());
   await I.shot('p29-01-create-list');
   await I.click(createBtn, 700);
-  check('Create list makes the list', lists().some((l) => l.name === 'Reading') && lists().length === 4, JSON.stringify(lists().map((l) => l.name)));
+  check('Create list makes the list', lists().some((l) => l.name === 'Reading') && lists().length === 6, JSON.stringify(lists().map((l) => l.name)));
   check('and shows it (the button names it)', await I.exists(`document.querySelector('[aria-label="List: Reading. Change list"]')`));
   // Enter still works.
   await openLists();
@@ -140,6 +142,65 @@ async function run() {
   check('dark: the panel uses its own token (not the light one)', pv === 'rgb(34, 42, 37)', pv);
   await I.shot('p29-03-picker-dark');
   await I.key('Escape', [], 300);
+  await I.key('Escape', [], 300);
+
+  // ======== 3.14.0: one emoji per list ========
+  const cellOf = (name) => `${picker}.querySelector('[data-emoji-cell][aria-label^="${name}"], [data-emoji-recent-cell][aria-label^="${name}"]')`;
+  const caption = () => I.js(`(${picker}.querySelector('[data-emoji-caption]') || {}).innerText || ''`);
+  const search = async (text) => {
+    await I.js(`(() => { const i = ${picker}.querySelector('input[type="search"]'); i.focus(); i.select(); })()`);
+    await I.type(text);
+    await C.sleep(300);
+  };
+  await openLists();
+  await pickerOpen('New list emoji');
+  check('the picker says greyed out emoji belong to another list', (await caption()) === 'Greyed out emoji belong to another list.', await caption());
+  await search('dog face');
+  check('the dog (Games has it) is greyed out and says which list', (await I.js(`${cellOf('dog face')}.getAttribute('data-emoji-taken')`)) === 'Games', await I.js(`${cellOf('dog face')}.outerHTML.slice(0, 160)`));
+  const grey = await I.js(`(() => { const b = ${cellOf('dog face')}; return { o: getComputedStyle(b).opacity, d: b.getAttribute('aria-disabled') }; })()`);
+  check('greyed: faint and aria-disabled', Number(grey.o) < 0.5 && grey.d === 'true', JSON.stringify(grey));
+  await I.click(cellOf('dog face'), 300);
+  check('a click names the list and chooses nothing', (await caption()).includes('is already used by Games') && (await large()) === '', (await caption()) + '|' + (await large()));
+  await I.shot('p29-04-taken-greyed-dark');
+  await search('brain');
+  await I.click(cellOf('brain'), 300);
+  check("the brain is Brain Dump's: \"is Brain Dump's emoji\", not chosen", (await caption()).includes("Brain Dump's emoji") && (await I.js(`${cellOf('brain')}.getAttribute('data-emoji-taken')`)) === 'Brain Dump' && (await large()) === '');
+  await search('📚');
+  check('a typed or pasted taken emoji is not taken', (await caption()).includes('already used by Old name') && (await large()) === '', (await caption()) + '|' + (await large()));
+  await search('rocket');
+  await I.click(cellOf('rocket'), 400);
+  check('a free emoji is chosen', strip(await large()) === '🚀', await large());
+  await I.click(`${picker}.querySelector('[data-emoji-done]')`, 400);
+  await I.click(`document.querySelector('[data-popover] [aria-label="New list name"]')`, 200);
+  await I.type('Space');
+  await I.click(createBtn, 800);
+  check('the new list has the rocket', strip((lists().find((l) => l.name === 'Space') || {}).emoji) === '🚀', JSON.stringify(lists().find((l) => l.name === 'Space')));
+  // Existing duplicates are left alone, with a note in the edit box.
+  await openLists();
+  await I.click(`document.querySelector('[data-list-edit="LB"]')`, 500);
+  const sharedNote = await I.js(`(document.querySelector('[data-popover] [data-shared-emoji="LB"]') || {}).innerText || ''`);
+  check('the edit box of a list sharing its emoji says so', sharedNote === '🍎 is also used by Twin A. It stays as it is; choose another emoji if you like.', sharedNote);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Name of list Twin B"]')`, 200);
+  await I.js(`(() => { const i = document.querySelector('[data-popover] [aria-label="Name of list Twin B"]'); i.focus(); i.select(); })()`);
+  await I.type('Twin Bee');
+  await I.click(`document.querySelector('[data-popover] [aria-label="Save list Twin B"]')`, 800);
+  check('it can still be renamed: the shared emoji is kept, nothing else changed', (lists().find((l) => l.key === 'LB') || {}).name === 'Twin Bee' && strip(lists().find((l) => l.key === 'LB').emoji) === '🍎' && strip(lists().find((l) => l.key === 'LA').emoji) === '🍎', JSON.stringify(lists().filter((l) => l.key === 'LA' || l.key === 'LB')));
+  await I.click(`document.querySelector('[data-list-edit="LB"]')`, 500);
+  await pickerOpen('Emoji for list Twin Bee');
+  await search('red apple');
+  check('in its own picker its own emoji is not greyed, the dog is', !(await I.js(`${cellOf('red apple')}.hasAttribute('data-emoji-taken')`)));
+  await search('dog face');
+  check('...and the other lists emoji are', (await I.js(`${cellOf('dog face')}.getAttribute('data-emoji-taken')`)) === 'Games');
+  await search('rocket');
+  await I.click(cellOf('rocket'), 400);
+  check('choosing the rocket (Space has it) says so; the apple stays', (await caption()).includes('is already used by Space') && strip(await large()) === '🍎', (await caption()) + '|' + (await large()));
+  await search('hammer');
+  await I.click(cellOf('hammer'), 400);
+  check('a free one replaces it and the note goes', strip(await large()) === '🔨' && !(await I.exists(`document.querySelector('[data-popover] [data-shared-emoji]')`)));
+  await I.click(`${picker}.querySelector('[data-emoji-done]')`, 400);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Save list Twin Bee"]')`, 800);
+  check('Save writes the hammer', strip(lists().find((l) => l.key === 'LB').emoji) === '🔨');
+  check('Brain Dump keeps its brain in the lists menu', (await I.textOf(`document.querySelector('[data-popover]')`)).includes('Brain Dump') && (await I.js(`[...document.querySelectorAll('[data-popover] [aria-label="Show Brain Dump"]')].some((e) => e.innerText.includes('🧠'))`)));
   await I.key('Escape', [], 300);
 
   const failed = summary();

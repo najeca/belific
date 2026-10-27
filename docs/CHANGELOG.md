@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.14.0 — 2026-10-27 (One emoji per list)
+
+`**Desktop and iPhone. No schema change. No stored list is changed.**
+`- **One emoji per list.** A list cannot take an emoji another list has, or Brain Dump's brain. In the picker (desktop and phone) the taken emojis are **greyed out**; hovering, focusing or tapping one says which list has it ("🐶 is already used by Games", "🧠 is Brain Dump's emoji"), and nothing is chosen. A line under the panel explains the grey ("Greyed out emoji belong to another list."). A typed or pasted taken emoji is refused the same way. An emoji counts as the same with or without its text style selector (U+FE0F); a deleted list gives its emoji back.
+`- **Brain Dump keeps its brain** (it is not a stored list; no list may use 🧠).
+`- **Enforced in the command layer** (`lists.listEmojiProblem`, `taskCommands.createList`, `editList` through `editedList`, and `setListEmoji`): the same sentence comes back as the problem, so nothing but the picker can write a duplicate on this device.
+`- **Existing duplicates are not changed.** A list that already shares its emoji keeps it, can still be renamed or saved, and its edit box shows a small note: "🍎 is also used by Twin A. It stays as it is; choose another emoji if you like." Only a change to a taken emoji is refused. Its own emoji is not greyed out in its own picker. (Another device can still write a duplicate until it has this version; those are handled as any existing duplicate.)
+`- **Tests:** \`lists.test.ts\` +6 (what is taken, the refusals and their sentences, with and without the selector, a deleted list, the list's own emoji, existing duplicates kept and noted, the command layer calls the check); \`p29.js\` +16 (greyed with the list named, a click chooses nothing, the brain, a pasted taken emoji, a free emoji, the note, a rename of a duplicate, its own picker, the change of emoji, Brain Dump's brain); \`phone-p15.js\` +8.
+
 ## 3.13.0 — 2026-10-27 (Emoji picker for lists)
 
 **Desktop and iPhone. No schema change.**

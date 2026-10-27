@@ -1,5 +1,7 @@
 'use strict';
 // Real touch check for the lists batch (3.12.0 to 3.14.1) on the phone, 390 x 844.
+//  3.14.0: one emoji per list: taken emojis greyed out (tap says which list), a typed one refused, the shared
+//          emoji of two existing lists kept with a note in the edit sheet.
 //  3.13.0: the emoji picker of a list's sheet: the chosen emoji large, Frequently used, a tab with an icon per
 //          category (44 pt), 44 pt cells, no search box (marker gate), the emoji keyboard field; light and dark.
 //  3.12.0: the New list sheet has a Create list button next to the name (44 pt, off while the name is empty
@@ -40,7 +42,7 @@ async function run() {
     T('pl', 'Plain list thing', { dueDate: today, startTime: '11:00', durationMinutes: 30, listKey: 'LP' }),
     T('rn', 'Renamed list thing', { dueDate: today, startTime: '12:00', durationMinutes: 30, listKey: 'LR' }),
   ]);
-  write('belific_lists', [L('LG', 'Games', 0, { emoji: '🎮' }), L('LP', 'Plain', 1), L('LR', 'Old name', 2, { emoji: '📚' })]);
+  write('belific_lists', [L('LG', 'Games', 0, { emoji: '🎮' }), L('LP', 'Plain', 1), L('LR', 'Old name', 2, { emoji: '📚' }), L('LA', 'Twin A', 3, { emoji: '🍎' }), L('LB', 'Twin B', 4, { emoji: '🍎' })]);
   const read = (k) => {
     try {
       return JSON.parse(fs.readFileSync(path.join(dataDir, `${k}.kv`), 'utf8'));
@@ -88,7 +90,7 @@ async function run() {
   st = await createState();
   check('a duplicate name (any case): off, "Another list has that name"', !!st && st.disabled && (await sheetText()).includes('Another list has that name'), await sheetText());
   await P.finger.tap(visible('[aria-label="Create list"]'), 600);
-  check('tapping the off button creates nothing', lists().length === 3);
+  check('tapping the off button creates nothing', lists().length === 5);
   await P.js(`(() => { const i = document.querySelector('[data-list-sheet] input[aria-label="List name"]'); i.focus(); i.select(); })()`);
   await typeText('Reading');
   st = await createState();
@@ -141,6 +143,44 @@ async function run() {
   const pv = await P.js(`(() => { const e = document.querySelector('[data-emoji-large]'); return getComputedStyle(e.parentElement).backgroundColor; })()`);
   check('dark: the panel uses its own token', pv === 'rgb(34, 42, 37)', pv);
   await shot('phone-p15-picker-dark');
+
+  // ======== 3.14.0: one emoji per list (dark is on) ========
+  const caption = () => P.js(`(document.querySelector('[data-emoji-caption]') || {}).textContent || ''`);
+  const reveal = async (key) => {
+    await P.js(`document.querySelector('[data-list-chip="${key}"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
+    await C.sleep(400);
+  };
+  await P.finger.tap(visible('[aria-label="Cancel list edit"]'), 600).catch(() => {});
+  await reveal('new');
+  await P.finger.tap(chip('new'), 900);
+  check('the New list sheet says greyed out emoji belong to another list', (await caption()) === 'Greyed out emoji belong to another list.', await caption());
+  await P.finger.tap(visible('[data-emoji-tab="animals"]'), 500);
+  const taken = await P.js(`(() => { const b = document.querySelector('[data-emoji-cell="🐶"]'); return b ? { owner: b.getAttribute('data-emoji-taken'), o: getComputedStyle(b).opacity, d: b.getAttribute('aria-disabled') } : null; })()`);
+  check('the dog (Games has it) is greyed out and names the list', !!taken && taken.owner === 'Games' && Number(taken.o) < 0.5, JSON.stringify(taken));
+  await P.finger.tap(visible('[data-emoji-cell="🐶"]'), 600);
+  check('a tap says which list has it and chooses nothing', (await caption()).includes('is already used by Games') && (await large()) === '', (await caption()) + '|' + (await large()));
+  await shot('phone-p15-taken-dark');
+  await P.finger.tap(visible('[data-list-sheet] input[aria-label="List emoji"]'), 300);
+  await typeText('📚');
+  check('a typed taken emoji is refused with the name of the list', (await caption()).includes('already used by Old name') && (await P.js(`(document.querySelector('[data-list-sheet] input[aria-label="List emoji"]') || {}).value`)) === '', await caption());
+  await P.finger.tap(visible('[data-emoji-tab="smileys"]'), 400);
+  await P.finger.tap(visible('[data-list-sheet] input[aria-label="List name"]'), 300);
+  await typeText('Space');
+  await P.finger.tap(visible('[data-emoji-tab="travel"]'), 400);
+  await P.finger.tap(visible('[data-emoji-cell="🚀"]'), 500);
+  await P.finger.tap(visible('[aria-label="Create list"]'), 900);
+  check('a free emoji is chosen and the list is made with it', strip((lists().find((l) => l.name === 'Space') || {}).emoji) === '🚀', JSON.stringify(lists().find((l) => l.name === 'Space')));
+  // Existing duplicates: kept, with a note.
+  await reveal('LB');
+  await P.finger.hold(chip('LB'), 480, 900);
+  const note = await P.js(`(document.querySelector('[data-shared-emoji="LB"]') || {}).textContent || ''`);
+  check('the edit sheet of a list sharing its emoji says so', note === '🍎 is also used by Twin A. It stays as it is; choose another emoji if you like.', note);
+  const own = await P.js(`(() => { const b = document.querySelector('[data-list-sheet] [data-emoji-frequent-cell="🍎"], [data-list-sheet] [data-emoji-cell="🍎"]'); return b ? b.hasAttribute('data-emoji-taken') : null; })()`);
+  check('its own emoji is not greyed out', own === false || own === null, String(own));
+  await P.js(`(() => { const i = document.querySelector('[data-list-sheet] input[aria-label="List name"]'); i.focus(); i.select(); })()`);
+  await typeText('Twin Bee');
+  await P.finger.tap(visible('[aria-label="Save list Twin B"]'), 900);
+  check('it can still be renamed and keeps the shared emoji', (lists().find((l) => l.key === 'LB') || {}).name === 'Twin Bee' && strip(lists().find((l) => l.key === 'LB').emoji) === '🍎', JSON.stringify(lists().find((l) => l.key === 'LB')));
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

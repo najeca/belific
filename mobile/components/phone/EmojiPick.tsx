@@ -6,6 +6,7 @@ import { kv } from '../../lib/kv';
 import { firstEmoji } from '../../lib/emoji';
 import { PHONE_TABS } from '../../lib/emojiCategories';
 import { CURATED } from '../../lib/emojiCurated';
+import { emojiTakenNote } from '../../lib/lists';
 import { bumpUse, frequentRow, parseUse, type EmojiUse } from '../../lib/emojiUse';
 import { useStyles, useTheme } from './theme';
 import { inter, type } from './type';
@@ -36,11 +37,14 @@ const make = (c: ColorTokens) => ({
   clearText: { ...inter(600), fontSize: 14, color: c.accentText },
 });
 
-export function EmojiPick({ value, onChange }: { value: string; onChange: (emoji: string) => void }) {
+// `taken`: the emojis another list has (lib/lists.ts takenEmojis), greyed out; a tap on one says which list has it.
+export function EmojiPick({ value, onChange, taken }: { value: string; onChange: (emoji: string) => void; taken?: ReadonlyMap<string, string> }) {
   const s = useStyles(make);
   const { c } = useTheme();
   const [tab, setTab] = useState(0);
   const [use, setUse] = useState<EmojiUse>({});
+  const [note, setNote] = useState<string | null>(null);
+  const ownerOf = (emoji: string): string | undefined => taken?.get(emoji.replace(/️/g, ''));
   useEffect(() => {
     kv.getItem(USE_KEY)
       .then((raw) => setUse(parseUse(raw)))
@@ -50,25 +54,34 @@ export function EmojiPick({ value, onChange }: { value: string; onChange: (emoji
   const shown = firstEmoji(value);
 
   const pick = (emoji: string) => {
+    const owner = ownerOf(emoji);
+    if (owner) {
+      setNote(emojiTakenNote(emoji, owner));
+      return;
+    }
+    setNote(null);
     const next = bumpUse(use, emoji, Date.now());
     setUse(next);
     kv.setItem(USE_KEY, JSON.stringify(next)).catch(() => {});
     onChange(emoji);
   };
 
-  const cell = (emoji: string, key: string, frequentCell = false) => (
+  const cell = (emoji: string, key: string, frequentCell = false) => {
+    const owner = ownerOf(emoji);
+    return (
     <Pressable
       key={key}
       onPress={() => pick(emoji)}
-      style={[s.cell, shown === emoji && s.cellOn]}
+      style={[s.cell, shown === emoji && s.cellOn, owner ? { opacity: 0.35 } : null]}
       accessibilityRole="button"
-      accessibilityLabel={`Use ${emoji}`}
-      accessibilityState={{ selected: shown === emoji }}
-      {...({ dataSet: frequentCell ? { emojiFrequentCell: emoji } : { emojiCell: emoji } } as object)}
+      accessibilityLabel={owner ? `${emoji}, used by ${owner}` : `Use ${emoji}`}
+      accessibilityState={{ selected: shown === emoji, disabled: !!owner }}
+      {...({ dataSet: { ...(frequentCell ? { emojiFrequentCell: emoji } : { emojiCell: emoji }), ...(owner ? { emojiTaken: owner } : {}) } } as object)}
     >
-      <Text style={s.cellText}>{emoji}</Text>
+      <Text style={[s.cellText, owner ? { opacity: 0.6 } : null]}>{emoji}</Text>
     </Pressable>
-  );
+    );
+  };
 
   return (
     <View style={{ gap: 6 }} {...({ dataSet: { emojiPick: '1' } } as object)}>
@@ -77,7 +90,7 @@ export function EmojiPick({ value, onChange }: { value: string; onChange: (emoji
           <Text style={s.largeText}>{shown ?? ''}</Text>
         </View>
         <View style={{ flex: 1, gap: 4 }}>
-          <TextInput style={s.field} value={value} onChangeText={onChange} placeholder="🙂" placeholderTextColor={c.textTertiary} accessibilityLabel="List emoji" />
+          <TextInput style={s.field} value={value} onChangeText={(t) => (firstEmoji(t) && ownerOf(firstEmoji(t) as string) ? pick(firstEmoji(t) as string) : onChange(t))} placeholder="🙂" placeholderTextColor={c.textTertiary} accessibilityLabel="List emoji" />
           <Text style={s.hint}>Tap one below, or type one with the emoji keyboard.</Text>
         </View>
         {shown ? (
@@ -86,6 +99,11 @@ export function EmojiPick({ value, onChange }: { value: string; onChange: (emoji
           </Pressable>
         ) : null}
       </View>
+      {taken ? (
+        <Text style={[s.hint, note ? { color: c.danger } : null]} {...({ dataSet: { emojiCaption: '1' } } as object)}>
+          {note ?? 'Greyed out emoji belong to another list.'}
+        </Text>
+      ) : null}
       <Text style={s.caption}>Frequently used</Text>
       {frequent.length > 0 ? (
         <View style={s.row} {...({ dataSet: { emojiFrequent: '1' } } as object)}>

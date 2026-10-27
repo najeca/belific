@@ -35,6 +35,52 @@ export function createListState(lists: Array<Pick<TaskList, 'key' | 'name' | 'de
   return { enabled: !problem, why: problem };
 }
 
+// 3.14.0: one emoji per list. An emoji is "the same" with or without its text style selector (U+FE0F). Brain Dump
+// keeps its brain: it is not a stored list, but no list may take its emoji. Lists that already share an emoji (made
+// before this rule, or on two devices) are left alone: only a CHANGE of emoji is checked, and the edit box says so.
+const emojiKey = (e: string): string => e.replace(/️/g, '');
+type EmojiOwner = Pick<TaskList, 'key' | 'name' | 'emoji' | 'deletedAt'>;
+
+// The emojis other lists have, as a map from the emoji (without U+FE0F) to the name of the list that has it
+// (the first, in list order); Brain Dump's brain is always in it. `exceptKey` is the list being edited.
+function otherOwners(lists: EmojiOwner[], exceptKey?: string): Map<string, string> {
+  const taken = new Map<string, string>([[emojiKey(BRAIN_DUMP_EMOJI), BRAIN_DUMP_NAME]]);
+  for (const l of liveLists(lists as TaskList[])) {
+    if (l.key === exceptKey || !l.emoji) continue;
+    const k = emojiKey(l.emoji);
+    if (!taken.has(k)) taken.set(k, l.name);
+  }
+  return taken;
+}
+// What the picker greys out: the same, but the list being edited keeps the emoji it has, even a shared one.
+export function takenEmojis(lists: EmojiOwner[], exceptKey?: string): Map<string, string> {
+  const taken = otherOwners(lists, exceptKey);
+  const own = exceptKey ? lists.find((l) => l.key === exceptKey && !l.deletedAt)?.emoji : undefined;
+  if (own) taken.delete(emojiKey(own));
+  return taken;
+}
+
+export const emojiTakenNote = (emoji: string, owner: string): string => (owner === BRAIN_DUMP_NAME ? `${emoji} is Brain Dump's emoji` : `${emoji} is already used by ${owner}`);
+
+// null when the list may have this emoji (none, or one nobody else has), else the sentence to show. A list that
+// already has the emoji may keep it (`current`), even if another list shares it.
+export function listEmojiProblem(lists: EmojiOwner[], emojiText: string | undefined, exceptKey?: string): string | null {
+  const emoji = firstEmoji(emojiText);
+  if (!emoji) return null;
+  const current = exceptKey ? lists.find((l) => l.key === exceptKey && !l.deletedAt)?.emoji : undefined;
+  if (current && emojiKey(current) === emojiKey(emoji)) return null;
+  const owner = otherOwners(lists, exceptKey).get(emojiKey(emoji));
+  return owner ? emojiTakenNote(emoji, owner) : null;
+}
+
+// The edit box's small note for a list whose emoji another list (or Brain Dump) already has: null when it is its own.
+export function sharedEmojiNote(lists: EmojiOwner[], key: string): string | null {
+  const own = lists.find((l) => l.key === key && !l.deletedAt);
+  if (!own?.emoji) return null;
+  const owner = otherOwners(lists, key).get(emojiKey(own.emoji));
+  return owner ? `${own.emoji} is also used by ${owner}. It stays as it is; choose another emoji if you like.` : null;
+}
+
 export function nextSortOrder(lists: Array<Pick<TaskList, 'sortOrder' | 'deletedAt'>>): number {
   let max = -1;
   for (const l of lists) if (!l.deletedAt && l.sortOrder > max) max = l.sortOrder;
@@ -61,6 +107,8 @@ export function editedList(
   if (problem) return { problem };
   const current = lists.find((l) => l.key === key && !l.deletedAt);
   if (!current) return { problem: 'That list no longer exists' };
+  const emojiProblem = listEmojiProblem(lists, emojiText, key);
+  if (emojiProblem) return { problem: emojiProblem };
   const next: TaskList = { ...current, name: name.trim().replace(/\s+/g, ' ') };
   const emoji = firstEmoji(emojiText);
   if (emoji) next.emoji = emoji;

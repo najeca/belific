@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { BRAIN_DUMP_EMOJI, DEFAULT_LIST_EMOJI } from '../../lib/emoji';
-import { BRAIN_DUMP_NAME, createListState, listTitle } from '../../lib/lists';
+import { BRAIN_DUMP_NAME, createListState, listTitle, sharedEmojiNote, takenEmojis } from '../../lib/lists';
 import { createList, editList, removeList } from '../../lib/taskCommands';
 import type { TaskList } from '../../lib/types';
 import EmojiField from './EmojiField';
@@ -86,7 +86,7 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
     choose(result.list.key);
   }
 
-  if (editTarget) return <EditBox list={editTarget} count={counts.get(editTarget.key) ?? 0} onDone={() => setEditing(null)} />;
+  if (editTarget) return <EditBox list={editTarget} lists={lists} count={counts.get(editTarget.key) ?? 0} onDone={() => setEditing(null)} />;
 
   return (
     <View>
@@ -162,7 +162,7 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
             {create.why}
           </Text>
         ) : null}
-        <EmojiField label="New list emoji" value={emoji} onChange={setEmoji} keepOpen />
+        <EmojiField label="New list emoji" value={emoji} onChange={setEmoji} keepOpen taken={takenEmojis(lists)} />
         {problem && problem !== create.why ? <Text style={popoverStyles.noteWarn}>{problem}</Text> : null}
       </View>
     </View>
@@ -170,11 +170,13 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
 }
 
 // The edit box of one list: its name and emoji, Save, Cancel, and Delete list (with the same confirmation).
-function EditBox({ list, count, onDone }: { list: TaskList; count: number; onDone: () => void }) {
+function EditBox({ list, lists, count, onDone }: { list: TaskList; lists: TaskList[]; count: number; onDone: () => void }) {
   const [text, setText] = useState(list.name);
   const [emoji, setEmoji] = useState<string | undefined>(list.emoji);
   const [problem, setProblem] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // 3.14.0: a list that already shares its emoji with another keeps it; this says so.
+  const shared = sharedEmojiNote(lists, list.key);
 
   async function save() {
     const result = await editList(list.key, text, emoji);
@@ -215,7 +217,12 @@ function EditBox({ list, count, onDone }: { list: TaskList; count: number; onDon
           autoFocus
           accessibilityLabel={`Name of list ${list.name}`}
         />
-        <EmojiField label={`Emoji for list ${list.name}`} value={emoji} onChange={setEmoji} keepOpen />
+        <EmojiField label={`Emoji for list ${list.name}`} value={emoji} onChange={setEmoji} keepOpen taken={takenEmojis(lists, list.key)} />
+        {shared && emoji === list.emoji ? (
+          <Text style={popoverStyles.note} {...({ dataSet: { sharedEmoji: list.key } } as object)}>
+            {shared}
+          </Text>
+        ) : null}
         {problem ? <Text style={popoverStyles.noteWarn}>{problem}</Text> : null}
         <View style={styles.buttons}>
           {button('Save', `Save list ${list.name}`, save, true)}

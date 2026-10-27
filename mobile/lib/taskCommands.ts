@@ -2,7 +2,7 @@ import { addTask, deleteList, loadListsRaw, loadTasksRaw, putList, updateTask } 
 import { generateId } from './data';
 import { duplicateTask } from './taskCopy';
 import { newThought } from './thoughts';
-import { editedList, listNameProblem, liveLists, newList, nextSortOrder } from './lists';
+import { editedList, listEmojiProblem, listNameProblem, liveLists, newList, nextSortOrder } from './lists';
 import { firstEmoji } from './emoji';
 import type { Task, TaskList } from './types';
 
@@ -41,7 +41,7 @@ export async function createTaskIn(
 
 export async function createList(name: string, emojiText?: string): Promise<{ list: TaskList } | { problem: string }> {
   const all = await loadListsRaw();
-  const problem = listNameProblem(all, name);
+  const problem = listNameProblem(all, name) ?? listEmojiProblem(all, emojiText);
   if (problem) return { problem };
   const list = newList(generateId(), name, firstEmoji(emojiText), nextSortOrder(all), new Date().toISOString());
   await putList(list);
@@ -67,14 +67,18 @@ export async function renameList(key: string, name: string): Promise<string | nu
   return null;
 }
 
-export async function setListEmoji(key: string, emojiText: string | undefined): Promise<void> {
-  const list = liveLists(await loadListsRaw()).find((l) => l.key === key);
-  if (!list) return;
+export async function setListEmoji(key: string, emojiText: string | undefined): Promise<string | null> {
+  const all = await loadListsRaw();
+  const list = liveLists(all).find((l) => l.key === key);
+  if (!list) return null;
+  const problem = listEmojiProblem(all, emojiText, key);
+  if (problem) return problem;
   const emoji = firstEmoji(emojiText);
   const next: TaskList = { ...list };
   if (emoji) next.emoji = emoji;
   else delete next.emoji;
   await putList(next);
+  return null;
 }
 
 // Deletes a list. Its tasks go back to Brain Dump (they lose the list key), each

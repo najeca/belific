@@ -41,6 +41,7 @@ import { closeDetail, getDetailFocus, notifyChanged, openDetail, useDetailId } f
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
+import Toggle from '../Toggle';
 import { RoundCheck, checkRing, checkRingDone } from './ui';
 
 // The task details (build plan phase 2; a centred modal since 2.26.0): every
@@ -428,17 +429,7 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
         {/* Must do (2.27.0): one switch over the stored priority (on = high, off = none). */}
         <DetailRow glyph={MUST_DO_MARK} label="Must do" shown="" tip={MUST_DO_TIP}>
           <View style={styles.row}>
-            <Pressable
-              onPress={() => patch(mustDoPatch(!isMustDo(task)))}
-              style={[styles.switch, isMustDo(task) && styles.switchOn]}
-              accessibilityRole="switch"
-              accessibilityState={{ checked: isMustDo(task) }}
-              accessibilityLabel={MUST_DO_TIP}
-              // react-native-web leaves aria-checked off a switch: set it, so its state is read out.
-              {...({ 'aria-checked': isMustDo(task), dataSet: { mustDoSwitch: isMustDo(task) ? '1' : '0' } } as object)}
-            >
-              <View style={[styles.knob, isMustDo(task) && styles.knobOn]} />
-            </Pressable>
+            <Toggle value={isMustDo(task)} onValueChange={(v) => patch(mustDoPatch(v))} label={MUST_DO_TIP} dataSet={{ mustDoSwitch: isMustDo(task) ? '1' : '0' }} />
             <Text style={styles.quietText}>{isMustDo(task) ? 'Shown first in its day, with a ❗ marker' : 'Off'}</Text>
           </View>
         </DetailRow>
@@ -450,16 +441,7 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
         {/* Split (Part B; field cutsBelow): a break splits the timed tasks it overlaps into pieces. Off by default. */}
         <DetailRow icon="cut-outline" label="Split" shown="Split" tip="Split">
           <View style={styles.row}>
-            <Pressable
-              onPress={() => patch({ cutsBelow: task.cutsBelow ? undefined : true })}
-              style={[styles.switch, task.cutsBelow && styles.switchOn]}
-              accessibilityRole="switch"
-              accessibilityState={{ checked: !!task.cutsBelow }}
-              accessibilityLabel="Split"
-              {...({ 'aria-checked': !!task.cutsBelow, dataSet: { cutSwitch: task.cutsBelow ? '1' : '0' } } as object)}
-            >
-              <View style={[styles.knob, task.cutsBelow && styles.knobOn]} />
-            </Pressable>
+            <Toggle value={!!task.cutsBelow} onValueChange={(v) => patch({ cutsBelow: v ? true : undefined })} label="Split" dataSet={{ cutSwitch: task.cutsBelow ? '1' : '0' }} />
             <Text style={styles.hintText}>Splits the tasks it overlaps, so you still see them before and after it.</Text>
           </View>
         </DetailRow>
@@ -862,10 +844,6 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  switch: { width: 34, height: 20, borderRadius: 10, padding: 3, backgroundColor: Colors.border, justifyContent: 'center' },
-  switchOn: { backgroundColor: Colors.accent },
-  knob: { width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.onLabel },
-  knobOn: { alignSelf: 'flex-end' },
   input: { flex: 1, minWidth: 120, height: 28, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   inputBad: { borderColor: Colors.danger },
   bad: { fontSize: 12, color: Colors.danger },

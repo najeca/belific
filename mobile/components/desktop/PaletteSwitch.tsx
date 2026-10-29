@@ -1,12 +1,8 @@
 import React from 'react';
-import { Switch } from 'react-native';
-import { Colors } from '../../lib/theme';
+import Toggle from '../Toggle';
 
-// The one switch for the desktop (checkpoint 9.1): an off white thumb, the
-// sage track when on and the neutral border track when off. react-native-web
-// ignores `thumbColor` while a switch is on and paints its own teal unless
-// `activeThumbColor` is given too, so both are set. Web only; the iPhone
-// settings screen keeps its own native Switch.
+// The desktop's switch (checkpoint 9.1; redrawn in 3.15.0): the shared Toggle, kept under this name for its
+// callers. See components/Toggle.tsx.
 export default function PaletteSwitch({
   value,
   onValueChange,
@@ -16,15 +12,5 @@ export default function PaletteSwitch({
   onValueChange: (v: boolean) => void;
   label: string;
 }) {
-  const web = { activeThumbColor: Colors.surface } as object;
-  return (
-    <Switch
-      value={value}
-      onValueChange={onValueChange}
-      trackColor={{ false: Colors.border, true: Colors.accent }}
-      thumbColor={Colors.surface}
-      {...web}
-      accessibilityLabel={label}
-    />
-  );
+  return <Toggle value={value} onValueChange={onValueChange} label={label} />;
 }

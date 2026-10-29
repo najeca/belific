@@ -37,6 +37,10 @@
   --ds-picker-preview: #EEF2EF;
   --ds-picker-tab-on: #DCE7E0;
   --ds-picker-cell-on: #D3E2D8;
+  --ds-switch-on: #3F6B52;
+  --ds-switch-off: #7F8681;
+  --ds-switch-knob: #FFFFFF;
+  --ds-switch-edge: rgba(0,0,0,0.22);
   --ds-inverse-bg: #1B1B1B;
   --ds-inverse-text: #FFFFFF;
   --ds-shadow-sm: 0 1px 2px rgba(27,27,27,0.06);
@@ -106,6 +110,10 @@
   --ds-picker-preview: #222A25;
   --ds-picker-tab-on: #2F3E35;
   --ds-picker-cell-on: #37493D;
+  --ds-switch-on: #3F7F58;
+  --ds-switch-off: #8A8A8A;
+  --ds-switch-knob: #FFFFFF;
+  --ds-switch-edge: rgba(0,0,0,0.35);
   --ds-inverse-bg: #F2F2F2;
   --ds-inverse-text: #121212;
   --ds-shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
@@ -151,6 +159,10 @@
     --ds-picker-preview: #222A25;
     --ds-picker-tab-on: #2F3E35;
     --ds-picker-cell-on: #37493D;
+    --ds-switch-on: #3F7F58;
+    --ds-switch-off: #8A8A8A;
+    --ds-switch-knob: #FFFFFF;
+    --ds-switch-edge: rgba(0,0,0,0.35);
     --ds-inverse-bg: #F2F2F2;
     --ds-inverse-text: #121212;
     --ds-shadow-sm: 0 1px 2px rgba(0,0,0,0.4);

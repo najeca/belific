@@ -42,6 +42,10 @@ export interface ColorTokens {
   pickerPreview: string; // 3.13.0: the emoji picker's panel with the chosen emoji shown large
   pickerTabOn: string; // the picker's chosen category tab
   pickerCellOn: string; // the picker's chosen emoji
+  switchOn: string; // 3.15.0: a switch's track when on
+  switchOff: string; // its track when off (a clearly different grey)
+  switchKnob: string; // its knob: light in both themes
+  switchEdge: string; // a hairline round the knob
   inverseBg: string; // the undo bar, a tooltip
   inverseText: string;
   shadowSm: string; // a block lifted a hair
@@ -86,6 +90,10 @@ export const lightTokens: ColorTokens = {
   pickerPreview: '#EEF2EF',
   pickerTabOn: '#DCE7E0',
   pickerCellOn: '#D3E2D8',
+  switchOn: '#3F6B52',
+  switchOff: '#7F8681',
+  switchKnob: '#FFFFFF',
+  switchEdge: 'rgba(0,0,0,0.22)',
   inverseBg: '#1B1B1B',
   inverseText: '#FFFFFF',
   shadowSm: '0 1px 2px rgba(27,27,27,0.06)',
@@ -130,6 +138,10 @@ export const darkTokens: ColorTokens = {
   pickerPreview: '#222A25',
   pickerTabOn: '#2F3E35',
   pickerCellOn: '#37493D',
+  switchOn: '#3F7F58',
+  switchOff: '#8A8A8A',
+  switchKnob: '#FFFFFF',
+  switchEdge: 'rgba(0,0,0,0.35)',
   inverseBg: '#F2F2F2',
   inverseText: '#121212',
   shadowSm: '0 1px 2px rgba(0,0,0,0.4)',

@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Switch,
   Alert,
   ActivityIndicator,
   Linking,
@@ -17,6 +16,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { useTheme, useThemed } from '../components/phone/theme';
 import { Segmented } from '../components/phone/chrome';
+import Toggle from '../components/Toggle';
 import { type } from '../components/phone/type';
 import { THEME_MODE_LABEL, THEME_MODES, type ThemeMode } from '../lib/themeMode';
 import type { ColorTokens } from '../lib/tokens';
@@ -277,12 +277,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Daily Notifications</Text>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={handleNotificationsToggle}
-              trackColor={{ false: Colors.border, true: Colors.accent }}
-              thumbColor={Colors.onAccent}
-            />
+            <Toggle value={notificationsEnabled} onValueChange={handleNotificationsToggle} label="Daily Notifications" colors={Colors} />
           </View>
           {showSettingsPrompt && (
             <TouchableOpacity
@@ -308,27 +303,20 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.row} {...({ dataSet: { phoneRemind: '1' } } as object)}>
             <Text style={styles.rowLabel}>Remind me on this device</Text>
-            <Switch
+            <Toggle
               value={remindTasks}
               onValueChange={(v) => {
                 setRemindTasks(v);
                 refreshTaskReminders();
               }}
-              trackColor={{ false: Colors.border, true: Colors.accent }}
-              thumbColor={Colors.onAccent}
-              accessibilityLabel="Remind me on this device"
+              label="Remind me on this device"
+              colors={Colors}
             />
           </View>
           <Text style={[styles.rowLabel, { fontSize: 12, color: Colors.textSecondary, paddingHorizontal: 16, paddingBottom: 10 }]}>Reminders for timed tasks on this iPhone. Your computer has its own switch.</Text>
           <View style={styles.row} {...({ dataSet: { phoneStreaks: '1' } } as object)}>
             <Text style={styles.rowLabel}>Show streaks</Text>
-            <Switch
-              value={showStreaks}
-              onValueChange={setShowStreaks}
-              trackColor={{ false: Colors.border, true: Colors.accent }}
-              thumbColor={Colors.onAccent}
-              accessibilityLabel="Show streaks"
-            />
+            <Toggle value={showStreaks} onValueChange={setShowStreaks} label="Show streaks" colors={Colors} />
           </View>
         </View>
 

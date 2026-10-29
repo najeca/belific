@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.15.0 — 2026-10-29 (switches redrawn)
+
+**Desktop and iPhone. No schema change. UI only.**
+- **One switch everywhere** (`components/Toggle.tsx`): Settings, the filter, the task details (Must do, Split) and the phone (Settings, the task sheet's Top priority). 44 x 26 with a 20 point light knob in both themes, the same focus ring (2 px accent outline, offset 2), a 44 pt touch area on the phone.
+- **On** is a deep sage track with the knob to the right and a tick on it; **off** is a plain grey track with the knob to the left. Before, the dark theme drew a dark knob on the sage track and the off track was nearly the page colour.
+- New tokens `switchOn`, `switchOff`, `switchKnob`, `switchEdge` (light and dark; `design-tokens` regenerated). `tokens.test.ts` checks the knob on both tracks and both tracks on the pane and a surface at 3:1 or more, in both themes.
+- The phone's Top priority switch used the danger red track; it now uses the same sage as every other switch (a red on-state read as an alert).
+- **Tests:** `tokens.test.ts` +1; real checks `p31.js` (27) and `phone-p16.js` (12), light and dark, screenshots in `docs/screens-3.15.0/`.
+
 ## 3.14.2 — 2026-10-27 (regenerate the design tokens)
 
 **Fix, no behaviour change.** `design-tokens/tokens.css` is generated (`node scripts/export-tokens.mjs` in `mobile/`); 3.13.0 added the picker tokens to it by hand with the wrong indentation in the system dark block, which `designTokens.test.ts` caught in the final run. Regenerated.

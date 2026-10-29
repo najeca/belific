@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +26,7 @@ import { MonthGrid } from './MonthGrid';
 import { TimeField } from './TimeField';
 import { inter, mono, type } from './type';
 import { Button, LabelDot, RoundCheck } from './ui';
+import Toggle from '../Toggle';
 import { RepeatEditor } from './RepeatEditor';
 import { TimesEditor } from './TimesEditor';
 import { RemindersEditor } from './RemindersEditor';
@@ -379,13 +380,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
             {row('flag-outline', 'Top priority', (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 {isMustDo(task) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
-                <Switch
-                  value={isMustDo(task)}
-                  onValueChange={(v) => void write(priorityPatch(v))}
-                  trackColor={{ false: c.borderStrong, true: c.danger }}
-                  thumbColor={c.surface}
-                  accessibilityLabel="Top priority"
-                />
+                <Toggle value={isMustDo(task)} onValueChange={(v) => void write(priorityPatch(v))} label="Top priority" colors={c} />
               </View>
             ), () => void write(priorityPatch(!isMustDo(task))), 'Top priority', true, 'priority')}
             {row('calendar-outline', 'Date', dayText, () => setOpen(open === 'date' ? null : 'date'), `Date, ${dayText}`, false, 'date')}

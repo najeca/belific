@@ -132,6 +132,19 @@ test('3.13.0: the emoji picker panel, chosen tab and chosen emoji read in both t
   }
 });
 
+test('3.15.0: a switch reads in both themes: a light knob, a track against the pane, on clearly unlike off', () => {
+  for (const t of [lightTokens, darkTokens]) {
+    for (const k of ['switchOn', 'switchOff', 'switchKnob'] as const) assert.match(t[k], HEX);
+    assert.ok(contrast(t.switchKnob, t.switchOn) >= 3, `knob on the on track ${contrast(t.switchKnob, t.switchOn).toFixed(2)}`);
+    assert.ok(contrast(t.switchKnob, t.switchOff) >= 3, `knob on the off track ${contrast(t.switchKnob, t.switchOff).toFixed(2)}`);
+    assert.ok(contrast(t.switchOn, t.pane) >= 3, `on track on the pane ${contrast(t.switchOn, t.pane).toFixed(2)}`);
+    assert.ok(contrast(t.switchOff, t.pane) >= 3, `off track on the pane ${contrast(t.switchOff, t.pane).toFixed(2)}`);
+    assert.ok(contrast(t.switchOn, t.surface) >= 3 && contrast(t.switchOff, t.surface) >= 3, 'tracks on a surface');
+    assert.ok(contrast(t.switchOn, t.switchOff) >= 1.3, `on against off ${contrast(t.switchOn, t.switchOff).toFixed(2)}`);
+  }
+  assert.ok(contrast(darkTokens.switchKnob, '#000000') > 15 && contrast(lightTokens.switchKnob, '#000000') > 15, 'the knob is light in both themes');
+});
+
 test('3.10.0: the "N inside" pill and the "During" caption read at 6:1 in both themes, on the pill and on a card', () => {
   for (const t of [lightTokens, darkTokens]) {
     assert.match(t.hostPill, HEX);

@@ -68,6 +68,8 @@ const make = (c: ColorTokens) => ({
   body: { flex: 1, minHeight: 56, paddingVertical: 10, paddingRight: 12, justifyContent: 'center' as const },
   line: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6 },
   time: { ...mono(500), fontSize: 13, color: c.textSecondary, minWidth: 58 },
+  // 3.15.2: the bold figure at the right of the title is the length; the start time is in the meta line.
+  length: { ...mono(500), fontSize: 13, color: c.textPrimary, marginLeft: 'auto' as const, paddingLeft: 6 },
   title: { ...inter(500), fontSize: 16, lineHeight: 21, color: c.textPrimary, flexShrink: 1 },
   titleDone: { color: c.textSecondary, textDecorationLine: 'line-through' as const },
   eventTitle: { color: c.textSecondary },
@@ -272,14 +274,15 @@ export default function TodayScreen() {
             data={{ todayBody: item.key }}
           >
             <View style={s.line}>
-              {timeText ? <Text style={s.time}>{timeText}</Text> : null}
               <Text style={[s.title, done && s.titleDone]} numberOfLines={open ? undefined : 2}>
                 {title}
               </Text>
               {t && isMustDo(t) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
               {t?.recurrence || item.kind === 'routine' ? <Ionicons name="repeat" size={14} color={c.textSecondary} accessibilityLabel="Repeats" /> : null}
+              {t?.durationMinutes ? <Text style={s.length} accessibilityLabel={`Estimate ${formatDuration(t.durationMinutes)}`} {...({ dataSet: { todayLength: '1' } } as object)}>{formatDuration(t.durationMinutes)}</Text> : null}
             </View>
-            <View style={[s.metaRow, timeText ? { marginLeft: 64 } : null]}>
+            <View style={s.metaRow}>
+              {timeText ? <Text style={[s.meta, { ...mono(500) }]} {...({ dataSet: { todayStart: '1' } } as object)}>{timeText}</Text> : null}
               {item.kind === 'routine' ? <Text style={s.meta}>{TIME_OF_DAY[item.routine.timeOfDay]} routine</Text> : null}
               {lab ? (
                 <View style={s.detail}>
@@ -288,7 +291,6 @@ export default function TodayScreen() {
                 </View>
               ) : null}
               {lst ? <Text style={s.meta}>{lst}</Text> : null}
-              {t?.durationMinutes ? <Text style={s.meta}>{formatDuration(t.durationMinutes)}</Text> : null}
               {count.total ? <Text style={s.meta}>{`${count.done}/${count.total} steps`}</Text> : null}
               {t && movedCaption(t) ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t) } } as object)}>{`↪ ${movedCaption(t)}`}</Text> : null}
               {t && hosts.inside.get(t.id) ? (

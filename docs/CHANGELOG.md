@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.15.2 — 2026-10-29 (the bold figure on a card is the length)
+
+**Desktop and iPhone. No schema change. UI only.**
+- **The bold figure at the top right of a task card is now the LENGTH** (`3h`, `1h 30m`, `30m`), on every card: the left pane, the Tasks board and its Today column, and the phone's Today and Tasks rows. The start time was shown there and again in the meta line; it now lives in the meta line only (with the day where the card shows one: `Fri · 06:00`; several times: `11:00, 15:00 ✓`). The meta line's accessible name still reads `Starts 11:00, 15:00 (done)`.
+- **Consistent:** the figure uses `formatDuration` everywhere (before, a card with no time showed H:MM, `1:30`). A task with no length shows **no figure** (it showed a muted `0:00`).
+- **Phone:** Today's rows lost the bold time in front of the title; the bold length sits at the right of the title and the start time is the first item of the meta line (mono). The Tasks rows get the same bold length (the meta line no longer repeats it).
+- **Tests:** real checks `p33.js` (46, light and dark) and `phone-p16.js` (+8). Changed on purpose because the start time moved: `cp8f.js` (0:00 and H:MM figures), `cp8g.js`, `cp8h.js`, `p19.js`. Screenshots in `docs/screens-3.15.2/`.
+
 ## 3.15.1 — 2026-10-29 (themed list dropdown, native selects follow the theme)
 
 **Desktop. No schema change. UI only. Fix.**

@@ -182,13 +182,14 @@ async function run() {
       await click(q(`[data-popover] [aria-label="Estimated time ${text}"]`), 300);
     };
     const timeText = (title) => js(`(() => { const el = ${inCard(title, '[data-card-time]')}; return el ? el.innerText.trim() : null; })()`);
-    check('card: a new task shows 0:00 (not None)', (await timeText('Fresh')) === '0:00', String(await timeText('Fresh')));
-    check('card: a placed task shows its start time', (await timeText('Placed')) === '09:30', String(await timeText('Placed')));
+    // 3.15.2 (changed on purpose): the bold figure is the length, and a task with none shows no figure.
+    check('card: a new task (no length) shows no figure', (await timeText('Fresh')) === null, String(await timeText('Fresh')));
+    check('card: a placed task shows its length bold and its start time in the meta line', (await timeText('Placed')) === '15m' && (await js(`(() => { const el = ${inCard('Placed', '[data-card-meta]')}; return el ? el.innerText.includes('09:30') : false; })()`)), String(await timeText('Placed')));
     await shot('cp8f-chip');
 
     // ---- the estimate in the details ----
     await openModal('Fresh');
-    check('a click on the card opens the details (the time figure is not a control of its own)', (await modalOpen()) && !(await popover()) && (await js(`${inCard('Fresh', '[data-card-time]')}.getAttribute('role')`)) !== 'button');
+    check('a click on the card opens the details (the time figure is not a control of its own)', (await modalOpen()) && !(await popover()) && (await js(`${inCard('Placed', '[data-card-time]')}.getAttribute('role')`)) !== 'button');
     await openEstimate();
     const labels = await js(`Array.from(document.querySelectorAll('[data-popover][aria-label="Estimated time"] [role="button"]')).map((e) => e.getAttribute('aria-label'))`);
     check(
@@ -204,7 +205,7 @@ async function run() {
     await waitFile(() => taskNamed('Fresh').durationMinutes === 15);
     check('picking "15 min" saves 15', taskNamed('Fresh').durationMinutes === 15);
     await C.waitFor(async () => (await timeText('Fresh')) === '0:15', 5000).catch(() => {});
-    check('the card now shows 0:15', (await timeText('Fresh')) === '0:15', String(await timeText('Fresh')));
+    check('the card now shows 15m (3.15.2: the length, no longer H:MM)', (await timeText('Fresh')) === '15m', String(await timeText('Fresh')));
     check('the drop-down shows "15 min"', (await js(`${inModal('[data-duration-select="Estimated time"] [data-duration-value]')}.textContent.trim()`)) === '15 min');
 
     // ---- type "1h 30m" (real keys, with the space) ----
@@ -212,7 +213,7 @@ async function run() {
     await waitFile(() => taskNamed('Fresh').durationMinutes === 90);
     check('"1h 30m" + Enter saves 90', taskNamed('Fresh').durationMinutes === 90);
     await C.waitFor(async () => (await timeText('Fresh')) === '1:30', 5000).catch(() => {});
-    check('the card shows 1:30', (await timeText('Fresh')) === '1:30', String(await timeText('Fresh')));
+    check('the card shows 1h 30m (3.15.2)', (await timeText('Fresh')) === '1h 30m', String(await timeText('Fresh')));
 
     // ---- type "130" ----
     await custom('130');
@@ -239,7 +240,7 @@ async function run() {
     await click(q('[data-popover] [aria-label="Clear estimated time"]'));
     await waitFile(() => taskNamed('Fresh').durationMinutes === undefined);
     await C.waitFor(async () => (await timeText('Fresh')) === '0:00', 5000).catch(() => {});
-    check('"Clear" clears it and the card shows 0:00 again', taskNamed('Fresh').durationMinutes === undefined && (await timeText('Fresh')) === '0:00');
+    check('"Clear" clears it and the card shows no figure again (3.15.2)', taskNamed('Fresh').durationMinutes === undefined && (await timeText('Fresh')) === null);
     check('there is no old Custom hours and minutes picker', !(await exists(`document.querySelector('select[aria-label="Hours"]')`)));
     await closeModal();
 

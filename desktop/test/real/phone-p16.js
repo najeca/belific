@@ -1,5 +1,6 @@
 'use strict';
 // Real touch check for the 3.15.0 batch on the phone, 390 x 844. Sections are added step by step.
+//  Step 3 (3.15.2): the bold figure on a row is the length; the start time is in the meta line only.
 //  Step 1 (3.15.0): the shared switch (44 x 26, light knob, clear on and off tracks, light and dark) on the
 //          phone's Settings and the task sheet's Top priority.
 const fs = require('node:fs');
@@ -31,7 +32,7 @@ async function run() {
   fs.mkdirSync(dataDir, { recursive: true });
   const T = (id, title, extra = {}) => ({ id, title, completed: false, createdAt: stamp, updatedAt: stamp, ...extra });
   const write = (k, v) => fs.writeFileSync(path.join(dataDir, `${k}.kv`), JSON.stringify(v));
-  write('belific_tasks', [T('sw', 'Switch thing', { dueDate: today, startTime: '10:00', durationMinutes: 60 })]);
+  write('belific_tasks', [T('sw', 'Switch thing', { dueDate: today, startTime: '10:00', durationMinutes: 60 }), T('lg', 'Long task', { dueDate: today, startTime: '06:00', durationMinutes: 180 }), T('ud', 'Undated length', { durationMinutes: 45 }), T('un', 'Undated nothing')]);
   write('belific_lists', []);
 
   require(C.MAIN);
@@ -87,6 +88,31 @@ async function run() {
   await P.finger.tap(visible('[data-toggle][aria-label="Top priority"]'), 600);
   await shot('phone-p16-switches-sheet-dark-on');
   check('Top priority on: the switch reads on', (await switches()).some((x) => x.label === 'Top priority' && x.checked === 'true'));
+
+  await P.finger.tap(visible('[aria-label="Done"]'), 900);
+
+  // ======== Step 3: the length is the bold figure, the start time is in the meta line ========
+  const todayRow = (title) => P.js(`(() => { const b = [...document.querySelectorAll('[data-today-body]')].find((e) => e.innerText.includes('${title}')); if (!b) return null; const l = b.querySelector('[data-today-length]'); const st = b.querySelector('[data-today-start]'); return { len: l ? l.innerText.trim() : null, start: st ? st.innerText.trim() : null, bold: l ? getComputedStyle(l).color : null }; })()`);
+  const mode3 = async (mode) => {
+    await P.finger.tap(tab('Today'), 1200);
+    const lg = await todayRow('Long task');
+    check(`${mode}: Today: Long task has the bold length 3h and its start 6:00am in the meta line`, !!lg && lg.len === '3h' && /6:00s*am/i.test(lg.start || ''), JSON.stringify(lg));
+    const sw = await todayRow('Switch thing');
+    check(`${mode}: Today: Switch thing has 1h and 10:00am`, !!sw && sw.len === '1h' && /10:00s*am/i.test(sw.start || ''), JSON.stringify(sw));
+    await shot(`phone-p16-card-time-today-${mode}`);
+    await P.finger.tap(tab('Tasks'), 1500);
+    const ud = await P.js(`(() => { const r = document.querySelector('[data-task-row="Undated length"]'); if (!r) return null; const l = r.querySelector('[data-task-length]'); return { len: l ? l.innerText.trim() : null, text: r.innerText.replace(/\s+/g, ' ') }; })()`);
+    check(`${mode}: Tasks: Undated length shows 45m once, at the right of the title`, !!ud && ud.len === '45m' && ud.text.split('45m').length === 2, JSON.stringify(ud));
+    const un = await P.js(`(() => { const r = document.querySelector('[data-task-row="Undated nothing"]'); return r ? !!r.querySelector('[data-task-length]') : null; })()`);
+    check(`${mode}: Tasks: a row with no length shows no figure`, un === false, String(un));
+    await shot(`phone-p16-card-time-tasks-${mode}`);
+  };
+  await mode3('dark');
+  await P.finger.tap(tab('Today'), 900);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-phone-theme] [data-seg="light"]'), 900);
+  await P.finger.tap(visible('[aria-label="Back"]'), 900);
+  await mode3('light');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

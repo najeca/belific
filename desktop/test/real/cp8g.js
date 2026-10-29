@@ -195,8 +195,8 @@ async function run() {
   const blk = await rectOf(blockSel('night'));
   check('the block runs from 22:00 to the bottom of the day (24:00)', near(blk.top, gr.top + 22 * PX, 3) && near(blk.bottom, gr.top + 24 * PX, 4), `${blk.top - gr.top} .. ${blk.bottom - gr.top}`);
   check('the block shows it continues', await exists(q('[aria-label="Continues after 24:00"]')));
-  // 2.27.0: a placed card shows its start time; the stored estimate stays 8 hours.
-  check('the card shows its start time and the estimate stays the full 8 hours', (await js(`(() => { const el = ${q('[aria-label="Task Night shift"]:not([data-block-id]) [data-card-time]')}; return el ? el.innerText.trim() : null; })()`)) === '22:00' && taskNamed('Night shift').durationMinutes === 480);
+  // 2.27.0: a placed card shows its start time (3.15.2: in the meta line; the bold figure is the length); the stored estimate stays 8 hours.
+  check('the card shows its start time and the estimate stays the full 8 hours', (await js(`(() => { const el = ${q('[aria-label="Task Night shift"]:not([data-block-id]) [data-card-time]')}; return el ? el.innerText.trim() : null; })()`)) === '8h' && (await js(`(() => { const el = ${q('[aria-label="Task Night shift"]:not([data-block-id]) [data-card-meta]')}; return el ? el.innerText.includes('22:00') : false; })()`)) && taskNamed('Night shift').durationMinutes === 480);
   await shot('cp8g-overnight-day');
 
   // ---- next day: "Continues from yesterday" until 06:00 ----

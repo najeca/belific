@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { formatClock } from '../../lib/duration';
+import { formatDuration } from '../../lib/duration';
 import { counter } from '../../lib/subtasks';
 import { dateKey } from '../../lib/kanban';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
@@ -251,7 +251,11 @@ export default function TaskCard({
   const dayText = showDay && task.dueDate ? dayLabel(task.dueDate, todayKey) : null;
   // 3.3.0: a day of a repeating task moved on its own says where it came from.
   const moved = movedCaption(task);
-  const hasMeta = !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || !!during || !!inside;
+  // 3.15.2: the start time lives in the meta line only (with the day when it is shown); the bold figure at the top
+  // right is the length, on every card.
+  const whenText = [dayText, placed ? timesLabel(task) : null].filter(Boolean).join(' · ');
+  const lengthText = formatDuration(task.durationMinutes);
+  const hasMeta = !!whenText || !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || !!during || !!inside;
 
   return (
     <HoverPressable
@@ -296,14 +300,16 @@ export default function TaskCard({
                 {task.emoji ? `${task.emoji} ` : ''}
                 {task.title}
               </Text>
-              <Text
-                style={[styles.chipText, !placed && task.durationMinutes === undefined && styles.chipTextMuted, task.completed && styles.chipDone]}
-                accessibilityLabel={placed ? `Starts ${timesLabel(task).replace(/ ✓/g, ' (done)')}` : `Estimate ${formatClock(task.durationMinutes)}`}
-                {...MONO}
-                {...({ dataSet: { cardTime: '1', mono: '1' } } as object)}
-              >
-                {placed ? timesLabel(task) : formatClock(task.durationMinutes)}
-              </Text>
+              {lengthText ? (
+                <Text
+                  style={[styles.chipText, task.completed && styles.chipDone]}
+                  accessibilityLabel={`Estimate ${lengthText}`}
+                  {...MONO}
+                  {...({ dataSet: { cardTime: '1', cardLength: '1', mono: '1' } } as object)}
+                >
+                  {lengthText}
+                </Text>
+              ) : null}
             </View>
 
             {/* Decision 007: the quiet run line on today's card of a repeating task (from 2). */}
@@ -326,12 +332,15 @@ export default function TaskCard({
                     </Text>
                   </View>
                 )}
-                {dayText && (
-                  <Text style={styles.metaDay} {...({ dataSet: { cardDay: '1' } } as object)}>
-                    {dayText}
-                    {placed ? ` · ${timesLabel(task)}` : ''}
+                {whenText ? (
+                  <Text
+                    style={styles.metaDay}
+                    accessibilityLabel={placed ? `${dayText ? `${dayText}, ` : ''}Starts ${timesLabel(task).replace(/ ✓/g, ' (done)')}` : undefined}
+                    {...({ dataSet: { cardDay: '1' } } as object)}
+                  >
+                    {whenText}
                   </Text>
-                )}
+                ) : null}
                 {!!inside && (
                   <View style={styles.hostPill} accessibilityLabel={`${insidePill(inside)} this break`} {...({ dataSet: { hostPill: String(inside) } } as object)}>
                     <Text style={styles.hostPillText}>{insidePill(inside)}</Text>

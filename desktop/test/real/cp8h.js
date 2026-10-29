@@ -179,7 +179,8 @@ async function run() {
   const countCards = (title) => js(`${cardsExpr(title)}.length`);
   const projectedFlags = (title) => js(`${cardsExpr(title)}.map((c) => c.hasAttribute('data-projected'))`);
   const cardTexts = (title) => js(`${cardsExpr(title)}.map((c) => c.innerText.replace(/\\s+/g, ' '))`);
-  const chip = (title, i) => js(`(() => { const c = ${nth(title, i)}; const e = c && c.querySelector('[data-card-time]'); return e ? e.innerText.trim() : null; })()`);
+  // 3.15.2 (changed on purpose): the start time is in the card's meta line now (the bold figure is the length).
+  const chip = (title, i) => js(`(() => { const c = ${nth(title, i)}; const e = c && c.querySelector('[data-card-meta]'); const m = e && e.innerText.match(/\\d\\d:\\d\\d/); return m ? m[0] : null; })()`);
   // 2.27.0: a card opens the details modal; edits are made there.
   const modal = '[role="dialog"][aria-label="Task details"]';
   const modalOpen = () => exists(q(modal));

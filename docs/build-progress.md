@@ -659,3 +659,6 @@ Commit: see the git log. Added `components/Toggle.tsx` (Pressable, role switch, 
 
 ## UI fixes batch 2, themed list dropdown, native selects follow the theme: 3.15.1
 Added `ListPick.tsx`; the details panel uses it; `themeStore.ensureNativeControlStyle()` styles native options. Choices: New list is an inline name row with Create list (not a separate dialog); no-emoji list shows its name only (kept the p11 rule). Not verifiable by screenshot: the browser's own select popup is not captured by capturePage, so the native option colours are checked by computed style. Check by hand: open a task's List in dark and light; Settings My day starts at in dark; create a list from the dropdown.
+
+## UI fixes batch 2, the bold figure on a card is the length: 3.15.2
+Desktop `TaskCard` (`lengthText`, `whenText`), phone `today.tsx` and `tasks.tsx`. Choices: no length means no figure (not 0:00 or a dash); the phone's bold is mono 500 in the primary text colour (the phone mono font has 400 and 500 only). Check by hand: a card with a start time and a length on the left pane, a column, the phone Today and Tasks; a task with several times; a task with a start time and no length.

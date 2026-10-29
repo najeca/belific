@@ -247,8 +247,9 @@ export default function TasksTab() {
                 </Text>
                 {t && isMustDo(t) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
                 {repeating ? <Ionicons name="repeat" size={14} color={c.textSecondary} accessibilityLabel="Repeats" /> : null}
+                {t?.durationMinutes ? <Text style={[s.meta, { ...mono(500), fontSize: 13, color: c.textPrimary, marginLeft: 'auto' }]} accessibilityLabel={`Estimate ${formatDuration(t.durationMinutes)}`} {...({ dataSet: { taskLength: '1' } } as object)}>{formatDuration(t.durationMinutes)}</Text> : null}
               </View>
-              {when || lab || steps.total || t?.durationMinutes ? (
+              {when || lab || steps.total ? (
                 <View style={s.metaRow}>
                   {when ? <Text style={[s.meta, { ...mono(400), fontSize: 12 }]}>{when}</Text> : null}
                   {t && hosts.inside.get(t.id) ? (
@@ -264,7 +265,6 @@ export default function TasksTab() {
                       <Text style={s.meta}>{lab.name}</Text>
                     </View>
                   ) : null}
-                  {t?.durationMinutes ? <Text style={s.meta}>{formatDuration(t.durationMinutes)}</Text> : null}
                   {steps.total ? <Text style={s.meta}>{`${steps.done}/${steps.total} steps`}</Text> : null}
                 </View>
               ) : null}

@@ -106,7 +106,7 @@ async function run() {
   // ======== 4. The card and the planned time ========
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900).catch(() => {});
   await C.sleep(500);
-  const chip = await I.js(`(() => { const c = Array.from(document.querySelectorAll('[data-task-card="brk"]')).find((e) => e.getBoundingClientRect().width > 0); if (!c) return null; const t = c.querySelector('[data-card-time]'); return t ? { text: t.innerText, label: t.getAttribute('aria-label') } : null; })()`);
+  const chip = await I.js(`(() => { const c = Array.from(document.querySelectorAll('[data-task-card="brk"]')).find((e) => e.getBoundingClientRect().width > 0); if (!c) return null; const t = c.querySelector('[data-card-day]'); return t ? { text: t.innerText.replace(/\\s+/g, ' ').trim(), label: t.getAttribute('aria-label') } : null; })()`);
   check('4: the card shows both times, the done one with a tick', !!chip && chip.text === '11:00, 15:00 ✓', JSON.stringify(chip));
   check('4: its accessible name says which is done', !!chip && /^Starts 11:00, 15:00 \(done\)$/.test(chip.label || ''), JSON.stringify(chip));
 

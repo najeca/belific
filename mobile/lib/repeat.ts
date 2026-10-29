@@ -215,13 +215,19 @@ export interface ResolvedRepeat {
 // weekday, or the first date with the chosen month day, on or after it) and
 // the repeat fields. null when the choice is incomplete: no day chosen for
 // Weekly or Every 2 weeks, or no valid month day for Monthly.
+//
+// 3.18.1: a repeating task always has a start. With no Day, `todayKey` (when given) stands in for it: the Day
+// becomes the first chosen weekday on or after today (the first date with the chosen month day for Monthly, today
+// itself for Daily and Every year). `movedFrom` only says so for a Day the person had chosen.
 export function resolveRepeat(
   kind: RepeatKind,
   days: WeekDay[],
   dayKey: string | undefined,
   monthDay: number | null,
+  todayKey?: string,
 ): ResolvedRepeat | null {
-  const day = isDateKey(dayKey) ? dayKey : undefined;
+  const own = isDateKey(dayKey) ? dayKey : undefined;
+  const day = own ?? (kind !== 'none' && isDateKey(todayKey) ? todayKey : undefined);
   if (kind === 'daily') {
     // No day chips and nothing else stored; the Day stays as it is.
     return { dueDate: day, recurrence: 'daily', recurrenceDays: undefined, recurrenceMonthDay: undefined };
@@ -235,7 +241,7 @@ export function resolveRepeat(
     const aligned = day ? alignToDays(day, days) : undefined;
     return {
       dueDate: aligned,
-      movedFrom: aligned !== day ? day : undefined,
+      movedFrom: own && aligned !== own ? own : undefined,
       recurrence: rule,
       recurrenceDays: sortDays(days),
       recurrenceMonthDay: undefined,
@@ -246,7 +252,7 @@ export function resolveRepeat(
     const aligned = day ? alignToMonthDay(day, monthDay) : undefined;
     return {
       dueDate: aligned,
-      movedFrom: aligned !== day ? day : undefined,
+      movedFrom: own && aligned !== own ? own : undefined,
       recurrence: 'monthly',
       recurrenceDays: undefined,
       recurrenceMonthDay: monthDay,

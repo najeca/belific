@@ -28,7 +28,8 @@ import { updateTask } from '../../lib/storage';
 import { closePopover } from './Popover';
 import { isEditableTarget } from '../../lib/editable';
 import { convertDumpItem } from '../../lib/taskActions';
-import { editRepeatingTime, moveDay, patchSeries } from '../../lib/seriesActions';
+import { editRepeatingTime, moveDay, patchSeries, startRepeatingOn } from '../../lib/seriesActions';
+import { isUndatedRepeating, repeatDropRefusal } from '../../lib/repeatDrop';
 import { isTimeEdit } from '../../lib/scopeAsk';
 import { withoutDay } from '../../lib/taskOps';
 import { isDateKey } from '../../lib/kanban';
@@ -89,6 +90,8 @@ export interface DragState {
   // there), or it is longer than the break and drops as before.
   // 3.11.0: 'longer' is refused (the drop snaps back) and `note` says why: "Longer than the break (1 h)".
   host?: { kind: 'host' | 'longer'; title: string; note?: string };
+  // 3.18.1: a repeating task with no Day dropped on a day that is not one of its repeat days: refused, with this hint.
+  repeatNote?: string;
 }
 
 type ZoneReg =
@@ -241,6 +244,12 @@ export default function DragProvider({ children, onChanged }: { children: React.
     }
     if (edge === 0) armed.current = null;
     else if (!armed.current || armed.current.dir !== edge) armed.current = { dir: edge, at: performance.now() };
+    // 3.18.1: a repeating task with no Day starts its series on the day it is dropped on, a repeat day.
+    const dragged = p.item.task;
+    const repeatNote =
+      target && target.kind !== 'left' && dragged && !p.item.projected && !p.item.time && isUndatedRepeating(dragged) && isDateKey(target.dayKey)
+        ? (repeatDropRefusal(dragged, target.dayKey, todayKey) ?? undefined)
+        : undefined;
     const next: DragState = {
       mode: 'move',
       item: p.item,
@@ -248,9 +257,10 @@ export default function DragProvider({ children, onChanged }: { children: React.
       y,
       target,
       // A projected occurrence never goes to the left list (a day of a series keeps a Day).
-      accepted: target ? canDrop(target, todayKey) && (!p.item.projected || target.kind !== 'left') && host?.kind !== 'longer' : false,
+      accepted: target ? canDrop(target, todayKey) && (!p.item.projected || target.kind !== 'left') && host?.kind !== 'longer' && !repeatNote : false,
       edge,
       ...(host ? { host } : {}),
+      ...(repeatNote ? { repeatNote } : {}),
     };
     last.current = next;
     setDrag(next);
@@ -357,6 +367,10 @@ export default function DragProvider({ children, onChanged }: { children: React.
     // on another card never merges or nests it; subtasks are added on the card
     // or in the details window.
     if (state.host?.kind === 'longer' && state.host.note) showNotice(state.host.note);
+    if (state.repeatNote) {
+      showNotice(state.repeatNote);
+      return;
+    }
     if (!state.target || !state.accepted) return;
     const { task, item } = p.item;
     // 3.2.0: a day of a repeating task dropped on ANOTHER day moves that day only, stored or projected
@@ -377,6 +391,14 @@ export default function DragProvider({ children, onChanged }: { children: React.
       else if (p.item.projected) await patchSeries(task, fields);
       else await updateTask({ ...task, ...fields });
     };
+    // 3.18.1: a repeating task with no Day (nothing was ever placed) starts its series on this repeat day. The
+    // generic path below would send it to moveDay, which has no day to move from and wrote nothing.
+    if (task && !p.item.projected && !p.item.time && isUndatedRepeating(task) && target.kind !== 'left') {
+      const patch = dropPatch({ ...task, dueDate: undefined }, p.item.kind, target, todayKey);
+      await startRepeatingOn(task, target.dayKey, patch ?? {});
+      onChangedRef.current();
+      return;
+    }
     // A block of a task with several times a day (Part C): only its own time moves (see multiDropPatch).
     if (task && p.item.time && isMultiTime(task)) {
       const res = multiDropPatch(task, p.item.time, target, todayKey, !!p.item.projected && !otherDay);
@@ -563,6 +585,8 @@ function LiftedCard({ drag }: { drag: DragState }) {
   if (t && !drag.accepted && drag.item.projected && t.kind === 'left') hint = 'A day of a repeating task stays on a day';
   // 3.11.0: refused over a break the task does not fit: it snaps back on release.
   else if (t && !drag.accepted && drag.host?.kind === 'longer') hint = drag.host.note ?? null;
+  // 3.18.1: a repeating task with no Day, over a day that is not one of its repeat days.
+  else if (t && !drag.accepted && drag.repeatNote) hint = drag.repeatNote;
   else if (t && !drag.accepted) hint = 'Past day';
   // 3.6.0: on a break: "During Lunch, 12:30 to 12:45".
   else if (t?.kind === 'slot' && drag.host?.kind === 'host') hint = `During ${drag.host.title}, ${slotLabel(t.startMin, drag.item.duration)}`;

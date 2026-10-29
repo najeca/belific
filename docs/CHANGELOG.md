@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 3.18.1 — 2026-10-29 (dragging a repeating task from the list onto a day)
+
+**Desktop (the empty Task date also on the phone's repeat editor). No schema change. Fix.**
+- **Bug:** a task "Zone 2" repeating Mon and Thu with an empty date, dragged from the left list onto Thursday 16:30 to 18:00, was not placed. The drop preview even said `16:30 to 18:00`.
+- **Cause (reproduced first on 3.18.0 with `p37.js`):** the left list's card is a repeating task with **no Day**, so no series exists yet (a series is counted from its first row's Day: `series.seriesOfRows` needs a dated row). The drop went down the 3.2.0 path "a day of a repeating task dropped on another day moves that day only" (`DragProvider.commitDrop` -> `write` -> `seriesActions.moveDay`), because the task has a repeat rule and the target day differs from its empty Day. `moveDay` needs a Day to move from (`ownDay` is undefined) and returned `null` without a word, so nothing was written and nothing was said. Since 3.2.0 only the left list refused a repeating day, and only for projected days; an undated repeating task from the list fell between the two.
+- **Fix:** dropping it on a day that matches its repeat rule **starts the series there** and sets that day's time: when the series has no time yet it asks **This day only / All days** (3.4.0); when it already has one, it sets that day alone, without asking. Dropping on a day that is **not a repeat day is refused while dragging** (the card says "Drop on a repeat day (Mon, Thu) or change the repeat", no slot is drawn) and on release the same note shows and nothing is written. New `lib/repeatDrop.ts` (the rule, tested), `seriesActions.startRepeatingOn`, `DragProvider`. A day of a series moved to another day (the weekend swap, `Moved from`) is unchanged.
+- **The empty Task date of a repeating task:** setting a repeat on a task with no Day (desktop `RepeatBody`, phone `RepeatEditor`; `repeat.resolveRepeat` gets today) now gives it the first matching repeat day on or after today (the first date with the month day; today for Daily and Every year), so a series always has a start. A repeating task also no longer offers **Remove date** in the details (it keeps a Day, as the date box already did). Tasks that already have no Day (like Zone 2) get theirs on their first drop.
+- **Also (a fix to 3.17.0):** the Today tag on the Calendar's month cell read 4.18:1 in dark on the cell's soft accent; it is now on a solid pane colour with an accent border (`p23.js` caught it).
+- **Tests:** `repeatDrop.test.ts` (6, new); real check `p37.js` (18: reproduction, Calendar and Timebox drops, This day only, All days, a series with a time, a refused day with its hint, the Task date default); `p26.js`, `cp8d.js`, `cp8e.js`, `cp8h.js` pass unchanged. Screenshots in `docs/screens-3.18.1/`.
+- **Edge Function vendor copy:** `repeat.ts` is vendored into `supabase/functions/belific-calendar-feed/vendor/` (a test pins it byte for byte); `node scripts/vendor-feed.js` re-synced the repo copy (the added defaulting only applies when a `todayKey` is passed, which the feed never does, so its behaviour is unchanged). **Nothing was deployed**; the deployed function is untouched until Jethro redeploys.
+
 ## 3.18.0 — 2026-10-29 (reminders can be chosen before a time exists)
 
 **Desktop and iPhone. No schema change, no new column. UI only.**

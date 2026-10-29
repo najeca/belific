@@ -15,6 +15,7 @@ import {
 } from './series';
 import { dateKey } from './kanban';
 import { askScope } from './scopeAsk';
+import { startedOn } from './repeatDrop';
 import type { Task } from './types';
 
 // What a card does to a repeating series (checkpoint 8.4, decision 023). Pure
@@ -158,6 +159,22 @@ export async function editRepeatingTime(task: Task, projected: boolean, fields: 
   const scope = answer ?? (projected ? 'all' : 'day');
   if (scope === 'all') await patchSeries(task, fields);
   else await editThisDay(task, fields);
+}
+
+// A repeating task with no Day, dropped from the left list on a repeat day (3.18.1, lib/repeatDrop.ts): that day
+// becomes the start of its series, and the time the drop set is that day's. When the series has no time of its
+// own yet the question "This day only / All days" is asked as for any new time of a repeating task (3.4.0); when it
+// has one, the drop sets that day alone. A drop that sets no time (a day column) just starts the series.
+export async function startRepeatingOn(task: Task, dayKey: string, fields: Partial<Task>): Promise<Task | null> {
+  const started = startedOn(task, dayKey, nowIso());
+  await updateTask(started);
+  const timeFields: Partial<Task> = {};
+  if (fields.startTime !== undefined) timeFields.startTime = fields.startTime;
+  if (fields.durationMinutes !== undefined) timeFields.durationMinutes = fields.durationMinutes;
+  if (Object.keys(timeFields).length === 0) return started;
+  if (task.startTime) return editThisDay(started, timeFields);
+  await editRepeatingTime(started, false, timeFields);
+  return started;
 }
 
 // "Move this day" (3.1.0): that day alone goes to `toDay`, with `fields` (a time,

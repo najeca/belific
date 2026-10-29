@@ -53,7 +53,7 @@ export function RepeatEditor({ task, onApply }: { task: Task; onApply: (fields: 
   const [annualOk, setAnnualOk] = useState(false);
   const day = isDateKey(task.dueDate) ? task.dueDate : undefined;
   const monthDay = parseMonthDay(monthText);
-  const resolved = resolveRepeat(repeat, days, day, monthDay);
+  const resolved = resolveRepeat(repeat, days, day, monthDay, todayKey);
   const summary = repeatSummary(repeat, days, day, monthDay);
   const needsAnnualOk = repeat === 'annual' && task.recurrence !== 'annual' && !annualOk;
 

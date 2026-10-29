@@ -328,7 +328,7 @@ export function RepeatBody({ task, ops, done }: BodyProps) {
   const [monthText, setMonthText] = useState(() => String(defaultMonthDay(task)));
   const day = isDateKey(task.dueDate) ? task.dueDate : undefined;
   const monthDay = parseMonthDay(monthText);
-  const resolved = resolveRepeat(repeat, days, day, monthDay);
+  const resolved = resolveRepeat(repeat, days, day, monthDay, todayKey);
   const summary = repeatSummary(repeat, days, day, monthDay);
   // Every year is new in 2.21.0: before a task is first made annual, the person
   // confirms every device has been updated (an older Belific shows no days).

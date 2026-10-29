@@ -320,7 +320,7 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
               </Pressable>
             ) : null}
             {!multi ? addLink : null}
-            {task.dueDate && !projected ? (
+            {task.dueDate && !projected && !task.recurrence ? (
               <Pressable onPress={() => patch({ dueDate: undefined })} style={styles.quiet} accessibilityRole="button" accessibilityLabel="Remove the day">
                 <Text style={styles.quietSub}>Remove date</Text>
               </Pressable>

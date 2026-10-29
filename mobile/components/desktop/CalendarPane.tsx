@@ -873,8 +873,9 @@ const styles = StyleSheet.create({
   headRow: { flexDirection: 'row' },
   dayHead: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
   dayHeadTodayBg: { backgroundColor: Colors.accentSoft, borderBottomWidth: 2, borderBottomColor: Colors.accent },
-  // 3.17.0: the small Today tag (the same soft accent pill as the board's column header).
-  todayTag: { alignSelf: 'center', height: 18, lineHeight: 18, paddingHorizontal: 6, borderRadius: 6, overflow: 'hidden', fontSize: 10, fontWeight: '700', color: Colors.accentText, backgroundColor: Colors.accentSoft } as object,
+  // 3.17.0: the small Today tag.
+  // On a solid pane colour (not the soft accent), because it sits on today's soft accent header and cell: text 4.5:1 or more.
+  todayTag: { alignSelf: 'center', height: 18, lineHeight: 16, paddingHorizontal: 6, borderRadius: 6, overflow: 'hidden', fontSize: 10, fontWeight: '700', color: Colors.accentText, backgroundColor: Colors.pane, borderWidth: 1, borderColor: Colors.accent } as object,
   awayDay: { backgroundColor: Colors.surfaceRaised },
   dayHeadDate: { fontWeight: '700' },
   past: { opacity: 0.55 },

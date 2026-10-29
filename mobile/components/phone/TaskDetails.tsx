@@ -31,7 +31,7 @@ import { RepeatEditor } from './RepeatEditor';
 import { TimesEditor } from './TimesEditor';
 import { RemindersEditor } from './RemindersEditor';
 import { repeatKindOf, REPEAT_CHOICES, shortRepeat } from '../../lib/repeat';
-import { taskRemindersLabel } from '../../lib/reminder';
+import { reminderHint, taskRemindersLabel } from '../../lib/reminder';
 import { isMultiTime, timesOf } from '../../lib/times';
 import { hostLinks, type HostLink } from '../../lib/hosting';
 import { breakRefusal, moveOutOfBreak } from '../../lib/hostActions';
@@ -463,7 +463,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                 <TimesEditor task={task} onWrite={(fields) => void write(fields)} />
               </View>
             ) : null}
-            {row('notifications-outline', 'Reminders', `${taskRemindersLabel(task)}${isMultiTime(task) ? ', each time' : ''}`, () => setOpen(open === 'reminders' ? null : 'reminders'), 'Reminders', false, 'reminders')}
+            {row('notifications-outline', 'Reminders', `${taskRemindersLabel(task)}${isMultiTime(task) ? ', each time' : ''}${reminderHint(task) && (Array.isArray(task.reminders) || task.reminderMinutes != null) ? `, ${reminderHint(task)!.toLowerCase()}` : ''}`, () => setOpen(open === 'reminders' ? null : 'reminders'), 'Reminders', false, 'reminders')}
             {open === 'reminders' ? (
               <View style={s.panel}>
                 <RemindersEditor task={task} onWrite={(fields) => void write(fields)} />

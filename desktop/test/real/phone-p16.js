@@ -1,5 +1,6 @@
 'use strict';
 // Real touch check for the 3.15.0 batch on the phone, 390 x 844. Sections are added step by step.
+//  Step 6 (3.18.0): the reminder chips can be tapped before a task has a time; stored as usual, hint shown.
 //  Step 4 (3.16.0): the Tasks tab's add row is a full width field whose placeholder is whole; the + button adds.
 //  Step 3 (3.15.2): the bold figure on a row is the length; the start time is in the meta line only.
 //  Step 1 (3.15.0): the shared switch (44 x 26, light knob, clear on and off tracks, light and dark) on the
@@ -33,7 +34,7 @@ async function run() {
   fs.mkdirSync(dataDir, { recursive: true });
   const T = (id, title, extra = {}) => ({ id, title, completed: false, createdAt: stamp, updatedAt: stamp, ...extra });
   const write = (k, v) => fs.writeFileSync(path.join(dataDir, `${k}.kv`), JSON.stringify(v));
-  write('belific_tasks', [T('sw', 'Switch thing', { dueDate: today, startTime: '10:00', durationMinutes: 60 }), T('lg', 'Long task', { dueDate: today, startTime: '06:00', durationMinutes: 180 }), T('ud', 'Undated length', { durationMinutes: 45 }), T('un', 'Undated nothing')]);
+  write('belific_tasks', [T('sw', 'Switch thing', { dueDate: today, startTime: '10:00', durationMinutes: 60 }), T('lg', 'Long task', { dueDate: today, startTime: '06:00', durationMinutes: 180 }), T('ud', 'Undated length', { durationMinutes: 45 }), T('un', 'Undated nothing'), T('rm', 'Remind me later')]);
   write('belific_lists', []);
 
   require(C.MAIN);
@@ -127,6 +128,22 @@ async function run() {
   await P.finger.tap(visible('[aria-label="Add"]'), 900);
   check('phone Tasks: the button adds the task', JSON.stringify(JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_tasks.kv'), 'utf8')).map((t) => t.title)).includes('Phone added'));
   await shot('phone-p16-add-row');
+
+  // ======== Step 6: reminders before a time exists ========
+  const storedTask = (id) => JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_tasks.kv'), 'utf8')).find((t) => t.id === id);
+  await P.finger.tap(tab('Tasks'), 1500);
+  await P.finger.tap(`[...document.querySelectorAll('[data-task-row="Remind me later"] [data-task-body]')][0]`, 1400);
+  await P.finger.tap(visible('[aria-label^="Reminders"]'), 800);
+  const chips = await P.js(`[...document.querySelectorAll('[data-reminders-editor] [aria-label^="Remind "]')].map((e) => ({ label: e.getAttribute('aria-label'), disabled: e.getAttribute('aria-disabled'), h: Math.round(e.getBoundingClientRect().height) }))`);
+  check('phone: the lead chips are all there and none is disabled, 40 pt or more', chips.length >= 6 && chips.every((c) => c.disabled !== 'true' && c.h >= 40), JSON.stringify(chips));
+  const hint = await P.js(`(() => { const h = document.querySelector('[data-reminders-editor] [data-reminder-hint]'); return h ? h.innerText.trim() : null; })()`);
+  check('phone: the hint reads "Applies once you set a time"', hint === 'Applies once you set a time', String(hint));
+  await shot('phone-p16-reminders-no-time');
+  await P.finger.tap(visible('[aria-label="Remind 5 minutes before"]'), 700);
+  check('phone: tapping 5 minutes before stores it on the task as usual', Array.isArray(storedTask('rm').reminders) && storedTask('rm').reminders.includes(5), JSON.stringify(storedTask('rm')));
+  const rowText = await P.js(`(() => { const r = document.querySelector('[aria-label="Reminders"]'); return r ? r.innerText.replace(/\\s+/g, ' ') : null; })()`);
+  check('phone: the Reminders row shows the choice with the hint', /5 minutes before/.test(String(rowText)) && /applies once you set a time/i.test(String(rowText)), String(rowText));
+  await P.finger.tap(visible('[aria-label="Done"]'), 900);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

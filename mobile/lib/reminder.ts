@@ -109,10 +109,17 @@ export function reminderLabel(v: number | null | undefined): string {
   return REMINDER_OPTIONS.find((o) => o.value === v)?.label ?? `${v} minutes before`;
 }
 
-// Is the option selectable for this task. Options that need a start time are
-// disabled when the task has none (the dropdown then shows the quiet note).
+// Is the option selectable for this task. 3.18.0: the reminder menus no longer use this (every lead can be
+// chosen at any time, see NEEDS_TIME_HINT); it stays for the older option list.
 export function optionEnabled(o: ReminderOption, hasStart: boolean): boolean {
   return !o.needsStart || hasStart;
 }
 
 export const NO_START_NOTE = 'Reminds at your daily reminder time';
+
+// 3.18.0: the leads (at the start, 5 minutes before, ...) can be chosen before a task has a day and a time. They are
+// stored on the task as usual (`reminders`) and fire once it has a time; until then the hint says so.
+export const NEEDS_TIME_HINT = 'Applies once you set a time';
+export function reminderHint(task: { dueDate?: string; startTime?: string }): string | null {
+  return task.dueDate && task.startTime ? null : NEEDS_TIME_HINT;
+}

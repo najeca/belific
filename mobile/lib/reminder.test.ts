@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { REMINDER_OPTIONS, leadMs, notifyAt, optionEnabled, reminderLabel, reminderState } from './reminder.ts';
+import { NEEDS_TIME_HINT, REMINDER_OPTIONS, leadMs, notifyAt, optionEnabled, reminderHint, reminderLabel, reminderState } from './reminder.ts';
 
 test('states: undefined and null are the default, -1 is off, 0 or more is set', () => {
   assert.equal(reminderState(undefined), 'default');
@@ -103,4 +103,18 @@ test('P5 labels: the leads, the list text and the details row text', () => {
   assert.equal(taskRemindersLabel({ reminders: [] }), 'None');
   assert.equal(taskRemindersLabel({ reminderMinutes: -1 }), 'None');
   assert.equal(taskRemindersLabel({ reminderMinutes: 10 }), '10 minutes before');
+});
+
+test('3.18.0: reminders can be chosen before a task has a time: stored as usual, with a hint until it has one', () => {
+  assert.equal(NEEDS_TIME_HINT, 'Applies once you set a time');
+  assert.equal(reminderHint({}), NEEDS_TIME_HINT, 'no day, no time');
+  assert.equal(reminderHint({ dueDate: '2026-11-02' }), NEEDS_TIME_HINT, 'a day but no time');
+  assert.equal(reminderHint({ dueDate: '2026-11-02', startTime: '09:00' }), null, 'timed: no hint');
+  // The choice on a task with no time is the same stored list as on a timed one (no new column).
+  const undated: { reminders?: number[] } = {};
+  const next = toggleLead(effectiveReminders(undated, [0]), 5);
+  assert.deepEqual(next, [0, 5]);
+  assert.deepEqual(reminderPatch(next), reminderPatch([0, 5]));
+  // Once a time is set the stored list is read as before.
+  assert.deepEqual(effectiveReminders({ reminders: [0, 5] }, [0]), [0, 5]);
 });

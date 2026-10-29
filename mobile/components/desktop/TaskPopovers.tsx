@@ -8,7 +8,7 @@ import { colorClash, freeColorKey, labelColor } from '../../lib/labelColors';
 import LabelForm from './LabelForm';
 import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
 import { availableSuggestions, findLabelByName, normalizeName } from '../../lib/labelRules';
-import { NO_START_NOTE, REMINDER_LEADS, MAX_TASK_REMINDERS, effectiveReminders, leadLabel, reminderPatch, reminderState, toggleLead } from '../../lib/reminder';
+import { NEEDS_TIME_HINT, NO_START_NOTE, REMINDER_LEADS, MAX_TASK_REMINDERS, effectiveReminders, leadLabel, reminderPatch, reminderState, toggleLead } from '../../lib/reminder';
 import { useDefaultReminders } from './reminderStore';
 import {
   ANNUAL_CONFIRM,
@@ -232,6 +232,11 @@ export function ReminderBody({ task, ops, done }: BodyProps) {
   return (
     <View style={styles.list}>
       <PopoverHeading>Reminders</PopoverHeading>
+      {!hasStart && (
+        <Text style={popoverStyles.note} {...({ dataSet: { reminderHint: '1' } } as object)}>
+          {NEEDS_TIME_HINT}
+        </Text>
+      )}
       <Row
         label="Default"
         sub={hasStart ? leadsText(defaults) : 'Your daily reminder'}
@@ -257,7 +262,7 @@ export function ReminderBody({ task, ops, done }: BodyProps) {
             key={lead}
             label={leadLabel(lead)}
             selected={on}
-            disabled={!hasStart || (full && !on)}
+            disabled={full && !on}
             a11y={`${leadLabel(lead)}${on ? ', on' : ', off'}`}
             onPress={() => {
               const next = toggleLead(explicit ? list : effectiveReminders(task, defaults), lead);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { radius, type ColorTokens } from '../../lib/tokens';
-import { DEFAULT_REMINDERS, MAX_TASK_REMINDERS, REMINDER_LEADS, effectiveReminders, leadLabel, reminderPatch, reminderState, toggleLead } from '../../lib/reminder';
+import { DEFAULT_REMINDERS, MAX_TASK_REMINDERS, REMINDER_LEADS, effectiveReminders, leadLabel, reminderHint, reminderPatch, reminderState, toggleLead } from '../../lib/reminder';
 import { EACH_TIME_NOTE, isMultiTime } from '../../lib/times';
 import type { Task } from '../../lib/types';
 import { useStyles } from './theme';
@@ -40,7 +40,12 @@ export function RemindersEditor({ task, onWrite }: { task: Task; onWrite: (field
           chip(leadLabel(lead), explicit && list.includes(lead), () => onWrite(reminderPatch(toggleLead(explicit ? list : effectiveReminders(task, DEFAULT_REMINDERS), lead))), `Remind ${leadLabel(lead)}`),
         )}
       </View>
-      <Text style={s.note}>{`Up to ${MAX_TASK_REMINDERS}. ${!task.startTime ? 'A task needs a time to be reminded. ' : ''}${isMultiTime(task) ? EACH_TIME_NOTE : ''}`}</Text>
+      <Text style={s.note}>{`Up to ${MAX_TASK_REMINDERS}. ${isMultiTime(task) ? EACH_TIME_NOTE : ''}`}</Text>
+      {reminderHint(task) ? (
+        <Text style={s.note} {...({ dataSet: { reminderHint: '1' } } as object)}>
+          {reminderHint(task)}
+        </Text>
+      ) : null}
     </View>
   );
 }

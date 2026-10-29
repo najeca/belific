@@ -8,7 +8,7 @@ import { formatTaskTime } from '../../lib/taskTotals';
 import { addSubtask, counterLabel, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { generateId } from '../../lib/data';
 import { idDate, movedCaptionLong, projectOccurrences } from '../../lib/series';
-import { taskRemindersLabel } from '../../lib/reminder';
+import { reminderHint, taskRemindersLabel } from '../../lib/reminder';
 import { useDefaultReminders } from './reminderStore';
 import { effectiveListKey } from '../../lib/lists';
 import { setActualFor } from '../../lib/timerActions';
@@ -736,6 +736,7 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
   const defaults = useDefaultReminders();
   // Part C: with several times a day the list applies to each of them.
   const text = `${taskRemindersLabel(task, defaults)}${isMultiTime(task) ? ', for each time' : ''}`;
+  const hint = reminderHint(task);
   return (
     <>
       <Pressable
@@ -750,6 +751,11 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
           {text}
         </Text>
       </Pressable>
+      {hint && (Array.isArray(task.reminders) || task.reminderMinutes != null) ? (
+        <Text style={styles.hintText} {...({ dataSet: { reminderRowHint: '1' } } as object)}>
+          {hint}
+        </Text>
+      ) : null}
       <Popover id={id} anchor={get} width={260}>
         <ReminderBody task={task} ops={wrapped} done={() => closePopover(true)} />
       </Popover>

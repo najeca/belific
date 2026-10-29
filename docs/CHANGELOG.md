@@ -8,6 +8,13 @@ to know the current version and recent history.
 
 ---
 
+## 3.18.0 — 2026-10-29 (reminders can be chosen before a time exists)
+
+**Desktop and iPhone. No schema change, no new column. UI only.**
+- **The reminder options (At start time, 5 minutes before, ... 1 day before) are no longer greyed out** when a task has no day or no time. Choose them at any time: the choice is stored on the task as usual (`reminders`, with the legacy `reminderMinutes` mirror as always), a small hint **"Applies once you set a time"** shows at the top of the reminder menu and on the details row (and on the phone's chips and Reminders row), and once the task has a time the main process scheduler holds one reminder per lead, as for any timed task. Until then nothing is scheduled (the daily reminder note stays for the Default choice).
+- Same on the phone's task sheet: its chips never were greyed, but said "A task needs a time to be reminded"; they now say "Applies once you set a time".
+- **Tests:** `reminder.test.ts` +1 (`reminderHint`, the same stored list with and without a time); real checks `p36.js` (18: options enabled, hint, stored, nothing scheduled with no time, then scheduled at the start and 5 minutes before once a day and time are set, a dated task with no time, light and dark) and `phone-p16.js` (+4). `p15.js` (the scheduler) and `cp8b.js` pass unchanged. Screenshots in `docs/screens-3.18.0/`.
+
 ## 3.17.0 — 2026-10-29 (Today and Only today swapped, a clear today marker)
 
 **Desktop. No schema change. UI only.**

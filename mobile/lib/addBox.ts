@@ -3,8 +3,8 @@
 // is gone and 48 is enough. As the box narrows the secondary controls go away, never the text, in this order of
 // what stays longest:
 //   empty box:  the label button, the total of the day (a day column), then the details icon
-//   typing:     the label button (2.27.0: it is never pushed out), the time picker (a day column), the details icon,
-//               then the estimate picker (the estimate can also be set in the details)
+//   typing:     the label button (2.27.0: it is never pushed out), the time picker (a day column), the estimate
+//               picker (2.27.1), then the details icon
 // Before the box has been measured everything is shown.
 export const INPUT_MIN = 76;
 export const TYPING_MIN = 48;
@@ -43,7 +43,7 @@ export function addRoom(width: number | null, wants: AddWants): AddRoom {
   }
   const label = take(BTN, true);
   const time = take(90, wants.time);
-  const details = take(BTN, true);
   const estimate = take(56, wants.estimate);
+  const details = take(BTN, true);
   return { details, label, trailing: false, time, estimate };
 }

@@ -19,8 +19,8 @@ test('3.16.0: the left pane box (about 222 wide, no total) holds the label and t
 test('3.16.0: a day column (272) keeps its total, its label and the details icon; typing keeps the label, the time and the details icon', () => {
   assert.deepEqual(addRoom(272, empty), { details: true, label: true, trailing: true, time: false, estimate: false });
   const typing = addRoom(272, typedDay);
-  assert.equal(typing.label && typing.time && typing.details, true);
-  assert.equal(typing.estimate, false, 'the estimate gives way first (it is in the details too)');
+  assert.equal(typing.label && typing.time && typing.estimate, true, 'the older controls stay');
+  assert.equal(typing.details, false, 'the details icon gives way first while typing in a day column (it is back in the empty row and in the left pane)');
 });
 
 test('3.16.0: as the box narrows the details icon goes before the label, the field never gets less than its placeholder', () => {

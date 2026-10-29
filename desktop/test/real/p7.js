@@ -97,7 +97,7 @@ async function run() {
     await I.click(I.byLabel('Back'));
     await I.waitBody('Beta', 8000);
   };
-  const checked = (label) => I.js(`(() => { const e = ${I.byLabel(label)}; return e ? !!e.checked : null; })()`);
+  const checked = (label) => I.js(`(() => { const e = ${I.byLabel(label)}; return e ? (e.getAttribute('aria-checked') === 'true' || !!e.checked) : null; })()`); // 3.15.0 (changed on purpose): the shared switch is a role=switch element with aria-checked, not a checkbox input
   const text = (label) => I.textOf(I.byLabel(label));
   const anyExists = (sel) => I.js(`!!document.querySelector(${JSON.stringify(sel)})`);
   const openSettings = async () => {

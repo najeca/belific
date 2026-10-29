@@ -118,16 +118,9 @@ async function run() {
   await I.click(`${box(day(0))}.querySelector('[data-add-plus]')`, 300);
   await I.type('x');
   const pickers = await I.js(`(() => { const b = ${box(day(0))}; return { time: !!b.querySelector('input[type="time"]'), estimate: !!b.querySelector('[data-duration-select]'), label: !!b.querySelector('[data-ctl="addLabel"]'), details: !!b.querySelector('[data-ctl="addDetails"]') }; })()`);
-  check('typing in a day column keeps the label, shows the time picker and the details icon (the estimate gives way)', pickers.time && pickers.label && pickers.details && !pickers.estimate, JSON.stringify(pickers));
+  check('typing in a day column keeps the label, the time and the estimate pickers (the details icon gives way)', pickers.time && pickers.label && pickers.estimate && !pickers.details, JSON.stringify(pickers));
   await I.js(`document.activeElement.select()`);
   await I.key('Backspace', [], 200);
-  await I.click(`${box(day(0))}.querySelector('[data-add-plus]')`, 300);
-  await I.type('Day column task');
-  await I.click(`${box(day(0))}.querySelector('[data-ctl="addDetails"]')`, 900);
-  await C.waitFor(async () => titles().includes('Day column task'), 5000).catch(() => {});
-  const dayTask = read('belific_tasks').find((t) => t.title === 'Day column task');
-  check('in a day column the details icon creates the task on that day and opens it', !!dayTask && dayTask.dueDate === day(0) && (await I.exists(`document.querySelector('[data-detail-panel]')`)), JSON.stringify(dayTask));
-  await I.key('Escape', [], 500);
 
   // ---- Dark ----
   const icon = (await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in';

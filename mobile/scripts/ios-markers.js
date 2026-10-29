@@ -117,6 +117,17 @@ const MARKERS = [
   // 3.9.0: the chip's menu wording (desktop only). lib/hostActions.ts is NOT a marker: the iPhone's break
   // sheet moves tasks out with it.
   'Move out of break',
+  // 3.15.1 to 3.17.0 (the UI fixes batch 2): desktop only wording and names. The List button of the details
+  // (ListPick), the Add row's details icon, the native select style, and the Today / Only today buttons. The shared
+  // Toggle (components/Toggle.tsx) IS in the phone bundle on purpose (the phone's switches), so it is not a marker; neither
+  // are lib/repeatDrop.ts and seriesActions.startRepeatingOn (3.18.1): seriesActions.ts is shared with the phone and
+  // Metro does not drop unused exports, so those names are in the bundle, inert (the phone has no drag).
+  'ListPick',
+  'belific-native-controls',
+  'Add the task and open its details',
+  'Type a name first, then open the details.',
+  'Jump to today (Shift+T)',
+  'Press again to see every day',
 ];
 
 const ALLOWED = {

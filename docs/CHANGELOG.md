@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.19.0 — 2026-10-29 (defaults for new users: Vibrant on, Theme Light)
+
+**Desktop. No schema change, nothing stored is rewritten.**
+- **What the defaults were:** Theme was already **Light** when never saved (desktop `DEFAULTS.theme`, the renderer's `DEFAULT_THEME_MODE`, and the phone's theme all start on `light`; **Match system** has only ever been an opt-in). **Vibrant task colours** was **off**.
+- **Now, for a NEW user only (no settings ever saved):** Vibrant task colours is **ON**, Theme is **Light** (unchanged, now pinned by tests). Nothing is stored until a setting is changed; the first change saves the whole object, with Vibrant still on.
+- **Existing saved settings do not change.** `loadSettings` (desktop/src/settings.js) keeps what a saved file means: a file with no `vibrantColours` was written when it was off by default, so it reads as **off**; a saved `true` or `false` is kept; a saved theme (light, dark, system) is kept; a file that cannot be read keeps the old off. Only an empty store gets the new defaults.
+- **Tests:** `settings.test.js` (changed on purpose for the new default, +5: a new user, settings saved before, explicit choices, unreadable files, the first save); real checks `p38.js` (a new user: Vibrant on in the Timebox and the Calendar, Settings reads on, Theme Light, nothing stored until a change) and `p39.js` (settings saved before: Dark kept, Vibrant off, the file untouched). The older real checks now start from a saved settings file with Vibrant off (`common.js`, as an existing user would have), so they describe the person they always described. Screenshots in `docs/screens-3.19.0/`.
+
 ## 3.18.1 — 2026-10-29 (dragging a repeating task from the list onto a day)
 
 **Desktop (the empty Task date also on the phone's repeat editor). No schema change. Fix.**

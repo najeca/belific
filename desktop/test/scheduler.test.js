@@ -254,7 +254,7 @@ test('plan is pure: it never mutates its inputs', () => {
 // ----- settings -----
 
 test('settings: defaults, validation and persistence', async () => {
-  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', defaultReminders: [0], dayStart: '05:00', showStreaks: true, vibrantColours: false, theme: 'light', closeToTray: true, startWithWindows: false, trayNoteShown: false });
+  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', defaultReminders: [0], dayStart: '05:00', showStreaks: true, vibrantColours: true, theme: 'light', closeToTray: true, startWithWindows: false, trayNoteShown: false });
   const s = sanitize({ dailyTime: '25:00', closeToTray: 'yes', startWithWindows: true, evil: 1, dailyReminder: false });
   assert.equal(s.dailyTime, '09:00');
   assert.equal(s.closeToTray, true);
@@ -268,7 +268,9 @@ test('settings: defaults, validation and persistence', async () => {
   assert.equal(loaded.dailyTime, '07:15');
   assert.equal(loaded.notifyEvents, false);
   mem.set('belific_desktop_settings', '{not json');
-  assert.deepEqual(await loadSettings(kv), { ...DEFAULTS });
+  // 3.19.0 (changed on purpose): an unreadable saved file keeps the old default for vibrant colours (off); only an
+  // empty store gets the new user default (on). See settings.test.js.
+  assert.deepEqual(await loadSettings(kv), { ...DEFAULTS, vibrantColours: false });
 });
 
 test('login item options: off by default, hidden start when on', () => {

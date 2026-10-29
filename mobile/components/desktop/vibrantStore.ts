@@ -6,7 +6,8 @@ import { VIBRANT_NEUTRAL, VIBRANT_TEXT, vibrantColor, vibrantEdge } from '../../
 // "Vibrant task colours" (Settings, Appearance), as a small module store so every block, chip
 // and card follows one value at once. The value lives in the main process settings
 // (`vibrantColours`, per computer, never synced): this is its renderer copy, read when the home
-// screen opens and whenever it is changed here. Off by default.
+// screen opens and whenever it is changed here. On for a new user, off for a person whose saved settings had it off
+// (desktop/src/settings.js, 3.19.0); until the main process answers it reads as off.
 let on = false;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());

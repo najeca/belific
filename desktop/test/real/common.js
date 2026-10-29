@@ -29,6 +29,14 @@ function isolate() {
   }
   app.setPath('userData', userData);
   if (app.getPath('userData') !== userData) throw new Error('ASSERT: userData was not applied');
+  // 3.19.0: Vibrant task colours is ON for a NEW user (no settings ever saved). The older real checks describe a
+  // person who already has settings saved, whose vibrant setting stays off, so they start from such a file. A check of
+  // the new user (p38) sets BELIFIC_TEST_NEW_USER=1 before this and starts with nothing saved.
+  const settingsFile = path.join(userData, 'data', 'belific_desktop_settings.kv');
+  if (process.env.BELIFIC_TEST_NEW_USER !== '1' && !fs.existsSync(settingsFile)) {
+    fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
+    fs.writeFileSync(settingsFile, JSON.stringify({ vibrantColours: false }));
+  }
   return userData;
 }
 

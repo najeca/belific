@@ -24,7 +24,9 @@ const DEFAULTS = Object.freeze({
   defaultReminders: Object.freeze([0]),
   dayStart: '05:00', // where the Timebox opens (UI state, never synced)
   showStreaks: true, // the "N days in a row" line on repeating tasks (checkpoint 11, never synced)
-  vibrantColours: false, // "Vibrant task colours" on Calendar blocks and Timebox cards (per computer, never synced)
+  // "Vibrant task colours" on Calendar blocks and Timebox cards (per computer, never synced). 3.19.0: ON for a
+  // new user, i.e. when no settings were ever saved. A settings file saved before keeps what it had (see loadSettings).
+  vibrantColours: true,
   theme: 'light', // the Theme setting: 'light' (default), 'dark' or 'system' (per computer, never synced)
   closeToTray: true,
   startWithWindows: false, // opt in, off by default
@@ -53,12 +55,30 @@ function sanitize(partial, current = DEFAULTS) {
   return out;
 }
 
+// 3.19.0: the defaults that changed for NEW users only (vibrant colours on). A person who has settings saved
+// already keeps their effective values: a file that has no `vibrantColours` was written when it was off by default,
+// so it stays off; a file that cannot be read is treated the same way (it was somebody's file). Only when nothing was
+// ever saved do the new defaults apply. The theme default was already Light and is unchanged.
+const LEGACY_VALUES = Object.freeze({ vibrantColours: false });
+
 async function loadSettings(kv) {
+  let raw = null;
   try {
-    const raw = await kv.getItem(SETTINGS_KEY);
-    return sanitize(raw ? JSON.parse(raw) : {}, DEFAULTS);
+    raw = await kv.getItem(SETTINGS_KEY);
   } catch {
     return { ...DEFAULTS };
+  }
+  if (!raw) return { ...DEFAULTS };
+  try {
+    const parsed = JSON.parse(raw);
+    // An empty saved value (null) is no saved settings.
+    if (!parsed || typeof parsed !== 'object') return { ...DEFAULTS };
+    const out = sanitize(parsed, DEFAULTS);
+    const saved = parsed;
+    for (const [key, value] of Object.entries(LEGACY_VALUES)) if (typeof saved[key] !== 'boolean') out[key] = value;
+    return out;
+  } catch {
+    return { ...DEFAULTS, ...LEGACY_VALUES };
   }
 }
 

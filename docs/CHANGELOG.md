@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 3.16.0 — 2026-10-29 (the Add row: a full width field, the total under the header, + and details icon)
+
+**Desktop (the phone's Tasks add row checked, unchanged). No schema change. UI only.**
+- **Bug:** at the left pane's width the Add field read "Add a tas": the "3h planned" pill and the tag icon took its room.
+- **The Add row is a full width field, `+ Add a task`,** and its placeholder is never cut. At a narrow width the secondary controls go away, never the text (`lib/addBox.ts`, tested): an empty row keeps the label button, then a day column's total, then the details icon; while typing it keeps the label, the time picker (day columns), the details icon, then the estimate picker. The field keeps at least 76 px empty (the placeholder is 71).
+- **The total moved:** the left pane's `3h planned` is a small quiet caption directly under the list header, outside the Add row.
+- **The + works:** clicking it (or the field) focuses the title; Enter creates the task and keeps the field ready.
+- **New details icon** at the right of the row: with a title typed it creates the task (in a day column, on that day) and opens its details with the title focused; with no title it creates nothing, says "Type a name first, then open the details." and focuses the field.
+- A day column's total (`0:00 / 7:00`) stays on one line.
+- **The phone's Tasks add row** (`Add to Brain Dump`, a 44 pt Add button) was checked at 390 wide: the placeholder is whole; unchanged.
+- **Tests:** `addBox.test.ts` (4); real checks `p34.js` (48: widths 130 to 420, both buttons, + and Enter, the details icon with and without a title, a day column, light and dark) and `phone-p16.js` (+3). Screenshots in `docs/screens-3.16.0/`.
+
 ## 3.15.2 — 2026-10-29 (the bold figure on a card is the length)
 
 **Desktop and iPhone. No schema change. UI only.**

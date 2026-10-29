@@ -662,3 +662,6 @@ Added `ListPick.tsx`; the details panel uses it; `themeStore.ensureNativeControl
 
 ## UI fixes batch 2, the bold figure on a card is the length: 3.15.2
 Desktop `TaskCard` (`lengthText`, `whenText`), phone `today.tsx` and `tasks.tsx`. Choices: no length means no figure (not 0:00 or a dash); the phone's bold is mono 500 in the primary text colour (the phone mono font has 400 and 500 only). Check by hand: a card with a start time and a length on the left pane, a column, the phone Today and Tasks; a task with several times; a task with a start time and no length.
+
+## UI fixes batch 2, the Add row: a full width field, the total under the header, + and details icon: 3.16.0
+New `lib/addBox.ts` (what fits), `AddTaskBox` (the + as a button, the details icon, the hint, measured width), `BrainDumpPane` (caption, openDetails), `KanbanPane` (openDetails, one line total). Choices: no title and the details icon = nothing created, a hint (not an empty draft); the label stays in a day column while typing, the estimate gives way first; the phone's add row left alone. Check by hand: the left pane at its width in light and dark; a day column; + then Enter; the details icon with and without a title.

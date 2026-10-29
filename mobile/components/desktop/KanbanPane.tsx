@@ -24,7 +24,7 @@ import { createTaskIn } from '../../lib/taskCommands';
 import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
 import { useBreakTwice } from './breakTwiceStore';
 import { useTick } from './timerUi';
-import { useGoToday, useReveal } from './uiStore';
+import { openDetail, useGoToday, useReveal } from './uiStore';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { pressStyle } from './pressStyle';
@@ -67,7 +67,7 @@ function DayTotals({ items, now }: { items: Task[]; now: number }) {
   const text = formatTotals(totals);
   if (!text) return null;
   return (
-    <Text style={[styles.totals, isOverEstimate(totals) && styles.totalsOver]} accessibilityLabel={`Actual against estimated for the day: ${text}`}>
+    <Text style={[styles.totals, isOverEstimate(totals) && styles.totalsOver]} numberOfLines={1} accessibilityLabel={`Actual against estimated for the day: ${text}`}>
       {text}
     </Text>
   );
@@ -84,9 +84,10 @@ function DayAddBox({ dayKey, items, now, onChanged, away }: { dayKey: string; it
       // An away day (2.27.0): adding is allowed, with a quiet warning.
       warning={away ? AWAY_ADD_WARNING : null}
       trailing={<DayTotals items={items} now={now} />}
-      onAdd={async (title, extra) => {
-        await createTaskIn(title, { dueDate: dayKey, ...extra });
+      onAdd={async (title, extra, openDetails) => {
+        const made = await createTaskIn(title, { dueDate: dayKey, ...extra });
         onChanged();
+        if (openDetails && made) openDetail(made.id, 'title');
       }}
     />
   );

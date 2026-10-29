@@ -1,5 +1,6 @@
 'use strict';
 // Real touch check for the 3.15.0 batch on the phone, 390 x 844. Sections are added step by step.
+//  Step 4 (3.16.0): the Tasks tab's add row is a full width field whose placeholder is whole; the + button adds.
 //  Step 3 (3.15.2): the bold figure on a row is the length; the start time is in the meta line only.
 //  Step 1 (3.15.0): the shared switch (44 x 26, light knob, clear on and off tracks, light and dark) on the
 //          phone's Settings and the task sheet's Top priority.
@@ -113,6 +114,19 @@ async function run() {
   await P.finger.tap(visible('[data-phone-theme] [data-seg="light"]'), 900);
   await P.finger.tap(visible('[aria-label="Back"]'), 900);
   await mode3('light');
+
+  // ======== Step 4: the Tasks tab's add row ========
+  await P.finger.tap(tab('Tasks'), 1500);
+  const addRow = await P.js(`(() => { const i = document.querySelector('input[placeholder^="Add to"]'); if (!i) return null; const cs = getComputedStyle(i); const c = document.createElement('canvas').getContext('2d'); c.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily; const w = c.measureText(i.placeholder).width; const r = i.getBoundingClientRect(); return { ph: i.placeholder, text: Math.ceil(w), room: Math.floor(i.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)), left: Math.round(r.left), right: Math.round(r.right), planned: /planned/.test(i.parentElement.innerText) }; })()`);
+  check('phone Tasks: the add row placeholder is whole (' + JSON.stringify(addRow) + ')', !!addRow && addRow.room >= addRow.text && !addRow.planned);
+  await P.finger.tap(visible('input[placeholder^="Add to"]'), 400);
+  await win.webContents.insertText('Phone added');
+  await C.sleep(300);
+  const addBtn = await P.js(`(() => { const b = document.querySelector('[aria-label="Add"]'); if (!b) return null; const r = b.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; })()`);
+  check('phone Tasks: the Add button is 44 pt or more', !!addBtn && addBtn.w >= 44 && addBtn.h >= 44, JSON.stringify(addBtn));
+  await P.finger.tap(visible('[aria-label="Add"]'), 900);
+  check('phone Tasks: the button adds the task', JSON.stringify(JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_tasks.kv'), 'utf8')).map((t) => t.title)).includes('Phone added'));
+  await shot('phone-p16-add-row');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

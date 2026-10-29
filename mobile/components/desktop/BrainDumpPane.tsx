@@ -112,6 +112,12 @@ export default function BrainDumpPane({
         <ListSwitcher lists={lists} counts={counts} selected={selected} />
         <MissedButton refreshKey={refreshKey} />
       </View>
+      {/* 3.16.0: the total is a quiet caption under the list header, not a pill in the Add row. */}
+      {planned ? (
+        <Text style={styles.plannedCaption} accessibilityLabel={`Estimated time still to do in this list: ${planned}`} {...({ dataSet: { planned: '1' } } as object)}>
+          {planned}
+        </Text>
+      ) : null}
 
       <View style={styles.captureRow}>
         <View style={styles.captureBox}>
@@ -120,16 +126,10 @@ export default function BrainDumpPane({
             a11y="Capture a thought"
             autoFocus
             inputRef={captureRef}
-            trailing={
-              planned ? (
-                <Text style={styles.planned} accessibilityLabel={`Estimated time still to do in this list: ${planned}`} {...({ dataSet: { planned: '1' } } as object)}>
-                  {planned}
-                </Text>
-              ) : null
-            }
-            onAdd={async (title, extra) => {
-              await createTaskIn(title, { listKey: selected, projectKey: extra.projectKey, durationMinutes: extra.durationMinutes });
+            onAdd={async (title, extra, openDetails) => {
+              const made = await createTaskIn(title, { listKey: selected, projectKey: extra.projectKey, durationMinutes: extra.durationMinutes });
               onChanged();
+              if (openDetails && made) openDetail(made.id, 'title');
             }}
           />
         </View>
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   } as object,
   addBtn: { height: 28, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
   addText: { fontSize: 12, fontWeight: '700', color: Colors.onAccent },
-  planned: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surfaceRaised, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
+  plannedCaption: { fontSize: 12, color: Colors.textSecondary, paddingLeft: 2, marginTop: 4, fontVariant: ['tabular-nums'] },
   list: { flex: 1 },
   // 2.26.0: cards 10 px apart, with room for their shadow.
   listContent: { gap: 10, padding: 2, paddingBottom: 12 },

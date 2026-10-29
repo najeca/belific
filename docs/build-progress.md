@@ -656,3 +656,6 @@ Final real regression of 3.14.2 (every check: cp6, cp8c to cp8h, cp9 to cp12, p2
 
 ## UI fixes batch 2, switches redrawn: 3.15.0
 Commit: see the git log. Added `components/Toggle.tsx` (Pressable, role switch, aria-checked, dataSet toggle), `PaletteSwitch` now wraps it, the phone Settings and TaskDetails and the desktop details panel use it. Choices: the phone's Top priority is sage not red; a tick on the knob when on so the state is not colour only. Check by hand: every switch in Settings, the filter, Must do and Split in the details, and the phone Settings and Top priority, in light and dark.
+
+## UI fixes batch 2, themed list dropdown, native selects follow the theme: 3.15.1
+Added `ListPick.tsx`; the details panel uses it; `themeStore.ensureNativeControlStyle()` styles native options. Choices: New list is an inline name row with Create list (not a separate dialog); no-emoji list shows its name only (kept the p11 rule). Not verifiable by screenshot: the browser's own select popup is not captured by capturePage, so the native option colours are checked by computed style. Check by hand: open a task's List in dark and light; Settings My day starts at in dark; create a list from the dropdown.

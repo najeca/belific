@@ -102,13 +102,13 @@ async function run() {
   await C.sleep(400);
   await I.click(`${cal(D, OCC)}`, 800);
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 4000);
-  const projected = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] select[aria-label="List"]'); return s ? { text: s.selectedOptions[0].textContent, value: s.value } : null; })()`);
+  const projected = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] [data-list-pick]'); return s ? { text: s.innerText, value: s.getAttribute('data-list-pick') } : null; })()`);
   check('P1: a projected day of the repeating task shows its own list in the details, not Brain Dump', !!projected && projected.value === 'camp' && projected.text.includes('Leep Talent Boot Camp') && !projected.text.includes('Brain Dump'), JSON.stringify(projected));
   await I.blur();
   await I.key('Escape');
   await C.sleep(400);
   await I.click(cal(today, 'boot'), 800).catch(() => {});
-  const stored = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] select[aria-label="List"]'); return s ? { text: s.selectedOptions[0].textContent, value: s.value } : null; })()`);
+  const stored = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] [data-list-pick]'); return s ? { text: s.innerText, value: s.getAttribute('data-list-pick') } : null; })()`);
   check('P1: the stored occurrence (today) shows the same list', !!stored && stored.value === 'camp', JSON.stringify(stored));
   await I.blur();
   await I.key('Escape');

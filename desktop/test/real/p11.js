@@ -257,11 +257,11 @@ async function run() {
   await I.click(I.byLabel('Show Tasks'), 800);
   // The List row of the details.
   await openModal('Modal task');
-  const listRow = await I.js(`(() => { const s = ${panel}.querySelector('select[aria-label="List"]'); return s.options[s.selectedIndex].text; })()`);
+  const listRow = await I.js(`(() => { const s = ${panel}.querySelector('[data-list-pick]'); return s.innerText.replace(/[\\uE000-\\uF8FF\\uFE0F]/g, '').replace(/\\s+/g, ' ').trim(); })()`);
   check('3: the details List row shows the list with its emoji', listRow === '🎲 Games', listRow);
   await closeModal();
   await openModal('No emoji list');
-  const listRow2 = await I.js(`(() => { const s = ${panel}.querySelector('select[aria-label="List"]'); return s.options[s.selectedIndex].text; })()`);
+  const listRow2 = await I.js(`(() => { const s = ${panel}.querySelector('[data-list-pick]'); return s.innerText.replace(/[\\uE000-\\uF8FF\\uFE0F]/g, '').replace(/\\s+/g, ' ').trim(); })()`);
   check('3: and a list with no emoji by its name only', listRow2 === 'Plain list', listRow2);
   await closeModal();
   await I.shot('p11-03-list-emoji');

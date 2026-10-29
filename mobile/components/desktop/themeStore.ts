@@ -12,6 +12,7 @@ import { DEFAULT_THEME_MODE, normalizeThemeMode, resolveTheme, type ThemeMode } 
 // applied before the first paint (`installTheme`, called from the desktop entry); the main
 // process setting stays the source of truth and corrects the cache when it is read.
 const CACHE_KEY = 'belific.theme';
+const cssVar = (token: string) => `var(${cssVarName(token)})`;
 
 let mode: ThemeMode = DEFAULT_THEME_MODE;
 let resolved: ThemeName = 'light';
@@ -32,10 +33,25 @@ function systemDark(): boolean {
   }
 }
 
+// Native controls that stay (a select in Settings and the planning flow, a date or time box): the browser draws
+// their popup, so it is told the theme (color-scheme on <html>) and its options take the theme's surface and text
+// colour. Without this a select with a transparent background drew a white popup with white names in dark mode.
+const NATIVE_STYLE_ID = 'belific-native-controls';
+function ensureNativeControlStyle() {
+  if (document.getElementById(NATIVE_STYLE_ID)) return;
+  const el = document.createElement('style');
+  el.id = NATIVE_STYLE_ID;
+  el.textContent = `select, input[type="date"], input[type="time"] { color-scheme: inherit; }
+select option, select optgroup { background-color: ${cssVar('surface')}; color: ${cssVar('textPrimary')}; }
+select option:checked { background-color: ${cssVar('accentSoft')}; }`;
+  document.head.appendChild(el);
+}
+
 function apply() {
   const next = resolveTheme(mode, systemDark());
   resolved = next;
   if (typeof document === 'undefined') return;
+  ensureNativeControlStyle();
   const root = document.documentElement;
   const tokens = THEMES[next];
   for (const [k, v] of Object.entries(tokens)) root.style.setProperty(cssVarName(k), v);

@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.15.1 — 2026-10-29 (themed list dropdown, native selects follow the theme)
+
+**Desktop. No schema change. UI only. Fix.**
+- **Bug:** in dark mode the task details' List dropdown (a native select) opened a white popup with white names, so none could be read.
+- **Fix:** the List row is now the app's own themed popover list (`components/desktop/ListPick.tsx`): the list's emoji and name on the button; one row per list, Brain Dump first, a tick on the chosen one; **New list** at the bottom, which asks for a name with the Create list button (off while empty or a duplicate, Enter works), creates the list there and chooses it. A list with no emoji shows its name only, as before.
+- **The native selects that remain** (Settings: My day starts at, Smallest piece when a break splits a task; the planning flow's list and size boxes): `themeStore` now injects one rule so their options take the theme's surface and text colour and `color-scheme` follows the theme (it was already set on the page, but a select with a transparent background drew a white popup). Estimated time and the reminder picker were already the app's own popovers. The phone has no native selects.
+- **Tests:** real check `p32.js` (29: the popover rows, tick, New list, both themes, option colours of every native select); `p11.js` and `p17.js` read the new List button instead of the select (changed on purpose). Screenshots in `docs/screens-3.15.1/`.
+
 ## 3.15.0 — 2026-10-29 (switches redrawn)
 
 **Desktop and iPhone. No schema change. UI only.**

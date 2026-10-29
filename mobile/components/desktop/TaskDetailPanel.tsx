@@ -10,7 +10,7 @@ import { generateId } from '../../lib/data';
 import { idDate, movedCaptionLong, projectOccurrences } from '../../lib/series';
 import { taskRemindersLabel } from '../../lib/reminder';
 import { useDefaultReminders } from './reminderStore';
-import { effectiveListKey, listOptionText, listTitle } from '../../lib/lists';
+import { effectiveListKey } from '../../lib/lists';
 import { setActualFor } from '../../lib/timerActions';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
@@ -42,6 +42,7 @@ import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
 import Toggle from '../Toggle';
+import ListPick from './ListPick';
 import { RoundCheck, checkRing, checkRingDone } from './ui';
 
 // The task details (build plan phase 2; a centred modal since 2.26.0): every
@@ -453,14 +454,7 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
         )}
 
         <DetailRow icon="list-outline" label="List">
-          <select value={listKey ?? ''} aria-label="List" onChange={(e) => patch({ listKey: e.target.value || undefined })} style={domSelect}>
-            <option value="">{listTitle(undefined)}</option>
-            {lists.map((l) => (
-              <option key={l.key} value={l.key}>
-                {listOptionText(l)}
-              </option>
-            ))}
-          </select>
+          <ListPick lists={lists} value={listKey} onChange={(key) => patch({ listKey: key })} />
         </DetailRow>
 
         <View style={styles.divider} />

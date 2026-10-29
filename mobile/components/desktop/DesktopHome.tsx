@@ -3,6 +3,8 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { pressStyle } from './pressStyle';
+import { tipRef } from './tip';
+import { requestCalendarToday, useAtToday } from './todayStore';
 import BrainDumpPane from './BrainDumpPane';
 import MissedPanel from './MissedPanel';
 import UndoBar from './UndoBar';
@@ -55,6 +57,8 @@ import { EMPTY_FILTER, FILTER_KEY, parseFilter, pruneFilter, serializeFilter, ty
 import { listenForAuthCallbacks, refreshRevokePending, restoreAccountChoice, retryPendingRevoke } from '../../lib/desktopAuth';
 import { sendNotifyPayload } from '../../lib/desktopNotify';
 import { runFullSync, subscribeSyncStatus } from '../../lib/sync';
+
+const JUMP_TODAY_TIP = 'Jump to today (Shift+T)';
 
 // Decision 009: the three-pane workspace: Brain Dump, weekly kanban and
 // Timebox. Since 2.26.0 they are three full height columns with nothing across
@@ -242,6 +246,10 @@ export default function DesktopHome() {
   // Opened over the centre for the moment on a narrow window; never remembered.
   const [overlayOpen, setOverlayOpen] = useState({ sidebar: false, timebox: false });
   const layout = responsiveLayout(paneState, windowWidth, overlayOpen);
+  // 3.17.0: the Today button beside the Tasks / Calendar toggle is off while the shown pane already shows today.
+  const kanbanAtToday = useAtToday('kanban');
+  const calendarAtToday = useAtToday('calendar');
+  const centerAtToday = paneState.center === 'calendar' ? calendarAtToday : kanbanAtToday;
   const toggleSidebar = useCallback(() => {
     const r = sidebarToggle(paneState, windowWidth, overlayOpen.sidebar);
     if (r.state !== paneState) updatePanes(() => r.state);
@@ -441,16 +449,19 @@ export default function DesktopHome() {
                 </Pressable>
               ))}
             </View>
+            {/* 3.17.0: Today (jump to today) sits beside the Tasks / Calendar toggle; Only today moved next to Day / Week / Month and Filter. */}
             <Pressable
-              onPress={() => updatePanes(toggleOnlyToday)}
-              style={pressStyle(({ hovered }) => [styles.rowBtn, paneState.onlyToday ? styles.rowBtnOn : hovered && styles.segHover])}
+              ref={tipRef(JUMP_TODAY_TIP) as never}
+              onPress={() => (paneState.center === 'calendar' ? requestCalendarToday() : requestGoToday())}
+              disabled={centerAtToday}
+              style={pressStyle(({ hovered }) => [styles.rowBtn, hovered && !centerAtToday && styles.segHover, centerAtToday && styles.rowOff])}
               accessibilityRole="button"
-              accessibilityState={{ selected: paneState.onlyToday }}
-              accessibilityLabel="Show only today"
-              {...({ 'aria-pressed': paneState.onlyToday } as object)}
+              accessibilityState={{ disabled: centerAtToday }}
+              accessibilityLabel={paneState.center === 'calendar' ? 'Calendar go to today' : 'Show today in Tasks'}
+              {...({ dataSet: { ctl: 'today' } } as object)}
             >
-              <Ionicons name="today-outline" size={15} color={paneState.onlyToday ? Colors.accentText : Colors.textSecondary} />
-              <Text style={[styles.rowText, paneState.onlyToday && styles.rowTextOn]}>Only today</Text>
+              <Ionicons name="locate-outline" size={15} color={Colors.textSecondary} />
+              <Text style={styles.rowText}>Today</Text>
             </Pressable>
             <Pressable onPress={() => showView('quests')} style={pressStyle(({ hovered }) => [styles.rowBtn, hovered && styles.segHover])} accessibilityRole="button" accessibilityLabel="Quests">
               <Ionicons name="trophy-outline" size={15} color={Colors.textSecondary} />
@@ -467,7 +478,7 @@ export default function DesktopHome() {
             )}
           </View>
           <View style={[{ flex: 1 }, paneState.center !== 'kanban' && styles.hidden]}>
-            <KanbanPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} onFilterChange={setFilter} onlyToday={paneState.onlyToday} />
+            <KanbanPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} onFilterChange={setFilter} onlyToday={paneState.onlyToday} onToggleOnlyToday={() => updatePanes(toggleOnlyToday)} />
           </View>
           {calendarShown && (
             <View style={[{ flex: 1 }, paneState.center !== 'calendar' && styles.hidden]}>
@@ -479,6 +490,7 @@ export default function DesktopHome() {
                 view={paneState.calendar}
                 onViewChange={(v: CalendarView) => updatePanes((s) => showCalendar(s, v))}
                 onlyToday={paneState.onlyToday}
+                onToggleOnlyToday={() => updatePanes(toggleOnlyToday)}
               />
             </View>
           )}
@@ -587,6 +599,7 @@ const styles = StyleSheet.create({
   segTextOn: { ...segLabelOn },
   rowBtn: { ...outlinedBtn, height: 36, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
   rowBtnOn: { ...outlinedBtnOn },
+  rowOff: { opacity: 0.45 },
   rowText: { ...outlinedBtnText },
   rowTextOn: { color: Colors.accentText },
   sidebarOverlay: { position: 'absolute', left: 16, top: 16, bottom: 16, width: SIDEBAR_WIDTH, zIndex: 20 },

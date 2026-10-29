@@ -665,3 +665,6 @@ Desktop `TaskCard` (`lengthText`, `whenText`), phone `today.tsx` and `tasks.tsx`
 
 ## UI fixes batch 2, the Add row: a full width field, the total under the header, + and details icon: 3.16.0
 New `lib/addBox.ts` (what fits), `AddTaskBox` (the + as a button, the details icon, the hint, measured width), `BrainDumpPane` (caption, openDetails), `KanbanPane` (openDetails, one line total). Choices: no title and the details icon = nothing created, a hint (not an empty draft); the label stays in a day column while typing, the estimate gives way first; the phone's add row left alone. Check by hand: the left pane at its width in light and dark; a day column; + then Enter; the details icon with and without a title.
+
+## UI fixes batch 2, Today and Only today swapped, a clear today marker: 3.17.0
+New `todayStore.ts`, `OnlyTodayButton.tsx`; `DesktopHome` (Today beside the toggle), `KanbanPane` and `CalendarPane` (Only today, the atToday reports, the Today tags, the month style). Choices: the single Today button keeps the old accessible names per centre view so every older check still finds it; Only today on the board sits after Filter (the board has no Day / Week / Month); the month's Today style uses the accent frame plus a filled number. Check by hand: Today and Only today in Tasks and Calendar; the Today tag in Day, Week and Month in light and dark.

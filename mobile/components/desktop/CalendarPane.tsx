@@ -52,6 +52,8 @@ import { loadCustomCategories, loadCustomEvents, loadLists, loadTasksRaw } from 
 import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { useDayStart } from './useDayStart';
 import { openDetail } from './uiStore';
+import OnlyTodayButton from './OnlyTodayButton';
+import { setAtToday, useCalendarTodayRequest } from './todayStore';
 import { useTick } from './timerUi';
 import FilterButton from './FilterButton';
 import { importedOccurrences, loadIcs, useIcs, type ImportedOccurrence } from './icsStore';
@@ -127,6 +129,7 @@ export default function CalendarPane({
   view,
   onViewChange,
   onlyToday,
+  onToggleOnlyToday,
 }: {
   refreshKey: number;
   onChanged: () => void;
@@ -135,6 +138,8 @@ export default function CalendarPane({
   view: CalendarView;
   onViewChange: (v: CalendarView) => void;
   onlyToday: boolean;
+  // Only today moved here (3.17.0), next to Day / Week / Month.
+  onToggleOnlyToday: () => void;
 }) {
   const [anchor, setAnchor] = useState(() => dateKey(new Date()));
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -420,6 +425,16 @@ export default function CalendarPane({
     if (effView === 'week') showWeekAt(todayKey);
   };
   const atToday = effView === 'week' ? weekLeft === todayKey : key === todayKey;
+  // The Today button in the top row (DesktopHome) reads this and asks for the jump.
+  useEffect(() => setAtToday('calendar', onlyToday || atToday), [onlyToday, atToday]);
+  const todayRequest = useCalendarTodayRequest();
+  const seenRequest = useRef(todayRequest);
+  useEffect(() => {
+    if (todayRequest === seenRequest.current) return;
+    seenRequest.current = todayRequest;
+    goToday();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayRequest]);
   const title = effView === 'week' ? weekRangeTitle(weekLeft) : calendarTitle(effView, key);
 
   const monthTasks = useMemo(() => {
@@ -512,15 +527,7 @@ export default function CalendarPane({
             </Pressable>
           ))}
         </View>
-        <Pressable
-          onPress={goToday}
-          disabled={onlyToday || atToday}
-          style={[styles.todayBtn, (onlyToday || atToday) && styles.off]}
-          accessibilityRole="button"
-          accessibilityLabel="Calendar go to today"
-        >
-          <Text style={styles.todayText}>Today</Text>
-        </Pressable>
+        <OnlyTodayButton on={onlyToday} onPress={onToggleOnlyToday} />
       </View>
       {onlyToday && <Text style={styles.note}>📅 Showing only today (Shift+F to show everything).</Text>}
       {icsFailing > 0 && (
@@ -556,7 +563,14 @@ export default function CalendarPane({
                       accessibilityLabel={`Open ${cell.key}${awayDays.has(cell.key) ? ', away' : ''}${list.length ? `, ${list.length} tasks` : ''}${ext.length ? `, ${ext.length} imported events` : ''}`}
                       {...({ dataSet: { calDay: cell.key, ...(awayDays.has(cell.key) ? { away: '1' } : {}) } } as object)}
                     >
-                      <Text style={[styles.monthNum, cell.isToday && styles.monthNumToday]}>{parseDateKey(cell.key).getDate()}</Text>
+                      <View style={styles.monthNumRow}>
+                        <Text style={[styles.monthNum, cell.isToday && styles.monthNumToday]}>{parseDateKey(cell.key).getDate()}</Text>
+                        {cell.isToday ? (
+                          <Text style={styles.todayTag} {...({ dataSet: { todayTag: cell.key } } as object)}>
+                            Today
+                          </Text>
+                        ) : null}
+                      </View>
                       {shown.map((t) => {
                         const color = labelColor(labelOf(t)?.colorKey);
                         const look = vibrantLook(vibrant, color);
@@ -622,7 +636,7 @@ export default function CalendarPane({
                     <Pressable
                       onPress={() => effView === 'week' && goTo('day', d.key)}
                       disabled={effView === 'day'}
-                      style={[styles.dayHead, awayDays.has(d.key) && styles.awayDay, { position: 'absolute', left, top: 0, width: colW, height: HEAD_H }]}
+                      style={[styles.dayHead, isToday && styles.dayHeadTodayBg, awayDays.has(d.key) && styles.awayDay, { position: 'absolute', left, top: 0, width: colW, height: HEAD_H }]}
                       accessibilityRole="button"
                       accessibilityLabel={`${WEEKDAYS[date.getDay()]} ${date.getDate()}${awayDays.has(d.key) ? ', away' : ''}`}
                       {...({ dataSet: { calHead: d.key, ...(awayDays.has(d.key) ? { away: '1' } : {}) } } as object)}
@@ -631,6 +645,11 @@ export default function CalendarPane({
                         {WEEKDAYS[date.getDay()]} <Text style={styles.dayHeadDate}>{date.getDate()}</Text>
                         {awayDays.has(d.key) ? ' ✈️' : ''}
                       </Text>
+                      {isToday ? (
+                        <Text style={styles.todayTag} {...({ dataSet: { todayTag: d.key } } as object)}>
+                          Today
+                        </Text>
+                      ) : null}
                     </Pressable>
                     <View
                       ref={allDayRef(d.key) as never}
@@ -852,7 +871,10 @@ const styles = StyleSheet.create({
   todayText: { ...outlinedBtnText, fontSize: 12 },
   note: { fontSize: 12, color: Colors.textSecondary, marginBottom: 6 },
   headRow: { flexDirection: 'row' },
-  dayHead: { alignItems: 'center', justifyContent: 'center' },
+  dayHead: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  dayHeadTodayBg: { backgroundColor: Colors.accentSoft, borderBottomWidth: 2, borderBottomColor: Colors.accent },
+  // 3.17.0: the small Today tag (the same soft accent pill as the board's column header).
+  todayTag: { alignSelf: 'center', height: 18, lineHeight: 18, paddingHorizontal: 6, borderRadius: 6, overflow: 'hidden', fontSize: 10, fontWeight: '700', color: Colors.accentText, backgroundColor: Colors.accentSoft } as object,
   awayDay: { backgroundColor: Colors.surfaceRaised },
   dayHeadDate: { fontWeight: '700' },
   past: { opacity: 0.55 },
@@ -891,8 +913,10 @@ const styles = StyleSheet.create({
   monthRow: { flexDirection: 'row', minHeight: 104 },
   monthCell: { flex: 1, minWidth: 0, padding: 4, gap: 2, borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.border },
   monthOut: { opacity: 0.5 },
-  monthToday: { backgroundColor: Colors.background },
+  // 3.17.0: today in the month grid is unmistakable: an accent frame, a soft accent fill, the number in a filled circle.
+  monthToday: { backgroundColor: Colors.accentSoft, borderWidth: 2, borderColor: Colors.accent },
+  monthNumRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   monthNum: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
-  monthNumToday: { color: Colors.accentText, fontWeight: '700' },
+  monthNumToday: { color: Colors.onAccent, backgroundColor: Colors.accent, fontWeight: '700', width: 22, height: 22, lineHeight: 22, borderRadius: 11, textAlign: 'center', overflow: 'hidden' } as object,
   more: { fontSize: 10, color: Colors.textSecondary },
 });

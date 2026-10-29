@@ -25,6 +25,8 @@ import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
 import { useBreakTwice } from './breakTwiceStore';
 import { useTick } from './timerUi';
 import { openDetail, useGoToday, useReveal } from './uiStore';
+import OnlyTodayButton from './OnlyTodayButton';
+import { setAtToday } from './todayStore';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { pressStyle } from './pressStyle';
@@ -99,6 +101,7 @@ export default function KanbanPane({
   filter,
   onFilterChange,
   onlyToday,
+  onToggleOnlyToday,
 }: {
   refreshKey: number;
   onChanged: () => void;
@@ -106,6 +109,8 @@ export default function KanbanPane({
   onFilterChange: (next: TaskFilter) => void;
   // "Show only today" (Shift+F, build plan phase 3): just today's column.
   onlyToday?: boolean;
+  // Only today moved here (3.17.0), next to Filter.
+  onToggleOnlyToday: () => void;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -217,6 +222,8 @@ export default function KanbanPane({
   const lastShown = onlyToday ? todayKey : dayAt(strip, Math.min(strip.total - 1, indexOfDay(strip, firstShown) + Math.max(0, Math.floor((viewW || STEP) / STEP) - 1)));
   const title = onlyToday ? 'Today' : rangeTitle(firstShown, lastShown);
   const atToday = onlyToday || firstShown === todayKey;
+  // The Today button in the top row (DesktopHome) reads this.
+  useEffect(() => setAtToday('kanban', !!atToday), [atToday]);
 
   // The drag layer scrolls the strip at its edges; there are no weeks to step.
   const boardRef = useCallback(
@@ -350,16 +357,7 @@ export default function KanbanPane({
         </Pressable>
         <View style={{ flex: 1 }} />
         <FilterButton filter={filter} labels={projects} onChange={onFilterChange} />
-        <Pressable
-          onPress={() => goTo(todayKey)}
-          disabled={atToday}
-          style={pressStyle(({ hovered }) => [styles.todayBtn, hovered && !atToday && styles.navHover, atToday && styles.off])}
-          accessibilityRole="button"
-          accessibilityLabel="Show today in Tasks"
-          accessibilityState={{ disabled: atToday }}
-        >
-          <Text style={styles.todayText}>Today</Text>
-        </Pressable>
+        <OnlyTodayButton on={!!onlyToday} onPress={onToggleOnlyToday} />
       </View>
 
       {jumpOpen && (

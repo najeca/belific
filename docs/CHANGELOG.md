@@ -8,6 +8,13 @@ to know the current version and recent history.
 
 ---
 
+## 3.17.0 — 2026-10-29 (Today and Only today swapped, a clear today marker)
+
+**Desktop. No schema change. UI only.**
+- **The two buttons swapped places.** **Today** (jump to today) is now in the top row beside the Tasks / Calendar toggle, where Only today was; it switches itself off while the shown pane already shows today, and its tooltip reads "Jump to today (Shift+T)". **Only today** (just today's column) is now next to Day / Week / Month in the Calendar and next to Filter on the board, with the tooltip "Show only today's column. Press again to see every day (Shift+F)." Accessible names are unchanged (`Calendar go to today`, `Show today in Tasks`, `Show only today`). New `todayStore.ts` (each pane reports whether it shows today; the Calendar is asked to jump) and `OnlyTodayButton.tsx`.
+- **Today is obvious, not only highlighted:** a small **Today** tag (the board's soft accent pill) on today's column header in Day and Week, with a soft accent fill and an accent underline on that header, and in the Month grid today's cell has a 2 px accent frame, a soft fill, the day number in a filled accent circle and the Today tag. Light and dark; the tag text is 4.5:1 or more on its pill.
+- **Tests:** real check `p35.js` (39: positions, tooltips, Today and Only today working on the board and the Calendar, the tag in Day, Week and Month, the month style, light and dark). The older checks p3, p8, p9, p10, p22, cp8h, cp9 pass unchanged. Screenshots in `docs/screens-3.17.0/`. The phone has no Today button or Only today (its Calendar already opens on today); not changed.
+
 ## 3.16.0 — 2026-10-29 (the Add row: a full width field, the total under the header, + and details icon)
 
 **Desktop (the phone's Tasks add row checked, unchanged). No schema change. UI only.**

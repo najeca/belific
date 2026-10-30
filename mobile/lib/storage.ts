@@ -17,6 +17,7 @@ import type {
 
 import { storageLock } from './lock';
 import { queueCompletionAdd, queueCompletionDelete, queueRows } from './outbox';
+import { stack as undoStack, type UndoPlan } from './undoStack';
 
 // Sync (checkpoint 5, decision 013): every read, modify, write below runs
 // inside storageLock, the same lock the sync merge takes, so a pull can never
@@ -483,6 +484,7 @@ export function addTask(task: Task): Promise<void> {
     const stamped = { ...task, updatedAt: new Date().toISOString() };
     await saveTasks([...existing, stamped]);
     await queueRows('tasks', [stamped]);
+    undoStack.record(undefined, stamped, Date.now());
   });
 }
 
@@ -492,6 +494,7 @@ export function updateTask(updated: Task): Promise<void> {
     const stamped = { ...updated, updatedAt: new Date().toISOString() };
     await saveTasks(existing.map((t) => (t.id === updated.id ? stamped : t)));
     await queueRows('tasks', [stamped]);
+    undoStack.record(existing.find((t) => t.id === updated.id), stamped, Date.now());
   });
 }
 
@@ -501,13 +504,33 @@ export function deleteTask(id: string): Promise<void> {
     const existing = await loadTasksRaw();
     const now = new Date().toISOString();
     let tombstoned: Task | undefined;
+    let was: Task | undefined;
     const merged = existing.map((t) => {
       if (t.id !== id) return t;
+      was = t;
       tombstoned = { ...t, deletedAt: now, updatedAt: now };
       return tombstoned;
     });
     await saveTasks(merged);
     if (tombstoned) await queueRows('tasks', [tombstoned]);
+    if (tombstoned) undoStack.record(was, tombstoned, Date.now());
+  });
+}
+
+// Undo and redo (lib/undoActions.ts): `plan` reads the stored rows and says which to write; they are written, and
+// queued for sync, as ordinary edits (a new updatedAt) in the same locked step, without being recorded again.
+export function applyTaskPlan<P extends UndoPlan>(plan: (rows: Task[], nowIso: string) => P): Promise<P> {
+  return storageLock.run(async () => {
+    const existing = await loadTasksRaw();
+    const nowIso = new Date().toISOString();
+    const result = plan(existing, nowIso);
+    if (result.writes.length === 0) return result;
+    const byId = new Map(result.writes.map((r) => [r.id, r]));
+    const merged = existing.map((t) => byId.get(t.id) ?? t);
+    for (const r of result.writes) if (!existing.some((t) => t.id === r.id)) merged.push(r);
+    await saveTasks(merged);
+    await queueRows('tasks', result.writes);
+    return result;
   });
 }
 
@@ -713,6 +736,8 @@ export function deleteUserSetting(key: string): Promise<void> {
 }
 
 export async function clearAllData(): Promise<void> {
+  // Signing out or wiping the data: nothing from before may be undone into the next account.
+  undoStack.clear();
   try {
     await kv.multiRemove([
       KEYS.CUSTOM_EVENTS,

@@ -58,6 +58,8 @@ export interface UndoOffer {
   nonce: number;
   // How long it shows (3.9.0: 5 seconds after a move out of a break); absent: the bar's 12 seconds.
   ms?: number;
+  // The button's word (3.21.0: "Redo" on the toast of an undo); absent: "Undo".
+  actionLabel?: string;
 }
 
 let state: State = { overlay: null, detailId: null, detailFocus: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0, undo: null, notice: null };
@@ -77,11 +79,14 @@ function use<T>(pick: (s: State) => T): T {
 
 // ---- undo ----
 export const useUndo = () => use((s) => s.undo);
-export function offerUndo(text: string, run: () => Promise<unknown>, ms?: number): void {
-  set({ undo: { text, run, nonce: Date.now(), ...(ms ? { ms } : {}) } });
+let undoSeq = 0;
+export function offerUndo(text: string, run: () => Promise<unknown>, ms?: number, actionLabel?: string): void {
+  undoSeq += 1;
+  set({ undo: { text, run, nonce: undoSeq, ...(ms ? { ms } : {}), ...(actionLabel ? { actionLabel } : {}) } });
 }
-export function clearUndo(): void {
-  if (state.undo) set({ undo: null });
+// With a nonce, only that offer is cleared (a Redo button that offers the next Undo keeps it).
+export function clearUndo(nonce?: number): void {
+  if (state.undo && (nonce === undefined || state.undo.nonce === nonce)) set({ undo: null });
 }
 
 // ---- notice ----

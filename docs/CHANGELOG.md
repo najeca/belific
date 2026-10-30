@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 3.21.0 — 2026-10-30 (undo and redo of task changes (Ctrl+Z, Ctrl+Y))
+
+**Desktop. No schema change, no migration, no new backup.**
+- **Keys:** Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes (on the home screen; Cmd on a Mac). A text field that has the keyboard keeps Ctrl+Z for its own typing (the registry never fires while typing, and not while a popover or an overlay is open). Both are in the shortcut help.
+- **What is undone (`lib/undoStack.ts`, pure, `undoActions.ts`):** every task write (create, edit, move, resize, nudge, time or date edit, tick, one time of several ticked, skip, delete, move out of a break, Do during a break, a repeating day stored by a move) is recorded as the row before and after. The writes of one gesture (a press or key) are ONE entry: a drag that stores a day and the carrier day, a tick that creates the next day. A bounded in memory stack of **50** entries, per session; a new change clears the redo history; signing out or clearing data clears the stack. The phone does not record (its Undo toasts are unchanged).
+- **Undo and redo are normal edits:** the inverse is written through the storage layer in the storage lock (a newer `updatedAt`, queued in the sync outbox like any edit). A row that changed since (another device, an edit not in the stack) is **never overwritten**: it is skipped, and an entry with nothing left to do is dropped with a message.
+- **Deleted data comes back by the tombstone rules:** a tombstone is never cleared, so undoing a delete (or a skip, or redoing a create) writes a live copy under the Trash's restored id (`restored_<id>`, no repeat rule, no timer, as Restore does) and touches the old tombstone. Skipping the first row of a series stores that day as `root:day` with the rule, so the series goes on. A day of a repeating task that a move or a time edit stored goes back to what the series shows there.
+- **Toast:** "Undone: moved Zone 2" with a **Redo** button, then "Redone: moved Zone 2" with **Undo** (`uiStore` offers carry an optional button word; the bar clears only its own offer).
+- **Tests:** `undoStack.test.ts` (new, 18: move, resize, nudge, time and date edit, tick, one time of several, extra times, delete, create, skip of a stored, a projected and the first day, a repeating day moved and a time edit with its carrier, the first row moved, a row that changed since, grouping, the 50 limit, sync: queued, newer updatedAt, wins the merge, the tombstone does not take the copy down); `shortcuts.test.ts` changed on purpose (Ctrl+Z and Ctrl+Y were reserved for the editor; now the home screen takes them only when no field has the keyboard) and +1; real check `p41.js` (33).
+
 ## 3.20.0 — 2026-10-30 (no repeat popup: a drag changes that day, the first time goes to every repeat day)
 
 **Desktop and phone. No schema change, no migration.**

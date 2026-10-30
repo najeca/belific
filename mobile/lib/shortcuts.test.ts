@@ -69,8 +69,10 @@ test('phase 3 keys: search, capture for today, layout and the calendar views', (
   assert.equal(shortcutFor(press('f', { ctrl: true }), home), null, 'Ctrl+F is not Shift+F');
 });
 
+// 3.21.0 (on purpose): Ctrl+Z and Ctrl+Y are the undo and redo of task changes, and only when no field has the
+// keyboard (shortcutFor returns null while typing), so a field still undoes its own typing.
 test('the registry never takes a key the app menu or the editor needs', () => {
-  const taken = ['Ctrl+,', 'Ctrl+Q', 'Ctrl+X', 'Ctrl+C', 'Ctrl+V', 'Ctrl+A', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+=', 'Ctrl+-', 'Ctrl+0'];
+  const taken = ['Ctrl+,', 'Ctrl+Q', 'Ctrl+X', 'Ctrl+C', 'Ctrl+V', 'Ctrl+A', 'Ctrl+=', 'Ctrl+-', 'Ctrl+0'];
   for (const spec of taken) {
     for (const def of SHORTCUTS) {
       assert.ok(!(def.keys.toLowerCase() === spec.toLowerCase()), `${def.id} takes ${spec}`);
@@ -207,4 +209,17 @@ test('spec parsing', () => {
   assert.deepEqual(parseSpec('Q'), { ctrl: false, shift: false, key: 'q' });
   assert.deepEqual(parseSpec('['), { ctrl: false, shift: false, key: '[' });
   assert.equal(keyMatches('Down', press('ArrowDown')), true);
+});
+
+test('undo and redo: Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z on the home screen, never while typing', () => {
+  const keys: Array<[string, Parameters<typeof press>[1], string]> = [
+    ['z', { ctrl: true }, 'undo'],
+    ['y', { ctrl: true }, 'redo'],
+    ['z', { ctrl: true, shift: true }, 'redoAlt'],
+  ];
+  for (const [k, mods, id] of keys) {
+    assert.equal(shortcutFor(press(k, mods), home), id, id);
+    assert.equal(shortcutFor(press(k, mods), { typing: true, scope: 'home' }), null, `${id} while typing is left to the field`);
+    assert.equal(shortcutFor(press(k, mods), { typing: false, blocked: true, scope: 'home' }), null, `${id} while a popover is open`);
+  }
 });

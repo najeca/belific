@@ -687,3 +687,8 @@ Gates: tsc clean; mobile `node --test` 1008/1008; desktop `node --test` 114/114;
 - Removed the popup, added lib/seriesTime.ts, ops.patchDay, the quiet line; tests above.
 - Choices: an edit on a day with its own time changes that day only; a time set on a task with no dated row is a plain edit; the first-time rule applies when neither the series nor the edited day has a start time.
 - Check by hand: set a time on a repeating task with no time and look at the other repeat days; drag one day and see the others stay; change the time in the details and see a moved day keep its own.
+
+## UI fixes batch 3, undo and redo of task changes (Ctrl+Z, Ctrl+Y): 3.21.0
+- Added lib/undoStack.ts (stack, planning, label), lib/undoActions.ts, storage hooks (addTask/updateTask/deleteTask record; applyTaskPlan writes undo), keys, toast.
+- Choices: grouping by gesture (press or key) plus a 1.5 s gap; delete and skip undo as copies under restored ids (a tombstone cannot be cleared); redo of a create is a new row; undo of a deleted series brings back one plain task (the Trash rule); the toast shows 8 s.
+- Check by hand: move a card, Ctrl+Z, Ctrl+Y; tick and undo; delete and undo (it returns as a copy); type in a field and press Ctrl+Z (the field undoes its typing, tasks do not change).

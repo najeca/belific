@@ -29,6 +29,7 @@ import TimerWidget from './TimerWidget';
 import TaskDetailPanel from './TaskDetailPanel';
 import ShortcutHelp from './ShortcutHelp';
 import { useHomeShortcuts } from './useHomeShortcuts';
+import { runRedo, runUndo, useUndoRecording } from './useUndoRedo';
 import CalendarPane from './CalendarPane';
 import Sidebar from './Sidebar';
 import QuickCapture from './QuickCapture';
@@ -282,8 +283,12 @@ export default function DesktopHome() {
   }, [paneState.center]);
   // The keyboard shortcuts of the home screen (lib/shortcuts.ts). Only while the
   // panes are the page showing; the registry keeps them out of every field.
+  useUndoRecording();
   useHomeShortcuts(view === 'home', {
     help: () => openOverlay({ kind: 'help' }),
+    undo: () => void runUndo(),
+    redo: () => void runRedo(),
+    redoAlt: () => void runRedo(),
     search: () => openOverlay({ kind: 'search' }),
     quickCapture: () => openOverlay({ kind: 'capture', mode: 'list' }),
     newTaskToday: () => openOverlay({ kind: 'capture', mode: 'today' }),

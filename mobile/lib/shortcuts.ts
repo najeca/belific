@@ -28,6 +28,9 @@ export type ShortcutId =
   | 'newTaskToday'
   | 'toggleLeftPane'
   | 'toggleRightPane'
+  | 'undo'
+  | 'redo'
+  | 'redoAlt'
   // Navigation
   | 'dayView'
   | 'weekView'
@@ -127,7 +130,15 @@ export const BLOCK_SHORTCUTS: ShortcutDef[] = [
   { id: 'blockLonger', keys: 'Shift+Down', label: 'On a time block: 30 minutes longer', group: 'Task', scope: 'block' },
 ];
 
-export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS, ...PHASE5_SHORTCUTS, ...BLOCK_SHORTCUTS];
+// 3.21.0: undo and redo of task changes. Like every Ctrl key they are left to a field that has the keyboard
+// (typing is undone by the field itself).
+export const UNDO_SHORTCUTS: ShortcutDef[] = [
+  { id: 'undo', keys: 'Ctrl+Z', label: 'Undo the last task change', group: 'General', scope: 'home' },
+  { id: 'redo', keys: 'Ctrl+Y', label: 'Redo', group: 'General', scope: 'home' },
+  { id: 'redoAlt', keys: 'Ctrl+Shift+Z', label: 'Redo', group: 'General', scope: 'home' },
+];
+
+export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS, ...PHASE5_SHORTCUTS, ...UNDO_SHORTCUTS, ...BLOCK_SHORTCUTS];
 
 // ---- matching ----
 

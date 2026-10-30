@@ -45,16 +45,16 @@ export default function UndoBar() {
             setBusy(true);
             await offer.run();
             setBusy(false);
-            clearUndo();
+            clearUndo(offer.nonce);
             notifyChanged();
           }}
           style={styles.btn}
           accessibilityRole="button"
-          accessibilityLabel="Undo"
+          accessibilityLabel={offer.actionLabel ?? 'Undo'}
         >
-          <Text style={styles.btnText}>Undo</Text>
+          <Text style={styles.btnText}>{offer.actionLabel ?? 'Undo'}</Text>
         </Pressable>
-        <Pressable onPress={clearUndo} style={styles.close} accessibilityRole="button" accessibilityLabel="Dismiss">
+        <Pressable onPress={() => clearUndo()} style={styles.close} accessibilityRole="button" accessibilityLabel="Dismiss">
           <Text style={styles.closeText}>×</Text>
         </Pressable>
       </View>

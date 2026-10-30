@@ -697,3 +697,8 @@ Gates: tsc clean; mobile `node --test` 1008/1008; desktop `node --test` 114/114;
 - Added dwellDrop, nested hosting, breakIds, the Drop inside outline, the chip and details notes.
 - Choices: the pause applies to Split tasks over Split tasks (other tasks are hosted at once, as before; a non Split block cannot host without storing something); hosting itself stays derived from the times, so a Split task dropped without the pause that happens to fit wholly inside a break is hosted anyway; equal length is not allowed for the drop (swap); Longer / As long as are notes, not refusals.
 - Check by hand: hold a Split task over Lunch for a second, see the outline, drop; drop one longer; move away before the second; open the hosted task's details.
+
+## UI fixes batch 3, final gates (2026-10-30)
+- tsc clean; mobile node tests 1053/1053; desktop node tests 114/114; iOS export plus check:ios-markers OK (47 markers, 0 hits: 4 added, Undone: / Redone: / the two "Its Split is ignored" lines); security scan exit 0 at every commit.
+- Full real regression (cp6 to cp12, p2 to p42, phone-p2 to phone-p16, run-cp7, run-cp8b, run-cp8f): 67 PASS, cp8h passed after a rerun (3 of 3 alone), phone-p6 fails only because its day(5) (Nov 4) is not in October's month grid: a date dependency of the check, unchanged since before this batch.
+- An incident: a throwaway git worktree with junctions to node_modules was removed with --force and deleted through the junctions; mobile/node_modules and desktop/node_modules were restored with npm ci from the lock files (no source, data or lock file changed).

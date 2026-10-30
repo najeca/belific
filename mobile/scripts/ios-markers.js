@@ -128,6 +128,13 @@ const MARKERS = [
   'Type a name first, then open the details.',
   'Jump to today (Shift+T)',
   'Press again to see every day',
+  // 3.20.0 to 3.22.0 (the UI fixes batch 3): desktop only wording. The undo toast (useUndoRedo.ts), the chip of a hosted
+  // Split task (HostChips.tsx) and the details line (TaskDetailPanel). lib/undoStack.ts, lib/seriesTime.ts and the
+  // hosting notes (Drop inside, As long as the break) are shared with the phone and are in its bundle, inert.
+  'Undone: ',
+  'Redone: ',
+  'Its Split is ignored while it is inside',
+  'Its Split is ignored while it is during',
 ];
 
 const ALLOWED = {

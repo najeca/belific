@@ -20,7 +20,7 @@ import { DayView, type DayData } from '../../components/phone/calendar/DayView';
 import type { DragTarget } from '../../components/phone/calendar/DraggableBlock';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
 import { phoneDropPatch } from '../../lib/phoneDrag';
-import { breakAt, dayHostEntries, fitRefusal, hostStart, longerNote } from '../../lib/hosting';
+import { breakAt, breakEntries, dayHostEntries, fitRefusal, hostStart, longerNote } from '../../lib/hosting';
 import { taskDuration } from '../../lib/drag';
 import { editRepeatingTime, patchSeries, editThisDay } from '../../lib/seriesActions';
 import { patchTask } from '../../lib/taskActions';
@@ -142,7 +142,7 @@ export default function CalendarScreen() {
     // 3.11.0: over a break the task fits in, it starts inside it (as on the desktop); one that does not
     // fit is refused and stays where it was.
     const len = taskDuration(source.task);
-    const breaks = dayHostEntries(data.tasks, anchor, todayKey).filter((e) => e.breaks && !e.cont && e.full.id !== full.id);
+    const breaks = breakEntries(dayHostEntries(data.tasks, anchor, todayKey)).filter((e) => e.full.id !== full.id);
     const over = full.cutsBelow ? undefined : breakAt(breaks, dropped);
     const startMin = over ? (hostStart(dropped, len, over) ?? dropped) : dropped;
     const refused = full.cutsBelow ? null : fitRefusal(breaks, [], [[startMin, startMin + len]]);

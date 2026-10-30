@@ -6,13 +6,19 @@
 // derived from the times every time a day is drawn, so a task moved or resized out of the break is
 // back to the usual behaviour at once.
 //
-//  * Only a break hosts, and a break is never hosted (two breaks stay as they were).
+//  * Only a break hosts. A break is hosted only by a LONGER break that holds it whole (3.22.0, below); two breaks
+//    that merely overlap stay as they were, side by side.
 //  * Inside means break start <= task start and task end <= break end (the edges count).
 //  * A task inside two breaks goes to the shortest one (then the earlier, then by id).
 //  * The rest of yesterday's overnight task (`cont`) is never hosted and never hosts: it keeps today's
 //    behaviour (its own day hosts it, or the tasks inside it).
 //  * Each time of a task with several times a day is its own entry, hosted on its own.
 //  * A task that only partly overlaps a break is not hosted: Split treats it exactly as before.
+//  * 3.22.0, a Split task inside another Split task: it is hosted like any task. While hosted its own Split is
+//    ignored (it is a chip, so it never cuts its host nor anything else), and the tasks inside it are hosted by
+//    the outer break. Two breaks of the same length and place: the one that sorts first (earlier start, then id)
+//    stays the break, the other is hosted. Hosted breaks are decided from the longest down, so a chain A > B > C
+//    gives A the break and B and C its chips.
 import type { Task } from './types.ts';
 import { tasksForTimebox } from './timeboxTasks.ts';
 import { continuationOf, taskToItem, toMinutes, toTime } from './timebox.ts';
@@ -37,18 +43,30 @@ export interface HostResult {
   hostOf: Map<string, string>;
   // A break's id -> the ids it hosts, earliest first (then the longer, then by id).
   hosted: Map<string, string[]>;
+  // The entries that ARE breaks now: Split on and not hosted themselves (3.22.0). Only these cut and host.
+  breakIds: Set<string>;
 }
 
 const valid = (e: HostEntry) => Number.isFinite(e.startMin) && Number.isFinite(e.endMin) && e.endMin > e.startMin;
 
 export function hostDay(entries: HostEntry[]): HostResult {
-  const res: HostResult = { hostOf: new Map(), hosted: new Map() };
-  const breaks = entries
+  const res: HostResult = { hostOf: new Map(), hosted: new Map(), breakIds: new Set() };
+  // The Split tasks, longest first: one that a longer break holds whole is hosted by it and stops being a break.
+  const splits = entries
     .filter((e) => e.breaks && !e.cont && valid(e))
-    .sort((a, b) => a.endMin - a.startMin - (b.endMin - b.startMin) || a.startMin - b.startMin || a.id.localeCompare(b.id));
-  if (breaks.length === 0) return res;
+    .sort((a, b) => b.endMin - b.startMin - (a.endMin - a.startMin) || a.startMin - b.startMin || a.id.localeCompare(b.id));
+  const outer: HostEntry[] = [];
+  const nested: HostEntry[] = [];
+  for (const s of splits) {
+    if (outer.some((o) => o.startMin <= s.startMin && s.endMin <= o.endMin)) nested.push(s);
+    else outer.push(s);
+  }
+  for (const o of outer) res.breakIds.add(o.id);
+  if (outer.length === 0) return res;
+  const breaks = [...outer].sort((a, b) => a.endMin - a.startMin - (b.endMin - b.startMin) || a.startMin - b.startMin || a.id.localeCompare(b.id));
+  const nestedIds = new Set(nested.map((n) => n.id));
   const guests = entries
-    .filter((e) => !e.breaks && !e.cont && valid(e))
+    .filter((e) => (!e.breaks || nestedIds.has(e.id)) && !e.cont && valid(e))
     .sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin || a.id.localeCompare(b.id));
   for (const g of guests) {
     const b = breaks.find((x) => x.startMin <= g.startMin && g.endMin <= x.endMin);
@@ -57,6 +75,12 @@ export function hostDay(entries: HostEntry[]): HostResult {
     res.hosted.set(b.id, [...(res.hosted.get(b.id) ?? []), g.id]);
   }
   return res;
+}
+
+// The entries that are breaks right now (Split on and not hosted themselves, 3.22.0).
+export function breakEntries<T extends HostEntry>(entries: T[]): T[] {
+  const { breakIds } = hostDay(entries);
+  return entries.filter((e) => breakIds.has(e.id));
 }
 
 // One day's entries from the tasks, as the Timebox and the Calendar build them: the day's stored and
@@ -153,6 +177,23 @@ export function hostDrop<T extends BreakSpan>(breaks: T[], pointerMin: number, s
   return start === null ? { kind: 'longer', brk } : { kind: 'host', startMin: start, brk };
 }
 
+// 3.22.0: dropping a SPLIT task into another Split task takes a deliberate pause: the pointer stays on the break
+// for DWELL_MS, then the break is outlined ("Drop inside") and the drop hosts the task there. A task longer than
+// the break, or as long as it (the two would swap roles), shows the note and does not highlight. Any other task
+// dropped on a break is hosted at once, as since 3.6.0.
+export const DWELL_MS = 1000;
+export const DROP_INSIDE = 'Drop inside';
+export const SAME_LENGTH_AS_BREAK = 'As long as the break';
+export type DwellDrop<T extends BreakSpan> = { kind: 'none' } | { kind: 'inside'; startMin: number; brk: T } | { kind: 'longer'; brk: T; note: string };
+export function dwellDrop<T extends BreakSpan>(breaks: T[], pointerMin: number, slotMin: number, lengthMin: number): DwellDrop<T> {
+  const brk = breakAt(breaks, pointerMin);
+  if (!brk) return { kind: 'none' };
+  const room = brk.endMin - brk.startMin;
+  if (lengthMin > room) return { kind: 'longer', brk, note: longerNote(brk) };
+  if (lengthMin === room) return { kind: 'longer', brk, note: `${SAME_LENGTH_AS_BREAK} (${lengthText(room)})` };
+  return { kind: 'inside', startMin: hostStart(slotMin, lengthMin, brk) as number, brk };
+}
+
 // Moving a hosted task out (3.9.0). `full` is the real task, `time` the time that is inside the break
 // (a task with several times moves only that one). "Move out of break": the task starts when the break
 // ends, the same day, the same length. "Remove time": that time goes; a task with one time becomes an
@@ -179,9 +220,11 @@ export function removeTimeOutFields(full: Task, time: string | undefined): OutPl
 // a length change of a task outside every break is not refused. A break itself is never refused (moving
 // or shrinking one is allowed: its tasks that no longer fit simply leave it, see lostGuests).
 export type Span = [number, number];
-export function fitRefusal<T extends BreakSpan>(breaks: T[], before: Span[], after: Span[]): T | null {
+// `newStarts` false (a Split task, 3.22.0): a new start inside a break is allowed (two breaks may overlap, side by
+// side); only a task that WAS inside a break and would stick out of it is refused (rule b).
+export function fitRefusal<T extends BreakSpan>(breaks: T[], before: Span[], after: Span[], newStarts = true): T | null {
   for (const [s, e] of after) {
-    const isNewStart = !before.some(([ps]) => ps === s);
+    const isNewStart = newStarts && !before.some(([ps]) => ps === s);
     for (const b of breaks) {
       const fits = b.startMin <= s && e <= b.endMin;
       if (fits) continue;
@@ -224,7 +267,8 @@ export function lostGuests(prev: HostSnapshot, next: HostSnapshot): number {
     if (!was || !now || !gWas || !gNow) continue;
     if (was[0] === now[0] && was[1] === now[1]) continue;
     if (gWas[0] !== gNow[0] || gWas[1] !== gNow[1]) continue;
-    if (next.hostOf.get(g) !== b) n += 1;
+    // Still hosted, by another break (the shortest one changed), is not lost.
+    if (!next.hostOf.has(g)) n += 1;
   }
   return n;
 }
@@ -247,8 +291,9 @@ export function breakLosesGuests(before: DayHostEntry[], after: DayHostEntry[], 
 export const lostNote = (n: number): string => (n === 1 ? '1 task no longer fits and moved out of the break' : `${n} tasks no longer fit and moved out of the break`);
 
 // "Do during a break": the breaks a task of this length fits in, earliest first.
-export function breaksFitting<T extends BreakSpan>(breaks: T[], lengthMin: number): T[] {
-  return breaks.filter((b) => lengthMin <= b.endMin - b.startMin).sort((a, b) => a.startMin - b.startMin || a.id.localeCompare(b.id));
+// `strict` (a Split task, 3.22.0): only a break that is LONGER than the task, so the two never swap roles.
+export function breaksFitting<T extends BreakSpan>(breaks: T[], lengthMin: number, strict = false): T[] {
+  return breaks.filter((b) => (strict ? lengthMin < b.endMin - b.startMin : lengthMin <= b.endMin - b.startMin)).sort((a, b) => a.startMin - b.startMin || a.id.localeCompare(b.id));
 }
 
 // How the chips sit in a break block of this size.

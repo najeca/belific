@@ -275,7 +275,7 @@ export default function CalendarPane({
       }
       const breaks: DayBreak[] = entries.flatMap((e) => {
         const s = sources.get(e.id);
-        return e.breaks && !e.cont && s && s.kind === 'task' ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, taskId: s.task.id }] : [];
+        return host.breakIds.has(e.id) && s && s.kind === 'task' ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, taskId: s.task.id }] : [];
       });
       const plan = planCuts(entries.filter((e) => !host.hostOf.has(e.id)), cutMin, titleOf);
       for (const it of plan.items) {

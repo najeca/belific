@@ -301,7 +301,7 @@ export default function TimeboxPane({
     }
     const breaks: DayBreak[] = entries.flatMap((e) => {
       const s = map.get(e.id);
-      return e.breaks && !e.cont && s && s.kind === 'task' ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, taskId: s.task.id }] : [];
+      return host.breakIds.has(e.id) && s && s.kind === 'task' ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, taskId: s.task.id }] : [];
     });
     const plan = planCuts(entries.filter((e) => !host.hostOf.has(e.id)), cutMin, (id) => {
       const s = map.get(id);

@@ -5,7 +5,7 @@
 import type { Task } from './types.ts';
 import { loadTasksRaw, updateTask } from './storage';
 import { opsForProjected, opsForTask } from './taskOps';
-import { DETAILS_LONGER, breakLosesGuests, dayHostEntries, fitRefusal, longerNote, moveOutFields, removeTimeOutFields, type BreakSpan, type Span } from './hosting.ts';
+import { DETAILS_LONGER, breakEntries, breakLosesGuests, dayHostEntries, fitRefusal, longerNote, moveOutFields, removeTimeOutFields, type BreakSpan, type Span } from './hosting.ts';
 import { timesOf } from './times.ts';
 import { toMinutes } from './timebox.ts';
 import { taskDuration } from './drag.ts';
@@ -73,7 +73,8 @@ export async function removeTimeInBreak(g: HostedRef): Promise<OutResult> {
 export async function breakRefusal(task: Task | null, fields: Partial<Task>, kind: 'drop' | 'details'): Promise<string | null> {
   if (!('startTime' in fields || 'extraTimes' in fields || 'durationMinutes' in fields || 'dueDate' in fields)) return null;
   const next = { ...(task ?? {}), ...fields } as Task;
-  if (next.cutsBelow || !next.dueDate) return null;
+  // A Split task is refused only for what a hosted task is: sticking out of the break it is inside (3.22.0).
+  if (!next.dueDate) return null;
   const spans = (t: Task): Span[] => timesOf(t).flatMap((time) => {
     const s = toMinutes(time);
     return s === null ? [] : [[s, s + taskDuration(t)] as Span];
@@ -81,8 +82,8 @@ export async function breakRefusal(task: Task | null, fields: Partial<Task>, kin
   const after = spans(next);
   if (after.length === 0) return null;
   const before = task && task.dueDate === next.dueDate ? spans(task) : [];
-  const breaks = dayHostEntries(await loadTasksRaw(), next.dueDate, dateKey(new Date())).filter((e) => e.breaks && !e.cont && e.full.id !== next.id);
-  const b = fitRefusal(breaks, before, after);
+  const breaks = breakEntries(dayHostEntries(await loadTasksRaw(), next.dueDate, dateKey(new Date()))).filter((e) => e.full.id !== next.id);
+  const b = fitRefusal(breaks, before, after, !next.cutsBelow);
   if (!b) return null;
   return kind === 'drop' ? longerNote(b) : DETAILS_LONGER;
 }
@@ -99,7 +100,8 @@ export async function blockChangeRefusal(task: Task, fields: Partial<Task>, dayK
     const before = dayHostEntries(tasks, dayKey, today);
     const gone = !!task.recurrence && 'dueDate' in fields && fields.dueDate !== dayKey;
     const next = tasks.flatMap((t) => (t.id !== task.id ? [t] : gone ? [] : [{ ...t, ...fields }]));
-    return breakLosesGuests(before, dayHostEntries(next, dayKey, today), task.id) ? DETAILS_LONGER : null;
+    if (breakLosesGuests(before, dayHostEntries(next, dayKey, today), task.id)) return DETAILS_LONGER;
   }
+  // A Split task that is itself inside a longer break is hosted like any task (3.22.0): it may not stick out of it.
   return breakRefusal(task, fields, 'details');
 }

@@ -32,7 +32,7 @@ import {
   type RepeatKind,
 } from '../../lib/repeat';
 import { loadTasks, loadTasksRaw } from '../../lib/storage';
-import { LONGER_THAN_BREAK, breaksFitting, dayHostEntries } from '../../lib/hosting';
+import { LONGER_THAN_BREAK, breakEntries, breaksFitting, dayHostEntries } from '../../lib/hosting';
 import { taskDuration } from '../../lib/drag';
 import { toTime } from '../../lib/timebox';
 import { setLabelEmoji } from '../../lib/labels';
@@ -704,7 +704,7 @@ export function StartFromRows({ task, done }: { task: Task; done: () => void }) 
 // the break). A repeating day changes that day only (ops.patchDay).
 export const DURING_BREAK = 'Do during a break';
 export function canDoDuringBreak(task?: Task): task is Task {
-  return !!task && !task.id.startsWith('dump:') && !task.completed && !task.cutsBelow && !isMultiTime(task);
+  return !!task && !task.id.startsWith('dump:') && !task.completed && !isMultiTime(task);
 }
 export function DuringBreakBody({ task, ops, done }: BodyProps) {
   const todayKey = dateKey(new Date());
@@ -713,14 +713,14 @@ export function DuringBreakBody({ task, ops, done }: BodyProps) {
     let live = true;
     loadTasksRaw().then((all) => {
       if (!live) return;
-      setBreaks(dayHostEntries(all, todayKey, todayKey).flatMap((e) => (e.breaks && !e.cont && e.full.id !== task.id ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: e.task.title }] : [])));
+      setBreaks(breakEntries(dayHostEntries(all, todayKey, todayKey)).flatMap((e) => (e.full.id !== task.id ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: e.task.title }] : [])));
     });
     return () => {
       live = false;
     };
   }, [todayKey, task.id]);
   const len = taskDuration(task);
-  const fit = breaks ? breaksFitting(breaks, len) : [];
+  const fit = breaks ? breaksFitting(breaks, len, !!task.cutsBelow) : [];
   const short = breaks ? breaks.filter((b) => !fit.includes(b)) : [];
   const span = (b: { startMin: number; endMin: number }) => `${formatTime(toTime(b.startMin))} to ${formatTime(toTime(b.endMin % 1440))}`;
   return (

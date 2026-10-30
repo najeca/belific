@@ -52,7 +52,9 @@ test('the hosted task leaves the Split plan: no "covers" refusal, a cut elsewher
   assert.deepEqual(pieces(after), pieces(before), 'the day long task is cut exactly as before');
 });
 
-test('a break is never hosted, the rest of yesterday never hosts and is never hosted, the shortest break wins', () => {
+// 3.22.0 (changed on purpose): a break was never hosted; now a Split task that a longer Split task holds whole is
+// hosted by it. Two breaks that only overlap, the rest of yesterday, and the shortest-break rule are as before.
+test('a break inside a LONGER break is hosted by it; overlapping breaks stay breaks; yesterday never hosts; the shortest break wins', () => {
   const r = hostDay([
     brk('big', h(12), h(14)),
     brk('small', h(12, 30), h(13)),
@@ -62,11 +64,16 @@ test('a break is never hosted, the rest of yesterday never hosts and is never ho
     { ...brk('cont:b', 0, h(1)), cont: true },
     task('early', h(0, 10), h(0, 30)),
   ]);
-  assert.equal(r.hostOf.get('in-both'), 'small');
+  assert.equal(r.hostOf.get('small'), 'big', 'a break inside a longer break is hosted by it');
+  assert.equal(r.hostOf.get('in-both'), 'big', 'small is a chip now, so it hosts nothing: its tasks belong to the big one');
   assert.equal(r.hostOf.get('in-big'), 'big');
-  assert.equal(r.hostOf.has('small'), false, 'a break inside a break stays a break');
+  assert.deepEqual([...r.breakIds], ['big']);
   assert.equal(r.hostOf.has('cont:night'), false);
   assert.equal(r.hostOf.has('early'), false, "yesterday's break goes on hosting nothing today");
+  // Two breaks that only overlap are both breaks: the shortest still wins for a task inside both.
+  const o = hostDay([brk('b1', h(12), h(13)), brk('b2', h(12, 30), h(13, 45)), task('in-both', h(12, 35), h(12, 50))]);
+  assert.deepEqual([...o.breakIds].sort(), ['b1', 'b2']);
+  assert.equal(o.hostOf.get('in-both'), 'b1');
 });
 
 test('Split off: a task of the same span hosts nothing', () => {
@@ -305,4 +312,44 @@ test('3.11.1: a resize or a nudge of a break is refused when a task it hosts wou
   assert.equal(breakLosesGuests(day(tasks), day(tasks.filter((t) => t.id !== 'lunch')), 'lunch'), true, 'off the day');
   assert.equal(breakLosesGuests(day(tasks), day(tasks), 'lunch'), false, 'unchanged');
   assert.equal(breakLosesGuests(day(tasks), day(change({ durationMinutes: 60 })), 'other'), false, 'another task id is not this break');
+});
+
+// ---- 3.22.0: dragging a Split task into another Split task, and a Split task as a guest ----
+import { DROP_INSIDE, DWELL_MS, SAME_LENGTH_AS_BREAK, breakEntries, dwellDrop } from './hosting.ts';
+
+test('dwell drop: inside when the Split task is shorter, longer note when it is not, none off the break', () => {
+  const b = { id: 'lunch', startMin: h(12), endMin: h(13) };
+  assert.equal(DWELL_MS, 1000);
+  assert.equal(DROP_INSIDE, 'Drop inside');
+  assert.deepEqual(dwellDrop([b], h(12, 20), h(12, 15), 30), { kind: 'inside', startMin: h(12, 15), brk: b });
+  // Held near the end: the start snaps back so the whole task is inside.
+  assert.deepEqual(dwellDrop([b], h(12, 50), h(12, 45), 30), { kind: 'inside', startMin: h(12), brk: b });
+  const longer = dwellDrop([b], h(12, 20), h(12, 15), 90);
+  assert.equal(longer.kind, 'longer');
+  assert.equal((longer as { note: string }).note, 'Longer than the break (1 h)');
+  const same = dwellDrop([b], h(12, 20), h(12, 15), 60);
+  assert.equal(same.kind, 'longer');
+  assert.equal((same as { note: string }).note, `${SAME_LENGTH_AS_BREAK} (1 h)`);
+  assert.deepEqual(dwellDrop([b], h(14), h(14), 30), { kind: 'none' });
+});
+
+test('a Split task may start inside another break without fitting (side by side, as before); one that was inside may not stick out', () => {
+  const b = { id: 'lunch', startMin: h(12), endMin: h(13) };
+  // 3.11.0 for any other task: a new start inside a break it does not fit is refused.
+  assert.ok(fitRefusal([b], [], [[h(12, 30), h(13, 30)]]));
+  // A Split task: allowed (two breaks may overlap).
+  assert.equal(fitRefusal([b], [], [[h(12, 30), h(13, 30)]], false), null);
+  // But a Split task that was hosted and is lengthened past the break is refused, like any hosted task.
+  assert.ok(fitRefusal([b], [[h(12, 15), h(12, 45)]], [[h(12, 15), h(13, 30)]], false));
+});
+
+test('breaksFitting: strict for a Split task (a break as long as the task would swap roles)', () => {
+  const list = [{ id: 'a', startMin: h(10), endMin: h(11) }, { id: 'b', startMin: h(12), endMin: h(14) }];
+  assert.deepEqual(breaksFitting(list, 60).map((x) => x.id), ['a', 'b']);
+  assert.deepEqual(breaksFitting(list, 60, true).map((x) => x.id), ['b']);
+});
+
+test('breakEntries: the entries that are breaks now, not the hosted Split tasks', () => {
+  const entries = [brk('outer', h(9), h(13)), brk('inner', h(10), h(11)), task('x', h(14), h(15))];
+  assert.deepEqual(breakEntries(entries).map((e) => e.id), ['outer']);
 });

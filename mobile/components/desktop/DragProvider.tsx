@@ -35,7 +35,7 @@ import { withoutDay } from '../../lib/taskOps';
 import { isDateKey } from '../../lib/kanban';
 import { isMultiTime } from '../../lib/times';
 import { showNotice } from './uiStore';
-import { fitRefusal, hostDrop, longerNote } from '../../lib/hosting';
+import { DROP_INSIDE, DWELL_MS, dwellDrop, fitRefusal, hostDrop, longerNote } from '../../lib/hosting';
 import { blockChangeRefusal } from '../../lib/hostActions';
 import { dayBreaks } from './breakStore';
 import type { BrainDumpItem, Task } from '../../lib/types';
@@ -89,7 +89,10 @@ export interface DragState {
   // 3.6.0: the pointer is on a break: the task goes inside it (the target's time is already moved
   // there), or it is longer than the break and drops as before.
   // 3.11.0: 'longer' is refused (the drop snaps back) and `note` says why: "Longer than the break (1 h)".
-  host?: { kind: 'host' | 'longer'; title: string; note?: string };
+  // 3.22.0: 'note' is a hint only (a Split task held over a break it is not shorter than: nothing is refused, the
+  // drop is placed as usual); `dwell` marks a Split task held over a break for DWELL_MS: the break is outlined
+  // ("Drop inside", `blockId` is its block) and the drop hosts the task there.
+  host?: { kind: 'host' | 'longer' | 'note'; title: string; note?: string; dwell?: boolean; blockId?: string };
   // 3.18.1: a repeating task with no Day dropped on a day that is not one of its repeat days: refused, with this hint.
   repeatNote?: string;
 }
@@ -173,6 +176,8 @@ export default function DragProvider({ children, onChanged }: { children: React.
   const sideScroll = useRef<-1 | 0 | 1>(0);
   const frame = useRef<number | null>(null);
   const lastTick = useRef(0);
+  // 3.22.0: the break a Split task has been held over, and since when.
+  const dwell = useRef<{ blockId: string; at: number; fired: boolean } | null>(null);
   const getters = useRef(new Map<string, (e: PointerEvent) => DragItem | null>());
   const refCache = useRef(new Map<string, (node: unknown) => void>());
   const onChangedRef = useRef(onChanged);
@@ -216,7 +221,30 @@ export default function DragProvider({ children, onChanged }: { children: React.
     let target = resolveDrop(x, y, zones, p.item);
     // 3.6.0: over a break on a time grid, the task starts inside it (lib/hosting.ts). A break is never hosted.
     let host: DragState['host'];
-    if (target?.kind === 'slot' && !p.item.task?.cutsBelow) {
+    const dragsSplit = !!p.item.task?.cutsBelow;
+    if (!(target?.kind === 'slot' && dragsSplit)) dwell.current = null;
+    // 3.22.0: a Split task held over another Split task for DWELL_MS is hosted by it ("Drop inside"); before that,
+    // and when the pointer moves to another break or leaves, it is placed as before (Split cut, side by side).
+    if (target?.kind === 'slot' && dragsSplit) {
+      const dayKey = target.dayKey;
+      const zone = zones.find((z) => z.kind === 'timebox' && z.dayKey === dayKey && inside(x, y, z.rect));
+      const breaks = dayBreaks(dayKey).filter((b) => b.taskId !== p.item.id);
+      const pointerMin = zone && zone.kind === 'timebox' ? yToMinutes(y, zone.gridTop) : -1;
+      const over = zone ? breaks.find((b) => b.startMin <= pointerMin && pointerMin < b.endMin) : undefined;
+      if (!over) dwell.current = null;
+      else {
+        const now = performance.now();
+        if (!dwell.current || dwell.current.blockId !== over.id) dwell.current = { blockId: over.id, at: now, fired: false };
+        if (now - dwell.current.at >= DWELL_MS) {
+          const d = dwellDrop(breaks, pointerMin, target.startMin, p.item.duration);
+          if (d.kind === 'inside') {
+            target = { ...target, startMin: d.startMin };
+            host = { kind: 'host', title: d.brk.title, dwell: true, blockId: d.brk.id };
+          } else if (d.kind === 'longer') host = { kind: 'note', title: d.brk.title, note: d.note };
+        }
+      }
+    }
+    if (target?.kind === 'slot' && !dragsSplit) {
       const dayKey = target.dayKey;
       const zone = zones.find((z) => z.kind === 'timebox' && z.dayKey === dayKey && inside(x, y, z.rect));
       if (zone && zone.kind === 'timebox') {
@@ -287,6 +315,12 @@ export default function DragProvider({ children, onChanged }: { children: React.
         if (node.scrollTop !== before) moved = true;
       }
     }
+    // A Split task held over a break reaches the pause with a still pointer: look again then.
+    const dw = dwell.current;
+    if (dw && !dw.fired && p.mode === 'move' && now - dw.at >= DWELL_MS) {
+      dw.fired = true;
+      moved = true;
+    }
     const side = sideScroll.current;
     const b = activeBoard();
     if (p.mode === 'move' && side !== 0 && b) {
@@ -309,6 +343,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
       const p = pending.current;
       pending.current = null;
       armed.current = null;
+      dwell.current = null;
       sideScroll.current = 0;
       if (frame.current !== null) cancelAnimationFrame(frame.current);
       frame.current = null;
@@ -568,6 +603,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
     <DragContext.Provider value={api}>
       {children}
       {drag && drag.mode === 'move' && <LiftedCard drag={drag} />}
+      {drag && drag.mode === 'move' && drag.host?.dwell && drag.host.blockId ? <DropInside blockId={drag.host.blockId} x={drag.x} y={drag.y} /> : null}
     </DragContext.Provider>
   );
 }
@@ -588,7 +624,9 @@ function LiftedCard({ drag }: { drag: DragState }) {
   else if (t && !drag.accepted && drag.repeatNote) hint = drag.repeatNote;
   else if (t && !drag.accepted) hint = 'Past day';
   // 3.6.0: on a break: "During Lunch, 12:30 to 12:45".
+  else if (t?.kind === 'slot' && drag.host?.kind === 'host' && drag.host.dwell) hint = `${DROP_INSIDE} ${drag.host.title}, ${slotLabel(t.startMin, drag.item.duration)}`;
   else if (t?.kind === 'slot' && drag.host?.kind === 'host') hint = `During ${drag.host.title}, ${slotLabel(t.startMin, drag.item.duration)}`;
+  else if (t?.kind === 'slot' && drag.host?.kind === 'note') hint = drag.host.note ?? null;
   else if (t?.kind === 'slot') hint = slotLabel(t.startMin, drag.item.duration);
   return (
     <View pointerEvents="none" style={[styles.lifted, { left: drag.x + 12, top: drag.y + 10 }]} {...({ dataSet: { liftedCard: drag.item.id } } as object)}>
@@ -601,7 +639,48 @@ function LiftedCard({ drag }: { drag: DragState }) {
   );
 }
 
+// 3.22.0: the break a Split task is held over, outlined with its label. The block is found under the pointer (the
+// Timebox marks it data-block-id, the Calendar data-cal-block with the day in front); nothing takes pointer events.
+function DropInside({ blockId, x, y }: { blockId: string; x: number; y: number }) {
+  const want = blockId.replace(/^task:/, '');
+  const rect = (() => {
+    for (const el of document.elementsFromPoint(x, y)) {
+      const b = (el as HTMLElement).closest?.('[data-block-id], [data-cal-block]') as HTMLElement | null;
+      const id = b?.getAttribute('data-block-id') ?? b?.getAttribute('data-cal-block') ?? '';
+      if (b && (id === want || id.endsWith(`:${want}`))) return b.getBoundingClientRect();
+    }
+    return null;
+  })();
+  if (!rect) return null;
+  return (
+    <View pointerEvents="none" style={[styles.dropInside, { left: rect.left - 2, top: rect.top - 2, width: rect.width + 4, height: rect.height + 4 }]} {...({ dataSet: { dropInside: blockId } } as object)}>
+      <Text style={styles.dropInsideLabel}>{DROP_INSIDE}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  dropInside: {
+    position: 'fixed' as 'absolute',
+    zIndex: 999,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: Colors.accent,
+    backgroundColor: 'transparent',
+  },
+  dropInsideLabel: {
+    position: 'absolute',
+    bottom: 4,
+    right: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    overflow: 'hidden',
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.onAccent,
+    backgroundColor: Colors.accent,
+  },
   lifted: {
     position: 'fixed' as 'absolute',
     zIndex: 1000,

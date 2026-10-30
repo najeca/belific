@@ -692,3 +692,8 @@ Gates: tsc clean; mobile `node --test` 1008/1008; desktop `node --test` 114/114;
 - Added lib/undoStack.ts (stack, planning, label), lib/undoActions.ts, storage hooks (addTask/updateTask/deleteTask record; applyTaskPlan writes undo), keys, toast.
 - Choices: grouping by gesture (press or key) plus a 1.5 s gap; delete and skip undo as copies under restored ids (a tombstone cannot be cleared); redo of a create is a new row; undo of a deleted series brings back one plain task (the Trash rule); the toast shows 8 s.
 - Check by hand: move a card, Ctrl+Z, Ctrl+Y; tick and undo; delete and undo (it returns as a copy); type in a field and press Ctrl+Z (the field undoes its typing, tasks do not change).
+
+## UI fixes batch 3, drop a Split task inside another Split task, and the Split audit: 3.22.0
+- Added dwellDrop, nested hosting, breakIds, the Drop inside outline, the chip and details notes.
+- Choices: the pause applies to Split tasks over Split tasks (other tasks are hosted at once, as before; a non Split block cannot host without storing something); hosting itself stays derived from the times, so a Split task dropped without the pause that happens to fit wholly inside a break is hosted anyway; equal length is not allowed for the drop (swap); Longer / As long as are notes, not refusals.
+- Check by hand: hold a Split task over Lunch for a second, see the outline, drop; drop one longer; move away before the second; open the hosted task's details.

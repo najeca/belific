@@ -450,6 +450,11 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
             <Toggle value={!!task.cutsBelow} onValueChange={(v) => patch({ cutsBelow: v ? true : undefined })} label="Split" dataSet={{ cutSwitch: task.cutsBelow ? '1' : '0' }} />
             <Text style={styles.hintText}>Splits the tasks it overlaps, so you still see them before and after it.</Text>
           </View>
+          {task.cutsBelow && links.some((l) => l.guest.full.id === task.id) ? (
+            <Text style={styles.quietSub} {...({ dataSet: { splitIgnored: '1' } } as object)}>
+              {`Its Split is ignored while it is during ${links.find((l) => l.guest.full.id === task.id)?.brk.full.title ?? 'the break'}.`}
+            </Text>
+          ) : null}
         </DetailRow>
 
         {feats.dueDates && (

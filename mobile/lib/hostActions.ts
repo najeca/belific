@@ -1,6 +1,6 @@
 // Moving a task out of the break it is during (3.9.0, lib/hosting.ts), shared by the desktop and the
 // iPhone. Each action writes through the task's own ops (lib/taskOps.ts), so a day of a repeating task
-// asks This day only / All days like every other new time, and returns an undo that puts back exactly the
+// changes that day only (3.20.0) and returns an undo that puts back exactly the
 // rows it changed.
 import type { Task } from './types.ts';
 import { loadTasksRaw, updateTask } from './storage';
@@ -23,13 +23,13 @@ export type OutResult = { ok: true; text: string; undo: () => Promise<void> } | 
 const TIME_KEYS = ['dueDate', 'startTime', 'extraTimes', 'timesDone', 'durationMinutes', 'completed', 'completedAt'] as const;
 
 // What undo writes: every row the action changed goes back as it was. The day row the action created
-// (a day of a repeating task stored by This day only, under that day's id) takes back the times it showed
+// (a day of a repeating task stored for that day alone, under that day's id) takes back the times it showed
 // before. Any other new row (the next day stored to carry the series) already matches the series: it is
 // left alone.
 async function writeWithUndo(g: HostedRef, fields: Partial<Task>): Promise<() => Promise<void>> {
   const before = new Map((await loadTasksRaw()).map((t) => [t.id, t]));
   const ops = g.projected ? opsForProjected(g.full) : opsForTask(g.full);
-  await ops.patch(fields);
+  await ops.patchDay(fields);
   const after = await loadTasksRaw();
   const changed = after.filter((t) => {
     const b = before.get(t.id);

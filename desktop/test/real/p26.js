@@ -164,7 +164,7 @@ async function run() {
   check('Calendar: the moved block shows the caption (line or arrow) and says so in its label', !!cal && cal.mark && /Moved from/.test(cal.label || ''), JSON.stringify(cal));
   await I.shot('p26-06-captions-calendar');
 
-  // ======== 3.4.0: This day only / All days ========
+  // ======== 3.20.0: a drag changes that day only, with no question ========
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
   const prompt = () => I.js(`(() => { const p = document.querySelector('[data-scope-prompt]'); return p ? { text: p.innerText, def: (p.querySelector('[data-scope-default="1"]') || {}).getAttribute?.('data-scope-choice') } : null; })()`);
   // Drags a Timebox block down by `min` minutes (56 px an hour) with the real mouse.
@@ -187,24 +187,16 @@ async function run() {
   const runToday = `run:${day(0)}`;
   check('today\'s run is a projected block on the Timebox', await I.exists(`document.querySelector('[data-block-id="${runToday}"]')`) && !byId(runToday));
   await dragBlock(runToday, 60);
-  const p1 = await prompt();
-  check('moving a projected repeating block asks This day only / All days', !!p1 && p1.text.includes('This day only') && p1.text.includes('All days'), JSON.stringify(p1));
-  check('the default (a projected day) is All days, as before', !!p1 && p1.def === 'all', JSON.stringify(p1));
-  await I.shot('p26-07-scope-prompt');
-  await I.key('Escape', [], 700);
-  check('Escape dismisses it and does what the app did before: the whole series moves to 08:00', byId('run').startTime === '08:00' && !byId(runToday) && !(await prompt()), JSON.stringify(byId('run')));
-  await dragBlock(runToday, 60);
-  await I.click(`document.querySelector('[data-scope-prompt] [data-scope-choice="day"]')`, 800);
+  // 3.20.0: no question. A drag changes that day only: today is stored at 08:00, the series keeps 07:00.
+  check('moving a projected repeating block asks nothing', !(await prompt()), JSON.stringify(await prompt()));
+  await I.shot('p26-07-no-scope-prompt');
   const stored = byId(runToday);
-  check('This day only stores today at 09:00 with its rule', !!stored && stored.startTime === '09:00' && stored.dueDate === day(0) && stored.recurrence === 'weekly', JSON.stringify(stored));
+  check('today is stored at 08:00 with its rule, this day only', !!stored && stored.startTime === '08:00' && stored.dueDate === day(0) && stored.recurrence === 'weekly', JSON.stringify(stored));
   const carrier = byId(`run:${day(7)}`);
-  check('the series keeps 08:00 (next week\'s day carries it)', byId('run').startTime === '08:00' && !!carrier && carrier.startTime === '08:00' && !carrier.completed, JSON.stringify(carrier));
-  // A stored, moved day: the default is This day only.
+  check('the series keeps 07:00 (next week\'s day carries it)', byId('run').startTime === '07:00' && !!carrier && carrier.startTime === '07:00' && !carrier.completed, JSON.stringify(carrier));
+  // A stored, moved day: this day only too.
   await dragBlock(`gym:${SAT}`, 60);
-  const p2 = await prompt();
-  check('a stored day asks too, with This day only as the default', !!p2 && p2.def === 'day', JSON.stringify(p2));
-  await I.click(`document.querySelector('[data-scope-prompt] [data-scope-choice="all"]')`, 800);
-  check('All days changes the series and that day', byId('gym').startTime === '11:00' && byId(`gym:${SAT}`).startTime === '11:00' && byId(`gym:${SAT}`).dueDate === day(0), JSON.stringify([byId('gym'), byId(`gym:${SAT}`)]));
+  check('a stored moved day asks nothing and changes only itself (11:00, still on its Day)', !(await prompt()) && byId(`gym:${SAT}`).startTime === '11:00' && byId(`gym:${SAT}`).dueDate === day(0) && byId('gym').startTime === undefined, JSON.stringify([byId('gym'), byId(`gym:${SAT}`)]));
   check('no prompt is left open', !(await prompt()));
 
   const failed = summary();

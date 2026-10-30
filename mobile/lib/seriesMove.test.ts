@@ -171,7 +171,7 @@ test('a moved day that is the only live row is the template of last resort', () 
   assert.equal(projectOccurrences(rows, [SUN], TODAY)[0].startTime, '09:00');
 });
 
-test('an All days edit after a move reaches the moved day too (its time), never its Day', () => {
+test('a series edit after a move lists the moved day among its targets, and never takes its Day', () => {
   const rows = apply(shift(), planMoveDay(shift(), SAT, FRI, NOW));
   const targets = seriesEditTargets(rows, TODAY).map((r) => r.id).sort();
   assert.deepEqual(targets, ['w:2026-10-25', `w:${SAT}`].sort());

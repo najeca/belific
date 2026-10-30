@@ -196,7 +196,7 @@ export default function TimeBlock({
         }
         if (!patch || Object.keys(patch).length === 0) return;
         // 3.2.0: a new day for a day of a repeating task moves that day only.
-        // 3.4.0: a new time or length for it asks This day only / All days.
+        // 3.20.0: a new time or length for it changes that day only (the first time of a series, every day).
         // 3.12.0: refused, and nothing written, when it would take a task out of its break.
         const fields = patch;
         const day = shown.dueDate ?? t.dueDate ?? '';
@@ -208,7 +208,7 @@ export default function TimeBlock({
           }
           if (t.recurrence) {
             if (fields.dueDate) await moveDay(t, fields.dueDate, withoutDay(fields));
-            else await editRepeatingTime(t, !!proj, fields);
+            else await editRepeatingTime(t, !!proj, fields, 'day');
           } else await updateTask({ ...t, ...fields });
         })();
         Promise.resolve(done).then(() => {

@@ -13,7 +13,7 @@ import {
 import { deleteBrainDumpItem, deleteTask } from './storage';
 import { dumpItemToTask } from './thoughts';
 import { isDateKey } from './kanban';
-import { isTimeEdit } from './scopeAsk';
+import { isTimeEdit } from './seriesTime';
 import type { BrainDumpItem, Task } from './types';
 
 // What a card (or a Timebox block popover, or a phone row or details sheet) can do to its task.
@@ -22,6 +22,9 @@ import type { BrainDumpItem, Task } from './types';
 // Task in place (lib/dumpConvert.ts), after which the list shows the Task and the item is gone.
 export interface TaskOps {
   patch(fields: Partial<Task>): Promise<void>;
+  // The same change for THIS day only (a move out of a break, Do during a break): on a repeating task it never
+  // reaches the other days (except the first time of a series, 3.20.0); on any other task it is patch.
+  patchDay(fields: Partial<Task>): Promise<void>;
   setCompleted(done: boolean): Promise<void>;
   // One time of a task that happens several times a day (Part C).
   setTimeDone(time: string, done: boolean): Promise<void>;
@@ -41,7 +44,7 @@ export interface SeriesOps {
 
 // A stored task. A repeating one also gets the series actions, and setting it
 // to "Does not repeat" ends the whole series (every row of its root). A new time
-// or length on a repeating day asks "This day only / All days" (3.4.0).
+// or length from here changes every repeat day without a time of its own (3.20.0, seriesTime.ts).
 export function opsForTask(task: Task): TaskOps {
   const repeating = !!task.recurrence;
   return {
@@ -51,8 +54,14 @@ export function opsForTask(task: Task): TaskOps {
         : repeating && movesOneDay(task, fields)
           ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
           : repeating && isTimeEdit(fields)
-            ? editRepeatingTime(task, false, fields)
+            ? editRepeatingTime(task, false, fields, 'panel').then(() => undefined)
             : patchTask(task.id, fields),
+    patchDay: (fields) =>
+      repeating && movesOneDay(task, fields)
+        ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
+        : repeating && isTimeEdit(fields)
+          ? editRepeatingTime(task, false, fields, 'day').then(() => undefined)
+          : patchTask(task.id, fields),
     setCompleted: (done) => completeTaskById(task.id, done),
     setTimeDone: (time, done) => setTimeDoneById(task.id, time, done),
     toggleSubtask: (sid) => toggleSubtaskById(task.id, sid),
@@ -81,14 +90,20 @@ export function withoutDay(fields: Partial<Task>): Partial<Task> {
 // series template, ticking stores that day's occurrence, "Skip this day" writes
 // a tombstone and "Delete repeating task" ends the series.
 // A new Day moves that day only (stored first, 3.2.0), as on a stored day. A new
-// time or length asks "This day only / All days" (3.4.0, seriesActions.editRepeatingTime).
+// time or length goes to every repeat day without a time of its own (3.20.0, seriesActions.editRepeatingTime).
 export function opsForProjected(task: Task): TaskOps {
   return {
     patch: (fields) =>
       movesOneDay(task, fields)
         ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
         : isTimeEdit(fields)
-          ? editRepeatingTime(task, true, fields)
+          ? editRepeatingTime(task, true, fields, 'panel').then(() => undefined)
+          : patchSeries(task, fields),
+    patchDay: (fields) =>
+      movesOneDay(task, fields)
+        ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
+        : isTimeEdit(fields)
+          ? editRepeatingTime(task, true, fields, 'day').then(() => undefined)
           : patchSeries(task, fields),
     setCompleted: (done) => completeProjected(task, done),
     setTimeDone: (time, done) => tickTimeProjected(task, time, done),
@@ -101,6 +116,7 @@ export function opsForProjected(task: Task): TaskOps {
 export function opsForDump(item: BrainDumpItem): TaskOps {
   return {
     patch: async (fields) => void (await editDumpItem(item, fields)),
+    patchDay: async (fields) => void (await editDumpItem(item, fields)),
     setCompleted: async (done) =>
       void (await editDumpItem(item, { completed: done, completedAt: done ? new Date().toISOString() : undefined })),
     setTimeDone: async () => {},

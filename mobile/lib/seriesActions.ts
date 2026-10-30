@@ -14,7 +14,7 @@ import {
   templatePatch,
 } from './series';
 import { dateKey } from './kanban';
-import { askScope } from './scopeAsk';
+import { seriesPatches, timeEditScope, type TimeScope } from './seriesTime';
 import { startedOn } from './repeatDrop';
 import type { Task } from './types';
 
@@ -95,8 +95,9 @@ export function patchSeries(task: Task, fields: Partial<Task>): Promise<void> {
     }
     const series = seriesOfRows(rootTaskId(task.id), rows);
     if (!series) return;
-    // The template row and every open stored row from today on read the same.
-    for (const row of seriesEditTargets(rows, dateKey(new Date()))) await writeRow(row.id, templatePatch(row, fields));
+    // The template row and every open stored row from today on read the same; a day with a time of its own
+    // keeps it (seriesTime.ts).
+    for (const p of seriesPatches(rows, fields, dateKey(new Date()))) await writeRow(p.id, p.fields);
   });
 }
 
@@ -136,7 +137,7 @@ export function skipOccurrence(task: Task): Promise<void> {
   });
 }
 
-// "This day only" (3.4.0): `fields` (a time, a length) on that day alone (series.planThisDayEdit:
+// A change to one day (3.4.0): `fields` (a time, a length) on that day alone (series.planThisDayEdit:
 // the day is stored if it was only shown, and the next day carries the series when needed).
 export function editThisDay(task: Task, fields: Partial<Task>): Promise<Task | null> {
   return serial(async () => {
@@ -151,20 +152,28 @@ export function editThisDay(task: Task, fields: Partial<Task>): Promise<Task | n
   });
 }
 
-// A new time or length for a day of a repeating task asks "This day only / All days" (scopeAsk.ts).
-// Dismissed, it does what it did before the question: a projected day changes the series, a stored
-// day changes only itself (now without reaching the later days).
-export async function editRepeatingTime(task: Task, projected: boolean, fields: Partial<Task>): Promise<void> {
-  const answer = await askScope({ title: 'Change the time of a repeating task', fallback: projected ? 'all' : 'day' });
-  const scope = answer ?? (projected ? 'all' : 'day');
-  if (scope === 'all') await patchSeries(task, fields);
-  else await editThisDay(task, fields);
+// A new time or length for a day of a repeating task (3.20.0, lib/seriesTime.ts), with no question asked:
+// a drag, a drop, a resize or a nudge ('day') changes that day only; the details ('panel') change every repeat
+// day that has no time of its own; the FIRST time of a series goes to every repeat day either way. Returns
+// the scope that was applied (the caller's undo needs it).
+export async function editRepeatingTime(
+  task: Task,
+  projected: boolean,
+  fields: Partial<Task>,
+  source: 'day' | 'panel' = 'day',
+): Promise<TimeScope> {
+  const { rows } = await rowsOfRoot(task.id);
+  const scope = timeEditScope(rows, task.id, fields, source);
+  if (scope === 'series') await patchSeries(task, fields);
+  else if (scope === 'day') await editThisDay(task, fields);
+  else if (!projected) await patchTask(task.id, fields);
+  return scope;
 }
 
 // A repeating task with no Day, dropped from the left list on a repeat day (3.18.1, lib/repeatDrop.ts): that day
-// becomes the start of its series, and the time the drop set is that day's. When the series has no time of its
-// own yet the question "This day only / All days" is asked as for any new time of a repeating task (3.4.0); when it
-// has one, the drop sets that day alone. A drop that sets no time (a day column) just starts the series.
+// becomes the start of its series. When the series has no time of its
+// own yet the time goes to every repeat day (3.20.0: no question); when it has one, the drop sets that day alone.
+// A drop that sets no time (a day column) just starts the series.
 export async function startRepeatingOn(task: Task, dayKey: string, fields: Partial<Task>): Promise<Task | null> {
   const started = startedOn(task, dayKey, nowIso());
   await updateTask(started);
@@ -172,8 +181,7 @@ export async function startRepeatingOn(task: Task, dayKey: string, fields: Parti
   if (fields.startTime !== undefined) timeFields.startTime = fields.startTime;
   if (fields.durationMinutes !== undefined) timeFields.durationMinutes = fields.durationMinutes;
   if (Object.keys(timeFields).length === 0) return started;
-  if (task.startTime) return editThisDay(started, timeFields);
-  await editRepeatingTime(started, false, timeFields);
+  await editRepeatingTime(started, false, timeFields, 'day');
   return started;
 }
 

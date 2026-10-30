@@ -33,6 +33,7 @@ import { shortRepeat } from '../../lib/repeat';
 import { dateKey } from '../../lib/kanban';
 import { movesOneDay, opsForProjected, opsForTask, withoutDay, type TaskOps } from './taskOps';
 import { moveDay } from '../../lib/seriesActions';
+import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
 import { toggleTimer, useNow } from './timerUi';
 import { startFromChoices } from '../../lib/timerSession';
 import { formatTime } from '../../lib/data';
@@ -370,6 +371,10 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
           {timeNote ? (
             <Text style={styles.quietSub} accessibilityRole="alert" {...({ dataSet: { timeNote: '1' } } as object)}>
               {timeNote}
+            </Text>
+          ) : task.recurrence ? (
+            <Text style={styles.quietSub} {...({ dataSet: { seriesTimeNote: '1' } } as object)}>
+              {movedCaptionLong(task) ? OWN_TIME_NOTE : SERIES_TIME_NOTE}
             </Text>
           ) : null}
         </DetailRow>

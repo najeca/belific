@@ -86,6 +86,9 @@ export default function AddTaskBox({
     patch: async (f) => {
       if ('projectKey' in f) setProjectKey(f.projectKey);
     },
+    patchDay: async (f) => {
+      if ('projectKey' in f) setProjectKey(f.projectKey);
+    },
     setCompleted: async () => {},
     setTimeDone: async () => {},
     toggleSubtask: async () => {},

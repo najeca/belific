@@ -22,8 +22,7 @@ import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
 import { phoneDropPatch } from '../../lib/phoneDrag';
 import { breakAt, dayHostEntries, fitRefusal, hostStart, longerNote } from '../../lib/hosting';
 import { taskDuration } from '../../lib/drag';
-import { editThisDay, patchSeries } from '../../lib/seriesActions';
-import { askScope, type Scope } from '../../lib/scopeAsk';
+import { editRepeatingTime, patchSeries, editThisDay } from '../../lib/seriesActions';
 import { patchTask } from '../../lib/taskActions';
 import type { Task } from '../../lib/types';
 import { MonthView, WeekView } from '../../components/phone/calendar/WeekMonth';
@@ -159,15 +158,14 @@ export default function CalendarScreen() {
     }
     const before: Partial<Task> = {};
     for (const k of Object.keys(res.fields) as Array<keyof Task>) (before as Record<string, unknown>)[k] = full[k];
-    // 3.4.0: a day of a repeating task asks This day only / All days (dismissed: as before, a projected
-    // day moves the series' time, a stored one its own); Undo puts back what the answer changed.
-    let scope: Scope = res.series ? 'all' : 'day';
-    if (full.recurrence) scope = (await askScope({ title: 'Change the time of a repeating task', fallback: scope })) ?? scope;
-    const write = (fields: Partial<Task>) =>
-      !full.recurrence ? patchTask(full.id, fields) : scope === 'all' ? patchSeries(full, fields) : editThisDay(full, fields).then(() => undefined);
-    await write(res.fields);
+    // 3.20.0: a drag changes that day only, with no question (the first time of a series goes to every repeat
+    // day); Undo puts back what the drag changed, the same way.
+    let scope: 'series' | 'day' | 'plain' = 'plain';
+    if (full.recurrence) scope = await editRepeatingTime(full, !!source.projected, res.fields, 'day');
+    else await patchTask(full.id, res.fields);
+    const undo = () => (scope === 'series' ? patchSeries(full, before) : scope === 'day' ? editThisDay(full, before).then(() => undefined) : patchTask(full.id, before));
     await load();
-    setNotice({ id: Date.now(), text: `Moved to ${formatTime(toTime(startMin))}`, undo: () => void write(before).then(load) });
+    setNotice({ id: Date.now(), text: `Moved to ${formatTime(toTime(startMin))}`, undo: () => void undo().then(load) });
   }
 
   const step = (delta: number) => setAnchor((a) => stepAnchor(view, a, delta));

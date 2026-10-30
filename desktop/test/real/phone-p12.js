@@ -133,12 +133,7 @@ async function run() {
   check('Tasks: the moved row in its list says where it came from', !!tasksYoga && tasksYoga.text.includes(`Moved from ${fromName}`), JSON.stringify(tasksYoga));
   await shot('phone-p12-tasks-moved');
 
-  // ======== 3.4.0: This day only / All days ========
-  const sheetMenu = () => P.js(`(() => { const m = [...document.querySelectorAll('[data-action-menu]')].pop(); return m ? m.innerText : ''; })()`);
-  const menuTap = async (label) => {
-    await C.sleep(600); // the sheet ignores a press in its first moments
-    await P.finger.tap(`[...document.querySelectorAll('[data-action-menu] [aria-label=${JSON.stringify(label)}]')].pop()`, 900);
-  };
+  // ======== 3.20.0: a new time in the details goes to every repeat day, with no question ========
   const setTime = async (hhmm) => {
     // The Time row opens and closes its field: tap it only while the field is closed.
     if (!(await P.js(`!!${inSheet('[aria-label="Start time"]')}`))) await tapIn('[data-detail-row="time"]');
@@ -154,18 +149,12 @@ async function run() {
   await P.finger.tap(tab('Today'), 1200);
   await openFromToday('Swim');
   await setTime('07:15');
-  const asked = await sheetMenu();
-  check('a new time on a repeating day asks This day only / All days', asked.includes('This day only') && asked.includes('All days'), asked);
-  await shot('phone-p12-scope-sheet');
-  await menuTap('This day only');
-  const swimToday = task(`swim:${today}`);
-  check('This day only stores today at 07:15; the series keeps 06:00', !!swimToday && swimToday.startTime === '07:15' && task('swim').startTime === '06:00', JSON.stringify(swimToday));
-  const swimNext = task(`swim:${day(1)}`);
-  check('tomorrow is stored to carry the series at 06:00 (no leak)', !!swimNext && swimNext.startTime === '06:00' && !swimNext.completed, JSON.stringify(swimNext));
+  check('no question is asked', !(await P.js(`!!document.querySelector('[data-action-menu]')`)));
+  check('the sheet says the time applies to every repeat day', (await P.js(`document.body.innerText`)).includes('Applied to every repeat day. Days you moved keep their own time.'));
+  await shot('phone-p12-series-time');
+  check('the series moves to 07:15 for every day (nothing stored for today)', task('swim').startTime === '07:15' && !task(`swim:${today}`), JSON.stringify([task('swim'), task(`swim:${today}`)]));
   await setTime('07:45');
-  await menuTap('Cancel');
-  // The series is held by tomorrow's stored day now (the template), so the series edit lands there.
-  check('Cancel does what the app did before (a projected day: the series moves to 07:45)', task(`swim:${day(1)}`).startTime === '07:45', JSON.stringify(task(`swim:${day(1)}`)));
+  check('and again: 07:45', task('swim').startTime === '07:45', JSON.stringify(task('swim')));
   await P.finger.tap(visible('[aria-label="Done"]'), 900);
 
   const failed = summary();

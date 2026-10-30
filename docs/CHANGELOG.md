@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.20.0 — 2026-10-30 (no repeat popup: a drag changes that day, the first time goes to every repeat day)
+
+**Desktop and phone. No schema change, no migration.**
+- **Removed everywhere:** the "Change the time of a repeating task / This day only / All days" popup (desktop popover and phone sheet; `scopeAsk.ts`, `ScopePrompt.tsx`, `ScopeSheet.tsx` are gone) and the old "changes apply to every day from today ... a new time or length asks" wording.
+- **New rules (`lib/seriesTime.ts`, pure, tested):** dragging, dropping, resizing or nudging one occurrence changes **that day only**, silently. The **first time** of a repeating task that has none (details panel, a drop from the left list, a drop on a timeless chip) is applied to **every repeat day**: Zone 2 on Mon and Thu dropped on Monday 16:30 now shows 16:30 on Thursday too (before, Thursday stayed an untimed all day chip). A **later** time or length from the details goes to every repeat day that was not changed on its own; a **moved day** or a stored day whose time differs from the series keeps its own time (read from the existing rows, no new column). An edit made on a day that has its own time changes that day only.
+- **Details:** a quiet line under the Time row of a repeating task: "Applied to every repeat day. Days you moved keep their own time." (a moved day reads "This day has its own time. Changes here apply to this day only."). Desktop panel and phone sheet.
+- **Move out of a break and Do during a break** change that day only (`ops.patchDay`). The phone Calendar drag no longer asks; its Undo puts back what the drag changed.
+- **Tests:** `seriesTime.test.ts` (new, 13: the first time reaches Thursday, a later time keeps a changed day, a moved day, an own-length day, a title still reaches every day, a task with no dated row); `scopeAsk.test.ts` removed with its module. Real checks changed on purpose because they pinned the popup: `cp8h`, `p26`, `p28`, `p37`, `phone-p10`, `phone-p12`; new `p40.js`.
+
 ## 3.19.0 — 2026-10-29 (defaults for new users: Vibrant on, Theme Light)
 
 **Desktop. No schema change, nothing stored is rewritten.**

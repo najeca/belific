@@ -282,9 +282,7 @@ async function run() {
   }
   await C.sleep(200);
   mouse('mouseUp', to.x, to.y);
-  // 3.4.0: a new time on a repeating day asks "This day only / All days"; All days is the series edit.
-  await C.waitFor(() => js(`!!(${q('[data-scope-prompt] [data-scope-choice="all"]')})`), 5000).catch(() => {});
-  await click(q('[data-scope-prompt] [data-scope-choice="all"]'));
+  // 3.20.0: the first time of a series goes to every repeat day, with no question asked.
   await C.waitFor(() => rowById('rt') && rowById('rt').startTime === '05:00', 8000).catch(() => {});
   check('dropping a projected card on the Timebox at 05:00 sets the start time of the series', rowById('rt').startTime === '05:00', JSON.stringify(rowById('rt')));
   check('no row was added and no Day changed (nothing is stored for the projected days)', rows().length === rowsBefore && rowById('rt').dueDate === today);
@@ -373,12 +371,7 @@ async function run() {
   // 2.27.1: the estimate is the time drop-down.
   await click(q(`${modal} [data-duration-select="Estimated time"]`));
   await click(q('[data-popover] [aria-label="Estimated time 45 min"]'));
-  // 3.4.0: a new length asks "This day only / All days"; All days is the series edit.
-  await C.waitFor(() => js(`!!(${q('[data-scope-prompt] [data-scope-choice="all"]')})`), 5000).catch(() => {});
-  // The question sits above the length drop-down, which stays open until it is answered.
-  const onTop = await js(`(() => { const b = ${q('[data-scope-prompt] [data-scope-choice="all"]')}; const r = b.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); const p = e && e.closest('[aria-label]'); return p ? p.getAttribute('aria-label') : 'none'; })()`);
-  check('the This day only / All days question is on top of the open length drop-down', onTop === 'All days', onTop);
-  await click(q('[data-scope-prompt] [data-scope-choice="all"]'));
+  // 3.20.0: a later length from the details goes to every repeat day, with no question asked.
   await C.waitFor(() => rowById('rt').durationMinutes === 45, 8000).catch(() => {});
   const total = await countCards('Daily walk');
   // 2.27.0: a placed card shows its start time; the estimate is in the details.

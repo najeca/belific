@@ -2,7 +2,7 @@
 // Real check for 3.18.1 (step 7): dragging a repeating task from the left list onto the Calendar or the Timebox.
 // "Zone 2" repeats Mon and Thu and has an empty date. REPRODUCED first on 3.18.0: the drop preview said
 // "16:30 to 18:00" but nothing was written. Fixed: a drop on a day that matches the repeat rule sets that day's
-// time (this day only; "This day only / All days" when the series has no time yet), a drop on a day that is not a
+// time (this day only; since 3.20.0 the FIRST time of a series goes to every repeat day, with no question), a drop on a day that is not a
 // repeat day is refused with a hint, and the empty Task date of a repeating task defaults to its first matching
 // repeat day. BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
@@ -87,17 +87,13 @@ async function run() {
     }
   };
   const bodyText = () => I.js('document.body.innerText');
-  const answer = async (choice) => {
-    await C.waitFor(() => I.exists(`document.querySelector('[data-scope-prompt]')`), 4000);
-    await I.click(`document.querySelector('[data-scope-prompt] [data-scope-choice="${choice}"]')`, 900);
-  };
   const hintNow = () => I.js(`(document.querySelector('[data-lifted-card]') || {}).innerText || ''`);
   const toThu = async (hhmm) => ({ x: await colX(day(thu)), y: (await yAt(hhmm)) + 8 });
   await scrollGridTo('16:00');
   await C.sleep(300);
   await I.shot('p37-before');
 
-  // ======== A: Zone 2 (no time yet) onto Thursday 16:30 -> asks, "This day only" ========
+  // ======== A: Zone 2 (no time yet) onto Thursday 16:30 -> the first time: every repeat day, no question ========
   // CAUSE (reproduced on 3.18.0): the drop preview said "16:30 to 18:00" but nothing was written. The drop took the
   // "a day of a repeating task moves that day only" path (3.2.0, DragProvider.commitDrop -> write -> seriesActions.moveDay)
   // because the task has a repeat rule and the target day differs from its (empty) Day. moveDay needs a Day to move
@@ -111,18 +107,27 @@ async function run() {
   const upA = await toThu('16:30');
   win.webContents.sendInputEvent({ type: 'mouseUp', x: upA.x, y: upA.y, button: 'left', clickCount: 1 });
   await C.sleep(700);
-  check('A: the series has no time yet, so it asks This day only / All days', await I.exists(`document.querySelector('[data-scope-prompt]')`));
-  await I.shot('p37-ask');
-  await answer('day');
+  check('A: nothing is asked (no popup)', !(await I.exists(`document.querySelector('[data-scope-prompt]')`)));
   await C.sleep(900);
   const za = rows('z');
   const dayRow = za.find((r) => r.dueDate === day(thu) && r.startTime === '16:30');
-  check('A: this day only: Thursday has 16:30 (90 minutes), the task now has a Day', !!dayRow && dayRow.durationMinutes === 90 && !dayRow.deletedAt, brief(za));
-  check('A: no other row of the series got a time (the other days are untouched)', za.filter((r) => !r.deletedAt && r.startTime && r.id !== (dayRow && dayRow.id)).length === 0, brief(za));
+  check('A: Thursday has 16:30 (90 minutes) and the task now has a Day', !!dayRow && dayRow.durationMinutes === 90 && !dayRow.deletedAt, brief(za));
+  check('A: it is the series\' own time (the template), so every repeat day has it', za.length === 1 && dayRow.id === 'z' && dayRow.recurrence === 'weekly', brief(za));
   check('A: the card left the list (it has a Day)', !(await cardPoint('Zone 2')));
   const calText = await I.js(`[...document.querySelectorAll('[data-cal-col="${day(thu)}"] [aria-label^="Calendar block Zone 2"]')].map((e) => e.innerText.replace(/\\s+/g, ' ')).join(' | ')`);
   check('A: the Calendar shows the block on Thursday', /Zone 2/.test(calText), calText);
   await I.shot('p37-placed');
+  // The bug found in 3.18.1: the other repeat day showed as an untimed all day chip. Next week both Mon and Thu are timed.
+  await I.click(I.byLabel('Calendar next week'), 900);
+  await C.sleep(500);
+  const nextWeek = await I.js(`[...document.querySelectorAll('[aria-label^="Calendar block Zone 2"]')].map((e) => e.innerText.replace(/\s+/g, ' ').trim())`);
+  console.log('INFO next week blocks', JSON.stringify(nextWeek));
+  check('A: next week the Monday and the Thursday of Zone 2 are both timed blocks at 16:30', nextWeek.length >= 2 && nextWeek.every((l) => /16:30/.test(l) || /4:30/.test(l)), JSON.stringify(nextWeek));
+  const untimed = await I.js(`[...document.querySelectorAll('[aria-label*="Zone 2"]')].filter((e) => !/Calendar block/.test(e.getAttribute('aria-label') || '') && /all day|untimed|Anytime/i.test(e.getAttribute('aria-label') || '')).length`);
+  check('A: and none of Zone 2 is an untimed chip', untimed === 0, String(untimed));
+  await I.shot('p37-next-week');
+  await I.click(I.byLabel('Calendar previous week'), 900);
+  await C.sleep(400);
 
   // ======== B: Zone timed (the series has 08:00) onto Thursday 18:30 -> no question, this day only ========
   from = await cardPoint('Zone timed');
@@ -132,13 +137,12 @@ async function run() {
   const zt = rows('zt');
   check('B: that Thursday is at 18:30, the series keeps 08:00', zt.some((r) => r.dueDate === day(thu) && r.startTime === '18:30') && zt.some((r) => r.startTime === '08:00' && !r.deletedAt), brief(zt));
 
-  // ======== C: Zone all -> All days ========
+  // ======== C: Zone all (no time yet either) -> the series gets 20:00 and starts on Thursday ========
   from = await cardPoint('Zone all');
-  await pointerDrag(from, await toThu('20:00'));
-  await answer('all');
+  await pointerDrag(from, await toThu('19:00'));
   await C.sleep(900);
   const za2 = rows('za');
-  check('C: All days: the series gets 20:00 and starts on Thursday', za2.some((r) => r.dueDate === day(thu) && r.startTime === '20:00' && !r.deletedAt), brief(za2));
+  check('C: the series gets 19:00 and starts on Thursday', za2.some((r) => r.dueDate === day(thu) && r.startTime === '19:00' && !r.deletedAt), brief(za2));
 
   // ======== D: a day that is not a repeat day: refused, with the hint, nothing written ========
   from = await cardPoint('Zone off');
@@ -169,9 +173,8 @@ async function run() {
     win.webContents.sendInputEvent({ type: 'mouseUp', x: tb.x, y: tb.top + Math.round(16.5 * 56) + 8, button: 'left', clickCount: 1 });
     await C.sleep(800);
     await I.shot('p37-timebox');
-    await answer('day');
     await C.sleep(900);
-    check('E: dropped on the Timebox the same way: Thursday 16:30 this day only', rows('zb').some((r) => r.dueDate === day(0) && r.startTime === '16:30'), brief(rows('zb')));
+    check('E: dropped on the Timebox the same way: Thursday 16:30 for the series', rows('zb').some((r) => r.dueDate === day(0) && r.startTime === '16:30'), brief(rows('zb')));
   } else {
     console.log('INFO today is not a Thursday: the Timebox drop (E) is covered by the Calendar drops above');
   }

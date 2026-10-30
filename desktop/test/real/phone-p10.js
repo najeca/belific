@@ -96,13 +96,12 @@ async function run() {
   await P.finger.holdDrag(block('task:brk@16:00'), 0, -(4.75 * 56), 520, 700, 1000);
   check('a drop over its other time is refused, with a note', JSON.stringify(task('brk').extraTimes) === '["16:00"]' && /Not moving it/.test(await notice()), `${JSON.stringify(task('brk'))} ${await notice()}`);
 
-  // A projected repeating day: the series' time, never its day. Since 3.4.0 the drop asks
-  // "This day only / All days" first; All days is the series edit.
+  // A projected repeating day: since 3.20.0 a drag changes that day only, with no question (the series keeps 7:00).
   await scrollToHour(6);
   await P.finger.holdDrag(block(`task:walk:${D}`), 0, 28, 520, 400, 1000);
-  await C.sleep(600); // the sheet ignores a press in its first moments
-  await P.finger.tap(`[...document.querySelectorAll('[data-action-menu] [aria-label="All days"]')].pop()`, 900);
-  check('a repeating day moves the series time (7:30), not its day', task('walk').startTime === '07:30' && task('walk').dueDate === day(-3) && !task(`walk:${D}`), JSON.stringify(task('walk')));
+  await C.sleep(600);
+  check('no question is asked', !(await P.js(`!!document.querySelector('[data-action-menu]')`)));
+  check('a repeating day moves that day only (7:30); the series keeps 7:00', !!task(`walk:${D}`) && task(`walk:${D}`).startTime === '07:30' && task('walk').startTime === '07:00' && task('walk').dueDate === day(-3), JSON.stringify([task('walk'), task(`walk:${D}`)]));
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

@@ -701,7 +701,7 @@ export function StartFromRows({ task, done }: { task: Task; done: () => void }) 
 
 // 3.6.0 (task during a break): the ⋮ menu's "Do during a break" lists today's breaks the task fits in;
 // choosing one puts the task on today at the break's start (lib/hosting.ts then draws it as a chip in
-// the break). A repeating day asks This day only / All days, as any new time does (ops.patch).
+// the break). A repeating day changes that day only (ops.patchDay).
 export const DURING_BREAK = 'Do during a break';
 export function canDoDuringBreak(task?: Task): task is Task {
   return !!task && !task.id.startsWith('dump:') && !task.completed && !task.cutsBelow && !isMultiTime(task);
@@ -733,7 +733,7 @@ export function DuringBreakBody({ task, ops, done }: BodyProps) {
           sub={span(b)}
           subRight
           onPress={async () => {
-            await ops.patch({ dueDate: todayKey, startTime: toTime(b.startMin), ...(task.durationMinutes === undefined ? { durationMinutes: len } : {}) });
+            await ops.patchDay({ dueDate: todayKey, startTime: toTime(b.startMin), ...(task.durationMinutes === undefined ? { durationMinutes: len } : {}) });
             notifyChanged();
             done();
           }}

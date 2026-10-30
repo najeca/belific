@@ -3,8 +3,8 @@
 // an isolated data folder; Supabase is the in process fake (signed out, nothing leaves the machine).
 //  3.9.0: the chip's menu (right click or its small ⋯ button): "Move out of break" (right after the
 //         break, same day, same length) and "Remove time" (Anytime that day), each with a 5 second Undo;
-//         a task with several times moves only the time inside the break; a repeating day asks This day
-//         only / All days and its Undo puts it back; a chip dragged out is a normal move.
+//         a task with several times moves only the time inside the break; a repeating day changes that day
+//         only (no question since 3.20.0) and its Undo puts it back; a chip dragged out is a normal move.
 // BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -129,10 +129,8 @@ async function run() {
   check('today\'s projected walk is a chip in the tea break', await I.exists(chip(`task:${walkId}`)));
   await I.click(V(`[data-host-menu="task:${walkId}"]`), 500);
   await I.click(`${menuOf(`task:${walkId}`)}.querySelector('[aria-label="Move out of break"]')`, 900);
-  const asked = await I.textOf(`document.querySelector('[data-scope-prompt]')`);
-  check('a day of a repeating task asks This day only / All days', asked.includes('This day only') && asked.includes('All days'), asked);
-  await I.click(`document.querySelector('[data-scope-prompt] [data-scope-choice="day"]')`, 1000);
-  check('This day only: today\'s walk is stored at 09:20, the series keeps 09:05', byId(walkId)?.startTime === '09:20' && byId('walk').startTime === '09:05', JSON.stringify([byId(walkId), byId('walk')]));
+  check('a day of a repeating task asks nothing', !(await I.exists(`document.querySelector('[data-scope-prompt]')`)));
+  check('That day only: today\'s walk is stored at 09:20, the series keeps 09:05', byId(walkId)?.startTime === '09:20' && byId('walk').startTime === '09:05', JSON.stringify([byId(walkId), byId('walk')]));
   await C.waitFor(() => I.exists(`document.querySelector('[data-undo-bar]')`), 3000).catch(() => {});
   await I.click(`document.querySelector('[data-undo-bar] [aria-label="Undo"]')`, 1000);
   check('Undo puts today\'s walk back in the break', byId(walkId)?.startTime === '09:05' && byId('walk').startTime === '09:05' && (await I.exists(chip(`task:${walkId}`))), JSON.stringify(byId(walkId)));

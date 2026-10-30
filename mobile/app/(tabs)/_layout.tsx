@@ -2,7 +2,6 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../components/phone/theme';
 import { inter } from '../../components/phone/type';
-import { ScopeSheet } from '../../components/phone/ScopeSheet';
 
 type IconProps = { color: string; size: number };
 
@@ -47,8 +46,6 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
-    {/* 3.4.0: "This day only / All days" for a drag on the Calendar (the details draw their own). */}
-    <ScopeSheet />
     </>
   );
 }

@@ -97,6 +97,7 @@ export default function TaskCard({
   );
   const wrapped: TaskOps = {
     patch: (fields) => run(() => ops.patch(fields)),
+    patchDay: (fields) => run(() => ops.patchDay(fields)),
     setCompleted: (d) => run(() => ops.setCompleted(d)),
     setTimeDone: (time, d) => run(() => ops.setTimeDone(time, d)),
     toggleSubtask: (sid) => run(() => ops.toggleSubtask(sid)),

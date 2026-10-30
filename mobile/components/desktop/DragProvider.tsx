@@ -30,7 +30,7 @@ import { isEditableTarget } from '../../lib/editable';
 import { convertDumpItem } from '../../lib/taskActions';
 import { editRepeatingTime, moveDay, patchSeries, startRepeatingOn } from '../../lib/seriesActions';
 import { isUndatedRepeating, repeatDropRefusal } from '../../lib/repeatDrop';
-import { isTimeEdit } from '../../lib/scopeAsk';
+import { isTimeEdit } from '../../lib/seriesTime';
 import { withoutDay } from '../../lib/taskOps';
 import { isDateKey } from '../../lib/kanban';
 import { isMultiTime } from '../../lib/times';
@@ -356,8 +356,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
         showNotice(brkNote);
         return;
       }
-      // Resizing a day of a repeating task asks This day only / All days (3.4.0; dismissed: a projected
-      // block changes the series' length, a stored one its own, as before).
+      // Resizing a day of a repeating task changes that day only (3.20.0).
       if (task.recurrence) await editRepeatingTime(task, !!p.item.projected, { durationMinutes: state.resizeDuration });
       else await updateTask({ ...task, durationMinutes: state.resizeDuration });
       onChangedRef.current();
@@ -385,7 +384,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
         await moveDay(task, dueDate as string, rest);
         return;
       }
-      // 3.4.0: a new time on the same day of a repeating task asks This day only / All days.
+      // 3.20.0: a new time on the same day of a repeating task changes that day only (the first time, every day).
       const sameDay = fields.dueDate === task.dueDate ? withoutDay(fields) : fields;
       if (task.recurrence && isTimeEdit(sameDay)) await editRepeatingTime(task, !!p.item.projected, sameDay);
       else if (p.item.projected) await patchSeries(task, fields);
@@ -412,12 +411,12 @@ export default function DragProvider({ children, onChanged }: { children: React.
       return;
     }
     if (task && p.item.projected && !otherDay) {
-      // Dropped on the Timebox of its own day: the start time (and the estimate,
-      // when it had none) is set for the whole series; the Day is never touched.
+      // Dropped on the Timebox of its own day: the start time (and the estimate, when it had none) is set for
+      // that day; the Day is never touched.
       if (target.kind !== 'slot') return;
       const patch = dropPatch(task, p.item.kind, target, todayKey);
       if (!patch) return;
-      // 3.4.0: asks This day only / All days (dismissed: the series, as before).
+      // 3.20.0: that day only, except the first time of the series, which goes to every repeat day.
       await editRepeatingTime(task, true, {
         startTime: patch.startTime,
         ...(patch.durationMinutes !== undefined ? { durationMinutes: patch.durationMinutes } : {}),

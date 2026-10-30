@@ -15,13 +15,13 @@ import { addSubtask, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { opsForProjected, opsForTask } from '../../lib/taskOps';
 import { materialise, moveDay } from '../../lib/seriesActions';
 import { MOVE_THIS_DAY_NOTE, movedCaptionLong } from '../../lib/series';
+import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
 import { loadListsRaw, loadTasksRaw } from '../../lib/storage';
 import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, priorityPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { useStyles, useTheme } from './theme';
 import { useReducedMotion } from './touch';
 import { ActionMenu, type MenuItem } from './menu';
-import { ScopeSheet } from './ScopeSheet';
 import { MonthGrid } from './MonthGrid';
 import { TimeField } from './TimeField';
 import { inter, mono, type } from './type';
@@ -310,7 +310,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
               accessibilityLabel="Task title"
             />
           </View>
-          {projected ? <Text style={[s.note, { marginTop: 4 }]}>A day of a repeating task: changes apply to every day from today. A new date moves this day only; a new time or length asks.</Text> : null}
+          {task.recurrence ? <Text style={[s.note, { marginTop: 4 }]} {...({ dataSet: { seriesTimeNote: '1' } } as object)}>{movedCaptionLong(task) ? OWN_TIME_NOTE : SERIES_TIME_NOTE}</Text> : null}
           {movedCaptionLong(task) ? <Text style={[s.note, { marginTop: 4 }]} {...({ dataSet: { detailMoved: '1' } } as object)}>{`↪ ${movedCaptionLong(task)}`}</Text> : null}
           {inside.length > 0 ? (
             <View style={s.hostBox} {...({ dataSet: { insideBreak: String(inside.length) } } as object)}>
@@ -559,8 +559,6 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
           </View>
         </ScrollView>
         <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
-        {/* 3.4.0: "This day only / All days" when a repeating day's time or length changes here. */}
-        <ScopeSheet />
       </KeyboardAvoidingView>
     </Modal>
   );

@@ -101,7 +101,7 @@ async function run() {
 
   // ---- text fields keep their own undo ----
   const alphaStart = row('al').startTime;
-  await I.click(`document.querySelector('[data-add-plus="left"]')`, 300);
+  await I.click(`document.querySelector('[data-add-box="left"] input')`, 300);
   await I.type('Typing here');
   const before = JSON.stringify(rows());
   const barBefore = JSON.stringify(await bar());
@@ -122,7 +122,7 @@ async function run() {
   await undoKey();
 
   // ---- a create ----
-  await I.click(`document.querySelector('[data-add-plus="left"]')`, 300);
+  await I.click(`document.querySelector('[data-add-box="left"] input')`, 300);
   await I.type('Made now');
   await I.enter();
   await C.waitFor(async () => liveTitles().includes('Made now'), 5000).catch(() => {});

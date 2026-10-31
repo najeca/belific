@@ -228,7 +228,8 @@ async function run() {
   check('2: Finish stores it (45 minutes)', byId('t2').durationMinutes === 45);
 
   // ======== 3. The list's emoji on the card ========
-  const metaOf = (expr) => I.js(`(() => { const m = (${expr}).querySelector('[data-card-meta]'); if (!m) return null; return { first: m.firstElementChild && m.firstElementChild.dataset.cardListEmoji ? m.firstElementChild.textContent : null, emoji: (m.querySelector('[data-card-list-emoji]') || {}).textContent || null, chip: (m.querySelector('[data-card-label]') || {}).textContent || null, order: [...m.children].map((c) => c.dataset.cardListEmoji ? 'list' : c.dataset.cardLabel ? 'label' : 'other') }; })()`);
+  // 3.23.1 (changed on purpose): the meta is two lines; the list emoji and the label chip are on line 1, in that order.
+  const metaOf = (expr) => I.js(`(() => { const m0 = (${expr}).querySelector('[data-card-meta]'); if (!m0) return null; const m = m0.querySelector('[data-card-meta-line="1"]') || m0; return { first: m.firstElementChild && m.firstElementChild.dataset.cardListEmoji ? m.firstElementChild.textContent : null, emoji: (m.querySelector('[data-card-list-emoji]') || {}).textContent || null, chip: (m.querySelector('[data-card-label]') || {}).textContent || null, order: [...m.children].map((c) => c.dataset.cardListEmoji ? 'list' : c.dataset.cardLabel ? 'label' : 'other') }; })()`);
   const m1 = await metaOf(card(today, 'Modal task'));
   check('3: a card in a list with an emoji shows it first on the meta line, before the label chip', !!m1 && m1.first === '🎲' && m1.order.indexOf('list') === 0 && m1.order.indexOf('label') === 1, JSON.stringify(m1));
   check('3: the label is a coloured chip with its emoji and name', !!m1 && m1.chip === '💼 Work' && (await I.js(`getComputedStyle(${card(today, 'Modal task')}.querySelector('[data-card-label] div')).backgroundColor`)) === 'rgb(111, 143, 126)', JSON.stringify(m1));

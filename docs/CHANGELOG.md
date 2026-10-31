@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.23.2 — 2026-10-31 (fix: Vibrant task colours no longer merge labels)
+
+**Desktop (`lib/vibrant.ts`, pure). No schema change, no migration.**
+- **Problem:** with Vibrant task colours on, the grey Work label drew as the same blue as Study. Every colour was lifted to the same 0.85 saturation, so a grey with a faint blue tint (Slate, Charcoal) became a vivid blue, a warm grey (Stone) an orange-brown, and a muted Sage the same green as the vivid Green.
+- **Fix:** (1) a **neutral** (saturation below 0.11: the greys, blacks, Slate, Charcoal, Stone, any grey the wheel makes) never takes a hue of its own: it becomes a quiet slate, charcoal or warm grey, as dark as white text at 6:1 needs (a darker original ends darker, so Slate, Charcoal and Stone stay three colours; a true grey stays grey). (2) A coloured label is lifted **in proportion** to how saturated it was (0.40 for a muted colour to 0.95 for a vivid one), not to one level, and a darker original ends a little darker, so Sage is not Green, Plum is not Magenta, Sky is not Cyan. The hue is kept; white text keeps 6:1 or better on every colour (wheel and custom colours too).
+- **What is the same:** the vibrant colour does not depend on the theme (white text on it in Light and in Dark); the setting, its default and the break slate are unchanged.
+- **Tests:** `vibrant.test.ts` +5 (they failed 5 of 5 against the old rule): neutrals stay quiet greys; a grey Work is far from a blue Study; every neutral is far from every coloured label; **every pair of the 20 palette colours is at least 7 apart (CIE76, closest 7.1) and every pair of all 33 (with the 12 older colours and the break slate) at least 4 (closest 4.7)**; left edges stay distinct; 6:1 holds for all. Real `p44.js` (8: five real blocks in light and dark, computed colours read back); `p16.js` and `p17.js` still pass.
+
 ## 3.23.1 — 2026-10-31 (fix: the card's meta line keeps the label name, on two lines)
 
 **Desktop and phone. No schema change, no migration.**

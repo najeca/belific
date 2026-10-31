@@ -1,8 +1,6 @@
-import { addTask, loadTasksRaw } from './storage';
-import { patchTask } from './taskActions';
-import { skipOccurrence } from './seriesActions';
-import { generateId } from './data';
-import { doTodayCopy, missedOneOffs } from './missed';
+import { loadTasksRaw, updateTask } from './storage';
+import { completeTaskById, patchTask } from './taskActions';
+import { missedOneOffs, ownDayCompletedAt } from './missed';
 import { isSeriesRow } from './rollover';
 import type { Task } from './types';
 
@@ -28,18 +26,43 @@ export async function moveMissedAllToday(todayKey: string): Promise<number> {
   return all.length;
 }
 
-// Skip a missed day of a series: the existing skip tombstone, so the streak
-// treats the day as skipped (neutral), exactly like "Skip this day".
-export function skipMissed(occ: Task): Promise<void> {
-  return skipOccurrence(occ);
+// 3.25.0: what a Done or a Skip all changed, to take it back: the rows as they were and as they were left.
+export interface MissedDoneResult {
+  before: Task[];
+  after: Task[];
 }
 
-// Do it today: a new one off task for today, and the missed day of the series
-// is skipped (so it leaves the list, and the streak treats it as a skipped day:
-// neutral). The copy has no repeat, so ticking it never counts for the series.
-export async function doMissedToday(occ: Task, todayKey: string): Promise<Task> {
-  const copy = doTodayCopy(occ, generateId(), todayKey, new Date().toISOString(), generateId);
-  await addTask(copy);
-  await skipOccurrence(occ);
-  return copy;
+// Done (one task) and Skip all (every missed one off task): each is marked done ON ITS OWN DAY (its Day stays and the
+// completion is recorded on that day), through the one completion path, so steps tick and nothing is deleted. A task
+// done on the other device in the meantime, or no longer missed, is left alone. `ids`: only these; absent: all missed.
+export async function markMissedDone(todayKey: string, ids?: string[]): Promise<MissedDoneResult> {
+  const stored = await loadTasksRaw();
+  const targets = missedOneOffs(stored, todayKey).filter((t) => !ids || ids.includes(t.id));
+  const before: Task[] = [];
+  const after: Task[] = [];
+  for (const t of targets) {
+    await completeTaskById(t.id, true, ownDayCompletedAt(t.dueDate as string));
+    before.push(t);
+  }
+  const now = await loadTasksRaw();
+  for (const t of before) {
+    const row = now.find((x) => x.id === t.id);
+    if (row) after.push(row);
+  }
+  return { before, after };
+}
+
+// Undo: each task goes back to the row it was, but only if it is still exactly as the Done left it (completed, with
+// that completion time): a task changed since is never overwritten.
+export async function undoMissedDone(result: MissedDoneResult): Promise<number> {
+  const now = await loadTasksRaw();
+  let n = 0;
+  for (const before of result.before) {
+    const mine = result.after.find((a) => a.id === before.id);
+    const row = now.find((x) => x.id === before.id);
+    if (!mine || !row || row.deletedAt || !row.completed || row.completedAt !== mine.completedAt) continue;
+    await updateTask({ ...before });
+    n += 1;
+  }
+  return n;
 }

@@ -15,7 +15,7 @@ import type { UserSetting } from './types.ts';
 
 // 2.26.0: Priority is no longer a feature (it was removed from the interface;
 // a stored `feature.priority` row is left as it is and simply not read).
-export type FeatureKey = 'dueDates' | 'planning' | 'pomodoro' | 'templates' | 'analytics' | 'attachments';
+export type FeatureKey = 'dueDates' | 'planning' | 'pomodoro' | 'templates' | 'analytics' | 'attachments' | 'missed';
 
 export interface FeatureDef {
   key: FeatureKey;
@@ -32,6 +32,8 @@ export const FEATURES: FeatureDef[] = [
   { key: 'pomodoro', label: 'Pomodoro', emoji: '🍅', hint: 'Focus and break periods on the task timer.', defaultOn: false },
   { key: 'templates', label: 'Task templates', emoji: '📑', hint: 'Save a task as a template and start new tasks from one.', defaultOn: false },
   { key: 'analytics', label: 'Analytics', emoji: '📊', hint: 'The Analytics page in the profile menu.', defaultOn: true },
+  // 3.25.0: default OFF for everyone (a saved on or off row is kept as it is).
+  { key: 'missed', label: 'Show missed tasks', emoji: '🕐', hint: 'The Earlier button, the Missed panel and the "what you missed" step of Daily Planning. Off: tasks planned for an earlier day just stay on their own day.', defaultOn: false },
   { key: 'attachments', label: 'Attachments', emoji: '📎', hint: 'Files on a task. Coming later.', defaultOn: false, comingLater: true },
 ];
 

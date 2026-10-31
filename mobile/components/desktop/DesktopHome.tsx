@@ -522,7 +522,7 @@ export default function DesktopHome() {
       {view === 'home' && overlay?.kind === 'search' && <SearchPalette />}
       {overlay?.kind === 'labels' && <LabelsOverlay onChanged={onChanged} />}
       {view === 'home' && overlay?.kind === 'flow' && <PlanningFlow key={overlay.mode} mode={overlay.mode} />}
-      {view === 'home' && overlay?.kind === 'missed' && <MissedPanel refreshKey={refreshKey} />}
+      {view === 'home' && overlay?.kind === 'missed' && features.missed && <MissedPanel refreshKey={refreshKey} />}
       {view === 'home' && <UndoBar />}
       <TimerWidget refreshKey={refreshKey} />
       <MiddlePan />

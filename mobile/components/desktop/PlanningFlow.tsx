@@ -10,8 +10,9 @@ import { listTitle, tasksInList } from '../../lib/lists';
 import { generateId } from '../../lib/data';
 import { newThought } from '../../lib/thoughts';
 import { canCarryToTomorrow, tomorrowOf } from '../../lib/rollover';
-import { EMPTY_DRAFT, doneOn, draftAdd, draftEdit, draftSkip, draftView, isSkipDrafted, missedTasks, nextWeekStart, onDay, type Draft } from '../../lib/planningDraft';
-import { doTodayCopy, missedItems, type MissedItem } from '../../lib/missed';
+import { EMPTY_DRAFT, doneOn, draftAdd, draftEdit, draftView, missedTasks, nextWeekStart, onDay, type Draft } from '../../lib/planningDraft';
+import { missedItems, ownDayCompletedAt, type MissedItem } from '../../lib/missed';
+import { useFeatures } from './featureStore';
 import MissedList, { type MissedActions } from './MissedList';
 import { useAwayDays } from './awayStore';
 import { finishFlow } from '../../lib/planningActions';
@@ -89,6 +90,23 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
 
   const view = useMemo(() => (tasks ? draftView(tasks.filter((t) => !t.deletedAt), draft) : []), [tasks, draft]);
   const edit = (id: string, fields: Partial<Task>) => setDraft((d) => draftEdit(d, id, fields));
+  // 3.25.0: Done and Skip all here are draft edits (written on Finish): each task is marked done on its own day. An Undo shows
+  // for 8 seconds; there is no question first.
+  const [doneUndo, setDoneUndo] = useState<{ ids: string[] } | null>(null);
+  useEffect(() => {
+    if (!doneUndo) return;
+    const t = setTimeout(() => setDoneUndo(null), 8000);
+    return () => clearTimeout(t);
+  }, [doneUndo]);
+  const markDone = (list: Task[]) => {
+    if (list.length === 0) return;
+    list.forEach((t) => edit(t.id, { completed: true, completedAt: t.dueDate ? ownDayCompletedAt(t.dueDate) : new Date().toISOString() }));
+    setDoneUndo({ ids: list.map((t) => t.id) });
+  };
+  const undoDone = () => {
+    doneUndo?.ids.forEach((id) => edit(id, { completed: false, completedAt: undefined }));
+    setDoneUndo(null);
+  };
   const steps = mode === 'planning' ? PLANNING_STEPS : SHUTDOWN_STEPS;
   const last = step === steps.length - 1;
   const labelOf = (t: Task) => labels.find((l) => l.key === t.projectKey);
@@ -96,13 +114,16 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
   async function finish() {
     if (!tasks || busy) return;
     setBusy(true);
-    await finishFlow(draft, todayKey, mode, carry ?? new Set());
+    await finishFlow(draft, todayKey, mode, carry ?? new Set(), showMissed);
     notifyChanged();
     closeOverlay();
   }
 
   // What each step shows.
-  const missed = missedTasks(view, todayKey);
+  // 3.25.0: "Show missed tasks" (Settings, off by default). Off: no missed step or column, and Finish brings nothing onto
+  // today: tasks of earlier days stay on their own day.
+  const showMissed = useFeatures().missed;
+  const missed = showMissed ? missedTasks(view, todayKey) : [];
   // Today, as Finish will leave it in Planning: today's tasks and every missed
   // task the draft has not moved (they roll onto today).
   const decided = new Set(Object.keys(draft.edits).filter((id) => 'dueDate' in draft.edits[id] || 'completed' in draft.edits[id]));
@@ -115,9 +136,9 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
   // here as draft edits written on Finish. Worked out from the rows with
   // tombstones (a skipped series day is not missed). A task ticked done in the
   // flow stays listed, ticked, so the tick can be undone.
-  const missedRows: MissedItem[] = tasks
+  const missedRows: MissedItem[] = tasks && showMissed
     ? [
-        ...missedItems(draftView(tasks, draft), todayKey).filter((m) => m.kind === 'task' || !isSkipDrafted(draft, m.task)),
+        ...missedItems(draftView(tasks, draft), todayKey),
         ...view.filter((t) => draft.edits[t.id]?.completed === true && t.dueDate && t.dueDate < todayKey).map((t): MissedItem => ({ kind: 'task', task: t, day: t.dueDate as string, stored: true })),
       ]
     : [];
@@ -126,13 +147,21 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     tomorrow: (t) => edit(t.id, { dueDate: tomorrow }),
     pickDay: (t, day) => edit(t.id, { dueDate: day }),
     drop: (t) => edit(t.id, { dueDate: undefined, startTime: undefined }),
-    skip: (occ) => setDraft((d) => draftSkip(d, occ)),
-    doToday: (occ) => setDraft((d) => draftSkip(draftAdd(d, doTodayCopy(occ, generateId(), todayKey, new Date().toISOString(), generateId)), occ)),
+    done: (t) => markDone([t]),
+    skipAll: () => markDone(missedRows.map((m) => m.task).filter((t) => !t.completed)),
     allToday: () => missedRows.forEach((m) => m.kind === 'task' && !m.task.completed && edit(m.task.id, { dueDate: todayKey })),
     tick: (t) => edit(t.id, t.completed ? { completed: false } : { completed: true, completedAt: new Date().toISOString() }),
   };
   const missedColumn = (title: string, hint: string) => (
     <Column title={title} icon="time-outline" hint={hint}>
+      {doneUndo && (
+        <View style={styles.undoNote} {...({ dataSet: { missedUndo: '1' } } as object)}>
+          <Text style={styles.undoText}>{doneUndo.ids.length === 1 ? 'Marked 1 done on its own day.' : `Marked ${doneUndo.ids.length} done on their own days.`}</Text>
+          <Pressable onPress={undoDone} accessibilityRole="button" accessibilityLabel="Undo" {...({ dataSet: { missedUndoBtn: '1' } } as object)}>
+            <Text style={styles.undoLink}>Undo</Text>
+          </Pressable>
+        </View>
+      )}
       <MissedList items={missedRows} labels={labels} todayKey={todayKey} actions={missedActions} rowLabel={(t) => `Flow task ${t.title}`} empty="No missed tasks to review. Add anything you want to work on in the next step." />
     </Column>
   );
@@ -155,7 +184,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         <Column title="Here's what you finished" icon="checkmark-circle-outline">
           {done.length === 0 ? <Text style={styles.muted}>Nothing was finished yesterday.</Text> : done.map((t) => <Row key={t.id} task={t} label={labelOf(t)} />)}
         </Column>
-        {missedColumn("Here's what you missed", 'Tick any that were actually done, or choose a day. The one off tasks you leave come to today when you finish; repeating days are never moved.')}
+        {showMissed && missedColumn("Here's what you missed", 'Tick any that were actually done, or choose a day. The tasks you leave come to today when you finish. Skip all marks them done on their own days.')}
       </>
     );
   } else if ((mode === 'planning' && step === 1) || (mode === 'shutdown' && step === 1)) {
@@ -553,6 +582,9 @@ const domSelect: React.CSSProperties = {
 };
 
 const styles = StyleSheet.create({
+  undoNote: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 10, height: 34, borderRadius: 10, backgroundColor: Colors.chip },
+  undoText: { fontSize: 12, color: Colors.textPrimary },
+  undoLink: { fontSize: 12, fontWeight: '700', color: Colors.accentText, textDecorationLine: 'underline' },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 65, flexDirection: 'row', backgroundColor: Colors.background },
   rail: { width: 280, padding: 20, gap: 10, backgroundColor: Colors.surface, borderRightWidth: 1, borderRightColor: Colors.border },
   badge: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: Colors.accentText },

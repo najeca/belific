@@ -97,3 +97,13 @@ test('a missed day of a series skipped in the flow is held in the draft, once, a
   assert.equal(isEmptyDraft(d), false);
   assert.deepEqual(finishWrites([], d, '2026-10-18', 'planning').patches, []);
 });
+
+test('3.25.0: with Show missed tasks off, Finish in Planning rolls nothing onto today; a draft edit is still written', () => {
+  const stored = rows();
+  const rolled = finishWrites(stored, EMPTY_DRAFT, TODAY, 'planning');
+  assert.ok(rolled.patches.some((p) => p.fields.dueDate === TODAY), 'on: the earlier tasks roll to today (as before)');
+  const quiet = finishWrites(stored, EMPTY_DRAFT, TODAY, 'planning', new Set(), false);
+  assert.deepEqual(quiet.patches, [], 'off: they stay on their own day');
+  const edited = finishWrites(stored, draftEdit(EMPTY_DRAFT, 'missed2', { dueDate: '2026-10-19' }), TODAY, 'planning', new Set(), false);
+  assert.deepEqual(edited.patches, [{ id: 'missed2', fields: { dueDate: '2026-10-19' } }]);
+});

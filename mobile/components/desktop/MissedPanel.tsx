@@ -7,11 +7,11 @@ import { isTextEntryTarget } from '../../lib/editable';
 import { missedItems } from '../../lib/missed';
 import { loadTasksRaw } from '../../lib/storage';
 import { loadLabels } from '../../lib/labels';
-import { doMissedToday, dropDay, moveMissedAllToday, moveTaskTo, skipMissed } from '../../lib/missedActions';
+import { dropDay, markMissedDone, moveMissedAllToday, moveTaskTo, undoMissedDone } from '../../lib/missedActions';
 import type { Project, Task } from '../../lib/types';
 import MissedList from './MissedList';
 import { isPopoverOpen } from './Popover';
-import { closeOverlay, notifyChanged } from './uiStore';
+import { closeOverlay, notifyChanged, offerUndo } from './uiStore';
 import { IconHeading } from './ui';
 
 // The Missed panel (2.27.0, item 6), opened from the button in the left pane.
@@ -47,6 +47,19 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
 
   const items = useMemo(() => (tasks ? missedItems(tasks, todayKey) : []), [tasks, todayKey]);
   const done = (p: Promise<unknown>) => p.then(() => (notifyChanged(), reload()));
+  // 3.25.0: Done and Skip all mark tasks done on their own days, with an Undo for 8 seconds and no question first.
+  const markDone = (ids?: string[]) =>
+    done(
+      markMissedDone(todayKey, ids).then((r) => {
+        if (r.after.length > 0) {
+          offerUndo(
+            r.after.length === 1 ? `Marked ${r.after[0].title} done on its own day` : `Marked ${r.after.length} done on their own days`,
+            () => undoMissedDone(r).then(() => (notifyChanged(), reload())),
+            8000,
+          );
+        }
+      }),
+    );
 
   return (
     <Pressable style={styles.scrim} onPress={closeOverlay} accessibilityLabel="Close missed">
@@ -57,7 +70,7 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
             <Ionicons name="close" size={18} color={Colors.textSecondary} />
           </Pressable>
         </View>
-        <Text style={styles.hint}>Planned for an earlier day and not done yet. Nothing moves until you choose. Repeating days are never moved: skip them, or do one today as a separate task.</Text>
+        <Text style={styles.hint}>Tasks planned for an earlier day and not done yet. Nothing moves until you choose. Done and Skip all mark them done on their own days; nothing is deleted.</Text>
         <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
           {tasks && (
             <MissedList
@@ -70,8 +83,8 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
                 tomorrow: (t) => done(moveTaskTo(t.id, tomorrow)),
                 pickDay: (t, day) => done(moveTaskTo(t.id, day)),
                 drop: (t) => done(dropDay(t.id)),
-                skip: (occ) => done(skipMissed(occ)),
-                doToday: (occ) => done(doMissedToday(occ, todayKey)),
+                done: (t) => markDone([t.id]),
+                skipAll: () => markDone(),
                 allToday: () => done(moveMissedAllToday(todayKey)),
               }}
             />

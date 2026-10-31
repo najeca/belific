@@ -52,6 +52,8 @@ async function run() {
       T('tm', 'Tomorrow task', { dueDate: tomorrow }),
     ]),
   );
+  // 3.25.0: "Show missed tasks" is off by default, so this check starts from a person who turned it on.
+  fs.writeFileSync(path.join(dataDir, 'belific_user_settings.kv'), JSON.stringify([{ key: 'feature.missed', value: 'on', updatedAt: stamp }]));
   const file = path.join(dataDir, 'belific_tasks.kv');
   const raw = () => fs.readFileSync(file, 'utf8');
   const read = readKv(dataDir);
@@ -99,8 +101,8 @@ async function run() {
   await I.click(I.byLabel('Profile, not signed in'));
   await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Plan my day"]')`, 600);
   check('the Daily Planning overlay opens, step 1 of 4', (await flowOpen()) && (await I.body()).includes('Step 1 of 4') && (await I.body()).includes('Review your work'));
-  // 2.27.0 (the Missed list): a missed day of a repeating task is listed too, but only to skip or do today; it is never moved.
-  check('step 1 lists the missed tasks; a repeating day only to skip or do today, never to move', (await I.exists(inFlow('Flow task Missed one'))) && (await I.exists(inFlow('Flow task Missed placed'))) && (await I.exists(inFlow('Do Repeating daily today'))) && !(await I.exists(inFlow('Move Repeating daily to today'))) && !(await I.exists(inFlow('Move Repeating daily to tomorrow'))));
+  // 3.25.0 (changed on purpose; 2.27.0 listed a missed day of a repeating task): the repeating task's past days are never listed.
+  check('step 1 lists the missed one off tasks and no day of a repeating task', (await I.exists(inFlow('Flow task Missed one'))) && (await I.exists(inFlow('Flow task Missed placed'))) && !(await I.exists(`document.querySelector('[data-flow] [data-missed-row="rep"]')`)) && !(await I.exists(inFlow('Do Repeating daily today'))) && !(await I.exists(inFlow('Move Repeating daily to today'))));
   check('and what was finished yesterday', await I.exists(inFlow('Flow task Done yesterday')));
   await I.shot('p5-01-step1');
   await draftEverything(true);

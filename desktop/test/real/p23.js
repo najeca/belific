@@ -29,6 +29,9 @@ async function run() {
   const day = dayKeyFrom(new Date());
   const stamp = '2026-09-01T07:00:00.000Z';
   const dataDir = path.join(userData, 'data');
+  // 3.25.0: Show missed tasks is off by default; this check opens the Missed panel, so it starts with the switch on.
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(path.join(dataDir, 'belific_user_settings.kv'), JSON.stringify([{ key: 'feature.missed', value: 'on', updatedAt: '2026-09-01T07:00:00.000Z' }]));
   fs.mkdirSync(dataDir, { recursive: true });
   const T = (id, title, extra = {}) => ({ id, title, completed: false, createdAt: stamp, updatedAt: stamp, ...extra });
   fs.writeFileSync(

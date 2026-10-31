@@ -23,14 +23,15 @@ import type { BrainDumpItem, Task } from './types';
 let chain: Promise<unknown> = Promise.resolve();
 
 // `keepTimes`: the caller already wrote the right timesDone (ticking one time of several).
-export function setTaskCompleted(task: Task, completed: boolean, keepTimes = false): Promise<void> {
+// `at` (3.25.0): the time to record as the completion (a missed task marked done on its own day); absent: now.
+export function setTaskCompleted(task: Task, completed: boolean, keepTimes = false, at?: string): Promise<void> {
   const run = chain.then(async () => {
     // Completing ticks every subtask; reopening leaves them as they are.
     const subtasks = completed ? withAllDone(task.subtasks) : task.subtasks;
     const done: Task = {
       ...task,
       completed,
-      completedAt: completed ? new Date().toISOString() : undefined,
+      completedAt: completed ? (at ?? new Date().toISOString()) : undefined,
       ...(subtasks ? { subtasks } : {}),
       // Part C: a whole-task tick ticks every time (a task with several), an untick clears them all.
       ...(keepTimes ? {} : { timesDone: wholeTaskTimesDone(task, completed) }),
@@ -126,9 +127,9 @@ export async function patchTask(id: string, fields: Partial<Task>): Promise<void
   await updateTask(next);
 }
 
-export async function completeTaskById(id: string, done: boolean): Promise<void> {
+export async function completeTaskById(id: string, done: boolean, at?: string): Promise<void> {
   const t = await latest(id);
-  if (t && t.completed !== done) await setTaskCompleted(t, done);
+  if (t && t.completed !== done) await setTaskCompleted(t, done, false, at);
 }
 
 // Ticks or unticks ONE time of a task that happens several times a day (Part C). The last open time

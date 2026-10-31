@@ -464,7 +464,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   );
 }
 
-const FEATURE_ICONS: Record<string, IconName> = { dueDates: 'notifications-outline', planning: 'sunny-outline', pomodoro: 'timer-outline', templates: 'copy-outline', analytics: 'bar-chart-outline', attachments: 'attach-outline' };
+const FEATURE_ICONS: Record<string, IconName> = { dueDates: 'notifications-outline', planning: 'sunny-outline', pomodoro: 'timer-outline', templates: 'copy-outline', analytics: 'bar-chart-outline', attachments: 'attach-outline', missed: 'time-outline' };
 
 function Section({ title, icon, children }: { title: string; icon?: IconName; children: React.ReactNode }) {
   return (

@@ -11,32 +11,42 @@ import type { Project, Task } from '../../lib/types';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { checkRing, checkRingDone } from './ui';
 
-// The Missed list (2.27.0, item 6): one row per missed one off task or missed
-// day of a repeating series, with its actions. The same list, rows and actions
+// The Missed list (2.27.0, item 6): one row per missed one off task, with its actions. The same list, rows and actions
 // in the Missed panel (which writes at once) and in Daily Planning and Shutdown
 // (where the actions are draft edits, written only on Finish). Quiet wording:
 // no red, no "overdue", nothing counted against anyone.
+// 3.25.0: no repeating days (they are never listed); "Skip all" and a per row "Done" mark a task done on its own day.
 export interface MissedActions {
   today(t: Task): void;
   tomorrow(t: Task): void;
   pickDay(t: Task, day: string): void;
   drop(t: Task): void;
-  skip(occ: Task): void;
-  doToday(occ: Task): void;
+  // Done on its own day (3.25.0): this task, or every task of the list (Skip all).
+  done(t: Task): void;
+  skipAll?: () => void;
   allToday?: () => void;
   // Planning: a missed task can also be ticked as done.
   tick?: (t: Task) => void;
 }
 
 export default function MissedList({ items, labels, todayKey, actions, empty, rowLabel }: { items: MissedItem[]; labels: Project[]; todayKey: string; actions: MissedActions; empty: string; rowLabel?: (t: Task) => string }) {
-  const oneOffs = items.filter((m) => m.kind === 'task');
+  const open = items.filter((m) => !m.task.completed);
   if (items.length === 0) return <Text style={styles.muted}>{empty}</Text>;
   return (
     <View style={styles.list} {...({ dataSet: { missedList: '1' } } as object)}>
-      {actions.allToday && oneOffs.length > 1 && (
-        <Pressable onPress={actions.allToday} style={styles.allBtn} accessibilityRole="button" accessibilityLabel={`Move all ${oneOffs.length} to today`}>
-          <Text style={styles.allText}>Move all to today ({oneOffs.length})</Text>
-        </Pressable>
+      {(actions.skipAll || actions.allToday) && open.length > 1 && (
+        <View style={styles.allRow}>
+          {actions.skipAll && (
+            <Pressable onPress={actions.skipAll} style={styles.allBtn} accessibilityRole="button" accessibilityLabel={`Skip all ${open.length}: mark them done on their own days`} {...({ dataSet: { missedSkipAll: '1' }, title: 'Mark them all done on their own days. Nothing is deleted.' } as object)}>
+              <Text style={styles.allText}>Skip all ({open.length})</Text>
+            </Pressable>
+          )}
+          {actions.allToday && (
+            <Pressable onPress={actions.allToday} style={styles.allBtn} accessibilityRole="button" accessibilityLabel={`Move all ${open.length} to today`} {...({ dataSet: { missedAllToday: '1' } } as object)}>
+              <Text style={styles.allText}>Move all to today ({open.length})</Text>
+            </Pressable>
+          )}
+        </View>
       )}
       {items.map((m) => {
         const t = m.task;
@@ -60,36 +70,25 @@ export default function MissedList({ items, labels, todayKey, actions, empty, ro
                   {MUST_DO_MARK}
                 </Text>
               )}
-              <Text style={styles.when}>
-                {m.kind === 'occurrence' ? '🔁 ' : ''}
-                {formatShortDate(m.day)}
-              </Text>
+              <Text style={styles.when}>{formatShortDate(m.day)}</Text>
             </View>
             <View style={styles.actions}>
-              {m.kind === 'task' ? (
-                <>
-                  <Act text="Today" a11y={`Move ${t.title} to today`} onPress={() => actions.today(t)} />
-                  <Act text="Tomorrow" a11y={`Move ${t.title} to tomorrow`} onPress={() => actions.tomorrow(t)} />
-                  <input
-                    type="date"
-                    min={todayKey}
-                    value=""
-                    aria-label={`Pick a day for ${t.title}`}
-                    title="Pick a day"
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (isDateKey(v) && v >= todayKey) actions.pickDay(t, v);
-                    }}
-                    style={dateStyle}
-                  />
-                  <Act text="Drop" a11y={`Drop the day of ${t.title}`} onPress={() => actions.drop(t)} />
-                </>
-              ) : (
-                <>
-                  <Act text="Skip" a11y={`Skip ${t.title} on ${formatShortDate(m.day)}`} onPress={() => actions.skip(t)} />
-                  <Act text="Do it today" a11y={`Do ${t.title} today`} onPress={() => actions.doToday(t)} />
-                </>
-              )}
+              {!t.completed && <Act text="Done" a11y={`Mark ${t.title} done on ${formatShortDate(m.day)}`} onPress={() => actions.done(t)} />}
+              <Act text="Today" a11y={`Move ${t.title} to today`} onPress={() => actions.today(t)} />
+              <Act text="Tomorrow" a11y={`Move ${t.title} to tomorrow`} onPress={() => actions.tomorrow(t)} />
+              <input
+                type="date"
+                min={todayKey}
+                value=""
+                aria-label={`Pick a day for ${t.title}`}
+                title="Pick a day"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (isDateKey(v) && v >= todayKey) actions.pickDay(t, v);
+                }}
+                style={dateStyle}
+              />
+              <Act text="Drop" a11y={`Drop the day of ${t.title}`} onPress={() => actions.drop(t)} />
             </View>
           </View>
         );
@@ -121,6 +120,7 @@ const dateStyle: React.CSSProperties = {
 const styles = StyleSheet.create({
   list: { gap: 8 },
   muted: { fontSize: 13, color: Colors.textSecondary },
+  allRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   allBtn: { alignSelf: 'flex-start', paddingHorizontal: 12, height: 32, borderRadius: 10, backgroundColor: Colors.accent, justifyContent: 'center' },
   allText: { fontSize: 13, fontWeight: '700', color: Colors.onAccent },
   row: { padding: 10, borderRadius: 10, backgroundColor: Colors.surface, gap: 8 },

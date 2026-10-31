@@ -84,6 +84,8 @@ export function finishWrites(
   todayKey: string,
   mode: 'planning' | 'shutdown',
   carry: ReadonlySet<string> = new Set(),
+  // 3.25.0: with "Show missed tasks" off, Planning does not bring tasks of earlier days onto today: they stay on their own day.
+  rollMissed = true,
 ): Writes {
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const patches: Writes['patches'] = [];
@@ -95,7 +97,7 @@ export function finishWrites(
   }
   const decided = new Set(Object.keys(d.edits).filter((id) => 'dueDate' in d.edits[id] || 'completed' in d.edits[id]));
   if (mode === 'planning') {
-    for (const p of planRollover(tasks, todayKey)) if (!decided.has(p.id)) patches.push(p);
+    if (rollMissed) for (const p of planRollover(tasks, todayKey)) if (!decided.has(p.id)) patches.push(p);
   } else {
     for (const p of planCarryToTomorrow(tasks, todayKey, carry)) if (!decided.has(p.id)) patches.push(p);
   }

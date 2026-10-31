@@ -2,18 +2,17 @@
 // placeholder, "Add a task", is 71 px at 14 px; 76 leaves a little to spare); once something is typed the placeholder
 // is gone and 48 is enough. As the box narrows the secondary controls go away, never the text, in this order of
 // what stays longest:
-//   empty box:  the label button, the total of the day (a day column), then the details icon
+//   empty box:  the label button, then the total of the day (a day column)
 //   typing:     the label button (2.27.0: it is never pushed out), the time picker (a day column), the estimate
-//               picker (2.27.1), then the details icon
+//               picker (2.27.1)
+// 3.23.0: the details icon and its hint are gone; the + at the left opens a new task card instead.
 // Before the box has been measured everything is shown.
 export const INPUT_MIN = 76;
 export const TYPING_MIN = 48;
 const BASE = 41; // the padding (10 + 6), the + (22, 3 tucked in) and the gap before the field
 const BTN = 34; // a 28 point button and its gap
-export const NEEDS_TITLE = 'Type a name first, then open the details.';
 
 export interface AddRoom {
-  details: boolean;
   label: boolean;
   trailing: boolean;
   time: boolean;
@@ -28,7 +27,7 @@ export interface AddWants {
 }
 
 export function addRoom(width: number | null, wants: AddWants): AddRoom {
-  if (width === null) return { details: true, label: true, trailing: wants.trailing, time: wants.time, estimate: wants.estimate };
+  if (width === null) return { label: true, trailing: wants.trailing, time: wants.time, estimate: wants.estimate };
   let left = width - BASE - (wants.typing ? TYPING_MIN : INPUT_MIN);
   const take = (cost: number, wanted: boolean): boolean => {
     if (!wanted || left < cost) return false;
@@ -38,12 +37,10 @@ export function addRoom(width: number | null, wants: AddWants): AddRoom {
   if (!wants.typing) {
     const label = take(BTN, true);
     const trailing = take(86, wants.trailing);
-    const details = take(BTN, true);
-    return { details, label, trailing, time: false, estimate: false };
+    return { label, trailing, time: false, estimate: false };
   }
   const label = take(BTN, true);
   const time = take(90, wants.time);
   const estimate = take(56, wants.estimate);
-  const details = take(BTN, true);
-  return { details, label, trailing: false, time, estimate };
+  return { label, trailing: false, time, estimate };
 }

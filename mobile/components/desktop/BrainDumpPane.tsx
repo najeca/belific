@@ -22,7 +22,7 @@ import usePaneScroll from './usePaneScroll';
 import { taskDuration } from '../../lib/drag';
 import type { BrainDumpItem, Project, Task, TaskList } from '../../lib/types';
 import ListSwitcher from './ListSwitcher';
-import { openDetail, useSelectedList } from './uiStore';
+import { openDetail, openNewTask, useSelectedList } from './uiStore';
 import { editDumpItem } from '../../lib/taskActions';
 import { useTick } from './timerUi';
 import { useFeature } from './featureStore';
@@ -131,6 +131,7 @@ export default function BrainDumpPane({
               onChanged();
               if (openDetails && made) openDetail(made.id, 'title');
             }}
+            onNew={(extra) => openNewTask({ listKey: selected, ...extra })}
           />
         </View>
         {templatesOn && <TemplatePicker listKey={selected} refreshKey={refreshKey} onChanged={onChanged} />}

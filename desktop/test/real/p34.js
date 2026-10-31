@@ -1,8 +1,9 @@
 'use strict';
 // Real check for 3.16.0 (step 4): the Add row. A full width "+ Add a task" field whose placeholder is never cut,
 // at the left pane's width and at narrower and wider ones; the total ("3h planned") is a quiet caption under the
-// list header, not in the row; the + focuses the field and Enter creates; the details icon creates from the typed
-// title and opens its details with the title focused (no title: nothing is created). Light and dark.
+// list header, not in the row; Enter creates. 3.23.0 (step 1): the + opens a new task card (the details modal,
+// empty, the title focused); nothing is created until it has a title (closing it empty creates nothing), Save and
+// Enter in the title create; the details pen and its hint are gone. Light and dark.
 // BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -56,7 +57,7 @@ async function run() {
     // ---- the left pane at its own width ----
     const fit = await placeholderFit('left');
     check(`${mode}: the placeholder reads "Add a task" and is not cut (needs ${fit && fit.text}px, has ${fit && fit.room}px)`, !!fit && fit.ph === 'Add a task' && fit.room >= fit.text, JSON.stringify(fit));
-    check(`${mode}: the row holds the label and details buttons at the left pane width`, !!fit && fit.buttons.includes('addLabel') && fit.buttons.includes('addDetails'), JSON.stringify(fit && fit.buttons));
+    check(`${mode}: the row holds the label button (and no details pen) at the left pane width`, !!fit && fit.buttons.includes('addLabel') && !fit.buttons.includes('addDetails'), JSON.stringify(fit && fit.buttons));
     check(`${mode}: the "planned" total is not in the Add row`, !!fit && fit.planned === false, JSON.stringify(fit));
     const cap = await I.js(`(() => { const c = document.querySelector('[data-planned]'); if (!c) return null; const sw = document.querySelector('[data-ctl="lists"]').getBoundingClientRect(); const b = ${box('left')}.getBoundingClientRect(); const r = c.getBoundingClientRect(); return { text: c.innerText.trim(), top: r.top, headBottom: sw.bottom, boxTop: b.top, boxBottom: b.bottom, inBox: ${box('left')}.contains(c), size: getComputedStyle(c).fontSize }; })()`);
     check(`${mode}: the total is a caption "3h planned" directly under the list header, above the Add row`, !!cap && cap.text === '3h planned' && !cap.inBox && cap.top >= cap.headBottom - 1 && cap.top + 14 <= cap.boxTop + 2 && cap.size === '12px', JSON.stringify(cap));
@@ -68,16 +69,16 @@ async function run() {
       await C.sleep(350);
       const f = await placeholderFit('left');
       check(`${mode}: at ${w}px the placeholder is whole (needs ${f && f.text}px, has ${f && f.room}px) with ${f && f.buttons.join('+') || 'no'} buttons`, !!f && f.room >= f.text && !f.planned, JSON.stringify(f));
-      if (w >= 200) check(`${mode}: at ${w}px both the label and details buttons are there`, f.buttons.includes('addLabel') && f.buttons.includes('addDetails'), JSON.stringify(f.buttons));
+      if (w >= 200) check(`${mode}: at ${w}px the label button is there, no details pen`, f.buttons.includes('addLabel') && !f.buttons.includes('addDetails'), JSON.stringify(f.buttons));
       if (w < 151) check(`${mode}: at ${w}px only the + and the field remain`, f.buttons.length === 0, JSON.stringify(f.buttons));
-      if (w === 180) check(`${mode}: at ${w}px the label stays, the details icon has gone`, f.buttons.join() === 'addLabel', JSON.stringify(f.buttons));
+      if (w === 180) check(`${mode}: at ${w}px only the label button`, f.buttons.join() === 'addLabel', JSON.stringify(f.buttons));
     }
     await I.js(`(() => { const b = ${box('left')}; b.style.width = ''; b.style.flex = ''; })()`);
     await C.sleep(350);
     // The day column's own box (272 wide, with the day's total): also whole.
     const dayId = day(0);
     const dfit = await placeholderFit(dayId);
-    check(`${mode}: a day column's Add row keeps its placeholder whole too, and its label button`, !!dfit && dfit.room >= dfit.text && dfit.buttons.includes('addLabel') && dfit.buttons.includes('addDetails'), JSON.stringify(dfit));
+    check(`${mode}: a day column's Add row keeps its placeholder whole too, and its label button`, !!dfit && dfit.room >= dfit.text && dfit.buttons.includes('addLabel') && !dfit.buttons.includes('addDetails'), JSON.stringify(dfit));
     const dayTotal = await I.js(`(() => { const b = ${box(dayId)}; return b ? /\\d+:\\d\\d \\/ \\d+:\\d\\d/.test(b.innerText) : null; })()`);
     check(`${mode}: and the day's total (0:00 / 7:00) is still in it`, dayTotal === true, String(dayTotal));
     const oneLine = await I.js(`(() => { const t = [...${box(dayId)}.querySelectorAll('div')].find((e) => /\\d+:\\d\\d \\/ \\d+:\\d\\d/.test(e.textContent) && e.children.length === 0); return t ? Math.round(t.getBoundingClientRect().height) : null; })()`);
@@ -88,37 +89,62 @@ async function run() {
 
   const widths = await I.js(`(() => { const b = ${box(day(0))}; const kids = [...b.children].map((k) => Math.round(k.getBoundingClientRect().width)); const cs = getComputedStyle(b); return { box: Math.round(b.getBoundingClientRect().width), kids, pl: cs.paddingLeft, pr: cs.paddingRight, gap: cs.columnGap }; })()`);
   console.log('INFO day box children widths ' + JSON.stringify(widths));
-  // ---- + focuses the field; Enter creates ----
+  // ---- Enter in the field still quick adds ----
   await I.js('document.activeElement && document.activeElement.blur()');
-  await I.click(`document.querySelector('[data-add-plus="left"]')`, 300);
-  check('clicking the + focuses the title field', (await I.activeLabel()) === 'Capture a thought', String(await I.activeLabel()));
-  await I.type('Made with plus');
+  await I.click(`${box('left')}.querySelector('input')`, 300);
+  await I.type('Made with enter');
   await I.enter();
-  await C.waitFor(async () => titles().includes('Made with plus'), 5000).catch(() => {});
-  check('Enter creates the task', titles().includes('Made with plus'), JSON.stringify(titles()));
-  check('and the field is empty and still focused for the next one', (await I.js(`document.activeElement && document.activeElement.value === '' && document.activeElement.getAttribute('aria-label') === 'Capture a thought'`)) === true);
+  await C.waitFor(async () => titles().includes('Made with enter'), 5000).catch(() => {});
+  check('Enter in the Add field creates the task and the field stays ready', titles().includes('Made with enter') && (await I.js(`document.activeElement && document.activeElement.value === '' && document.activeElement.getAttribute('aria-label') === 'Capture a thought'`)) === true, JSON.stringify(titles()));
+  check('the details pen and its hint are gone', !(await I.exists(`document.querySelector('[data-ctl="addDetails"]')`)) && !(((await I.js('document.body.innerText')) || '').includes('Type a name first')));
 
-  // ---- the details icon ----
+  // ---- the + opens a new task card ----
+  const panel = `document.querySelector('[data-detail-panel]')`;
   const before = titles().length;
-  await I.click(`${box('left')}.querySelector('[data-ctl="addDetails"]')`, 400);
-  check('details icon with no title: nothing is created', titles().length === before, `${before} -> ${titles().length}`);
-  check('it says to type a name first and focuses the field', ((await I.js('document.body.innerText')) || '').includes('Type a name first, then open the details.') && (await I.activeLabel()) === 'Capture a thought');
-  await I.type('Opened with details');
-  check('typing clears that note', !(((await I.js('document.body.innerText')) || '').includes('Type a name first')));
-  await I.click(`${box('left')}.querySelector('[data-ctl="addDetails"]')`, 900);
-  await C.waitFor(async () => titles().includes('Opened with details'), 5000).catch(() => {});
-  check('details icon with a title creates the task', titles().includes('Opened with details'), JSON.stringify(titles()));
-  await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 5000).catch(() => {});
-  const ft = await I.js(`(() => { const a = document.activeElement; return { open: !!document.querySelector('[data-detail-panel]'), label: a && a.getAttribute('aria-label'), value: a && a.value }; })()`);
-  check('its details open with the title focused', ft.open && ft.label === 'Title' && ft.value === 'Opened with details', JSON.stringify(ft));
-  await I.shot('p34-details-opened');
+  await I.click(`document.querySelector('[data-add-plus="left"]')`, 700);
+  const open = await I.js(`(() => { const a = document.activeElement; return { open: !!${panel}, label: a && a.getAttribute('aria-label'), value: a && a.value, complete: !!${panel} && !!${panel}.querySelector('[aria-label="Mark the task complete"]'), save: !!${panel} && !!${panel}.querySelector('[data-ctl="saveNew"]') }; })()`);
+  check('the + opens the task details with an empty, focused title and a Save button (no tick)', open.open && open.label === 'Title' && open.value === '' && open.save && !open.complete, JSON.stringify(open));
+  check('and nothing is stored yet', titles().length === before);
+  await I.shot('p34-newcard-light');
+  await I.key('Escape', [], 500);
+  check('closing it with no title creates nothing', !(await I.exists(panel)) && titles().length === before, `${before} -> ${titles().length}`);
+  await I.click(`document.querySelector('[data-add-plus="left"]')`, 600);
+  await I.click(`${panel}.querySelector('[data-ctl="saveNew"]')`, 500);
+  check('Save with no title keeps the card open and creates nothing', (await I.exists(panel)) && titles().length === before);
+  await I.type('Made on the card');
+  await I.enter();
+  await C.waitFor(async () => titles().includes('Made on the card'), 5000).catch(() => {});
+  check('Enter in the title stores the task and the card stays open', titles().includes('Made on the card') && (await I.exists(panel)), JSON.stringify(titles()));
+  const stored = read('belific_tasks').find((t) => t.title === 'Made on the card');
+  check('it is in the list that was shown (Brain Dump: no list, no day)', !!stored && !stored.listKey && !stored.dueDate, JSON.stringify(stored));
+  await I.key('Escape', [], 500);
+  await I.click(`document.querySelector('[data-add-plus="left"]')`, 600);
+  await I.type('Saved with button');
+  await I.click(`${panel}.querySelector('[data-ctl="saveNew"]')`, 600);
+  await C.waitFor(async () => titles().includes('Saved with button'), 5000).catch(() => {});
+  check('Save stores the task once and closes the card', titles().filter((t) => t === 'Saved with button').length === 1 && !(await I.exists(panel)), JSON.stringify(titles()));
+  // A typed title: the + adds it and opens its details.
+  await I.click(`${box('left')}.querySelector('input')`, 300);
+  await I.type('Typed first');
+  await I.click(`document.querySelector('[data-add-plus="left"]')`, 900);
+  await C.waitFor(async () => titles().includes('Typed first'), 5000).catch(() => {});
+  const tf = await I.js(`(() => { const a = document.activeElement; return { open: !!${panel}, label: a && a.getAttribute('aria-label'), value: a && a.value }; })()`);
+  check('with a title typed, the + adds it and opens its details', titles().includes('Typed first') && tf.open && tf.value === 'Typed first', JSON.stringify(tf));
+  await I.key('Escape', [], 500);
+  // A day column's + opens a card on that day.
+  await I.click(`document.querySelector('[data-add-plus="${day(0)}"]')`, 700);
+  await I.type('On today');
+  await I.enter();
+  await C.waitFor(async () => titles().includes('On today'), 5000).catch(() => {});
+  const od = read('belific_tasks').find((t) => t.title === 'On today');
+  check("a day column's + makes the card on that day", !!od && od.dueDate === day(0), JSON.stringify(od));
   await I.key('Escape', [], 500);
 
   // ---- a day column: typing shows the time and estimate pickers; the buttons work ----
-  await I.click(`${box(day(0))}.querySelector('[data-add-plus]')`, 300);
+  await I.click(`${box(day(0))}.querySelector('input')`, 300);
   await I.type('x');
-  const pickers = await I.js(`(() => { const b = ${box(day(0))}; return { time: !!b.querySelector('input[type="time"]'), estimate: !!b.querySelector('[data-duration-select]'), label: !!b.querySelector('[data-ctl="addLabel"]'), details: !!b.querySelector('[data-ctl="addDetails"]') }; })()`);
-  check('typing in a day column keeps the label, the time and the estimate pickers (the details icon gives way)', pickers.time && pickers.label && pickers.estimate && !pickers.details, JSON.stringify(pickers));
+  const pickers = await I.js(`(() => { const b = ${box(day(0))}; return { time: !!b.querySelector('input[type="time"]'), estimate: !!b.querySelector('[data-duration-select]'), label: !!b.querySelector('[data-ctl="addLabel"]') }; })()`);
+  check('typing in a day column keeps the label, the time and the estimate pickers', pickers.time && pickers.label && pickers.estimate, JSON.stringify(pickers));
   await I.js(`document.activeElement.select()`);
   await I.key('Backspace', [], 200);
 
@@ -132,6 +158,9 @@ async function run() {
   await I.click(I.byLabel('Show Tasks'), 800).catch(() => {});
   await C.sleep(600);
   await pass('dark');
+  await I.click(`document.querySelector('[data-add-plus="left"]')`, 700);
+  await I.shot('p34-newcard-dark');
+  await I.key('Escape', [], 500);
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

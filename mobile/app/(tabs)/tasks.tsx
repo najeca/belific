@@ -4,7 +4,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { radius, type ColorTokens } from '../../lib/tokens';
-import { formatTime } from '../../lib/data';
+import { formatTime, generateId } from '../../lib/data';
 import { addDays, dateKey, formatDayTitle, parseDateKey } from '../../lib/kanban';
 import { movedCaption, movedFrom } from '../../lib/series';
 import { duringCaption, hostIndex, insidePill } from '../../lib/hosting';
@@ -184,6 +184,13 @@ export default function TasksTab() {
           : [{ label: 'Delete', icon: 'trash-outline' as const, danger: true, run: () => void remove(row) }]),
       ],
     });
+  }
+
+  // 3.23.0: a new task card in the shown list; nothing is stored until it has a title.
+  async function newCard() {
+    const now = new Date().toISOString();
+    const task: Task = { id: generateId(), title: '', completed: false, createdAt: now, updatedAt: now, ...(listKey ? { listKey } : {}) };
+    setDetails({ task, projected: false, draft: true });
   }
 
   async function addFromRow() {
@@ -376,8 +383,9 @@ export default function TasksTab() {
             onSubmitEditing={() => void addFromRow()}
             accessibilityLabel={`Add to ${listName}`}
           />
-          <Pressable style={s.addBtn} onPress={() => void addFromRow()} accessibilityRole="button" accessibilityLabel="Add" disabled={!text.trim()}>
-            <Ionicons name="arrow-up" size={20} color={text.trim() ? c.accentText : c.textTertiary} />
+          {/* 3.23.0: the + with nothing typed opens a new task card (the details sheet, empty, title focused); with a title typed it adds that task. */}
+          <Pressable style={s.addBtn} onPress={() => (text.trim() ? void addFromRow() : void newCard())} accessibilityRole="button" accessibilityLabel={text.trim() ? 'Add' : 'New task card'} {...({ dataSet: { addPlus: '1' } } as object)}>
+            <Ionicons name="add" size={22} color={text.trim() ? c.accentText : c.textSecondary} />
           </Pressable>
         </View>
       ) : null}

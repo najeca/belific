@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { kv } from '../../lib/kv';
+import { generateId } from '../../lib/data';
 
 // Small shared UI state for the desktop home screen (build plan phases 2 and
 // 3): which overlay is open, which task's details panel is open, which list the
@@ -37,6 +38,9 @@ interface State {
   // What the details modal puts the keyboard on when it opens (2.27.0: the
   // card's keys for steps, notes, estimate and actual open the modal there).
   detailFocus: DetailFocus | null;
+  // 3.23.0: the + of an Add row opens the details of a task that does not exist yet (detailId `draft_...`); this is
+  // where it was asked for. Nothing is stored until it has a title.
+  detailDraft: NewTaskWhere | null;
   selectedList: string | null;
   reveal: RevealRequest | null;
   timerConfirm: TimerConfirm | null;
@@ -62,7 +66,7 @@ export interface UndoOffer {
   actionLabel?: string;
 }
 
-let state: State = { overlay: null, detailId: null, detailFocus: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0, undo: null, notice: null };
+let state: State = { overlay: null, detailId: null, detailFocus: null, detailDraft: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0, undo: null, notice: null };
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const subscribe = (l: () => void) => {
@@ -113,10 +117,26 @@ export type DetailFocus = 'title' | 'subtask' | 'notes' | 'estimate' | 'actual';
 export const useDetailId = () => use((s) => s.detailId);
 export const getDetailFocus = () => state.detailFocus;
 export function openDetail(taskId: string, focus: DetailFocus = 'title'): void {
-  set({ detailId: taskId, detailFocus: focus });
+  set({ detailId: taskId, detailFocus: focus, detailDraft: null });
 }
 export function closeDetail(): void {
-  if (state.detailId) set({ detailId: null, detailFocus: null });
+  if (state.detailId) set({ detailId: null, detailFocus: null, detailDraft: null });
+}
+
+// 3.23.0: a new task card. The id is a draft id; the details modal keeps the fields in memory and stores the task
+// when it has a title (or on Save). Closing with no title stores nothing.
+export const DRAFT_PREFIX = 'draft_';
+export const isDraftId = (id: string | null | undefined): boolean => !!id && id.startsWith(DRAFT_PREFIX);
+export interface NewTaskWhere {
+  listKey?: string;
+  dueDate?: string;
+  startTime?: string;
+  projectKey?: string;
+  durationMinutes?: number;
+}
+export const useDetailDraft = () => use((s) => s.detailDraft);
+export function openNewTask(where: NewTaskWhere = {}): void {
+  set({ detailId: `${DRAFT_PREFIX}${generateId()}`, detailFocus: 'title', detailDraft: where });
 }
 
 // ---- the list the left pane shows (null = Brain Dump) ----

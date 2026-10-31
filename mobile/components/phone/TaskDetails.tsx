@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +16,7 @@ import { opsForProjected, opsForTask } from '../../lib/taskOps';
 import { materialise, moveDay } from '../../lib/seriesActions';
 import { MOVE_THIS_DAY_NOTE, movedCaptionLong } from '../../lib/series';
 import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
-import { loadListsRaw, loadTasksRaw } from '../../lib/storage';
+import { addTask, loadListsRaw, loadTasksRaw } from '../../lib/storage';
 import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, priorityPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { useStyles, useTheme } from './theme';
@@ -47,6 +47,8 @@ import { UNDO_MS } from './UndoBar';
 export interface DetailsTarget {
   task: Task;
   projected: boolean;
+  // 3.23.0: a new task that is not stored yet (the + of the Tasks tab's add row); it is stored when it has a title.
+  draft?: boolean;
 }
 
 type Open = 'date' | 'time' | 'duration' | 'repeat' | 'times' | 'reminders' | null;
@@ -120,6 +122,9 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   const [undo, setUndo] = useState<{ text: string; run: () => Promise<void> } | null>(null);
   // 3.11.0: why a time, a length or a day was refused (shown whichever row was open).
   const [breakNote, setBreakNote] = useState<string | null>(null);
+  // 3.23.0: true while this is a new task with no title yet (nothing is stored).
+  const [unsaved, setUnsaved] = useState(false);
+  const titleRef = useRef<TextInput>(null);
   const refreshHost = useCallback(async (t: Task) => {
     setLinks(t.dueDate ? hostLinks(await loadTasksRaw(), t.dueDate, dateKey(new Date())) : []);
   }, []);
@@ -143,11 +148,17 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     setUndo(null);
     setBreakNote(null);
     show(target.task, target.projected);
+    setUnsaved(!!target.draft);
+    // The sheet's own focus handling can win a race with autoFocus: ask once more when it has settled.
+    const focusLater = target.draft ? setTimeout(() => titleRef.current?.focus(), 350) : null;
     setOpen(null);
     setNote(null);
     setNewLabel(null);
     loadLabels().then(setLabels).catch(() => {});
     loadListsRaw().then(setLists).catch(() => {});
+    return () => {
+      if (focusLater) clearTimeout(focusLater);
+    };
   }, [target, show]);
 
   if (!target || !task) return null;
@@ -156,6 +167,18 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   // Writes a patch, then shows the task as stored (a projected day: the patch is shown on it).
   async function write(fields: Partial<Task> | null) {
     if (!task || !fields || Object.keys(fields).length === 0) return;
+    // 3.23.0: a new task is kept in memory until it has a title, then stored under its own id.
+    if (unsaved) {
+      const next: Task = { ...task, ...fields };
+      if (next.title.trim()) {
+        const now = new Date().toISOString();
+        setUnsaved(false);
+        await addTask({ ...next, title: next.title.trim(), createdAt: now, updatedAt: now });
+        onChanged();
+      }
+      show(next, false);
+      return;
+    }
     // 3.11.0: a time, a length or a day that would leave a task sticking out of a break is refused.
     const refused = await breakRefusal(task, fields, 'details');
     if (refused) {
@@ -283,9 +306,9 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     <Modal visible animationType={reduced ? 'none' : 'slide'} presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[s.head, { paddingTop: Platform.OS === 'ios' ? 10 : insets.top + 10 }]} {...({ dataSet: { taskDetails: task.id } } as object)}>
-          <Text style={s.headTitle}>{projected ? 'Repeating task' : 'Task'}</Text>
-          <Pressable onPress={onClose} style={s.doneBtn} accessibilityRole="button" accessibilityLabel="Done">
-            <Text style={s.doneText}>Done</Text>
+          <Text style={s.headTitle}>{projected ? 'Repeating task' : unsaved ? 'New task' : 'Task'}</Text>
+          <Pressable onPress={onClose} style={s.doneBtn} accessibilityRole="button" accessibilityLabel={unsaved ? 'Save' : 'Done'}>
+            <Text style={s.doneText}>{unsaved ? 'Save' : 'Done'}</Text>
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
@@ -300,6 +323,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
               accessibilityLabel="Task emoji"
             />
             <TextInput
+              ref={titleRef}
               style={s.titleInput}
               value={title}
               onChangeText={setTitle}
@@ -307,6 +331,9 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
               onSubmitEditing={() => void write(titlePatch(task, title))}
               returnKeyType="done"
               multiline={false}
+              autoFocus={unsaved}
+              placeholder={unsaved ? 'New task' : undefined}
+              placeholderTextColor={c.textTertiary}
               accessibilityLabel="Task title"
             />
           </View>
@@ -554,9 +581,9 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
             </View>
           </View>
 
-          <View style={{ marginTop: 28, alignItems: 'flex-start' }}>
+          {unsaved ? null : <View style={{ marginTop: 28, alignItems: 'flex-start' }}>
             <Button label={ops.series ? 'Delete or skip' : 'Delete task'} kind="danger" icon="trash-outline" onPress={deleteMenu} a11y={ops.series ? 'Delete or skip' : 'Delete task'} />
-          </View>
+          </View>}
         </ScrollView>
         <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
       </KeyboardAvoidingView>

@@ -9,7 +9,7 @@ import { LabelBody } from './TaskPopovers';
 import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import type { TaskOps } from './taskOps';
-import { INPUT_MIN, NEEDS_TITLE, TYPING_MIN, addRoom } from '../../lib/addBox';
+import { INPUT_MIN, TYPING_MIN, addRoom } from '../../lib/addBox';
 import { Ionicons } from '@expo/vector-icons';
 
 // The "Add a task" box (2.27.0), the same on a day column and in the left list:
@@ -20,9 +20,11 @@ import { Ionicons } from '@expo/vector-icons';
 //
 // 3.16.0: the row is a full width field, "+ Add a task", whose placeholder is never cut: at a narrow width the
 // secondary controls go away (the total of the day first, then the time and estimate, then the label), never the
-// text. The + focuses the field (so does a click in it); the details icon at the right creates the task from the
-// typed title and opens its details with the title focused (with no title typed it only focuses the field and says so). Enter adds and keeps the box ready for the next one; the
-// chosen label is kept for it, the time and the estimate start empty again.
+// text. Enter adds and keeps the box ready for the next one; the chosen label is kept for it, the time and the
+// estimate start empty again.
+// 3.23.0: the + opens a new task card (the details modal, empty, the title focused) in the place of this box
+// (`onNew`); nothing is stored until the card has a title. With a title already typed the + adds that task and
+// opens its details. The details pen and its hint are gone.
 export default function AddTaskBox({
   id,
   a11y,
@@ -32,6 +34,7 @@ export default function AddTaskBox({
   inputRef,
   warning,
   onAdd,
+  onNew,
 }: {
   // Unique per box (the label popover's id).
   id: string;
@@ -43,7 +46,9 @@ export default function AddTaskBox({
   inputRef?: React.RefObject<TextInput | null>;
   // A quiet line under the box (an away day, item 8).
   warning?: string | null;
-  // `openDetails`: the details icon was pressed; the caller opens the new task's details once it is created.
+  // The + with nothing typed: the caller opens a new task card (with this box's label, time and estimate if chosen).
+  onNew?: (extra: { startTime?: string; projectKey?: string; durationMinutes?: number }) => void;
+  // `openDetails`: the + was pressed with a title typed; the caller opens the new task's details once it is created.
   onAdd: (title: string, extra: { startTime?: string; projectKey?: string; durationMinutes?: number }, openDetails?: boolean) => Promise<void>;
 }) {
   const [text, setText] = useState('');
@@ -54,7 +59,6 @@ export default function AddTaskBox({
   const own = useRef<TextInput>(null);
   const field = (inputRef ?? own) as React.RefObject<TextInput>;
   const [width, setWidth] = useState<number | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
   const anchor = usePopoverAnchor();
   const popId = `add:${id}:label`;
   const open = useIsOpen(popId);
@@ -65,14 +69,7 @@ export default function AddTaskBox({
   }, [projectKey]);
 
   async function add(openDetails = false) {
-    if (!text.trim()) {
-      if (openDetails) {
-        setHint(NEEDS_TITLE);
-        field.current?.focus();
-      }
-      return;
-    }
-    setHint(null);
+    if (!text.trim()) return;
     const t = text;
     setText('');
     await onAdd(t, { startTime: withTime && time ? time : undefined, projectKey, durationMinutes: estimate }, openDetails);
@@ -101,16 +98,24 @@ export default function AddTaskBox({
   return (
     <View style={styles.wrap}>
       <View style={styles.box} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)} {...({ dataSet: { addBox: id } } as object)}>
-        <Pressable onPress={() => field.current?.focus()} style={styles.plus} accessibilityRole="button" accessibilityLabel="Add a task: focus the field" focusable={false} {...({ dataSet: { addPlus: id } } as object)}>
+        <Pressable
+          onPress={() => {
+            if (typing) void add(true);
+            else if (onNew) onNew({ startTime: withTime && time ? time : undefined, projectKey, durationMinutes: estimate });
+            else field.current?.focus();
+          }}
+          style={styles.plus}
+          accessibilityRole="button"
+          accessibilityLabel="Add a task: open a new task card"
+          focusable={false}
+          {...({ title: 'New task card', dataSet: { addPlus: id } } as object)}
+        >
           <Ionicons name="add-circle-outline" size={17} color={Colors.textSecondary} />
         </Pressable>
         <TextInput
           ref={field as never}
           value={text}
-          onChangeText={(t) => {
-            setText(t);
-            if (hint) setHint(null);
-          }}
+          onChangeText={setText}
           onSubmitEditing={() => void add()}
           blurOnSubmit={false}
           placeholder="Add a task"
@@ -124,17 +129,6 @@ export default function AddTaskBox({
         ) : null}
         {room.estimate && (typing || estimate !== undefined) ? <DurationSelect id={`add:${id}`} label="Estimated time for the new task" value={estimate} onChange={setEstimate} placeholder="⏳" compact /> : null}
         {room.trailing && !typing && !time && estimate === undefined ? trailing : null}
-        {room.details ? (
-          <Pressable
-            onPress={() => void add(true)}
-            style={styles.labelBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Add the task and open its details"
-            {...({ title: 'Add and open the details', dataSet: { ctl: 'addDetails' } } as object)}
-          >
-            <Ionicons name="create-outline" size={15} color={Colors.textSecondary} />
-          </Pressable>
-        ) : null}
         {room.label ? (
         <Pressable
           ref={anchor.ref as never}
@@ -152,11 +146,6 @@ export default function AddTaskBox({
           <LabelBody task={draft} ops={ops} done={() => closePopover(true)} />
         </Popover>
       </View>
-      {hint ? (
-        <Text style={styles.warning} accessibilityRole="alert" {...({ dataSet: { addHint: '1' } } as object)}>
-          {hint}
-        </Text>
-      ) : null}
       {warning ? (
         <Text style={styles.warning} accessibilityLabel={warning}>
           {warning}

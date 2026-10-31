@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.23.0 — 2026-10-31 (the + of an Add row opens a new task card)
+
+**Desktop and phone. No schema change, no migration.**
+- **The + opens a new task card.** In the left pane's Add row and in a day column's Add row, the + opens the same task details modal as an existing task, with empty fields and the title focused (a Save button instead of the tick and the ⋮ menu; no Actual time row yet). **Nothing is stored until the card has a title:** leaving the title (Enter, a click elsewhere, Escape) or pressing Save stores it, under the card's own id, and the open card carries on as an ordinary task; closing with no title creates nothing, and Save with no title only asks for one. The card starts in the place it was asked for (the shown list, or that day) and keeps the label, time and estimate already chosen in the box. With a title already typed in the field, the + adds that task and opens its details (what the pen did). **Enter in the Add field still quick adds.**
+- **Removed:** the extra details pen in the Add row and its hint "Type a name first, then open the details." (`lib/addBox.ts` no longer has a `details` slot or `NEEDS_TITLE`). The row stays clean at narrow and wide widths (the label button, then the total, then the pickers go first; the field never loses its placeholder).
+- **Phone (Tasks tab):** the add row's button is now a + (44 pt). With nothing typed it opens the task details sheet as a new card ("New task", Save at the top, no Delete, the title focused); with a title typed it adds that task as before. The round + (quick add sheet) is unchanged.
+- **How:** `uiStore.openNewTask(where)` gives the details modal a draft id (`draft_...`); `TaskDetailPanel` keeps the draft in memory and stores it on the first title (`patchDraft`); the phone's `DetailsTarget.draft`. Tests: `addBox.test.ts` (changed on purpose: no details slot); real `p34.js` (50, changed on purpose and extended: the + card, nothing stored empty, Save, Enter, a day column, light and dark) and new `phone-p17.js` (16).
+
 ## 3.22.0 — 2026-10-30 (drop a Split task inside another Split task, and the Split audit)
 
 **Desktop (the pure rules also serve the phone). No schema change, no migration.**

@@ -24,7 +24,7 @@ import { createTaskIn } from '../../lib/taskCommands';
 import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
 import { useBreakTwice } from './breakTwiceStore';
 import { useTick } from './timerUi';
-import { openDetail, useGoToday, useReveal } from './uiStore';
+import { openDetail, openNewTask, useGoToday, useReveal } from './uiStore';
 import OnlyTodayButton from './OnlyTodayButton';
 import { setAtToday } from './todayStore';
 import { loadLabels } from '../../lib/labels';
@@ -91,6 +91,7 @@ function DayAddBox({ dayKey, items, now, onChanged, away }: { dayKey: string; it
         onChanged();
         if (openDetails && made) openDetail(made.id, 'title');
       }}
+      onNew={(extra) => openNewTask({ dueDate: dayKey, ...extra })}
     />
   );
 }

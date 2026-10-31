@@ -14,7 +14,7 @@ import { effectiveListKey } from '../../lib/lists';
 import { setActualFor } from '../../lib/timerActions';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
-import { loadLists, loadTasksRaw } from '../../lib/storage';
+import { addTask, loadLists, loadTasksRaw } from '../../lib/storage';
 import { DETAILS_LONGER, hostLinks, type HostLink } from '../../lib/hosting';
 import { breakRefusal } from '../../lib/hostActions';
 import { DuringBreak, InsideBreak } from './HostDetails';
@@ -38,7 +38,7 @@ import { toggleTimer, useNow } from './timerUi';
 import { startFromChoices } from '../../lib/timerSession';
 import { formatTime } from '../../lib/data';
 import { isMultiTime, MAX_TIMES, addTimeFields, isTimeDone, moveTimeFields, removeTimeFields, suggestNextTime, timesOf, type TimeEdit, type TimeRefusal } from '../../lib/times';
-import { closeDetail, getDetailFocus, notifyChanged, openDetail, useDetailId } from './uiStore';
+import { closeDetail, getDetailFocus, isDraftId, notifyChanged, openDetail, useDetailDraft, useDetailId, type NewTaskWhere } from './uiStore';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
@@ -60,7 +60,12 @@ import { RoundCheck, checkRing, checkRingDone } from './ui';
 // control, opened from here.
 export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) {
   const id = useDetailId();
+  const where = useDetailDraft();
   const [task, setTask] = useState<Task | null>(null);
+  // 3.23.0: a new task card (the + of an Add row): the fields live here, in memory, until the task has a title.
+  const [draft, setDraft] = useState<Task | null>(null);
+  const draftRef = useRef<Task | null>(null);
+  const madeRef = useRef<Promise<unknown> | null>(null);
   // A day of a repeating series that is shown, not stored (decision 023): the
   // modal edits the series, as the card did, and opening it writes nothing.
   const [projected, setProjected] = useState(false);
@@ -68,6 +73,40 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
   const [lists, setLists] = useState<TaskList[]>([]);
   // 3.10.0: the task's day, as the Timebox draws it: the tasks inside this break, or the break it is during.
   const [links, setLinks] = useState<HostLink[]>([]);
+
+  useEffect(() => {
+    const blank = id && isDraftId(id) ? blankDraft(id, where ?? {}) : null;
+    draftRef.current = blank;
+    madeRef.current = null;
+    setDraft(blank);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // A change to the new card: kept in memory while there is no title; with a title the task is stored under the
+  // card's own id (so the open card carries on as an ordinary task, nothing remounts).
+  const patchDraft = useCallback(async (fields: Partial<Task>) => {
+    const cur = draftRef.current;
+    if (!cur) return;
+    // Already being stored (the title's blur, then Save): the change goes to the stored task once it is there.
+    if (madeRef.current) {
+      await madeRef.current;
+      await opsForTask(cur).patch(fields);
+      notifyChanged();
+      await reload();
+      return;
+    }
+    const next: Task = { ...cur, ...fields };
+    draftRef.current = next;
+    setDraft(next);
+    const title = next.title.trim();
+    if (!title) return;
+    const now = new Date().toISOString();
+    madeRef.current = addTask({ ...next, title, createdAt: now, updatedAt: now });
+    await madeRef.current;
+    notifyChanged();
+    await reload();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -85,8 +124,8 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     setLinks(found && found.dueDate ? hostLinks(tasks, found.dueDate, dateKey(new Date())) : []);
     setLabels(l);
     setLists(ls);
-    // The task was deleted (here, or on the other device): nothing to show.
-    if (!found) closeDetail();
+    // The task was deleted (here, or on the other device): nothing to show. A new card is not stored yet.
+    if (!found && !isDraftId(id)) closeDetail();
   }, [id]);
   useEffect(() => {
     if (!id) {
@@ -121,20 +160,46 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     };
   }, [id]);
 
-  if (!id || !task) return null;
+  const shown = task ?? (isDraftId(id) ? draft : null);
+  if (!id || !shown) return null;
   return (
     <View style={styles.layer} {...({ dataSet: { detailLayer: '1' } } as object)}>
       <Pressable style={styles.scrim} onPress={closeDetail} accessibilityLabel="Close the task details" {...({ tabIndex: -1 } as object)} />
       <View style={styles.centre} pointerEvents="box-none">
-        <Panel key={task.id} task={task} projected={projected} labels={labels} lists={lists} links={links} onSaved={() => { notifyChanged(); reload(); }} />
+        <Panel key={shown.id} task={shown} projected={projected} labels={labels} lists={lists} links={links} draftPatch={task ? undefined : patchDraft} onSaved={() => { if (task) { notifyChanged(); reload(); } }} />
       </View>
     </View>
   );
 }
 
-function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; onSaved: () => void }) {
-  const ops: TaskOps = projected ? opsForProjected(task) : opsForTask(task);
+// A new card that is not stored yet (3.23.0): every change goes to the card's memory.
+function blankDraft(id: string, where: NewTaskWhere): Task {
+  const now = new Date().toISOString();
+  const t: Task = { id, title: '', completed: false, createdAt: now, updatedAt: now };
+  if (where.listKey) t.listKey = where.listKey;
+  if (where.dueDate) t.dueDate = where.dueDate;
+  if (where.dueDate && where.startTime) t.startTime = where.startTime;
+  if (where.projectKey) t.projectKey = where.projectKey;
+  if (where.durationMinutes) t.durationMinutes = where.durationMinutes;
+  return t;
+}
+
+function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
+  const drafting = !!draftPatch;
+  const draftOps: TaskOps = {
+    patch: draftPatch ?? (async () => {}),
+    patchDay: draftPatch ?? (async () => {}),
+    setCompleted: async (done) => void (await draftPatch?.({ completed: done })),
+    setTimeDone: async () => {},
+    toggleSubtask: async (sid) => void (await draftPatch?.({ subtasks: (task.subtasks ?? []).map((s) => (s.id === sid ? { ...s, done: !s.done } : s)) })),
+    remove: async () => closeDetail(),
+  };
+  const ops: TaskOps = drafting ? draftOps : projected ? opsForProjected(task) : opsForTask(task);
   const patch = async (fields: Partial<Task>) => {
+    if (drafting) {
+      await draftPatch?.(fields);
+      return;
+    }
     // 3.11.0: a hosted task changed so it would stick out of its break (or a new start inside a break it
     // does not fit) is refused, and the Time row says why.
     const refused = await breakRefusal(task, fields, 'details');
@@ -228,6 +293,16 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
     if (t && t !== before) patch({ subtasks: renameSubtask(task.subtasks, sid, t) });
   };
 
+  // 3.23.0: Save on a new card stores it (when it has a title) and closes; without a title it only asks for one.
+  const saveNew = async () => {
+    const t = title.trim();
+    if (!t) {
+      titleRef.current?.focus();
+      return;
+    }
+    await patch({ title: t });
+    closeDetail();
+  };
   const saveTitle = () => {
     const t = title.trim();
     if (!t) setTitle(task.title);
@@ -248,6 +323,7 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
   return (
     <View style={styles.panel} accessibilityLabel="Task details" {...({ role: 'dialog', 'aria-modal': true, dataSet: { detailPanel: '1' } } as object)}>
       <View style={styles.header}>
+        {!drafting && (
         <Pressable
           // Completing goes through setTaskCompleted (subtasks, repeats), not a bare patch.
           onPress={() => ops.setCompleted(!task.completed).then(onSaved)}
@@ -257,6 +333,7 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
         >
           {task.completed && <Ionicons name="checkmark" size={16} color={Colors.success} />}
         </Pressable>
+        )}
         {task.emoji ? <Text style={styles.titleEmoji}>{task.emoji}</Text> : null}
         <TextInput
           ref={titleRef}
@@ -266,7 +343,14 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
           onBlur={saveTitle}
           onSubmitEditing={saveTitle}
           accessibilityLabel="Title"
+          placeholder={drafting ? 'New task' : undefined}
+          placeholderTextColor={Colors.textSecondary}
         />
+        {drafting ? (
+          <Pressable onPress={saveNew} style={styles.bigBtn} accessibilityRole="button" accessibilityLabel="Save the new task" {...({ dataSet: { ctl: 'saveNew' } } as object)}>
+            <Text style={styles.bigBtnText}>Save</Text>
+          </Pressable>
+        ) : (
         <Pressable
           ref={more.ref as never}
           onPress={() => togglePopover(moreId, more.get)}
@@ -277,6 +361,7 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
         >
           <Ionicons name="ellipsis-vertical" size={16} color={Colors.textSecondary} />
         </Pressable>
+        )}
         <Pressable onPress={closeDetail} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Close task details">
           <Ionicons name="close" size={18} color={Colors.textSecondary} />
         </Pressable>
@@ -383,6 +468,7 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
           <DurationSelect id={`${task.id}:estimate`} label="Estimated time" value={task.durationMinutes} onChange={(m) => patch({ durationMinutes: m })} />
         </DetailRow>
 
+        {!drafting && (
         <DetailRow icon="stopwatch-outline" label="Actual time">
           <View style={styles.row}>
             <DurationSelect
@@ -427,6 +513,7 @@ function Panel({ task, projected, labels, lists, links, onSaved }: { task: Task;
             ))}
           </View>
         </DetailRow>
+        )}
 
         <DetailRow icon="pricetag-outline" label="Label">
           <LabelField task={task} labels={labels} ops={ops} onSaved={onSaved} />

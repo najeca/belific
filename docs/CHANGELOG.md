@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.24.0 — 2026-10-31 (middle mouse drag pans the Calendar and the Timebox)
+
+**Desktop only. No schema change, no migration.**
+- **Hold the wheel button and drag** over the Calendar or the Timebox (a block, a column, an empty slot) to pan like a hand: the content follows the pointer. In the Calendar's week strip a sideways drag moves through the days (the strip is very long, so it keeps going), a vertical drag scrolls the hours; the Timebox scrolls its hours. Day view only scrolls vertically.
+- **A grabbing cursor** shows everywhere while it pans. **No task drag starts, no task opens** (the press never reaches the cards; the left button's drag is untouched), and **no Windows autoscroll circle** appears (the middle mousedown is cancelled; only the pointer event is stopped, since cancelling it would also cancel the mouse events). **Esc** puts the view back where it was and ends the pan. A press on a field, a popover or the details modal does nothing; releasing outside the window stops where it is.
+- **How:** `lib/panDrag.ts` (pure: `panPosition`, `startsPan`, `middleHeld`) and `components/desktop/MiddlePan.tsx`, mounted once at the home root with window capture listeners.
+- **Tests:** `panDrag.test.ts` (6); real `p45.js` (19, synthetic middle button events: the press is cancelled, both directions, clamping, the cursor, nothing changed or opened, Esc restores, the left press untouched, a press outside does nothing, the Timebox).
+- **iOS marker gate:** three markers added (`open a new task card`, `Save the new task`, `belific-pan-cursor`) and two removed on purpose (`Add the task and open its details` and `Type a name first, then open the details.`, whose strings went with the details pen in 3.23.0).
+
 ## 3.23.2 — 2026-10-31 (fix: Vibrant task colours no longer merge labels)
 
 **Desktop (`lib/vibrant.ts`, pure). No schema change, no migration.**

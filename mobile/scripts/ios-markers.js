@@ -124,8 +124,6 @@ const MARKERS = [
   // Metro does not drop unused exports, so those names are in the bundle, inert (the phone has no drag).
   'ListPick',
   'belific-native-controls',
-  'Add the task and open its details',
-  'Type a name first, then open the details.',
   'Jump to today (Shift+T)',
   'Press again to see every day',
   // 3.20.0 to 3.22.0 (the UI fixes batch 3): desktop only wording. The undo toast (useUndoRedo.ts), the chip of a hosted
@@ -135,6 +133,12 @@ const MARKERS = [
   'Redone: ',
   'Its Split is ignored while it is inside',
   'Its Split is ignored while it is during',
+  // 3.23.0 and 3.24.0: desktop only. The + of the Add row (AddTaskBox.tsx; the details pen and its hint it replaced
+  // were markers and are gone on purpose), the Save button of a new task card (TaskDetailPanel) and the middle mouse
+  // pan (MiddlePan.tsx). The phone's own + and Save have different words.
+  'open a new task card',
+  'Save the new task',
+  'belific-pan-cursor',
 ];
 
 const ALLOWED = {

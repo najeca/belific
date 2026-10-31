@@ -8,6 +8,13 @@ to know the current version and recent history.
 
 ---
 
+## 3.23.1 — 2026-10-31 (fix: the card's meta line keeps the label name, on two lines)
+
+**Desktop and phone. No schema change, no migration.**
+- **Problem:** on a left pane card the meta line showed only a dot, the emoji and "..." instead of the label name, with the date and time crammed beside it (one row, the label chip capped at 150 px and shrunk by its neighbours).
+- **Fix:** the meta line is two lines (`TaskCard.tsx`). **Line 1:** the list emoji, the label dot and the label name (no width cap; an ellipsis only when the name truly cannot fit the card). **Line 2:** the day and time, the "N inside" and "During" captions, "Moved from", the steps ring and the Must do mark, wrapping if needed, never clipped. The same on the phone's Tasks rows (the label on its own line, then the date and time) and Today rows (the list and label first, then the time, steps and captions).
+- **Tests:** real `p43.js` (30: windows 1024, 1440 and 1920 wide, light and dark, a normal and a very long label name; nothing cut, nothing spilling out of the card) and `phone-p17.js` (+4).
+
 ## 3.23.0 — 2026-10-31 (the + of an Add row opens a new task card)
 
 **Desktop and phone. No schema change, no migration.**

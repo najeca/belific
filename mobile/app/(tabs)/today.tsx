@@ -281,16 +281,21 @@ export default function TodayScreen() {
               {t?.recurrence || item.kind === 'routine' ? <Ionicons name="repeat" size={14} color={c.textSecondary} accessibilityLabel="Repeats" /> : null}
               {t?.durationMinutes ? <Text style={s.length} accessibilityLabel={`Estimate ${formatDuration(t.durationMinutes)}`} {...({ dataSet: { todayLength: '1' } } as object)}>{formatDuration(t.durationMinutes)}</Text> : null}
             </View>
-            <View style={s.metaRow}>
+            {/* 3.23.0: two lines, the list and label first (the label's name never cut to a dot), then the time. */}
+            {lab || lst ? (
+              <View style={[s.metaRow, { gap: 8 }]} {...({ dataSet: { rowLabel: '1' } } as object)}>
+                {lst ? <Text style={s.meta}>{lst}</Text> : null}
+                {lab ? (
+                  <View style={[s.detail, { flexShrink: 1 }]}>
+                    <LabelDot color={lab.color} />
+                    <Text style={[s.meta, { flexShrink: 1 }]}>{lab.name}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+            <View style={s.metaRow} {...({ dataSet: { rowWhen: '1' } } as object)}>
               {timeText ? <Text style={[s.meta, { ...mono(500) }]} {...({ dataSet: { todayStart: '1' } } as object)}>{timeText}</Text> : null}
               {item.kind === 'routine' ? <Text style={s.meta}>{TIME_OF_DAY[item.routine.timeOfDay]} routine</Text> : null}
-              {lab ? (
-                <View style={s.detail}>
-                  <LabelDot color={lab.color} />
-                  <Text style={s.meta}>{lab.name}</Text>
-                </View>
-              ) : null}
-              {lst ? <Text style={s.meta}>{lst}</Text> : null}
               {count.total ? <Text style={s.meta}>{`${count.done}/${count.total} steps`}</Text> : null}
               {t && movedCaption(t) ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t) } } as object)}>{`↪ ${movedCaption(t)}`}</Text> : null}
               {t && hosts.inside.get(t.id) ? (

@@ -1,7 +1,8 @@
 'use strict';
 // Real touch check for 3.23.0, step 1, on the phone (390 x 844): the + beside the Tasks tab's add row opens a new
 // task card (the task details sheet, empty, the title focused, "Save" at the top); nothing is stored until it has
-// a title; closing it empty stores nothing. Light and dark. BELIFIC_SHOTS: a folder for screenshots.
+// a title; closing it empty stores nothing. Step 2: the Tasks rows show the label's NAME on its own line, then the
+// day and time on the next. Light and dark. BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
 const { app } = require('electron');
@@ -28,7 +29,13 @@ async function run() {
   fs.mkdirSync(dataDir, { recursive: true });
   const T = (id, title, extra = {}) => ({ id, title, completed: false, createdAt: stamp, updatedAt: stamp, ...extra });
   const write = (k, v) => fs.writeFileSync(path.join(dataDir, `${k}.kv`), JSON.stringify(v));
-  write('belific_tasks', [T('b', 'Plain one')]);
+  const today = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const tomorrow = new Date(today.getTime() + 86400000);
+  const tkey = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
+  write('belific_tasks', [T('b', 'Plain one'), T('a', 'Write the quarterly report for the whole team', { listKey: 'LG', projectKey: 'LB', dueDate: tkey, startTime: '09:30', durationMinutes: 90 })]);
+  write('belific_lists', [{ key: 'LG', name: 'Games', sortOrder: 0, emoji: '🎮', createdAt: stamp, updatedAt: stamp }]);
+  write('belific_projects', [{ key: 'LB', name: 'Quarterly planning and review', colorKey: 'sage', createdAt: stamp, updatedAt: stamp }]);
   const read = (k) => {
     try {
       return JSON.parse(fs.readFileSync(path.join(dataDir, `${k}.kv`), 'utf8'));
@@ -83,6 +90,18 @@ async function run() {
     await typeText(`Typed ${mode}`);
     await P.finger.tap(visible('[data-add-plus]'), 900);
     check(`${mode}: with a title typed, the + adds that task`, titles().includes(`Typed ${mode}`) && !(await sheetOpen()));
+
+    // ---- step 2: the rows ----
+    await P.js(`document.querySelector('[data-list-chip="LG"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
+    await C.sleep(400);
+    await P.finger.tap(visible('[data-list-chip="LG"]'), 900);
+    const row = await P.js(`(() => { const body = [...document.querySelectorAll('[data-task-body]')].find((e) => e.innerText.includes('Write the quarterly')); if (!body) return null; const l = body.querySelector('[data-row-label]'); const w = body.querySelector('[data-row-when]'); const lt = l && l.lastElementChild; return { label: l ? l.innerText : null, when: w ? w.innerText : null, labTop: l && Math.round(l.getBoundingClientRect().top), whenTop: w && Math.round(w.getBoundingClientRect().top), labCut: lt ? lt.scrollWidth > lt.clientWidth + 1 : null }; })()`);
+    check(`${mode}: the row names its label in words, not a dot`, !!row && /Quarterly planning and review/.test(row.label || '') && row.labCut === false, JSON.stringify(row));
+    check(`${mode}: the day and time are on their own line under the label`, !!row && /9:30|09:30/.test(row.when || '') && row.whenTop > row.labTop, JSON.stringify(row));
+    await shot(`phone-p17-rows-${mode}`);
+    await P.js(`document.querySelector('[data-list-chip="dump"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
+    await C.sleep(300);
+    await P.finger.tap(visible('[data-list-chip="dump"]'), 700);
   }
 
   await pass('light');

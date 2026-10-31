@@ -256,8 +256,15 @@ export default function TasksTab() {
                 {repeating ? <Ionicons name="repeat" size={14} color={c.textSecondary} accessibilityLabel="Repeats" /> : null}
                 {t?.durationMinutes ? <Text style={[s.meta, { ...mono(500), fontSize: 13, color: c.textPrimary, marginLeft: 'auto' }]} accessibilityLabel={`Estimate ${formatDuration(t.durationMinutes)}`} {...({ dataSet: { taskLength: '1' } } as object)}>{formatDuration(t.durationMinutes)}</Text> : null}
               </View>
-              {when || lab || steps.total ? (
-                <View style={s.metaRow}>
+              {/* 3.23.0: two lines, the label on its own line (its name never cut to a dot), then the date and time. */}
+              {lab ? (
+                <View style={[s.line, { gap: 5, marginTop: 3 }]} {...({ dataSet: { rowLabel: '1' } } as object)}>
+                  <LabelDot color={lab.color} />
+                  <Text style={[s.meta, { flexShrink: 1 }]}>{lab.name}</Text>
+                </View>
+              ) : null}
+              {when || steps.total ? (
+                <View style={s.metaRow} {...({ dataSet: { rowWhen: '1' } } as object)}>
                   {when ? <Text style={[s.meta, { ...mono(400), fontSize: 12 }]}>{when}</Text> : null}
                   {t && hosts.inside.get(t.id) ? (
                 <View style={s.hostPill} {...({ dataSet: { hostPill: String(hosts.inside.get(t.id)) } } as object)}>
@@ -266,12 +273,6 @@ export default function TasksTab() {
               ) : null}
               {t && hosts.during.get(t.id) ? <Text style={s.hostCaption} {...({ dataSet: { hostCaption: hosts.during.get(t.id) } } as object)}>{duringCaption(hosts.during.get(t.id) ?? '')}</Text> : null}
                   {moved ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t!) } } as object)}>{`↪ ${moved}`}</Text> : null}
-                  {lab ? (
-                    <View style={[s.line, { gap: 5 }]}>
-                      <LabelDot color={lab.color} />
-                      <Text style={s.meta}>{lab.name}</Text>
-                    </View>
-                  ) : null}
                   {steps.total ? <Text style={s.meta}>{`${steps.done}/${steps.total} steps`}</Text> : null}
                 </View>
               ) : null}

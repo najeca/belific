@@ -256,6 +256,7 @@ export default function TaskCard({
   // right is the length, on every card.
   const whenText = [dayText, placed ? timesLabel(task) : null].filter(Boolean).join(' · ');
   const lengthText = formatDuration(task.durationMinutes);
+  const hasLine2 = !!whenText || steps.total > 0 || mustDo || !!moved || !!during || !!inside;
   const hasMeta = !!whenText || !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || !!during || !!inside;
 
   return (
@@ -317,80 +318,90 @@ export default function TaskCard({
             <StreakLine task={task} />
 
             {hasMeta && (
+              // 3.23.0: two lines. Line 1: the list emoji, the label dot and the label name (an ellipsis only when the name
+              // truly cannot fit the card). Line 2: the date and time, the host captions, the steps and the must do mark.
               <View style={styles.meta} accessible={false} {...({ dataSet: { cardMeta: '1' } } as object)}>
-                {listEmoji ? (
-                  <Text style={styles.listEmoji} accessibilityLabel="List emoji" {...({ dataSet: { cardListEmoji: '1' } } as object)}>
-                    {listEmoji}
-                  </Text>
-                ) : null}
-                {label && (
-                  // The label as a coloured chip: its colour, its emoji and its name.
-                  <View style={styles.labelChip} {...({ dataSet: { cardLabel: label.key } } as object)}>
-                    <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />
-                    <Text style={styles.labelChipText} numberOfLines={1}>
-                      {label.emoji ? `${label.emoji} ` : ''}
-                      {label.name}
-                    </Text>
+                {listEmoji || label ? (
+                  <View style={[styles.metaLine, { flexWrap: 'nowrap' }]} {...({ dataSet: { cardMetaLine: '1' } } as object)}>
+                    {listEmoji ? (
+                      <Text style={styles.listEmoji} accessibilityLabel="List emoji" {...({ dataSet: { cardListEmoji: '1' } } as object)}>
+                        {listEmoji}
+                      </Text>
+                    ) : null}
+                    {label && (
+                      // The label as a coloured chip: its colour, its emoji and its name.
+                      <View style={styles.labelChip} {...({ dataSet: { cardLabel: label.key } } as object)}>
+                        <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />
+                        <Text style={styles.labelChipText} numberOfLines={1}>
+                          {label.emoji ? `${label.emoji} ` : ''}
+                          {label.name}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                )}
-                {whenText ? (
-                  <Text
-                    style={styles.metaDay}
-                    accessibilityLabel={placed ? `${dayText ? `${dayText}, ` : ''}Starts ${timesLabel(task).replace(/ ✓/g, ' (done)')}` : undefined}
-                    {...({ dataSet: { cardDay: '1' } } as object)}
-                  >
-                    {whenText}
-                  </Text>
                 ) : null}
-                {!!inside && (
-                  <View style={styles.hostPill} accessibilityLabel={`${insidePill(inside)} this break`} {...({ dataSet: { hostPill: String(inside) } } as object)}>
-                    <Text style={styles.hostPillText}>{insidePill(inside)}</Text>
+                {hasLine2 ? (
+                  <View style={styles.metaLine} {...({ dataSet: { cardMetaLine: '2' } } as object)}>
+                    {whenText ? (
+                      <Text
+                        style={styles.metaDay}
+                        accessibilityLabel={placed ? `${dayText ? `${dayText}, ` : ''}Starts ${timesLabel(task).replace(/ ✓/g, ' (done)')}` : undefined}
+                        {...({ dataSet: { cardDay: '1' } } as object)}
+                      >
+                        {whenText}
+                      </Text>
+                    ) : null}
+                    {!!inside && (
+                      <View style={styles.hostPill} accessibilityLabel={`${insidePill(inside)} this break`} {...({ dataSet: { hostPill: String(inside) } } as object)}>
+                        <Text style={styles.hostPillText}>{insidePill(inside)}</Text>
+                      </View>
+                    )}
+                    {during && (
+                      <Text style={styles.hostCaption} numberOfLines={1} {...({ dataSet: { hostCaption: during } } as object)}>
+                        {duringCaption(during)}
+                      </Text>
+                    )}
+                    {moved && (
+                      <Text
+                        ref={tipRef(movedCaptionLong(task)) as never}
+                        style={styles.metaDay}
+                        accessibilityLabel={movedCaptionLong(task)}
+                        {...({ dataSet: { movedFrom: movedFrom(task) } } as object)}
+                      >
+                        ↪ {moved}
+                      </Text>
+                    )}
+                    {steps.total > 0 && (
+                      // The ring ticks the next open step (the modal has the list).
+                      <Pressable
+                        onPress={() => {
+                          const next = (task.subtasks ?? []).find((s) => !s.done);
+                          if (next) wrapped.toggleSubtask(next.id);
+                          else open('subtask');
+                        }}
+                        style={styles.ringBtn}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Steps ${steps.done} of ${steps.total}${steps.done < steps.total ? ', tick the next step' : ''}`}
+                        {...({ dataSet: { ctl: 'steps' } } as object)}
+                      >
+                        <StepsRing done={steps.done} total={steps.total} />
+                        <Text style={[styles.counter, steps.done === steps.total && styles.counterDone]} {...MONO}>
+                          {steps.done}/{steps.total}
+                        </Text>
+                      </Pressable>
+                    )}
+                    {mustDo && (
+                      <Text
+                        ref={tipRef(MUST_DO_TIP) as never}
+                        style={styles.mustDo}
+                        accessibilityLabel={MUST_DO_TIP}
+                        {...({ dataSet: { mustDo: '1' }, 'aria-label': MUST_DO_TIP } as object)}
+                      >
+                        {MUST_DO_MARK}
+                      </Text>
+                    )}
                   </View>
-                )}
-                {during && (
-                  <Text style={styles.hostCaption} numberOfLines={1} {...({ dataSet: { hostCaption: during } } as object)}>
-                    {duringCaption(during)}
-                  </Text>
-                )}
-                {moved && (
-                  <Text
-                    ref={tipRef(movedCaptionLong(task)) as never}
-                    style={styles.metaDay}
-                    accessibilityLabel={movedCaptionLong(task)}
-                    {...({ dataSet: { movedFrom: movedFrom(task) } } as object)}
-                  >
-                    ↪ {moved}
-                  </Text>
-                )}
-                {steps.total > 0 && (
-                  // The ring ticks the next open step (the modal has the list).
-                  <Pressable
-                    onPress={() => {
-                      const next = (task.subtasks ?? []).find((s) => !s.done);
-                      if (next) wrapped.toggleSubtask(next.id);
-                      else open('subtask');
-                    }}
-                    style={styles.ringBtn}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Steps ${steps.done} of ${steps.total}${steps.done < steps.total ? ', tick the next step' : ''}`}
-                    {...({ dataSet: { ctl: 'steps' } } as object)}
-                  >
-                    <StepsRing done={steps.done} total={steps.total} />
-                    <Text style={[styles.counter, steps.done === steps.total && styles.counterDone]} {...MONO}>
-                      {steps.done}/{steps.total}
-                    </Text>
-                  </Pressable>
-                )}
-                {mustDo && (
-                  <Text
-                    ref={tipRef(MUST_DO_TIP) as never}
-                    style={styles.mustDo}
-                    accessibilityLabel={MUST_DO_TIP}
-                    {...({ dataSet: { mustDo: '1' }, 'aria-label': MUST_DO_TIP } as object)}
-                  >
-                    {MUST_DO_MARK}
-                  </Text>
-                )}
+                ) : null}
               </View>
             )}
 
@@ -531,14 +542,15 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 11.5, lineHeight: 20, fontWeight: '600', color: Colors.textPrimary, paddingHorizontal: 7, borderRadius: 6, backgroundColor: Colors.chip, overflow: 'hidden' } as object,
   chipTextMuted: { color: Colors.textSecondary },
   chipDone: { color: Colors.textTertiary },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20, paddingLeft: 26, overflow: 'hidden' },
+  meta: { gap: 2, paddingLeft: 26, minHeight: 20 },
+  metaLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 8, rowGap: 2, minHeight: 20, minWidth: 0 },
   metaDay: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
   hostPill: { height: 18, paddingHorizontal: 7, borderRadius: 9, backgroundColor: Colors.hostPill, justifyContent: 'center' },
   hostPillText: { fontSize: 11, fontWeight: '600', color: Colors.onHostPill },
   hostCaption: { fontSize: 11.5, fontWeight: '600', color: Colors.onHostPill, flexShrink: 1 },
   listEmoji: { fontSize: 11, lineHeight: 16 },
   // A label is a coloured dot and its name, not a filled chip.
-  labelChip: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 18, maxWidth: 150, flexShrink: 1 },
+  labelChip: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 18, flexShrink: 1, minWidth: 0 },
   labelChipText: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary, flexShrink: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   ringBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingRight: 2 },

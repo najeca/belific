@@ -15,6 +15,7 @@ import {
 } from './series';
 import { dateKey } from './kanban';
 import { seriesPatches, timeEditScope, type TimeScope } from './seriesTime';
+import { mergePatches, splitWide, widePatches } from './seriesWide';
 import { startedOn } from './repeatDrop';
 import type { Task } from './types';
 
@@ -96,8 +97,26 @@ export function patchSeries(task: Task, fields: Partial<Task>): Promise<void> {
     const series = seriesOfRows(rootTaskId(task.id), rows);
     if (!series) return;
     // The template row and every open stored row from today on read the same; a day with a time of its own
-    // keeps it (seriesTime.ts).
-    for (const p of seriesPatches(rows, fields, dateKey(new Date()))) await writeRow(p.id, p.fields);
+    // keeps it (seriesTime.ts). 3.29.0: the title, label, list, notes, priority, steps and reminders reach EVERY
+    // day, stored ones too, except a past day that is done (seriesWide.ts).
+    const today = dateKey(new Date());
+    const { wide, rest } = splitWide(fields);
+    const patches = mergePatches(Object.keys(rest).length > 0 ? seriesPatches(rows, rest, today) : [], widePatches(rows, wide, today));
+    for (const p of patches) await writeRow(p.id, p.fields);
+  });
+}
+
+// 3.29.0: an edit made on a STORED day of a repeating task (its details, its card). The fields every day shares
+// (seriesWide.ts) go to every day; anything else (a Break, a date cleared...) stays on this day, as before.
+export function patchRepeatingDay(task: Task, fields: Partial<Task>): Promise<void> {
+  return serial(async () => {
+    const { rows } = await rowsOfRoot(task.id);
+    const { rest } = splitWide(fields);
+    const patches = mergePatches(widePatches(rows, fields, dateKey(new Date()), task.id), Object.keys(rest).length > 0 ? [{ id: task.id, fields: rest }] : []);
+    for (const p of patches) {
+      if (p.id === task.id) await patchTask(p.id, p.fields);
+      else await writeRow(p.id, p.fields);
+    }
   });
 }
 

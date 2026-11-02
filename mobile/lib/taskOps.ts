@@ -5,6 +5,7 @@ import {
   editRepeatingTime,
   endSeries,
   moveDay,
+  patchRepeatingDay,
   patchSeries,
   skipOccurrence,
   tickTimeProjected,
@@ -14,6 +15,7 @@ import { deleteBrainDumpItem, deleteTask } from './storage';
 import { dumpItemToTask } from './thoughts';
 import { isDateKey } from './kanban';
 import { isTimeEdit } from './seriesTime';
+import { hasWide } from './seriesWide';
 import type { BrainDumpItem, Task } from './types';
 
 // What a card (or a Timebox block popover, or a phone row or details sheet) can do to its task.
@@ -44,7 +46,8 @@ export interface SeriesOps {
 
 // A stored task. A repeating one also gets the series actions, and setting it
 // to "Does not repeat" ends the whole series (every row of its root). A new time
-// or length from here changes every repeat day without a time of its own (3.20.0, seriesTime.ts).
+// or length from here changes every repeat day without a time of its own (3.20.0, seriesTime.ts). A new title,
+// label, list, notes, priority, steps or reminders changes every day (3.29.0, seriesWide.ts).
 export function opsForTask(task: Task): TaskOps {
   const repeating = !!task.recurrence;
   return {
@@ -55,7 +58,9 @@ export function opsForTask(task: Task): TaskOps {
           ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
           : repeating && isTimeEdit(fields)
             ? editRepeatingTime(task, false, fields, 'panel').then(() => undefined)
-            : patchTask(task.id, fields),
+            : repeating && hasWide(fields)
+              ? patchRepeatingDay(task, fields)
+              : patchTask(task.id, fields),
     patchDay: (fields) =>
       repeating && movesOneDay(task, fields)
         ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)

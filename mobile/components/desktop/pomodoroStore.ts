@@ -93,6 +93,19 @@ export function endPomodoro(): void {
   if (state) set(null);
 }
 
+// 3.26.0: End (the widget's button, or switching Pomodoro off) also stops the task timer of a focus
+// period, the ordinary way (whole minutes added; a run over a day asks first). The timer is no longer
+// shown anywhere else, so it must not be left running.
+export async function endPomodoroAndTimer(): Promise<void> {
+  const p = state;
+  if (!p) return;
+  set(null);
+  if (p.phase !== 'focus') return;
+  const outcome = await stopTimerFor(p.taskId);
+  if (outcome.kind === 'confirm') askTimerConfirm({ taskId: outcome.taskId, elapsedMinutes: outcome.elapsedMinutes });
+  else notifyChanged();
+}
+
 // Called with the timers that are running: a pomodoro that no longer stands
 // (its timer was stopped, or another task's timer started) ends. Not in the
 // first seconds of a phase, while the list of running timers catches up.

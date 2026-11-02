@@ -6,10 +6,9 @@ import { formatClock, parseDuration } from '../../lib/duration';
 import { activeTimerTask } from '../../lib/timerSession';
 import { loadTasksRaw } from '../../lib/storage';
 import { describe, isPhaseOver } from '../../lib/pomodoro';
-import { endPomodoro, keepFocusing, reconcilePomodoro, startNextFocus, takeBreak, usePomodoro } from './pomodoroStore';
+import { endPomodoro, endPomodoroAndTimer, keepFocusing, reconcilePomodoro, startNextFocus, takeBreak, usePomodoro } from './pomodoroStore';
 import { useFeature } from './featureStore';
-import { formatTaskTime } from '../../lib/taskTotals';
-import { answerTimerConfirm, stopOneTimer, useNow, useRunningTimers } from './timerUi';
+import { answerTimerConfirm, useNow, useRunningTimers } from './timerUi';
 import { openDetail, useTimerConfirm } from './uiStore';
 
 // The floating timer (build plan phase 2). Mounted once at the root of the home
@@ -18,9 +17,9 @@ import { openDetail, useTimerConfirm } from './uiStore';
 // it is still there after the app restarts (and shows a timer started on the
 // other device after the next sync).
 //
-// It shows the task, the time so far (stored actual plus this run) against the
-// estimate, and one button to stop. A timer that has run for more than a day is
-// never added without asking: the widget shows the question.
+// Since 3.26.0 it shows only a pomodoro (the task, the focus or break countdown, and
+// one button to end it). A timer that has run for more than a day is never added
+// without asking: the widget shows the question.
 export default function TimerWidget({ refreshKey }: { refreshKey: number }) {
   const running = useRunningTimers(refreshKey);
   const confirm = useTimerConfirm();
@@ -100,7 +99,7 @@ export default function TimerWidget({ refreshKey }: { refreshKey: number }) {
     return (
       <View style={[styles.widget, styles.ask]} accessibilityRole="timer" accessibilityLabel="Pomodoro break">
         <Text style={styles.askTitle} accessibilityLabel="Pomodoro status">{pomoLine}</Text>
-        <Text style={styles.askText}>{pomoOver ? 'Ready for the next focus period' : 'No task timer is running during the break.'} {pomoTitle ? `Next: ${pomoTitle}` : ''}</Text>
+        <Text style={styles.askText}>{pomoOver ? 'Ready for the next focus period' : 'Rest until the next focus period.'} {pomoTitle ? `Next: ${pomoTitle}` : ''}</Text>
         <View style={styles.askRow}>
           <Pressable style={styles.btn} onPress={() => startNextFocus()} accessibilityRole="button" accessibilityLabel="Start the next focus period">
             <Text style={styles.btnText}>🍅 {pomoOver ? 'Start next focus' : 'Skip the break'}</Text>
@@ -113,25 +112,19 @@ export default function TimerWidget({ refreshKey }: { refreshKey: number }) {
     );
   }
 
-  if (!active) return null;
-  const seconds = Math.max(0, Math.floor((now - Date.parse(active.timerStartedAt as string)) / 1000));
-  const others = running.length - 1;
+  // 3.26.0: Actual time and the task timer are no longer shown. The widget is only the pomodoro's
+  // (when that feature is on): a timer still running from an older version is left alone, unseen.
+  if (!active || !pomo || !pomoOn || pomo.taskId !== active.id) return null;
   return (
-    <View style={styles.widget} accessibilityRole="timer" accessibilityLabel={`Timer running for ${active.title}`}>
+    <View style={styles.widget} accessibilityRole="timer" accessibilityLabel={`Pomodoro on ${active.title}`}>
       <Pressable onPress={() => openDetail(active.id)} style={styles.info} accessibilityRole="button" accessibilityLabel={`Open details of ${active.title}`}>
         <Text style={styles.title} numberOfLines={1}>
-          ⏱️ {active.emoji ? `${active.emoji} ` : ''}
+          🍅 {active.emoji ? `${active.emoji} ` : ''}
           {active.title}
         </Text>
-        <Text style={styles.sub}>
-          <Text style={styles.clock}>{formatRun(seconds)}</Text>
-          {'   '}
-          {formatTaskTime(active, now)}
-          {others > 0 ? `   +${others} more running` : ''}
-        </Text>
-        {pomoLine && pomo?.taskId === active.id && <Text style={styles.sub} accessibilityLabel="Pomodoro status">{pomoLine}</Text>}
+        {pomoLine && <Text style={styles.sub} accessibilityLabel="Pomodoro status">{pomoLine}</Text>}
       </Pressable>
-      {pomoOver && pomo?.phase === 'focus' && pomo.taskId === active.id && (
+      {pomoOver && pomo.phase === 'focus' && (
         <View style={styles.pomoBtns}>
           <Pressable style={styles.btn} onPress={() => takeBreak()} accessibilityRole="button" accessibilityLabel="Take a break">
             <Text style={styles.btnText}>☕ Break</Text>
@@ -141,20 +134,16 @@ export default function TimerWidget({ refreshKey }: { refreshKey: number }) {
           </Pressable>
         </View>
       )}
-      <Pressable onPress={() => stopOneTimer(active.id)} style={styles.stop} accessibilityRole="button" accessibilityLabel={`Stop the timer for ${active.title}`}>
-        <Ionicons name="pause" size={18} color={Colors.onAccent} />
+      <Pressable
+        onPress={() => endPomodoroAndTimer()}
+        style={styles.stop}
+        accessibilityRole="button"
+        accessibilityLabel={`End the pomodoro on ${active.title}`}
+      >
+        <Ionicons name="stop" size={16} color={Colors.onAccent} />
       </Pressable>
     </View>
   );
-}
-
-// 0:07:05 style for a run of this timer; under an hour it is 7:05.
-export function formatRun(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  const ss = String(s).padStart(2, '0');
-  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
 const styles = StyleSheet.create({
@@ -181,7 +170,6 @@ const styles = StyleSheet.create({
   info: { flex: 1, minWidth: 0, gap: 2 },
   title: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   sub: { fontSize: 12, color: Colors.textSecondary },
-  clock: { fontSize: 15, fontWeight: '700', color: Colors.accentText, fontVariant: ['tabular-nums'] },
   stop: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
   askTitle: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   askText: { fontSize: 13, color: Colors.textSecondary },

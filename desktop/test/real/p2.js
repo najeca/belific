@@ -130,40 +130,20 @@ async function run() {
   // 2.28.0: the app opens on the Calendar; these checks start on the Tasks view.
   await click(byLabel('Show Tasks'), 600);
 
-  // ======== 1. The timer found again after a restart ========
-  check('a timer left running is found on launch: the floating timer shows its task', await exists(byLabel('Timer running for Running task')));
-  // 2.27.0: the card face carries no timer line; the floating timer is the one place.
+  // ======== 1 to 3. 3.26.0: Actual time and the timer were removed ========
+  // The stored timer fields stay as they are (nothing is deleted), but nothing shows them.
+  await C.sleep(1500);
+  check('3.26.0: a stored running timer shows no floating timer', !(await exists(`document.querySelector('[aria-label^="Timer running"]')`)));
+  check('3.26.0: and no question about the one left over a day', !(await body()).includes('That is over a day'));
   check('its card stays a plain face (no timer line on it)', !(await js(`(${card('Running task')} || {}).innerText || ''`)).includes('Timer active'));
+  check('3.26.0: the stored timer fields are untouched', byId('run1').timerStartedAt && byId('run1').actualMinutes === 5 && !!byId('stale1').timerStartedAt, JSON.stringify(byId('run1')));
   await shot('p2-01-launch');
-
-  // ======== 2. Stopping from the floating timer adds whole minutes ========
-  await click(byLabel('Stop the timer for Running task'));
-  await C.waitFor(() => byId('run1') && !byId('run1').timerStartedAt, 8000);
-  check('stop: 10 whole minutes (and some seconds, dropped) added to the 5 already there', byId('run1').actualMinutes === 15, JSON.stringify(byId('run1')));
-  check('stop: the timer start is cleared', !('timerStartedAt' in byId('run1')) || byId('run1').timerStartedAt === undefined);
-
-  // ======== 3. A timer left over a day asks, and nothing is added silently ========
-  await C.waitFor(async () => exists(byLabel('Timer running for Forgotten task')), 8000);
-  await click(byLabel('Stop the timer for Forgotten task'));
-  await waitBody('That is over a day');
-  check('over 24 hours: the floating timer asks what to add', (await body()).includes('has been running for 30:00'), (await body()).slice(0, 200));
-  check('over 24 hours: nothing was written yet', byId('stale1').timerStartedAt && !byId('stale1').actualMinutes);
-  await shot('p2-02-stale-question');
-  await click(byLabel('Minutes to add'));
-  await type('abc');
-  await enter();
-  check('a bad answer is refused with a quiet hint and writes nothing', (await body()).includes('Not a time') && !!byId('stale1').timerStartedAt);
-  await js(`(() => { const i = ${byLabel('Minutes to add')}; i.select(); })()`);
-  await type('90m');
-  await enter(500);
-  await C.waitFor(() => byId('stale1') && !byId('stale1').timerStartedAt, 8000);
-  check('the chosen 90 minutes were added and the timer stopped', byId('stale1').actualMinutes === 90, JSON.stringify(byId('stale1')));
-  check('no timer is showing now', !(await exists(`document.querySelector('[aria-label^="Timer running"]')`)));
 
   // ======== 4. Shortcut help, and the typing guard ========
   await blur();
   await key('/', ['shift']);
-  check('Shift+/ opens the keyboard shortcut help', (await body()).includes('Keyboard shortcuts') && (await body()).includes('Start or stop the timer'));
+  check('Shift+/ opens the keyboard shortcut help', (await body()).includes('Keyboard shortcuts') && (await body()).includes('Duplicate the task'));
+  check('3.26.0: the help lists no timer or actual time key', !(await body()).includes('Start or stop the timer') && !(await body()).includes('Set the actual time'));
   await shot('p2-03-help');
   await key('Escape');
   check('Escape closes the help', !(await body()).includes('Open the details (notes and subtasks)'));
@@ -217,26 +197,16 @@ async function run() {
 
   await focusCard('Keyboard task');
   await key('Return', ['control', 'shift']);
-  await C.waitFor(() => byTitle('Keyboard task')[0].timerStartedAt, 8000);
-  check('Ctrl+Shift+Enter started the timer', !!byTitle('Keyboard task')[0].timerStartedAt);
-  check('the floating timer shows it', await exists(byLabel('Timer running for Keyboard task')));
-  await shot('p2-04-timer-running');
-  await focusCard('Keyboard task');
-  await key('Return', ['control', 'shift']);
-  await C.waitFor(() => !byTitle('Keyboard task')[0].timerStartedAt, 8000);
-  check('the same keys stopped it: under a minute adds 0', (byTitle('Keyboard task')[0].actualMinutes ?? 0) === 0);
-
-  await focusCard('Keyboard task');
-  await key('B', ['control']);
-  await C.waitFor(() => exists(dialog('Actual time')), 4000).catch(() => {});
-  check('Ctrl+B opens the details with the actual time drop-down open', (await exists(dialog('Task details'))) && (await exists(dialog('Actual time'))));
-  await click(`document.querySelector('[data-popover] [aria-label="Custom actual time"]')`, 300);
-  await type('20m');
-  await enter(500);
+  await C.sleep(800);
+  check('3.26.0: Ctrl+Shift+Enter starts no timer', !byTitle('Keyboard task')[0].timerStartedAt);
+  // Like a plain Enter on the card, it may open the details: close them before the next key.
   await key('Escape');
   await C.sleep(300);
-  await C.waitFor(() => byTitle('Keyboard task')[0].actualMinutes === 20, 8000);
-  check('the actual time is 20 minutes', byTitle('Keyboard task')[0].actualMinutes === 20);
+  await focusCard('Keyboard task');
+  await key('B', ['control']);
+  await C.sleep(600);
+  check('3.26.0: Ctrl+B opens nothing', !(await exists(dialog('Task details'))) && !(await exists(dialog('Actual time'))), await js(`JSON.stringify([...document.querySelectorAll('[role="dialog"]')].map((e) => e.getAttribute('aria-label')))`));
+  await key('Escape');
 
   await focusCard('Keyboard task');
   await key('c');
@@ -322,7 +292,7 @@ async function run() {
   await waitBody('Read a book');
 
   // ======== 8. Day totals ========
-  check('the day shows actual against estimated (0:25 / 1:00)', (await body()).includes('0:25 / 1:00'));
+  check('3.26.0: the day shows its estimated time only (1:00, not 0:25 / 1:00)', (await body()).includes('1:00') && !(await body()).includes('0:25 / 1:00'));
 
   // ======== 9. Emoji ========
   check('a label with an emoji shows it on its card', (await js(`(${card('Planned task')} || {}).innerText || ''`)).includes('💼'));

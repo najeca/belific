@@ -148,8 +148,8 @@ async function run() {
   await I.click(`document.querySelector('[data-cal-head="${D}"]')`, 900).catch(() => {});
   await I.click(`document.querySelector('[aria-label="Day view"]')`, 900).catch(() => {});
   await C.sleep(500);
-  const totals = await I.js(`(() => { const e = document.querySelector('[aria-label^="Actual against estimated:"]'); return e ? e.getAttribute('aria-label') : null; })()`);
-  check('4: the planned time of the day counts every time (20 min + 3 x 30 min = 1:50)', totals === 'Actual against estimated: 0:00 / 1:50', String(totals));
+  const totals = await I.js(`(() => { const e = document.querySelector('[aria-label^="Estimated:"]'); return e ? e.getAttribute('aria-label') : null; })()`);
+  check('4: the planned time of the day counts every time (20 min + 3 x 30 min = 1:50)', totals === 'Estimated: 1:50', String(totals));
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

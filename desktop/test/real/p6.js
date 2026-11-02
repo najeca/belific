@@ -125,26 +125,22 @@ async function run() {
   const completedCard = await text('Completed card');
   check('Completed: 4 tasks, 3 more than the 7 days before', /\n4\n/.test(completedCard) && completedCard.includes('4 tasks completed, 3 more than the 7 days before'), completedCard);
   const timeCard = await text('Time card');
-  check('Actual against estimated: 1:20 of 1:45 over 3 tasks with an estimate', timeCard.includes('1:20 / 1:45') && timeCard.includes('over 3 tasks with an estimate') && timeCard.includes('1 finished without one'), timeCard);
+  // 3.26.0: Actual time is no longer shown; the card is the estimated time of what was finished.
+  check('Estimated: 1:45 for 3 finished tasks with an estimate, no actual time', timeCard.includes('1:45') && timeCard.includes('Estimated for 3 finished tasks') && timeCard.includes('1 finished without one') && !timeCard.includes('1:20'), timeCard);
   const ageCard = await text('Brain Dump age card');
   check('Brain Dump age: 2 thoughts, 7 days on average, the oldest 10', ageCard.includes('2 thoughts waiting, 7 days old on average, the oldest 10 days'), ageCard);
   await I.shot('p6-01-analytics');
 
   // ======== 2. Charts: numbers visible, hover and press readouts ========
-  const dayBar = `Array.from(document.querySelectorAll('[aria-label$=": 2 tasks, 1:20 spent"]')).find((e) => e.getBoundingClientRect().width > 0)`;
-  check('time per day: yesterday\'s bar names its numbers (2 tasks, 1:20)', await I.exists(dayBar));
+  const dayBar = `Array.from(document.querySelectorAll('[aria-label$=": 2 tasks"]')).find((e) => e.getBoundingClientRect().width > 0)`;
+  check('tasks per day: the bar of yesterday names its number (2 tasks)', await I.exists(dayBar));
   check('every bar shows its value without a hover', (await I.textOf(I.byLabel('Time per day chart'))).includes('2'));
-  const otherBar = `Array.from(document.querySelectorAll('[aria-label$=": 1 task, 0:00 spent"]')).find((e) => e.getBoundingClientRect().width > 0)`;
+  const otherBar = `Array.from(document.querySelectorAll('[aria-label$=": 1 task"]')).find((e) => e.getBoundingClientRect().width > 0)`;
   await I.hover(otherBar);
-  check('hover shows the numbers in the readout', /1 task, 0:00 spent/.test(await text('Time per day readout')), await text('Time per day readout'));
+  check('hover shows the number in the readout', /1 task$/.test(await text('Time per day readout')), await text('Time per day readout'));
   await I.click(dayBar);
-  check('press shows them too', /2 tasks, 1:20 spent/.test(await text('Time per day readout')), await text('Time per day readout'));
-  await I.click(I.byLabel('By time'));
-  check('"By time" redraws the same chart in minutes', (await I.textOf(I.byLabel('Time per day chart'))).includes('1:20'));
-  const taskBar = I.byLabel('Write report: estimated 1:00, actual 0:45');
-  check('estimated against actual: a bar per task with both numbers', await I.exists(taskBar));
-  await I.hover(taskBar);
-  check('its readout', /Write report: estimated 1:00, actual 0:45/.test(await text('Estimated against actual readout')));
+  check('press shows it too', /2 tasks$/.test(await text('Time per day readout')), await text('Time per day readout'));
+  check('3.26.0: no "By time" switch, no estimated against actual chart, no time spent', !(await I.exists(I.byLabel('By time'))) && !(await I.exists(I.byLabel('Estimated against actual chart'))) && !/spent|Actual/.test(await I.body()));
   const share = await I.textOf(I.byLabel('Tasks by label chart')).catch(() => '');
   check('tasks by label: percentages that add to 100', await I.js(`(() => { const t = Array.from(document.querySelectorAll('[aria-label*="%"]')).filter((e) => e.getBoundingClientRect().width > 0 && /task/.test(e.getAttribute('aria-label'))).map((e) => Number(/(\\d+)%/.exec(e.getAttribute('aria-label'))[1])); return t.length >= 2 && t.reduce((a, b) => a + b, 0) === 100; })()`), share);
   check('Work is 50% (2 of 4)', await I.exists(I.byLabel('💼 Work: 2 tasks, 50%')));
@@ -174,7 +170,7 @@ async function run() {
   // ======== 4. The completed list and its CSV ========
   await I.click(I.byLabel('Group by day'));
   check('grouped by day', await I.exists(`Array.from(document.querySelectorAll('[aria-label^="Group "]')).find((e) => e.getBoundingClientRect().width > 0 && /2 · /.test(e.innerText))`));
-  check('a finished task is listed with its numbers', (await text('Completed Write report')).includes('0:45 / 1:00'));
+  check('a finished task is listed with its estimate only', (await text('Completed Write report')).includes('1:00') && !(await text('Completed Write report')).includes('0:45'));
   await I.click(I.byLabel('Download completed tasks as CSV'));
   await C.waitFor(() => saved.some((f) => /belific-completed-/.test(f)), 8000);
   const csvFile = saved.find((f) => /belific-completed-/.test(f));

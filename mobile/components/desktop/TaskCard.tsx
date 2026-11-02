@@ -21,7 +21,6 @@ import Popover, { togglePopover, useIsOpen, usePopoverAnchor, closePopover, isPo
 import { LabelBody, OverflowBody } from './TaskPopovers';
 import type { TaskOps } from './taskOps';
 import { notifyChanged, openDetail, type DetailFocus } from './uiStore';
-import { toggleTimer } from './timerUi';
 import { timesLabel } from '../../lib/times';
 import StreakLine from './StreakLine';
 import { useTint } from './themeStore';
@@ -149,15 +148,8 @@ export default function TaskCard({
       case 'editEstimate':
         openRef.current('estimate');
         return true;
-      case 'editActual':
-        if (proj) return false;
-        openRef.current('actual');
-        return true;
       case 'selectLabel':
         return click('label');
-      case 'toggleTimer':
-        toggleTimer(t);
-        return true;
       case 'duplicateTask':
         if (proj || t.id.startsWith('dump:')) return false;
         duplicateTaskById(t.id).then(() => notifyChanged());

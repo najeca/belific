@@ -274,9 +274,9 @@ async function run() {
     check('spacing: left list rows are about 10px apart', rowGaps.length === 2 && rowGaps.every((g) => g >= 9 && g <= 11), JSON.stringify(rowGaps));
     await shot('cp8f-spacing');
 
-    // ---- Actual time (build plan phase 2, decision 028): the timer is in the details ----
+    // ---- Actual time: 3.26.0 removed it from the details again (no timer button) ----
     await openModal('Fresh');
-    check('the details have the timer button (build plan phase 2)', await exists(inModal('[aria-label="Start the timer"]')));
+    check('3.26.0: the details have no timer button and no Actual time', !(await exists(inModal('[aria-label="Start the timer"]'))) && !(await exists(inModal('[data-duration-select="Actual time"]'))));
     check('the stored task has no actualSeconds field', !('actualSeconds' in taskNamed('Fresh')));
     await closeModal();
     // A task stored by 2.13.0 with Actual time: any save of it rewrites it without the field.

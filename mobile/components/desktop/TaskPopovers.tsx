@@ -37,15 +37,10 @@ import { taskDuration } from '../../lib/drag';
 import { toTime } from '../../lib/timebox';
 import { setLabelEmoji } from '../../lib/labels';
 import { duplicateTaskById } from '../../lib/taskCommands';
-import { setActualFor } from '../../lib/timerActions';
-import { formatTaskTime } from '../../lib/taskTotals';
-import { isTimerRunning } from '../../lib/taskTimer';
 import type { Project, Task, WeekDay } from '../../lib/types';
 import HoverPressable from './HoverPressable';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
 import { notifyChanged, openDetail, openOverlay, useNewColorsOk } from './uiStore';
-import { toggleTimer, useNow } from './timerUi';
-import { startFromChoices } from '../../lib/timerSession';
 import { EACH_TIME_NOTE, isMultiTime } from '../../lib/times';
 import { MOVE_THIS_DAY, MOVE_THIS_DAY_NOTE } from '../../lib/series';
 import { formatTime } from '../../lib/data';
@@ -137,78 +132,6 @@ export function DurationBody({ task, ops, done }: BodyProps) {
             ops.patch({ startTime: undefined });
             done();
           }}
-        />
-      )}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------- Actual time
-// Time actually spent (build plan phase 2): type it (45m, 1h 30m, 130), clear
-// it, or start and stop the task's timer. A missing actual is 0. Whole minutes.
-export function ActualBody({ task, ops, done }: BodyProps) {
-  const [text, setText] = useState('');
-  const [invalid, setInvalid] = useState(false);
-  const running = isTimerRunning(task);
-  const now = useNow(running);
-  const submit = async () => {
-    const minutes = parseDuration(text);
-    if (minutes === null) {
-      setInvalid(true);
-      return;
-    }
-    // patchTask reads the latest task; setActualFor validates the number.
-    if (await setActualFor(task.id, minutes)) {
-      notifyChanged();
-      done();
-    } else setInvalid(true);
-  };
-  return (
-    <View style={styles.list}>
-      <Text style={styles.hint} accessibilityLabel="Time so far">
-        {formatTaskTime(task, now)} (actual / estimated)
-      </Text>
-      <div style={{ padding: '4px 10px' }}>
-        <input
-          type="text"
-          value={text}
-          placeholder="Actual time: 45m, 1h 30m, 130..."
-          aria-label="Actual time"
-          aria-invalid={invalid}
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(e) => {
-            setText(e.target.value);
-            setInvalid(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          style={{ ...domInputStyle, width: '100%', boxSizing: 'border-box' }}
-        />
-      </div>
-      {invalid && <Text style={styles.hint}>Not a time. Try 45m, 1h 30m or 130 (minutes).</Text>}
-      <Row
-        label={running ? 'Stop the timer' : 'Start the timer'}
-        sub={running ? 'Adds the time so far' : 'Stops any other timer first'}
-        onPress={async () => {
-          await toggleTimer(task);
-          done();
-        }}
-        a11y={running ? 'Stop the timer' : 'Start the timer'}
-      />
-      <StartFromRows task={task} done={done} />
-      {(task.actualMinutes ?? 0) > 0 && (
-        <Row
-          label="Clear actual time"
-          onPress={async () => {
-            await ops.patch({ actualMinutes: undefined });
-            done();
-          }}
-          a11y="Clear actual time"
         />
       )}
     </View>
@@ -674,31 +597,7 @@ export function SeriesNote() {
 }
 
 // The ⋮ menu of a card (2.27.0): Open details first, then what is not on the
-// card face: the timer, a pomodoro, duplicate, and skip or delete.
-// "Start from 11:00am" rows (Part C, 2.34.1): count the timer from the scheduled start of a time
-// that has already begun today (less than 24 hours ago). Nothing when the timer runs or none has begun.
-export function StartFromRows({ task, done }: { task: Task; done: () => void }) {
-  if (isTimerRunning(task) || task.completed) return null;
-  const choices = startFromChoices(task, new Date());
-  return (
-    <>
-      {choices.map((c) => (
-        <Row
-          key={c.time}
-          label={`Start from ${formatTime(c.time)}`}
-          sub={`${c.minutesAgo} min ago`}
-          leading={<Text>⏱️</Text>}
-          onPress={async () => {
-            done();
-            await toggleTimer(task, c.startedAtMs);
-          }}
-          a11y={`Start the timer from ${formatTime(c.time)}, ${c.minutesAgo} minutes ago`}
-        />
-      ))}
-    </>
-  );
-}
-
+// card face: a pomodoro, duplicate, and skip or delete.
 // 3.6.0 (task during a break): the ⋮ menu's "Do during a break" lists today's breaks the task fits in;
 // choosing one puts the task on today at the break's start (lib/hosting.ts then draws it as a chip in
 // the break). A repeating day changes that day only (ops.patchDay).
@@ -786,32 +685,18 @@ export function OverflowBody({
         a11y="Open details"
       />
     ) : null;
-  const running = !!task && isTimerRunning(task);
+  // 3.26.0: the timer rows are gone (Actual time was removed); a pomodoro stays, behind its switch.
   const timerRows =
-    task && !task.id.startsWith('dump:') ? (
-      <>
-        <Row
-          label={running ? 'Stop the timer' : 'Start the timer'}
-          leading={<Text>⏱️</Text>}
-          onPress={async () => {
-            done();
-            await toggleTimer(task);
-          }}
-          a11y={running ? 'Stop the timer' : 'Start the timer'}
-        />
-        <StartFromRows task={task} done={done} />
-        {feats.pomodoro && !projected && !task.completed && (
-          <Row
-            label="Start a pomodoro"
-            leading={<Text>🍅</Text>}
-            onPress={() => {
-              done();
-              startFocus(task);
-            }}
-            a11y="Start a pomodoro"
-          />
-        )}
-      </>
+    task && !task.id.startsWith('dump:') && feats.pomodoro && !projected && !task.completed ? (
+      <Row
+        label="Start a pomodoro"
+        leading={<Text>🍅</Text>}
+        onPress={() => {
+          done();
+          startFocus(task);
+        }}
+        a11y="Start a pomodoro"
+      />
     ) : null;
   // Must do (2.27.0): the same switch as in the details (on = priority high, off = none).
   const mustRow =

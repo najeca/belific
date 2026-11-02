@@ -301,10 +301,11 @@ async function run() {
   // Shared with breaks now: Stretch 10, Coffee's three 20, Listen 30, Long lunch's four (14:00 to 14:55) 55 = 115.
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
   const mins = (t) => { const h = /(\d+)h/.exec(t); const m = /(\d+)m/.exec(t); return (h ? +h[1] * 60 : 0) + (m ? +m[1] : 0); };
-  const clock = (t) => { const m = /\/ (\d+):(\d\d)/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : NaN; };
+  // 3.26.0: the day total is the estimate alone ("Estimated for the day: 1:30").
+  const clock = (t) => { const m = /: (\d+):(\d\d)$/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : NaN; };
   const figures = async () => ({
     scheduled: mins(await I.js(`([...document.querySelectorAll('div')].find((d) => /^Scheduled /.test(d.innerText || '') && d.children.length === 0) || {}).innerText || ''`)),
-    estimate: clock(await I.js(`(${V(`[data-day-col="${TODAY}"] [aria-label^="Actual against estimated for the day"]`)} || {}).getAttribute?.('aria-label')`)),
+    estimate: clock(await I.js(`(${V(`[data-day-col="${TODAY}"] [aria-label^="Estimated for the day"]`)} || {}).getAttribute?.('aria-label')`)),
   });
   const once = await figures();
   await I.click(`document.querySelector('[aria-label="Profile and account"]') || document.querySelector('[aria-label="Profile, not signed in"]')`, 500);

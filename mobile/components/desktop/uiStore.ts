@@ -113,7 +113,7 @@ export function closeOverlay(): void {
 }
 
 // ---- the task details panel ----
-export type DetailFocus = 'title' | 'subtask' | 'notes' | 'estimate' | 'actual';
+export type DetailFocus = 'title' | 'subtask' | 'notes' | 'estimate';
 export const useDetailId = () => use((s) => s.detailId);
 export const getDetailFocus = () => state.detailFocus;
 export function openDetail(taskId: string, focus: DetailFocus = 'title'): void {

@@ -132,7 +132,7 @@ async function run() {
   await C.waitFor(() => tasks().some((t) => t.title === 'Typed for tomorrow'), 6000).catch(() => {});
   const typed = tasks().find((t) => t.title === 'Typed for tomorrow');
   check('a day\'s Add a task box makes a task on that day', typed && typed.dueDate === day(1), JSON.stringify(typed));
-  check('the day total shows in the box (0:00 / 1:00 for today)', (await colText(today)).includes('0:00 / 1:00'));
+  check('the day total shows in the box (1:00 estimated for today; 3.26.0: no actual time)', (await colText(today)).includes('1:00') && !(await colText(today)).includes('0:00 / 1:00'));
   check('the list\'s box shows the time still planned there (2h 45m planned)', (await I.body()).includes('2h 45m planned'));
 
   // Drag a card to tomorrow: a placeholder shows where it will land.
@@ -355,7 +355,7 @@ async function run() {
   // 2.43.0 (the Ellie look, on purpose): the modal title is 20 px bold (it was 23 px).
   check('its title is 20 px', !!modal && modal.font === '20px', modal && modal.font);
   // 2.27.0 (item 9): the Must do switch sits between Label and Repeats.
-  check('rows in order: Task date, Estimated time, Actual time, Label, Must do, Repeats (then List), then Notes and Subtasks', !!modal && modal.rows.slice(0, 6).join('|') === 'Task date|Estimated time|Actual time|Label|Must do|Repeats' && (await I.js(`(() => { const m = document.querySelector('[data-detail-panel]'); const t = m.innerText; return t.indexOf('Repeats') < t.indexOf('Notes') && t.indexOf('Notes') < t.indexOf('Subtasks'); })()`)), JSON.stringify(modal && modal.rows));
+  check('rows in order: Task date, Estimated time, Label, Must do, Repeats (then List), then Notes and Subtasks (3.26.0: no Actual time)', !!modal && modal.rows.slice(0, 5).join('|') === 'Task date|Estimated time|Label|Must do|Repeats' && (await I.js(`(() => { const m = document.querySelector('[data-detail-panel]'); const t = m.innerText; return t.indexOf('Repeats') < t.indexOf('Notes') && t.indexOf('Notes') < t.indexOf('Subtasks'); })()`)), JSON.stringify(modal && modal.rows));
   check('no duplicate or delete buttons on the modal itself', !(await I.exists(`document.querySelector('[data-detail-panel] [aria-label="Duplicate task"]')`)) && !(await I.exists(`document.querySelector('[data-detail-panel] [aria-label="Delete task"]')`)));
   await I.click(I.byLabel('More task actions'), 300);
   const menu = await I.js(`[...document.querySelectorAll('[aria-label="More task actions"][role="dialog"], [aria-label="More task actions"][role="menu"]')].length > 0 || !!document.querySelector('[aria-label="Task emoji"]')`);

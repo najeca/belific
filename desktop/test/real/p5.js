@@ -178,10 +178,10 @@ async function run() {
   check('Shift+T puts the keyboard on the first task of today', !!firstToday && (await I.activeLabel()) === firstToday, `${await I.activeLabel()} / ${firstToday}`);
   // Ctrl+I on a stored task (an occurrence of a repeating task has no time section).
   await I.js(`(() => { const c = ${I.byLabel('Task Brain one')}; c && c.focus(); })()`);
-  // 2.27.0: the card has no time section; Ctrl+I opens the details (actual and estimated are there).
+  // 2.27.0: the card has no time section; Ctrl+I opens the details (the estimate is there; 3.26.0: no actual time).
   await I.key('i', ['control']);
   await C.waitFor(() => I.exists(I.dialog('Task details')), 3000).catch(() => {});
-  check('Ctrl+I opens the details of the task (the time rows are there)', (await I.exists(I.dialog('Task details'))) && (await I.textOf(I.dialog('Task details'))).includes('Actual time'));
+  check('Ctrl+I opens the details of the task (the estimate row is there, no Actual time)', (await I.exists(I.dialog('Task details'))) && (await I.textOf(I.dialog('Task details'))).includes('Estimated time') && !(await I.textOf(I.dialog('Task details'))).includes('Actual time'));
   await I.key('Escape');
   await C.sleep(300);
   check('Escape closes them again', !(await I.exists(I.dialog('Task details'))));

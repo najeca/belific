@@ -29,7 +29,7 @@ export interface FeatureDef {
 export const FEATURES: FeatureDef[] = [
   { key: 'dueDates', label: 'Due dates and reminders', emoji: '🔔', hint: 'The reminder bell on a task and its Reminder option. Reminders you already set keep working.', defaultOn: true },
   { key: 'planning', label: 'Daily planning', emoji: '🌅', hint: 'Daily Planning and Daily Shutdown, their buttons and Ctrl+Shift+P.', defaultOn: true },
-  { key: 'pomodoro', label: 'Pomodoro', emoji: '🍅', hint: 'Focus and break periods on the task timer.', defaultOn: false },
+  { key: 'pomodoro', label: 'Pomodoro', emoji: '🍅', hint: 'Focus and break periods on a task.', defaultOn: false },
   { key: 'templates', label: 'Task templates', emoji: '📑', hint: 'Save a task as a template and start new tasks from one.', defaultOn: false },
   { key: 'analytics', label: 'Analytics', emoji: '📊', hint: 'The Analytics page in the profile menu.', defaultOn: true },
   // 3.25.0: default OFF for everyone (a saved on or off row is kept as it is).

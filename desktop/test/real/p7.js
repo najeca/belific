@@ -1,6 +1,6 @@
 'use strict';
 // Real check for build plan phase 7 (power feature toggles, Labels overlay,
-// pomodoro on the task timer, task templates, reset local cache, emoji on the
+// pomodoro (3.26.0: the timer under it is no longer shown), task templates, reset local cache, emoji on the
 // Settings, Labels and Progress pages) on the desktop: real mouse and key input
 // into the real app, on an isolated data folder asserted NOT to be the real one;
 // Supabase is the in process fake (signed out, nothing leaves the machine).
@@ -216,8 +216,9 @@ async function run() {
   check('the new label emoji shows on the card (💼 Work)', (await I.body()).includes('💼'));
 
   // ======== 3. Pomodoro on the task timer ========
+  // 3.26.0: the timer is no longer shown; the floating widget is the pomodoro's alone.
   check('pomodoro is off by default: no pomodoro button on a card, no countdown', !(await anyExists('[aria-label^="Start a pomodoro on"]')) && !(await I.exists(I.byLabel('Pomodoro status'))));
-  check('the seeded task timer still shows in the floating timer', await I.exists(I.byLabel('Timer running for Alpha')));
+  check('3.26.0: the seeded task timer shows no floating timer', !(await anyExists('[aria-label^="Timer running for"]')) && !(await anyExists('[aria-label^="Pomodoro on"]')));
   await openSettings();
   await I.click(I.byLabel('🍅 Pomodoro'));
   await C.waitFor(() => setting('feature.pomodoro')?.value === 'on', 6000).catch(() => {});
@@ -225,10 +226,11 @@ async function run() {
   await C.waitFor(async () => I.exists(I.byLabel('Take a break')), 10000).catch(() => {});
   check('a pomodoro left from before is found again; its focus period is over, and it offers a break or keep going', (await I.exists(I.byLabel('Take a break'))) && (await I.exists(I.byLabel('Keep going'))), await I.body());
   check('the widget says the focus time is up', (await text('Pomodoro status')).includes('Focus time is up'), await text('Pomodoro status'));
+  check('3.26.0: the widget shows no run clock and no actual / estimated figure', !/\d+:\d\d \/ \d+:\d\d/.test(await I.textOf(I.byLabel('Pomodoro on Alpha'))), await I.textOf(I.byLabel('Pomodoro on Alpha')));
   await I.shot('p7-03-pomodoro-focus-over');
   await I.click(I.byLabel('Take a break'));
   await C.waitFor(() => byId('a1') && !byId('a1').timerStartedAt, 8000);
-  check('Take a break stops the task timer the ordinary way: 26 whole minutes added to the 4 already there', byId('a1').actualMinutes === 30, JSON.stringify(byId('a1')));
+  check('Take a break stops the task timer the ordinary way: 26 whole minutes added to the 4 already there (stored, not shown)', byId('a1').actualMinutes === 30, JSON.stringify(byId('a1')));
   check('and no task timer is running during the break', tasks().every((t) => !t.timerStartedAt));
   check('the break counts down', /Break \d+:\d\d left/.test(await text('Pomodoro status')), await text('Pomodoro status'));
   await I.shot('p7-04-pomodoro-break');
@@ -236,33 +238,30 @@ async function run() {
   await C.waitFor(() => !!byId('a1').timerStartedAt, 8000);
   check('Skipping the break starts the focus period: Alpha\'s timer runs, and only Alpha\'s', tasks().filter((t) => t.timerStartedAt).map((t) => t.id).join() === 'a1');
   check('the countdown is on a fresh focus period', /Focus 2[45]:\d\d left/.test(await text('Pomodoro status')), await text('Pomodoro status'));
-  // The one timer rule: starting another task's timer stops this one and ends the pomodoro.
-  // 2.27.0: the timer and the pomodoro are in the card's ⋮ menu.
+  // 2.27.0: the pomodoro is in the card's ⋮ menu (3.26.0: the timer rows are gone).
   const fromMenu = async (title, row) => {
     await I.hover(card(title));
     await I.click(`${card(title)}.querySelector('[data-ctl="more"]')`);
     await I.click(`document.querySelector('[data-popover] [aria-label="${row}"]')`);
   };
-  await fromMenu('Beta', 'Start the timer');
+  await I.hover(card('Beta'));
+  await I.click(`${card('Beta')}.querySelector('[data-ctl="more"]')`);
+  check('3.26.0: the ⋮ menu has no Start the timer or Start from row', !(await I.exists(`document.querySelector('[data-popover] [aria-label="Start the timer"]')`)) && !(await I.exists(`document.querySelector('[data-popover] [aria-label^="Start the timer from"]')`)));
+  await I.key('Escape');
+  await C.sleep(250);
+  // The one timer rule: a pomodoro on another task stops this one.
+  await fromMenu('Beta', 'Start a pomodoro');
   await C.waitFor(() => !!byId('b1').timerStartedAt && !byId('a1').timerStartedAt, 8000);
   check('one timer at a time still holds: Beta runs, Alpha\'s stopped', tasks().filter((t) => t.timerStartedAt).map((t) => t.id).join() === 'b1');
   check('Alpha\'s whole minutes were kept (not rounded up, nothing lost)', byId('a1').actualMinutes === 30, JSON.stringify(byId('a1')));
-  await C.waitFor(async () => !(await I.exists(I.byLabel('Pomodoro status'))), 16000).catch(() => {});
-  check('the pomodoro ended by itself when another task\'s timer started', !(await I.exists(I.byLabel('Pomodoro status'))));
-  await I.click(I.byLabel('Stop the timer for Beta'));
-  await C.waitFor(() => !byId('b1').timerStartedAt, 8000);
-  // A fresh pomodoro from the card.
-  await fromMenu('Beta', 'Start a pomodoro');
-  await C.waitFor(() => !!byId('b1').timerStartedAt, 8000);
   check('Start a pomodoro on a card starts that task\'s timer and a 25 minute countdown', /Focus 2[45]:\d\d left/.test(await text('Pomodoro status')), await text('Pomodoro status'));
-  // Switching the feature off ends the pomodoro, but the task timer carries on.
+  // 3.26.0: switching the feature off ends the pomodoro AND stops its task timer (nothing would show it).
   await openSettings();
   await I.click(I.byLabel('🍅 Pomodoro'));
   await C.waitFor(() => setting('feature.pomodoro')?.value === 'off', 6000).catch(() => {});
   await back();
-  check('Pomodoro off: the countdown and card buttons are gone, the task timer is untouched', !(await I.exists(I.byLabel('Pomodoro status'))) && !(await anyExists('[aria-label^="Start a pomodoro on"]')) && !!byId('b1').timerStartedAt);
-  await I.click(I.byLabel('Stop the timer for Beta'));
-  await C.waitFor(() => !byId('b1').timerStartedAt, 8000);
+  await C.waitFor(() => !byId('b1').timerStartedAt, 8000).catch(() => {});
+  check('Pomodoro off: the countdown and card buttons are gone, and the task timer stopped with it', !(await I.exists(I.byLabel('Pomodoro status'))) && !(await anyExists('[aria-label^="Start a pomodoro on"]')) && !byId('b1').timerStartedAt);
 
   // ======== 4. Task templates ========
   await openSettings();

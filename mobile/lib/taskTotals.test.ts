@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. Estimate against actual (build plan phase 2).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { actualOf, estimateOf, formatTaskTime, formatTotals, isOverEstimate, totalsOf } from './taskTotals.ts';
+import { actualOf, estimateOf, formatTotals, totalsOf } from './taskTotals.ts';
 import { startTimer } from './taskTimer.ts';
 import type { Task } from './types.ts';
 
@@ -36,18 +36,11 @@ test('a running timer counts for the time it has run, rounded down; a future sta
   assert.equal(totalsOf([running], T0 + 20 * MIN).actual, 30);
 });
 
-test('text: actual / estimate in H:MM, nothing at all for an empty day', () => {
-  assert.equal(formatTotals({ estimate: 90, actual: 25 }), '0:25 / 1:30');
-  assert.equal(formatTotals({ estimate: 0, actual: 0 }), '');
-  assert.equal(formatTotals({ estimate: 0, actual: 5 }), '0:05 / 0:00');
-  assert.equal(formatTaskTime(task({ durationMinutes: 60, actualMinutes: 25 }), T0), '0:25 / 1:00');
-  assert.equal(formatTaskTime(task(), T0), '0:00 / 0:00');
-});
-
-test('over the estimate only when there is an estimate', () => {
-  assert.equal(isOverEstimate({ estimate: 60, actual: 61 }), true);
-  assert.equal(isOverEstimate({ estimate: 60, actual: 60 }), false);
-  assert.equal(isOverEstimate({ estimate: 0, actual: 30 }), false);
+test('text (3.26.0): the estimate alone in H:MM, nothing for an empty day; an actual time is never shown', () => {
+  assert.equal(formatTotals({ estimate: 90 }), '1:30');
+  assert.equal(formatTotals({ estimate: 0 }), '');
+  assert.equal(formatTotals(totalsOf([task({ durationMinutes: 0, actualMinutes: 5 })], T0)), '');
+  assert.equal(formatTotals(totalsOf([task({ durationMinutes: 60, actualMinutes: 25 })], T0)), '1:00');
 });
 
 test('2.26.0 the add task box total: estimated time still to do, "5h planned"', async () => {

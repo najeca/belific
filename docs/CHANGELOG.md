@@ -8,6 +8,24 @@ to know the current version and recent history.
 
 ---
 
+## 3.26.0 — 2026-11-02 (Actual time and the timer removed from the interface; nothing stored is deleted)
+
+**Desktop (the phone never showed actual time). No schema change, no migration, no new backup, no data change.**
+- **Every place that showed actual time or the timer, and what happened to it:**
+  - Details modal: the **Actual time** row (its drop-down, "(Start timer)", "■ Stop timer", the running "0:25 / 1:00" figure and the "(Start from 9:00am)" links) is **removed**. Ctrl+E still opens the estimate.
+  - Card ⋮ menu: **Start the timer / Stop the timer** and the **Start from** rows are **removed**; "Start a pomodoro" stays (behind its switch).
+  - Shortcuts: **Ctrl+B** (actual time) and **Ctrl+Shift+Enter** (timer) are **removed** from the registry and the help overlay.
+  - The **floating timer** (bottom right): **no longer shows a task timer** (no run clock, no actual / estimated). It shows only a **pomodoro** when one runs (task, focus or break countdown, Break / Keep going, and a stop button that ends it).
+  - Cards and blocks: they carried no timer mark since 2.27.0; nothing to remove (checked).
+  - The **day column totals** and the **Calendar header total**: "0:25 / 1:30" (actual / estimated) became the **estimate alone** ("1:30", named "Estimated for the day" / "Estimated"); the over-estimate tint is gone.
+  - **Daily Planning** step 1 and **Shutdown** step 1: the "Time spent" figure and the time spent per label are **removed**; each row's "0:25 / 1:00" became the estimate.
+  - **Analytics:** the "Actual against estimated" card became **"Estimated"** (the estimated time of the tasks finished in the range); "Time per day" with its "By time" switch became **"Tasks per day"** (count only); the **"Estimated against actual" chart is removed**; the completed list and its group headers show the estimate only.
+  - Wording: the Settings hint about breaks no longer says "one timer runs at a time"; the Pomodoro hint says "on a task".
+  - The unused `ActualBody` popover and `toggleTimer` / `stopOneTimer` / `StartFromRows` helpers are deleted.
+- **Kept as they are, on purpose:** the stored `actualMinutes` and `timerStartedAt`, their sync mapping and columns (an older client still reads, shows and writes them; a newer one passes them through untouched), the data export, the Analytics **CSV's "Actual (minutes)" column** (so recorded time can still be taken out), `lib/taskTimer.ts`, `timerSession.ts`, `timerActions.ts` (the pomodoro runs on them).
+- **Pomodoro:** ending it from the widget, or switching Pomodoro off, now **also stops its task timer** the ordinary way (whole minutes added to the stored field; a run over a day still asks). Before, the timer carried on, but nothing would show it any more.
+- **Tests changed on purpose:** `taskTotals.test.ts` (the text is the estimate alone; the "over the estimate" test went with `isOverEstimate`), `shortcuts.test.ts` (Ctrl+Shift+Enter is no shortcut). Real checks: **p2** (a stored running timer shows nothing and stays stored; the help lists no timer key; Ctrl+Shift+Enter and Ctrl+B do nothing; the day total is "1:00"), **p5** (Ctrl+I's details have no Actual time), **p6** (the Estimated card, Tasks per day, no By time, no time spent, the list shows the estimate), **p7** (the widget is the pomodoro's, the ⋮ menu has no timer rows, a pomodoro on another task stops the first, switching it off stops the timer), **p9** and **p11** (row order without Actual time; p11's actual drop-down block replaced by "no timer"), **p18** (rewritten: it tested the timer of 2.34.1; now no timer anywhere and nothing stored), **p19**, **p20**, **p27** (the total's new name and value), **cp8f** (no timer button).
+
 ## 3.25.0 — 2026-10-31 (Missed: one off tasks only, Skip all and Done, and a "Show missed tasks" switch, off by default)
 
 **Desktop only. No schema change, no migration, no new backup.**

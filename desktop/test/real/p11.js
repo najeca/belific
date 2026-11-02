@@ -101,7 +101,7 @@ async function run() {
   // ======== 1. A compact details modal, no lines ========
   await openModal('Modal task');
   const rows = await I.js(`[...${panel}.querySelectorAll('[data-detail-row]')].map((r) => { const s = getComputedStyle(r); const b = r.getBoundingClientRect(); return { name: r.dataset.detailRow, h: Math.round(b.height), lines: parseFloat(s.borderTopWidth) + parseFloat(s.borderBottomWidth) }; })`);
-  check('1: the rows keep their order', rows.slice(0, 6).map((r) => r.name).join('|') === 'Task date|Estimated time|Actual time|Label|Must do|Repeats', JSON.stringify(rows.map((r) => r.name)));
+  check('1: the rows keep their order', rows.slice(0, 5).map((r) => r.name).join('|') === 'Task date|Estimated time|Label|Must do|Repeats' && !rows.some((r) => r.name === 'Actual time'), JSON.stringify(rows.map((r) => r.name)));
   // The Split row (2.33.0) carries a plain sentence that wraps to two lines (at most 46 px); every other row stays one line.
   check('1: every row is one compact line (at most 36 px; the Split row, with its sentence, at most 46)', rows.length >= 7 && rows.every((r) => r.h <= (r.name === 'Split' ? 46 : 36)), JSON.stringify(rows));
   check('1: no row has a divider line', rows.every((r) => r.lines === 0), JSON.stringify(rows));
@@ -137,7 +137,7 @@ async function run() {
   const dd = (name) => `${panel}.querySelector('[data-duration-select="${name}"]')`;
   const ddText = (expr) => I.js(`(${expr}).querySelector('[data-duration-value]').textContent.trim()`);
   await openModal('Plain task');
-  check('2: Estimated and Actual time are small drop-downs (no chips, no typing boxes)', (await I.exists(dd('Estimated time'))) && (await I.exists(dd('Actual time'))) && !(await I.exists(`${panel}.querySelector('[aria-pressed], input[aria-label="Custom estimate"], input[aria-label="Set the actual time"]')`)));
+  check('2: Estimated time is a small drop-down (no chips, no typing boxes); 3.26.0: no Actual time', (await I.exists(dd('Estimated time'))) && !(await I.exists(dd('Actual time'))) && !(await I.exists(`${panel}.querySelector('[aria-pressed], input[aria-label="Custom estimate"], input[aria-label="Set the actual time"]')`)));
   // Keyboard: focus the button, Enter opens it, Down moves, Enter chooses.
   await I.js(`${dd('Estimated time')}.focus()`);
   await I.enter([], 500);
@@ -178,16 +178,7 @@ async function run() {
   await I.click(`${pop('Estimated time')}.querySelector('[aria-label="Clear estimated time"]')`, 600);
   await C.waitFor(() => byId('t2').durationMinutes === undefined, 4000).catch(() => {});
   check('2: Clear empties it', byId('t2').durationMinutes === undefined && (await ddText(dd('Estimated time'))) === 'Click to set');
-  // Actual time: the same drop-down.
-  await I.click(dd('Actual time'), 400);
-  await I.click(`${pop('Actual time')}.querySelector('[aria-label="Actual time 30 min"]')`, 600);
-  await C.waitFor(() => byId('t2').actualMinutes === 30, 4000).catch(() => {});
-  check('2: Actual time uses the same drop-down (30 min stored in actualMinutes)', byId('t2').actualMinutes === 30 && (await ddText(dd('Actual time'))) === '30 min');
-  check('2: the timer is still there beside it', await I.exists(`${panel}.querySelector('[aria-label="Start the timer"]')`));
-  await I.click(dd('Actual time'), 400);
-  await I.click(`${pop('Actual time')}.querySelector('[aria-label="Clear actual time"]')`, 600);
-  await C.waitFor(() => !byId('t2').actualMinutes, 4000).catch(() => {});
-  check('2: Clear empties the actual time', !byId('t2').actualMinutes);
+  check('2: 3.26.0: no timer in the details', !(await I.exists(`${panel}.querySelector('[aria-label="Start the timer"]')`)));
   await I.shot('p11-02-dropdown');
   await closeModal();
   // The Add a task box.

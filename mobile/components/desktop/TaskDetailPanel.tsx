@@ -3,15 +3,12 @@ import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { isDateKey } from '../../lib/kanban';
-import { isTimerRunning } from '../../lib/taskTimer';
-import { formatTaskTime } from '../../lib/taskTotals';
 import { addSubtask, counterLabel, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { generateId } from '../../lib/data';
 import { idDate, movedCaptionLong, projectOccurrences } from '../../lib/series';
 import { reminderHint, taskRemindersLabel } from '../../lib/reminder';
 import { useDefaultReminders } from './reminderStore';
 import { effectiveListKey } from '../../lib/lists';
-import { setActualFor } from '../../lib/timerActions';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
 import { addTask, loadLists, loadTasksRaw } from '../../lib/storage';
@@ -34,8 +31,6 @@ import { dateKey } from '../../lib/kanban';
 import { movesOneDay, opsForProjected, opsForTask, withoutDay, type TaskOps } from './taskOps';
 import { moveDay } from '../../lib/seriesActions';
 import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
-import { toggleTimer, useNow } from './timerUi';
-import { startFromChoices } from '../../lib/timerSession';
 import { formatTime } from '../../lib/data';
 import { isMultiTime, MAX_TIMES, addTimeFields, isTimeDone, moveTimeFields, removeTimeFields, suggestNextTime, timesOf, type TimeEdit, type TimeRefusal } from '../../lib/times';
 import { closeDetail, getDetailFocus, isDraftId, notifyChanged, openDetail, useDetailDraft, useDetailId, type NewTaskWhere } from './uiStore';
@@ -54,7 +49,7 @@ import { RoundCheck, checkRing, checkRingDone } from './ui';
 // text, a click for choices), through the same task commands as the card, so a
 // change here and on the card are the same change.
 //
-// The rows, in order: Task date, Estimated time, Actual time, Label, Repeats,
+// The rows, in order: Task date, Estimated time, Label, Repeats,
 // List, then Notes and Subtasks. Emoji, duplicate, save as template, pomodoro
 // and delete are in the ⋮ menu. Repeats (phase 4) is the card's own Repeat
 // control, opened from here.
@@ -228,8 +223,6 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
   const [tplOpen, setTplOpen] = useState(false);
   const [tplName, setTplName] = useState('');
   const [tplNote, setTplNote] = useState<string | null>(null);
-  const running = isTimerRunning(task);
-  const now = useNow(running);
   // Part C: a task that happens several times a day. A refused change says why, here, in the Time row.
   const times = timesOf(task);
   const multi = times.length > 1;
@@ -266,8 +259,8 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
   // The keyboard goes where the card's key asked (2.27.0), else the title.
   useEffect(() => {
     const focus = getDetailFocus();
-    // Estimate and actual (Ctrl+E, Ctrl+B) open their time drop-down.
-    const dropDown = focus === 'estimate' ? 'Estimated time' : focus === 'actual' ? 'Actual time' : null;
+    // Estimate (Ctrl+E) opens its time drop-down.
+    const dropDown = focus === 'estimate' ? 'Estimated time' : null;
     const refs: Record<string, React.RefObject<TextInput | null>> = { subtask: subRef, notes: notesRef, title: titleRef };
     const target = refs[focus ?? 'title'] ?? titleRef;
     const t = setTimeout(() => {
@@ -467,53 +460,6 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
         <DetailRow icon="hourglass-outline" label="Estimated time">
           <DurationSelect id={`${task.id}:estimate`} label="Estimated time" value={task.durationMinutes} onChange={(m) => patch({ durationMinutes: m })} />
         </DetailRow>
-
-        {!drafting && (
-        <DetailRow icon="stopwatch-outline" label="Actual time">
-          <View style={styles.row}>
-            <DurationSelect
-              id={`${task.id}:actual`}
-              label="Actual time"
-              value={(task.actualMinutes ?? 0) > 0 ? task.actualMinutes : undefined}
-              onChange={async (m) => {
-                if (m === undefined) {
-                  await patch({ actualMinutes: undefined });
-                  return true;
-                }
-                // setActualFor reads the latest task and validates the number.
-                const ok = await setActualFor(task.id, m);
-                if (ok) onSaved();
-                return ok;
-              }}
-            />
-            {running && (
-              <Text style={styles.valueText} {...({ dataSet: { mono: '1' } } as object)}>
-                {formatTaskTime(task, now)}
-              </Text>
-            )}
-            <Pressable
-              onPress={() => toggleTimer(task)}
-              style={styles.quiet}
-              accessibilityRole="button"
-              accessibilityLabel={running ? 'Stop the timer' : 'Start the timer'}
-            >
-              <Text style={running ? styles.timerOn : styles.quietSub}>{running ? '■ Stop timer' : '(Start timer)'}</Text>
-            </Pressable>
-            {!running && !task.completed && startFromChoices(task, new Date()).map((c) => (
-              <Pressable
-                key={c.time}
-                onPress={() => toggleTimer(task, c.startedAtMs)}
-                style={styles.quiet}
-                accessibilityRole="button"
-                accessibilityLabel={`Start the timer from ${formatTime(c.time)}, ${c.minutesAgo} minutes ago`}
-                {...({ dataSet: { startFrom: c.time } } as object)}
-              >
-                <Text style={styles.quietSub}>{`(Start from ${formatTime(c.time)})`}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </DetailRow>
-        )}
 
         <DetailRow icon="pricetag-outline" label="Label">
           <LabelField task={task} labels={labels} ops={ops} onSaved={onSaved} />
@@ -958,7 +904,6 @@ const styles = StyleSheet.create({
   openBg: { backgroundColor: Colors.background },
   labelBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
   labelDot: { width: 8, height: 8, borderRadius: 4 },
-  timerOn: { fontSize: 12, fontWeight: '600', color: Colors.accentText },
   xBtn: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 28 },
   subText: { flex: 1, fontSize: 14, color: Colors.textPrimary },

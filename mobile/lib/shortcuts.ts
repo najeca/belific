@@ -44,9 +44,7 @@ export type ShortcutId =
   | 'toggleSubtasks'
   | 'newSubtask'
   | 'editEstimate'
-  | 'editActual'
   | 'selectLabel'
-  | 'toggleTimer'
   | 'duplicateTask'
   | 'deleteTask'
   // Phase 5
@@ -88,9 +86,7 @@ export const PHASE2_SHORTCUTS: ShortcutDef[] = [
   { id: 'newSubtask', keys: 'Ctrl+S', label: 'New subtask (in the details)', group: 'Task', scope: 'card' },
   { id: 'openDetails', keys: 'O', label: 'Open the task details', group: 'Task', scope: 'card' },
   { id: 'editEstimate', keys: 'Ctrl+E', label: 'Set the estimate (in the details)', group: 'Task', scope: 'card' },
-  { id: 'editActual', keys: 'Ctrl+B', label: 'Set the actual time (in the details)', group: 'Task', scope: 'card' },
   { id: 'selectLabel', keys: 'Ctrl+L', label: 'Choose a label', group: 'Task', scope: 'card' },
-  { id: 'toggleTimer', keys: 'Ctrl+Shift+Enter', label: 'Start or stop the timer', group: 'Task', scope: 'card' },
   { id: 'duplicateTask', keys: 'Ctrl+Shift+D', label: 'Duplicate the task', group: 'Task', scope: 'card' },
   { id: 'deleteTask', keys: 'Ctrl+Delete', label: 'Delete the task', group: 'Task', scope: 'card' },
 ];

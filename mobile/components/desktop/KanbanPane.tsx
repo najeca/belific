@@ -21,7 +21,7 @@ import { AWAY_ADD_WARNING } from '../../lib/awayDays';
 import DayMenu from './DayMenu';
 import { useAwayDays } from './awayStore';
 import { createTaskIn } from '../../lib/taskCommands';
-import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
+import { formatTotals, totalsOf } from '../../lib/taskTotals';
 import { useBreakTwice } from './breakTwiceStore';
 import { useTick } from './timerUi';
 import { openDetail, openNewTask, useGoToday, useReveal } from './uiStore';
@@ -62,14 +62,14 @@ export const COLUMN_WIDTH = 272;
 const COLUMN_GAP = 16;
 const STEP = COLUMN_WIDTH + COLUMN_GAP;
 
-// "0:25 / 1:30": actual against estimated for the day (build plan phase 2).
-// Nothing planned and nothing spent shows nothing.
+// "1:30": the estimated time of the day (3.26.0: actual time is no longer shown).
+// Nothing planned shows nothing.
 function DayTotals({ items, now }: { items: Task[]; now: number }) {
   const totals = totalsOf(items, now, useBreakTwice());
   const text = formatTotals(totals);
   if (!text) return null;
   return (
-    <Text style={[styles.totals, isOverEstimate(totals) && styles.totalsOver]} numberOfLines={1} accessibilityLabel={`Actual against estimated for the day: ${text}`}>
+    <Text style={styles.totals} numberOfLines={1} accessibilityLabel={`Estimated for the day: ${text}`}>
       {text}
     </Text>
   );
@@ -428,7 +428,6 @@ const styles = StyleSheet.create({
   addInput: { flex: 1, minWidth: 0, height: 40, fontSize: 14, color: Colors.textPrimary, outlineStyle: 'none' } as object,
   pastTotals: { minHeight: 20, marginBottom: 10, paddingHorizontal: 2, flexDirection: 'row' },
   totals: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surfaceRaised, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
-  totalsOver: { color: Colors.accentText, fontWeight: '700' },
   columnList: { flex: 1 },
   columnListContent: { gap: 10, padding: 2, paddingBottom: 16 },
   placeholder: { height: 52, borderRadius: 10, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: Colors.accentSoft, justifyContent: 'center', paddingHorizontal: 12 },

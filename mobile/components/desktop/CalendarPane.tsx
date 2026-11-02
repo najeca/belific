@@ -42,7 +42,7 @@ import { movedCaption, movedCaptionLong, projectOccurrences } from '../../lib/se
 import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
 import { calendarTitle, minutesOfDay, monthGrid, nowLineTop, splitAllDay, stepAnchor, visibleDayKeys } from '../../lib/calendarView';
 import type { CalendarView } from '../../lib/paneState';
-import { formatTotals, isOverEstimate, totalsOf } from '../../lib/taskTotals';
+import { formatTotals, totalsOf } from '../../lib/taskTotals';
 import { useBreakTwice } from './breakTwiceStore';
 import { labelColor } from '../../lib/labelColors';
 import { listEmojiOf, listNameOf } from '../../lib/lists';
@@ -458,7 +458,7 @@ export default function CalendarPane({
     return map;
   }, [effView, keys, imported]);
 
-  // Estimate against actual for what the view shows (the month: its own days only).
+  // The estimated time of what the view shows (the month: its own days only).
   const totalsText = useMemo(() => {
     const shown: Task[] = [];
     if (effView === 'month') {
@@ -475,7 +475,7 @@ export default function CalendarPane({
       }
     }
     const t = totalsOf(shown, now, breakTwice);
-    return { text: formatTotals(t), over: isOverEstimate(t) };
+    return formatTotals(t);
   }, [effView, key, todayKey, monthTasks, days, now, breakTwice]);
 
   const labelOf = (t: Task) => labels.find((p) => p.key === t.projectKey);
@@ -506,9 +506,9 @@ export default function CalendarPane({
           <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
         </Pressable>
         <View style={{ flex: 1 }} />
-        {totalsText.text ? (
-          <Text style={[styles.totals, totalsText.over && styles.totalsOver]} accessibilityLabel={`Actual against estimated: ${totalsText.text}`}>
-            {totalsText.text}
+        {totalsText ? (
+          <Text style={styles.totals} accessibilityLabel={`Estimated: ${totalsText}`}>
+            {totalsText}
           </Text>
         ) : null}
         <FilterButton filter={filter} labels={labels} onChange={onFilterChange} />
@@ -861,7 +861,6 @@ const styles = StyleSheet.create({
   off: { opacity: 0.4 },
   title: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, minWidth: 0, flexShrink: 1 },
   totals: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
-  totalsOver: { color: Colors.accentText, fontWeight: '700' },
   seg: { ...segTrack } as object,
   segBtn: { ...segBtn, paddingHorizontal: 10 } as object,
   segOn: { ...segBtnOn },

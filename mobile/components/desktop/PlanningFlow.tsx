@@ -176,8 +176,6 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     const done = doneOn(view, yesterday);
     figures = [
       ['Finished yesterday', String(done.length)],
-      ['Time spent', formatClock(totalsOf(done, Date.now()).actual)],
-      ...byLabel(done, labels),
     ];
     columns = (
       <>
@@ -220,7 +218,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     figures = [
       ['Tasks today', String(todayList.length)],
       ['Estimated', formatClock(tot.estimate)],
-      ...byLabel(todayList, labels, 'estimate'),
+      ...byLabel(todayList, labels),
     ];
     const move = (t: Task, day: string) => edit(t.id, { dueDate: day });
     columns = (
@@ -280,8 +278,6 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     const left = view.filter((t) => canCarryToTomorrow(t, todayKey));
     figures = [
       ['Done today', String(done.length)],
-      ['Time spent', formatClock(totalsOf(done, Date.now()).actual)],
-      ...byLabel(done, labels),
     ];
     columns = (
       <>
@@ -387,13 +383,13 @@ function countFromToday(view: Task[], carry: Set<string> | null, todayKey: strin
   return n === 1 ? '1 task' : `${n} tasks`;
 }
 
-// Time (actual) or estimate per label, for the rail.
-function byLabel(tasks: Task[], labels: Project[], what: 'actual' | 'estimate' = 'actual'): Array<[string, string]> {
+// The estimate per label, for the rail (3.26.0: the time spent per label is no longer shown).
+function byLabel(tasks: Task[], labels: Project[]): Array<[string, string]> {
   const by = new Map<string, number>();
   for (const t of tasks) {
     const name = labels.find((l) => l.key === t.projectKey);
     const k = name ? `${name.emoji ? `${name.emoji} ` : ''}${name.name}` : 'No label';
-    const m = what === 'actual' ? totalsOf([t], Date.now()).actual : estimateOf(t);
+    const m = estimateOf(t);
     by.set(k, (by.get(k) ?? 0) + m);
   }
   return [...by.entries()].filter(([, m]) => m > 0).map(([k, m]) => [k, formatClock(m)]);

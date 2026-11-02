@@ -49,22 +49,11 @@ export function totalsOf(tasks: TotalsInput[], nowMs: number, breakTwice = false
   return t;
 }
 
-// "0:25 / 1:30": actual first, then estimated, H:MM like the chips. Nothing
-// planned and nothing spent reads as no text at all (an empty day shows no sum).
-export function formatTotals(t: Pick<Totals, 'estimate' | 'actual'>): string {
-  if (t.estimate === 0 && t.actual === 0) return '';
-  return `${formatClock(t.actual)} / ${formatClock(t.estimate)}`;
-}
-
-// The same for one task's chips: "0:25 / 1:00".
-export function formatTaskTime(task: Pick<Task, 'durationMinutes' | 'actualMinutes' | 'timerStartedAt'>, nowMs: number): string {
-  return `${formatClock(actualOf(task, nowMs))} / ${formatClock(estimateOf(task))}`;
-}
-
-// Over the estimate: only when there is one. Used to tint the figure gently
-// (never a warning: decision 027, nothing here shames).
-export function isOverEstimate(t: Pick<Totals, 'estimate' | 'actual'>): boolean {
-  return t.estimate > 0 && t.actual > t.estimate;
+// "1:30": the estimated time, H:MM like the chips. 3.26.0: Actual time is no longer shown anywhere, so
+// the figure is the estimate alone (the stored actual minutes stay, `actual` is still summed for the
+// data export). Nothing planned reads as no text at all (an empty day shows no sum).
+export function formatTotals(t: Pick<Totals, 'estimate'>): string {
+  return t.estimate > 0 ? formatClock(t.estimate) : '';
 }
 
 // The add task box's total (2.26.0): the estimated time of what is still to do

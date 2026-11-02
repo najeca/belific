@@ -1,12 +1,13 @@
 'use strict';
-// Real check for 2.34.1 (Part C, P1): the timer can be started on any task at any time.
-//  1. a day of a repeating task that is only shown starts a timer from the details (it is
-//     stored first, once), and stopping adds the time,
-//  2. "Start from HH:mm" counts from the scheduled start of a time that has begun,
-//  3. the shortcut works on a shown day too,
-//  4. a start that cannot happen says so in a note instead of doing nothing.
+// Real check, rewritten for 3.26.0 (Actual time and the timer removed). It was the check of
+// 2.34.1 (the timer on any task at any time); now it checks that nothing offers a timer:
+//  1. the details of a shown day of a repeating task and of a task whose time has begun
+//     have no Actual time row, no Start the timer and no Start from,
+//  2. the ⋮ menu has no timer rows,
+//  3. Ctrl+Shift+Enter on a shown card stores nothing (the shown day stays unstored),
+//  4. the stored timer fields of a task are kept as they were.
 // Real mouse and key input into the real app, isolated data folder, in process fake Supabase.
-// BELIFIC_SHOTS: a folder for screenshots. Needs the clock to be past 00:03 local.
+// BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
 const { app } = require('electron');
@@ -71,79 +72,37 @@ async function run() {
     await C.sleep(400);
   };
   const rowOf = (id) => readTasks().find((t) => t.id === id);
-  const btn = (label) => `(${I.visible(`[data-detail-panel] [aria-label=${JSON.stringify(label)}]`)})`;
 
-  // ======== 1. A shown day of a repeating task starts a timer ========
-  check('1: before: today\'s day of the series is not stored', !rowOf(OCC));
+  const noTimer = async () => !(await I.js(`/Actual time|Start the timer|Stop the timer|Start from/.test(document.querySelector('[data-detail-panel]').innerText)`)) && !(await I.exists(`document.querySelector('[data-detail-panel] [data-start-from]')`));
+
+  // ======== 1. The details ========
   await openDetails(OCC);
-  check('1: the details offer "Start the timer" on a day that is only shown', await I.exists(btn('Start the timer')));
-  await I.click(btn('Start the timer'), 1200);
-  const started = await C.waitFor(() => !!(rowOf(OCC) && rowOf(OCC).timerStartedAt), 5000).catch(() => false);
-  const occ = rowOf(OCC);
-  check('1: the day is stored once, with a running timer', !!started && !!occ && typeof occ.timerStartedAt === 'string', JSON.stringify(occ && { id: occ.id, t: occ.timerStartedAt }));
-  check('1: the stored day keeps the series (title, time, length, repeat)', !!occ && occ.title === BOOT && occ.startTime === '00:01' && occ.durationMinutes === 600 && occ.recurrence === 'daily');
-  check('1: no extra copy was made (the root and today only)', readTasks().filter((t) => t.title === BOOT).length === 2, String(readTasks().filter((t) => t.title === BOOT).length));
-  check('1: no "could not start" note', !(await I.exists(`document.querySelector('[data-notice-bar]')`)));
-  await C.sleep(1500);
-  check('1: the details now offer "Stop the timer"', await I.exists(btn('Stop the timer')));
-  await I.click(btn('Stop the timer'), 1200);
-  await C.waitFor(() => !(rowOf(OCC) && rowOf(OCC).timerStartedAt), 5000).catch(() => {});
-  const stopped = rowOf(OCC);
-  check('1: stopping clears the timer and keeps the actual time', !!stopped && !stopped.timerStartedAt && typeof stopped.actualMinutes === 'number', JSON.stringify(stopped && { a: stopped.actualMinutes, t: stopped.timerStartedAt }));
+  check('1: a shown day of a repeating task: no Actual time, no timer, no Start from', await noTimer(), await I.js(`document.querySelector('[data-detail-panel]').innerText`));
   await closeDetails();
-
-  // ======== 2. Start from ========
   await openDetails('solo');
-  check('2: a task whose time has begun today offers "Start from 12:02am"', await I.exists(`document.querySelector('[data-detail-panel] [data-start-from="00:02"]')`));
-  const label = await I.js(`(() => { const e = document.querySelector('[data-detail-panel] [data-start-from="00:02"]'); return e ? e.getAttribute('aria-label') : null; })()`);
-  check('2: its accessible name says the time and the minutes ago', /^Start the timer from 12:02am, \d+ minutes ago$/.test(label || ''), String(label));
-  await I.click(`document.querySelector('[data-detail-panel] [data-start-from="00:02"]')`, 1200);
-  await C.waitFor(() => !!(rowOf('solo') && rowOf('solo').timerStartedAt), 5000).catch(() => {});
-  const solo = rowOf('solo');
-  const want = new Date();
-  want.setHours(0, 2, 0, 0);
-  check('2: the timer counts from the scheduled start (today 00:02)', !!solo && solo.timerStartedAt === want.toISOString(), `${solo && solo.timerStartedAt} want ${want.toISOString()}`);
-  const elapsed = Math.floor((Date.now() - want.getTime()) / 60000);
-  const shown = await I.js(`document.querySelector('[data-detail-panel]').innerText`);
-  const clockLine = shown.split('\n').find((l) => /\d+:\d{2}:?\d{0,2}\s*\/\s*\d/.test(l)) || '';
-  const m = /(\d+):(\d{2})(?::(\d{2}))?\s*\/\s*\d/.exec(clockLine);
-  const shownMin = m ? (m[3] !== undefined ? Number(m[1]) * 60 + Number(m[2]) : Number(m[1]) * 60 + Number(m[2])) : -1;
-  check('2: the time so far already shows the minutes since the start', shownMin >= elapsed - 1, `line "${clockLine}" elapsed ${elapsed}`);
-  check('2: while it runs there is no second "Start from"', !(await I.exists(`document.querySelector('[data-detail-panel] [data-start-from]')`)));
+  check('1: a task whose time has begun: no Actual time, no timer, no Start from', await noTimer());
   await closeDetails();
+  check('1: opening them stored nothing', !rowOf(OCC) && !rowOf('solo').timerStartedAt);
 
-  // ======== 3. The shortcut on a day that is only shown ========
-  // Stop the running one first (starting another would stop it anyway).
+  // ======== 2. The ⋮ menu ========
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900).catch(() => {});
   await C.sleep(600);
-  const card = `Array.from(document.querySelectorAll('[data-projected="1"][aria-label="Task ${BOOT}"]')).find((e) => e.getBoundingClientRect().width > 0)`;
-  // Today's day is stored now (step 1), so it is a stored card; the next day is the shown one.
-  const hasCard = await I.exists(card);
-  if (hasCard) {
-    await I.js(`(() => { const c = ${card}; c && c.focus(); })()`);
-    await C.sleep(300);
-    await I.key('Return', ['control', 'shift'], 1200);
-    const tomorrowId = `boot:${day(1)}`;
-    await C.waitFor(() => !!(rowOf(tomorrowId) && rowOf(tomorrowId).timerStartedAt), 4000).catch(() => {});
-    check('3: Ctrl+Shift+Enter starts the timer on a day that is only shown', !!(rowOf(tomorrowId) && rowOf(tomorrowId).timerStartedAt), JSON.stringify(rowOf(tomorrowId)));
-    check('3: starting it stopped the one that was running (one timer at a time)', !rowOf('solo').timerStartedAt && (rowOf('solo').actualMinutes ?? 0) >= 1, JSON.stringify(rowOf('solo')));
-  } else {
-    check('3: a shown card for the series exists on the Tasks board', false, 'no projected card found');
-  }
+  const solo = `Array.from(document.querySelectorAll('[aria-label="Task Solo task"]')).find((e) => e.getBoundingClientRect().width > 0)`;
+  await I.hover(solo);
+  await I.click(`${solo}.querySelector('[data-ctl="more"]')`, 500);
+  check('2: the menu has no timer rows', !(await I.exists(`document.querySelector('[data-popover] [aria-label^="Start the timer"], [data-popover] [aria-label="Stop the timer"]')`)));
   await I.key('Escape');
+  await C.sleep(300);
 
-  // ======== 4. A start that cannot happen says so ========
-  await I.click(`document.querySelector('[aria-label="Show the Calendar"]')`, 900).catch(() => {});
-  await openDetails(`gone:${today}`);
-  // The series disappears from storage while the details are open (deleted on another computer).
-  fs.writeFileSync(tasksFile, JSON.stringify(readTasks().filter((t) => !t.id.startsWith('gone'))));
-  await I.click(btn('Start the timer'), 1000);
-  const note = await C.waitFor(() => I.exists(`document.querySelector('[data-notice-bar]')`), 4000).catch(() => false);
-  const text = note ? await I.js(`document.querySelector('[data-notice-bar]').innerText`) : '';
-  check('4: a timer that cannot start shows a note', !!note && /Could not start the timer/.test(text), text);
-  check('4: nothing was stored for it', !readTasks().some((t) => t.id.startsWith('gone')));
-  await I.shot('p18-timer-note');
-  await closeDetails();
+  // ======== 3. The old timer key on a shown day ========
+  const card = `Array.from(document.querySelectorAll('[data-projected="1"][aria-label="Task ${BOOT}"]')).find((e) => e.getBoundingClientRect().width > 0)`;
+  check('3: a shown card for the series exists on the Tasks board', await I.exists(card));
+  await I.js(`(() => { const c = ${card}; c && c.focus(); })()`);
+  await C.sleep(300);
+  await I.key('Return', ['control', 'shift'], 1200);
+  check('3: Ctrl+Shift+Enter stores nothing and starts no timer', readTasks().every((t) => !t.timerStartedAt), JSON.stringify(readTasks().map((t) => t.id)));
+  await I.key('Escape');
+  await I.shot('p18-no-timer');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

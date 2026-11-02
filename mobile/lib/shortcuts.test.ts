@@ -133,7 +133,7 @@ test('Ctrl combinations need Ctrl (or Cmd) and the exact extra modifiers', () =>
   assert.equal(shortcutFor(press('e', { meta: true }), card), 'editEstimate');
   assert.equal(shortcutFor(press('e'), card), null);
   assert.equal(shortcutFor(press('e', { ctrl: true, shift: true }), card), null);
-  assert.equal(shortcutFor(press('Enter', { ctrl: true, shift: true }), card), 'toggleTimer');
+  assert.equal(shortcutFor(press('Enter', { ctrl: true, shift: true }), card), null, '3.26.0: the timer key is gone');
   assert.equal(shortcutFor(press('Enter', { ctrl: true }), card), null);
   assert.equal(shortcutFor(press('Enter', { shift: true }), card), null);
   assert.equal(shortcutFor(press('Enter'), card), null, 'plain Enter stays the card expand key');

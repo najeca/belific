@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { loadUserSettingsRaw, setUserSetting } from '../../lib/storage';
-import { endPomodoro } from './pomodoroStore';
+import { endPomodoroAndTimer } from './pomodoroStore';
 import { defaultFeatures, featureSettingKey, featureValue, featuresFromSettings, type FeatureKey, type FeatureMap } from '../../lib/features';
 
 // The power feature toggles (build plan phase 7, lib/features.ts) as a small
@@ -44,7 +44,8 @@ export async function refreshFeatures(): Promise<void> {
 export async function setFeature(key: FeatureKey, on: boolean): Promise<void> {
   features = { ...features, [key]: on };
   emit();
-  // Switching pomodoro off ends one in progress (the task timer itself carries on).
-  if (key === 'pomodoro' && !on) endPomodoro();
+  // Switching pomodoro off ends one in progress. 3.26.0: its task timer stops with it (the timer is
+  // no longer shown anywhere, so one left running would never be stopped).
+  if (key === 'pomodoro' && !on) void endPomodoroAndTimer();
   await setUserSetting(featureSettingKey(key), featureValue(on));
 }

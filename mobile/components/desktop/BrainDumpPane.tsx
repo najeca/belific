@@ -7,7 +7,7 @@ import { splitThoughts, rowId } from '../../lib/thoughts';
 import { loadBrainDumpItems, loadLists, loadTasks, loadTasksRaw } from '../../lib/storage';
 import { hostIndex } from '../../lib/hosting';
 import { listCounts, listEmojiOf, resolveSelectedList, tasksInList } from '../../lib/lists';
-import { formatTotals, isOverEstimate, plannedText, totalsOf } from '../../lib/taskTotals';
+import { plannedText } from '../../lib/taskTotals';
 import { createTaskIn } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
@@ -24,7 +24,6 @@ import type { BrainDumpItem, Project, Task, TaskList } from '../../lib/types';
 import ListSwitcher from './ListSwitcher';
 import { openDetail, openNewTask, useSelectedList } from './uiStore';
 import { editDumpItem } from '../../lib/taskActions';
-import { useTick } from './timerUi';
 import { useFeature } from './featureStore';
 import TemplatePicker from './TemplatePicker';
 
@@ -230,7 +229,6 @@ const styles = StyleSheet.create({
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginLeft: -10 },
   totals: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
-  totalsOver: { color: Colors.accentText, fontWeight: '700' },
   captureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 8 },
   captureBox: { flex: 1, minWidth: 0, marginBottom: -10 },
   capturePlus: { fontSize: 14, color: Colors.textSecondary, width: 16, textAlign: 'center' },

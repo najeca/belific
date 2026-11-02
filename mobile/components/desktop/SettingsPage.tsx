@@ -261,7 +261,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
                 <ToggleRow label="Count minutes done during a break twice" value={breakTwice} onChange={(v) => setBreakTwice(v)} />
               </View>
               <Text style={styles.hint}>
-                A task that fits fully inside a break is shown inside it. Off: the minutes it shares with the break count once in the day's planned time and in Analytics. On: the break and the task each count in full. Time spent is never counted twice: one timer runs at a time.
+                A task that fits fully inside a break is shown inside it. Off: the minutes it shares with the break count once in the day's planned time and in Analytics. On: the break and the task each count in full.
               </Text>
             </Section>
 

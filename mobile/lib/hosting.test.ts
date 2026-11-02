@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. A task during a break (3.5.0): hosted when fully inside a break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DETAILS_LONGER, breakLosesGuests, fitRefusal, hostSnapshot, longerNote, lostGuests, lostNote, duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, chipsThatFit, chipLines, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
+import { DETAILS_LONGER, breakLosesGuests, fitRefusal, hostSnapshot, longerNote, lostGuests, lostNote, duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, packChips, CHIP_MIN_W, CHIP_GAP_PX, MORE_W, chipLines, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
 import { cutDay, planCuts } from './cuts.ts';
 import { COMPACT_BLOCK_PX, PX_PER_HOUR } from './timebox.ts';
 import type { Task } from './types.ts';
@@ -354,47 +354,45 @@ test('breakEntries: the entries that are breaks now, not the hosted Split tasks'
   assert.deepEqual(breakEntries(entries).map((e) => e.id), ['outer']);
 });
 
-// 3.28.0: Day view chips, as many as fit. Chips 100 px wide with a 4 px gap, in rows of 14 px with 2 px between.
-function lay(n: number, lineW: number, lines: number, chipW = 100): { chips: Array<{ left: number; top: number; right: number; bottom: number }>; area: { left: number; top: number; right: number; bottom: number } } {
-  // How a wrapping row lays them out: a chip goes on the next line when it does not fit on this one.
-  const chips = [];
-  let x = 0;
-  let line = 0;
-  for (let i = 0; i < n; i++) {
-    const w = Math.min(chipW, lineW);
-    if (x > 0 && x + w > lineW) {
-      x = 0;
-      line += 1;
-    }
-    chips.push({ left: x, top: line * 16, right: x + w, bottom: line * 16 + 14 });
-    x += w + 4;
-  }
-  return { chips, area: { left: 0, top: 0, right: lineW, bottom: lines * 16 - 2 } };
-}
-test('3.28.0 chipsThatFit: 1, 2, 3 and 5 hosted tasks at several widths, one line and two', () => {
-  const fit = (n: number, w: number, lines: number) => {
-    const { chips, area } = lay(n, w, lines);
-    return chipsThatFit(chips, area);
-  };
-  // One line (a short break in Day view).
-  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 600, 1)), [1, 2, 3, 5], 'a wide line: every chip');
-  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 320, 1)), [1, 2, 3, 3], '320 px: three fit, +2');
-  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 210, 1)), [1, 2, 2, 2], '210 px: two fit');
-  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 120, 1)), [1, 1, 1, 1], '120 px: one');
-  // Two lines (a taller break): the chips wrap.
-  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 210, 2)), [1, 2, 3, 4], '210 px, two lines: four fit, +1');
-  // Narrower means fewer, never more.
-  for (const n of [1, 2, 3, 5]) for (const lines of [1, 2]) {
+// 3.29.1: Day view chips packed from their own widths. Jethro's 2 Nov breaks: "Apply to 1 application" (159 px),
+// "Put laundry in washing machine" (206 px) at 11:00 and "Eat banana and do running pre warm up exercises" (297 px)
+// at 15:00, in a one line (20 minute) break.
+test('3.29.1 packChips: the real 2 Nov breaks, every chip whole while the line has room', () => {
+  assert.deepEqual(packChips([159, 206], 917, 1), { shown: 2 }, '11:00, a 1000 px column: both chips');
+  assert.deepEqual(packChips([297], 917, 1), { shown: 1 }, '15:00: the banana chip whole');
+  assert.deepEqual(packChips([297], 300, 1), { shown: 1 }, 'still whole when it just fits');
+  // Narrow: the second chip goes to "+1" and the first keeps its whole width (room kept for the badge).
+  assert.deepEqual(packChips([159, 206], 300, 1), { shown: 1 });
+  // Too narrow for the first whole beside the badge: shortening it is the only way to show it, so it is ("+1").
+  assert.deepEqual(packChips([159, 206], 180, 1), { shown: 1, clip: 180 - MORE_W - CHIP_GAP_PX });
+  assert.deepEqual(packChips([159, 206], 100, 1), { shown: 0 }, 'under the minimum beside the badge: "+2"');
+});
+test('3.29.1 packChips: a very long title is shortened only when it is wider than a whole line', () => {
+  // 600 px chip, 400 px line: shortened to the line, alone.
+  assert.deepEqual(packChips([600], 400, 1), { shown: 1, clip: 400 });
+  // After another chip on the only line: shortened to the room left, if at least CHIP_MIN_W.
+  assert.deepEqual(packChips([100, 600], 400, 1), { shown: 2, clip: 296 });
+  assert.deepEqual(packChips([300, 600], 370, 1), { shown: 1 }, '66 px left: under the minimum, "+1"');
+  assert.deepEqual(packChips([600, 100], 400, 1), { shown: 1, clip: 400 - MORE_W - CHIP_GAP_PX }, 'the badge keeps its room');
+  // Two lines: a long chip starts the second line rather than being cut on the first.
+  assert.deepEqual(packChips([100, 600], 400, 2), { shown: 2, clip: 400 });
+  // Never under the minimum width.
+  assert.deepEqual(packChips([600], CHIP_MIN_W - 1, 1), { shown: 0 });
+});
+test('3.29.1 packChips: 1, 2, 3 and 5 chips; narrower never shows more; wraps over the lines', () => {
+  const w = [159, 206, 297, 120, 180];
+  assert.deepEqual([1, 2, 3, 5].map((n) => packChips(w.slice(0, n), 1000, 1).shown), [1, 2, 3, 5]);
+  assert.deepEqual([1, 2, 3, 5].map((n) => packChips(w.slice(0, n), 430, 2).shown), [1, 2, 3, 4]);
+  for (const n of [1, 2, 3, 5]) for (const lines of [1, 2, 3]) {
     let prev = Infinity;
-    for (const w of [700, 500, 320, 210, 150, 104]) {
-      const k = fit(n, w, lines);
-      assert.ok(k <= prev, `${n} chips, ${lines} lines, ${w} px`);
+    for (const lineW of [1200, 900, 700, 500, 320, 210, 150, 90]) {
+      const k = packChips(w.slice(0, n), lineW, lines).shown;
+      assert.ok(k <= prev, `${n} chips, ${lines} lines, ${lineW} px`);
       prev = k;
     }
   }
-  // A chip that sticks out stops the count there (and every one after it is "+N").
-  assert.equal(chipsThatFit([{ left: 0, top: 0, right: 90, bottom: 14 }, { left: 94, top: 0, right: 230, bottom: 14 }, { left: 0, top: 0, right: 10, bottom: 14 }], { left: 0, top: 0, right: 200, bottom: 14 }), 1);
-  assert.equal(chipsThatFit([], { left: 0, top: 0, right: 200, bottom: 14 }), 0);
+  assert.deepEqual(packChips([], 500, 1), { shown: 0 });
+  assert.deepEqual(packChips([100], 0, 1), { shown: 0 }, 'not measured yet (hidden): nothing decided');
 });
 test('3.28.0 chipLines: the lines of chips under the title, at least one', () => {
   assert.equal(chipLines(30), 1);

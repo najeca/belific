@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
 import { formatDuration } from '../../lib/duration';
@@ -10,7 +10,7 @@ import { opsForProjected, opsForTask } from './taskOps';
 import { notifyChanged, offerUndo, openDetail, showNotice } from './uiStore';
 import { tipRef } from './tip';
 import { domNode, useDrag } from './DragProvider';
-import Popover, { Row, closePopover, openPopover, togglePopover, usePopoverAnchor } from './Popover';
+import Popover, { Row, closePopover, openPopover, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 
 // A task during a break (3.6.0, lib/hosting.ts): the hosted task as a small rounded chip inside the
 // break's block, light with dark text in both themes (tokens hostChip and onHostChip) so it reads on a
@@ -73,8 +73,11 @@ export function HostChip({
   scope = '',
   gridNode,
   flow,
+  clip,
 }: {
   g: HostedGuest;
+  // 3.29.1: the width a chip wider than its line is shortened to (lib/hosting.ts packChips); its title takes the ellipsis.
+  clip?: number;
   onChanged: () => void;
   inline?: boolean;
   // 3.28.0: side by side in a wide column: the chip keeps its own width (its title and length), at most the line.
@@ -137,10 +140,18 @@ export function HostChip({
     await tickGuest(g);
     onChanged();
   };
+  // 3.29.1: in a wide column the "⋯" shows on hover or keyboard focus only: right after the length it read as a
+  // title cut short. Its room stays, so nothing moves; a right click opens the same menu.
+  const [hover, setHover] = useState(false);
+  const [menuFocus, setMenuFocus] = useState(false);
+  const menuOpen = useIsOpen(menuId);
+  const quiet = !!flow && !hover && !menuFocus && !menuOpen;
   return (
     <Pressable
       onPress={() => openDetail(t.id)}
-      style={[styles.chip, flow ? styles.chipFlow : inline ? styles.chipInline : styles.chipStack]}
+      onHoverIn={() => setHover(true)}
+      onHoverOut={() => setHover(false)}
+      style={[styles.chip, flow ? styles.chipFlow : inline ? styles.chipInline : styles.chipStack, clip !== undefined && { maxWidth: clip, flexShrink: 1 }]}
       accessibilityRole="button"
       accessibilityLabel={`${t.title}${len ? `, ${len}` : ''}, during the break${t.completed ? ', done' : ''}${g.full.cutsBelow ? ', its Break is ignored' : ''}`}
       ref={chipRef as never}
@@ -166,7 +177,9 @@ export function HostChip({
         ref={anchorRef as never}
         onPress={() => togglePopover(menuId, anchor)}
         hitSlop={4}
-        style={styles.menuBtn}
+        onFocus={() => setMenuFocus(true)}
+        onBlur={() => setMenuFocus(false)}
+        style={[styles.menuBtn, quiet && styles.menuQuiet]}
         accessibilityRole="button"
         accessibilityLabel={`More for ${t.title}`}
         {...({ dataSet: { hostMenu: g.blockId } } as object)}
@@ -207,6 +220,23 @@ export function HostChip({
   );
 }
 
+// 3.29.1: a chip as it is drawn, at its own width (nothing pressable, hidden): what packChips measures.
+export function ChipMeasure({ g }: { g: HostedGuest }) {
+  const t = g.task;
+  const len = formatDuration(t.durationMinutes);
+  return (
+    <View style={[styles.chip, styles.chipFlow]}>
+      <View style={styles.dotHit} />
+      <Text style={styles.chipTitle} numberOfLines={1}>
+        {t.emoji ? `${t.emoji} ` : ''}
+        {t.title}
+      </Text>
+      {!!len && <Text style={styles.chipLen}>{len}</Text>}
+      <View style={styles.menuBtn} />
+    </View>
+  );
+}
+
 // "+N": the hosted tasks there is no room for. Its tooltip lists them all.
 export function MoreBadge({ n, tip }: { n: number; tip: string }) {
   return (
@@ -240,6 +270,7 @@ const styles = StyleSheet.create({
   chipDone: { textDecorationLine: 'line-through' },
   chipLen: { flexShrink: 0, fontSize: 10, lineHeight: 14, color: Colors.onHostChip },
   menuBtn: { width: 12, height: 14, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: -2, marginRight: -4 },
+  menuQuiet: { opacity: 0 },
   menuGlyph: { fontSize: 10, lineHeight: 14, fontWeight: '700', color: Colors.onHostChip },
   menu: { paddingVertical: 4 },
   more: { flexShrink: 0, height: 14, paddingHorizontal: 5, borderRadius: 7, backgroundColor: Colors.hostChip, justifyContent: 'center', boxShadow: `inset 0 0 0 1px ${Colors.border}` } as object,

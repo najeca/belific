@@ -325,25 +325,49 @@ export function chipPlan(heightPx: number, widthPx: number, count: number, compa
   return { mode: 'stack', shown, more: n - shown };
 }
 
-// 3.28.0: the Day view (and the Timebox, a single wide column) lays the chips out as many as fit, side by side
-// on the break's line or lines, each with its title and length; "+N" counts only the ones that do not fit.
-// The chips are drawn, then measured: this counts how many of them, in order, sit wholly inside the box the
-// chips may use (a chip that sticks out, or wraps below the last line, and every chip after it, is "+N").
-// Half a pixel of rounding is allowed. The week view keeps chipPlan as it was.
-export interface Box {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
+// 3.29.1: the chips of a wide column, packed from their own widths (measured once, unconstrained) and the room
+// each line has, so the result never depends on an earlier, maybe stale, layout. In order, a chip goes on the
+// current line if it fits whole, else on the next line; when no line is left it and every chip after it are "+N".
+// A chip wider than a whole line is the one case that is shortened (ellipsis), to the room it has, if that room is
+// at least CHIP_MIN_W; never a chip that would fit whole on a line. When some chips go to "+N", the first line
+// keeps moreW for the badge (a one line break draws it on that line; a taller one passes 0, its badge is on the
+// title row).
+export const CHIP_GAP_PX = 4;
+export const CHIP_MIN_W = 72;
+export const MORE_W = 28;
+export interface ChipPack {
+  shown: number;
+  // The width the last shown chip is shortened to, if it is.
+  clip?: number;
 }
-export function chipsThatFit(chips: Box[], area: Box): number {
-  let n = 0;
-  for (const c of chips) {
-    const inside = c.left >= area.left - 0.5 && c.right <= area.right + 0.5 && c.top >= area.top - 0.5 && c.bottom <= area.bottom + 0.5;
-    if (!inside || c.right - c.left <= 0) break;
-    n += 1;
-  }
-  return n;
+export function packChips(widths: number[], lineW: number, lines: number, gap = CHIP_GAP_PX, minW = CHIP_MIN_W, moreW = MORE_W): ChipPack {
+  const n = widths.length;
+  const pack = (reserve: number): ChipPack => {
+    let line = 0;
+    let x = 0;
+    for (let i = 0; i < n; i++) {
+      const w = widths[i];
+      for (;;) {
+        const room = lineW - (line === 0 ? reserve : 0) - x - (x > 0 ? gap : 0);
+        if (w <= room + 0.5) {
+          x += (x > 0 ? gap : 0) + w;
+          break;
+        }
+        const full = lineW - (line === 0 ? reserve : 0);
+        // Wider than a whole line: shortened here if this is the line's first chip, or the last line.
+        if (w > full + 0.5 && (x === 0 || line === lines - 1)) {
+          return room >= minW ? { shown: i + 1, clip: Math.floor(room) } : { shown: i };
+        }
+        if (line >= lines - 1) return { shown: i };
+        line += 1;
+        x = 0;
+      }
+    }
+    return { shown: n };
+  };
+  if (n === 0 || lineW <= 0) return { shown: 0 };
+  const all = pack(0);
+  return all.shown === n || moreW <= 0 ? all : pack(moreW + gap);
 }
 
 // How many lines of chips a stacked break has room for under its title (at least one).

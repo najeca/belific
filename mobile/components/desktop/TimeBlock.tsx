@@ -5,7 +5,7 @@ import { Colors } from '../../lib/theme';
 import { formatTime } from '../../lib/data';
 import { formatDuration } from '../../lib/duration';
 import { toMinutes, toTime, blockHeightPx, COMPACT_BLOCK_PX } from '../../lib/timebox';
-import { chipLines, chipPlan, chipsThatFit } from '../../lib/hosting';
+import { CHIP_GAP_PX, CHIP_MIN_W, MORE_W, chipLines, chipPlan, packChips } from '../../lib/hosting';
 import { BLOCK_DROP_ORDER, blockPlan } from '../../lib/blockLayout';
 import { pieceTimeText, type CutPiece } from '../../lib/cuts';
 import { nudgeBlock, slotLabel, taskDuration, yToMinutes, type BlockNudge } from '../../lib/drag';
@@ -30,7 +30,7 @@ import { isMustDo } from '../../lib/mustDo';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText, VIBRANT_WHITE } from './vibrantStore';
 import { BREAK_CUP, BREAK_TAG } from '../../lib/taskKind';
-import { HostChip, MoreBadge, hostedTip, type HostedGuest } from './HostChips';
+import { ChipMeasure, HostChip, MoreBadge, hostedTip, type HostedGuest } from './HostChips';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
 // day and week views draw the same block, so they behave the same. A press
@@ -280,28 +280,41 @@ export default function TimeBlock({
   // 3.6.0: the chips of the tasks during this break (not while it is being resized).
   const guests = hosted && hosted.length > 0 && resizing === undefined ? hosted : undefined;
   const chips = guests ? chipPlan(shownH, boxW, guests.length, COMPACT_BLOCK_PX) : null;
-  // 3.28.0: in a wide column the chips flow side by side; they are drawn, measured, and the ones that do not fit
-  // (with everything after them) become "+N". Measured again whenever the size, the tasks or their titles change.
+  // 3.28.0: in a wide column the chips flow side by side, "+N" for the ones that do not fit.
+  // 3.29.1: packed (lib/hosting.ts packChips) from each chip's own width, read from a hidden row of unconstrained
+  // copies, and the room the line or lines have; worked out again on every draw and whenever those widths change
+  // (fonts loading), so a stale or hidden layout never leaves chips in "+N". Until measured, every chip shows.
   const flow = !!chips && !!guests && !!wideChips;
-  const flowKey = flow && guests ? `${shownH}|${boxW}|${chips?.mode}|${guests.map((g) => `${g.blockId}:${g.task.title}:${g.task.durationMinutes}:${g.task.completed}`).join(',')}` : '';
-  const [flowFit, setFlowFit] = useState({ key: '', n: 0 });
-  const flowN = flow && guests ? (flowFit.key === flowKey ? flowFit.n : guests.length) : 0;
+  const [flowPack, setFlowPack] = useState<{ shown: number; clip?: number } | null>(null);
+  const [, setMeasured] = useState(0);
+  const flowN = flow && guests ? Math.min(guests.length, flowPack?.shown ?? guests.length) : 0;
   const chipsBox = useRef<HTMLElement | null>(null);
+  const flowRow = useRef<HTMLElement | null>(null);
+  const flowTitleEl = useRef<HTMLElement | null>(null);
+  const measureEl = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
-    if (!flow || !guests) return;
-    if (flowFit.key !== flowKey) {
-      setFlowFit({ key: flowKey, n: guests.length });
-      return;
-    }
-    const box = chipsBox.current;
-    if (!box) return;
-    const rect = (e: Element) => {
-      const r = e.getBoundingClientRect();
-      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-    };
-    const k = chipsThatFit(Array.from(box.children).map(rect), rect(box));
-    if (k < flowFit.n) setFlowFit({ key: flowKey, n: k });
+    if (!flow || !chips) return;
+    const m = measureEl.current;
+    if (!m) return;
+    const widths = Array.from(m.children).map((e) => e.getBoundingClientRect().width);
+    let lineW = 0;
+    if (chips.mode === 'inline') {
+      const row = flowRow.current;
+      const title = flowTitleEl.current;
+      if (row && title) lineW = row.getBoundingClientRect().width - title.getBoundingClientRect().width - CHIP_GAP_PX;
+    } else lineW = chipsBox.current?.getBoundingClientRect().width ?? 0;
+    // Hidden (a folded pane) or not laid out yet: nothing to decide.
+    if (lineW <= 0 || widths.some((w) => w <= 0)) return;
+    const next = packChips(widths, lineW, chips.mode === 'inline' ? 1 : chipLines(shownH), CHIP_GAP_PX, CHIP_MIN_W, chips.mode === 'inline' ? MORE_W : 0);
+    if (!flowPack || next.shown !== flowPack.shown || next.clip !== flowPack.clip) setFlowPack(next);
   });
+  useEffect(() => {
+    const m = measureEl.current;
+    if (!flow || !m || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setMeasured((n) => n + 1));
+    ro.observe(m);
+    return () => ro.disconnect();
+  }, [flow]);
   // Where "Move out" puts a task: right after this break (this block's own time).
   const hostBreak = { endMin: startMin + taskDuration(task), title: task.title };
   useLayoutEffect(() => {
@@ -353,15 +366,19 @@ export default function TimeBlock({
           {flow && chips && guests ? (
             <>
               {/* 3.28.0, a wide column: the title, then the chips side by side (one line, or wrapping over the lines the block has), "+N" for the rest. */}
-              <View style={[styles.titleRow, chips.mode === 'inline' && styles.titleRowOne]} {...({ dataSet: { hostRow: `flow-${chips.mode}` } } as object)}>
-                <Text style={[styles.title, styles.hostTitle, chips.mode === 'inline' && styles.flowTitle, task.completed && styles.titleDone, vt]} numberOfLines={1} {...({ dataSet: { hostTitle: '1' } } as object)}>
+              {/* 3.29.1: each chip at its own width, hidden, for the packing. */}
+              <View ref={((n: unknown) => { measureEl.current = domNode(n); }) as never} pointerEvents="none" style={styles.measure} aria-hidden {...({ dataSet: { hostMeasure: '1' } } as object)}>
+                {guests.map((g) => <ChipMeasure key={g.blockId} g={g} />)}
+              </View>
+              <View ref={((n: unknown) => { flowRow.current = domNode(n); }) as never} style={[styles.titleRow, chips.mode === 'inline' && styles.titleRowOne]} {...({ dataSet: { hostRow: `flow-${chips.mode}` } } as object)}>
+                <Text ref={((n: unknown) => { flowTitleEl.current = domNode(n); }) as never} style={[styles.title, styles.hostTitle, chips.mode === 'inline' && styles.flowTitle, task.completed && styles.titleDone, vt]} numberOfLines={1} {...({ dataSet: { hostTitle: '1' } } as object)}>
                   {task.cutsBelow ? <Text accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakCup: '1' } } as object)}>{`${BREAK_CUP} `}</Text> : null}
                   {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
                 {chips.mode === 'inline' && (
                   <View ref={((n: unknown) => { chipsBox.current = domNode(n); }) as never} style={styles.flowLine} {...({ dataSet: { hostChips: String(flowN) } } as object)}>
-                    {guests.slice(0, flowN).map((g) => <HostChip key={g.blockId} g={g} onChanged={onChanged} flow brk={hostBreak} scope={scope} gridNode={gridNode} />)}
+                    {guests.slice(0, flowN).map((g, i) => <HostChip key={g.blockId} g={g} onChanged={onChanged} flow clip={i === flowN - 1 ? flowPack?.clip : undefined} brk={hostBreak} scope={scope} gridNode={gridNode} />)}
                   </View>
                 )}
                 {chips.mode === 'stack' && !!inlineText && (
@@ -373,7 +390,7 @@ export default function TimeBlock({
               </View>
               {chips.mode === 'stack' && (
                 <View ref={((n: unknown) => { chipsBox.current = domNode(n); }) as never} style={[styles.flowWrap, { maxHeight: chipLines(shownH) * 16 - 2 }]} {...({ dataSet: { hostChips: String(flowN) } } as object)}>
-                  {guests.slice(0, flowN).map((g) => <HostChip key={g.blockId} g={g} onChanged={onChanged} flow brk={hostBreak} scope={scope} gridNode={gridNode} />)}
+                  {guests.slice(0, flowN).map((g, i) => <HostChip key={g.blockId} g={g} onChanged={onChanged} flow clip={i === flowN - 1 ? flowPack?.clip : undefined} brk={hostBreak} scope={scope} gridNode={gridNode} />)}
                 </View>
               )}
             </>
@@ -538,6 +555,8 @@ const styles = StyleSheet.create({
   flowTitle: { flexShrink: 0, maxWidth: '50%' },
   flowLine: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 4, overflow: 'hidden', height: 14 },
   flowWrap: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 4, rowGap: 2, marginTop: 2, overflow: 'hidden', minWidth: 0 },
+  // 3.29.1: the hidden row of chip copies (each at its own width, never squeezed).
+  measure: { position: 'absolute', left: 0, top: 0, flexDirection: 'row', alignItems: 'flex-start', visibility: 'hidden', width: 'max-content' } as object,
   hostTime: { flexShrink: 10, minWidth: 0, marginLeft: 'auto' } as object,
   rightText: { marginLeft: 'auto' },
   noShrink: { flexShrink: 0 },

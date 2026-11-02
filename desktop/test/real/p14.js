@@ -119,9 +119,9 @@ async function run() {
   const noSecond = await I.js(`!document.querySelector('[data-cal-block="cal${d2}:short~2"]')`);
   check('P4: a cut that would leave 20 minutes is refused: the task stays whole', !!whole && noSecond && !whole.text.includes('left'), whole && whole.text);
   check('P4: the two then sit side by side as before', !!whole && !!lateBrk && whole.l !== lateBrk.l, JSON.stringify({ w: whole && whole.l, b: lateBrk && lateBrk.l }));
-  check('P4: the break says why, in a small badge (Not split: 20 min piece (min 30))', !!lateBrk && lateBrk.text.includes('Not split') && lateBrk.text.includes('20 min piece') && lateBrk.text.includes('min 30'), lateBrk && lateBrk.text);
+  check('P4: the break says why, in a small badge (Not cut: 20 min piece (min 30))', !!lateBrk && lateBrk.text.includes('Not cut') && lateBrk.text.includes('20 min piece') && lateBrk.text.includes('min 30'), lateBrk && lateBrk.text);
   const tip = await I.js(`${cal(d2, 'late')}.getAttribute('title')`);
-  check('P4: and its tooltip has the note too', !!tip && tip.includes('Not splitting Short host') && tip.includes('a piece would be 20 min') && tip.includes('minimum is 30 min'), String(tip));
+  check('P4: and its tooltip has the note too', !!tip && tip.includes('Not cutting Short host') && tip.includes('a piece would be 20 min') && tip.includes('minimum is 30 min'), String(tip));
   await I.shot('p14-refused');
 
   // ======== Day view: a wide column, the drawing as drawn (screenshots) ========
@@ -142,7 +142,7 @@ async function run() {
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 700);
   await dayShot(d2, 'p14-DAY-refused', 9);
   const dayNote = await box(cal(d2, 'late'));
-  check('P4: in Day view the refused break shows its badge in full', !!dayNote && dayNote.text.includes('Not split: 20 min piece (min 30)'), dayNote && dayNote.text);
+  check('P4: in Day view the refused break shows its badge in full', !!dayNote && dayNote.text.includes('Not cut: 20 min piece (min 30)'), dayNote && dayNote.text);
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 700);
   await scrollTo(9);
   await C.sleep(300);
@@ -179,11 +179,12 @@ async function run() {
   // ======== Turn the switch off in the details: the cut goes, nothing stored changes on the host ========
   await I.click(`document.querySelector('[data-day-col="${today}"] [aria-label="Title Short Break"]')`, 700);
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 4000).catch(() => {});
-  const sw = await I.js(`(() => { const s = document.querySelector('[data-cut-switch]'); return s ? [s.getAttribute('data-cut-switch'), s.getAttribute('aria-checked'), s.getAttribute('aria-label')] : null; })()`);
-  check('P4: the details have the "Split" switch, on for the break', !!sw && sw[0] === '1' && sw[1] === 'true' && sw[2] === 'Split', JSON.stringify(sw));
-  await I.click(`document.querySelector('[data-cut-switch]')`, 600);
+  // 3.27.0: the Split switch became the Task | Break control.
+  const sw = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] [data-kind-choice]'); const b = document.querySelector('[data-detail-panel] [data-kind="break"]'); return s && b ? [s.getAttribute('data-kind-choice'), b.getAttribute('aria-checked')] : null; })()`);
+  check('P4: the details have Task | Break, Break chosen for the break', !!sw && sw[0] === 'break' && sw[1] === 'true', JSON.stringify(sw));
+  await I.click(`document.querySelector('[data-detail-panel] [data-kind="task"]')`, 600);
   await C.sleep(500);
-  check('P4: switched off, the stored switch is gone', stored('brk').cutsBelow === undefined, JSON.stringify(stored('brk')));
+  check('P4: Task chosen, the stored value is gone', stored('brk').cutsBelow === undefined, JSON.stringify(stored('brk')));
   await I.blur();
   await I.key('Escape');
   await C.sleep(500);
@@ -195,9 +196,9 @@ async function run() {
   // and on again from the details
   await I.click(`document.querySelector('[data-day-col="${today}"] [aria-label="Title Short Break"]')`, 700);
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 4000).catch(() => {});
-  await I.click(`document.querySelector('[data-cut-switch]')`, 600);
+  await I.click(`document.querySelector('[data-detail-panel] [data-kind="break"]')`, 600);
   await C.sleep(400);
-  check('P4: switched on again: stored true and the cut returns', stored('brk').cutsBelow === true && (await I.exists(`document.querySelector('[data-block-id="boot~2"]')`)));
+  check('P4: Break chosen again: stored true and the cut returns', stored('brk').cutsBelow === true && (await I.exists(`document.querySelector('[data-block-id="boot~2"]')`)));
   await I.blur();
   await I.key('Escape');
   await C.sleep(400);
@@ -207,9 +208,9 @@ async function run() {
   await I.click(I.byLabel(await profileIcon()));
   await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 700);
   await I.waitBody('POWER FEATURES', 8000);
-  const opts = await I.js(`[...document.querySelector('[aria-label="Smallest piece when a break splits a task"]').options].map((o) => o.value + ':' + o.selected)`);
+  const opts = await I.js(`[...document.querySelector('[aria-label="Minimum piece size when a Break cuts a task"]').options].map((o) => o.value + ':' + o.selected)`);
   check('P4: Settings, Planning offers 15, 30 and 60 minutes, 30 chosen by default', JSON.stringify(opts) === JSON.stringify(['15:false', '30:true', '60:false']), JSON.stringify(opts));
-  await I.js(`(() => { const s = document.querySelector('[aria-label="Smallest piece when a break splits a task"]'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, '60'); s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await I.js(`(() => { const s = document.querySelector('[aria-label="Minimum piece size when a Break cuts a task"]'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, '60'); s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   await C.sleep(600);
   const rows = JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_user_settings.kv'), 'utf8'));
   check('P4: it is saved as the synced setting planner.cut_min = 60', rows.some((r) => r.key === 'planner.cut_min' && r.value === '60' && !r.deletedAt), JSON.stringify(rows.map((r) => [r.key, r.value])));
@@ -224,7 +225,7 @@ async function run() {
   const third = await I.js(`!!document.querySelector('[data-cal-block="cal${d1}:long~3"]')`);
   check('P4: with 60 minutes each cut is judged on its own: the 50 minute first piece refuses break one (info mark), break two still cuts', stillCut && !third && !!noteNow && (await I.exists(`${cal(d1, 'b1')}.querySelector('[data-cut-note-icon]')`)), JSON.stringify([stillCut, third, noteNow && noteNow.text]));
   const tip60 = await I.js(`(() => { const i = ${cal(d1, 'b1')}.querySelector('[data-cut-note-icon]'); return i ? i.getAttribute('title') + ' | ' + i.getAttribute('aria-label') : null; })()`);
-  check('P4: a short break (no room for the badge) carries an info mark whose tooltip and aria-label say why', !!tip60 && tip60.includes('Not splitting Long host: a piece would be 50 min (the minimum is 1 h)') && tip60.split(' | ')[1] === tip60.split(' | ')[0], String(tip60));
+  check('P4: a short break (no room for the badge) carries an info mark whose tooltip and aria-label say why', !!tip60 && tip60.includes('Not cutting Long host: a piece would be 50 min (the minimum is 1 h)') && tip60.split(' | ')[1] === tip60.split(' | ')[0], String(tip60));
   // today's 90 minute and 310 minute pieces are fine at 60
   check('P4: the drawing is still cut at 60 (90 and 310 minute pieces)', await I.exists(cal(today, 'boot~2')));
   await I.shot('p14-min-60');

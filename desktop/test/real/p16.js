@@ -112,14 +112,15 @@ async function run() {
   await C.sleep(300);
   await I.click(cal(today, 'brk'), 800);
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 4000);
-  const row = await I.js(`(() => { const r = document.querySelector('[data-detail-row="Split"]'); return r ? r.innerText.replace(/\\s+/g, ' ').trim() : null; })()`);
-  check('Split: the details row is called "Split" with the plain description', !!row && row.includes('Split') && row.includes('Splits the tasks it overlaps, so you still see them before and after it.'), String(row));
-  const sw = await I.js(`(() => { const s = document.querySelector('[data-cut-switch]'); return s ? [s.getAttribute('aria-label'), s.getAttribute('aria-checked')] : null; })()`);
-  check('Split: the switch has the accessible name "Split" and is on for the break', !!sw && sw[0] === 'Split' && sw[1] === 'true', JSON.stringify(sw));
-  const rowTip = await I.js(`(() => { const r = document.querySelector('[data-detail-row="Split"] [role="heading"], [data-detail-row="Split"] [aria-label]'); return r ? [r.getAttribute('title'), r.getAttribute('aria-label')] : null; })()`);
-  check('Split: its tooltip is "Split"', !!rowTip && rowTip.every((v) => v === 'Split' || v === null) && rowTip.some((v) => v === 'Split'), JSON.stringify(rowTip));
+  // 3.27.0 (changed on purpose): Split became "Task or Break"; the Break line says "Cuts the tasks it overlaps" (Jethro's words).
+  const row = await I.js(`(() => { const r = document.querySelector('[data-detail-row="Task or Break"]'); return r ? r.innerText.replace(/\\s+/g, ' ').trim() : null; })()`);
+  check('Break: the details row is Type, Task | Break, with the Break line', !!row && row.includes('Task') && row.includes('Break') && row.includes('Cuts the tasks it overlaps into pieces and can hold other tasks inside it.'), String(row));
+  const sw = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] [data-kind="break"]'); return s ? [s.getAttribute('aria-label'), s.getAttribute('aria-checked')] : null; })()`);
+  check('Break: the option has the accessible name "Break" and is chosen for the break', !!sw && sw[0] === 'Break' && sw[1] === 'true', JSON.stringify(sw));
+  const rowTip = await I.js(`(() => { const r = document.querySelector('[data-detail-row="Task or Break"] [role="heading"]'); return r ? [r.getAttribute('title'), r.getAttribute('aria-label')] : null; })()`);
+  check('Break: its tooltip is "Task or Break"', !!rowTip && rowTip.some((v) => v === 'Task or Break'), JSON.stringify(rowTip));
   const detailText = await I.js(`document.querySelector('[data-detail-panel]').innerText`);
-  check('Split: no "Cut" wording is left in the details', !/\bcut/i.test(detailText), detailText.split('\n').filter((l) => /cut/i.test(l)).join(' | '));
+  check('Break: no "Split" wording is left in the details', !/split/i.test(detailText), detailText.split('\n').filter((l) => /split/i.test(l)).join(' | '));
   await I.blur();
   await I.key('Escape');
   await C.sleep(400);
@@ -176,8 +177,8 @@ async function run() {
   // ======== Settings: the wording and the new switch (Appearance) ========
   await goSettings();
   const settingsText = await I.js(`document.body.innerText`);
-  check('Split: Settings says "Smallest piece when a break splits a task" and its note says "Split"', settingsText.includes('Smallest piece when a break splits a task') && settingsText.includes('A task with "Split" on'), '');
-  check('Split: nothing in Settings says cut', !/\bcuts?\b|cutting/i.test(settingsText), settingsText.split('\n').filter((l) => /\bcut/i.test(l)).join(' | '));
+  check('Break: Settings says "Minimum piece size when a Break cuts a task" and its note says "A Break cuts"', settingsText.includes('Minimum piece size when a Break cuts a task') && settingsText.includes('A Break cuts the tasks it overlaps'), '');
+  check('Break: nothing in Settings says Split', !/split/i.test(settingsText), settingsText.split('\n').filter((l) => /split/i.test(l)).join(' | '));
   check('Settings: an Appearance section has "Vibrant task colours", off', settingsText.includes('APPEARANCE') && settingsText.includes('Vibrant task colours') && (await switchState()) === 'false', String(await switchState()));
   await toggleSwitch();
   await C.waitFor(() => settingsFile().vibrantColours === true, 5000).catch(() => {});

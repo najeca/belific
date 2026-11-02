@@ -99,8 +99,9 @@ async function run() {
 
   // ---- The details: Must do and Split, dark then light ----
   await openDetails();
-  const d = await audit('dark details', 2);
-  check('the details have Must do and Split', d.some((x) => /must do|top priority/i.test(x.label || '') || true) && d.some((x) => x.label === 'Split'), JSON.stringify(d.map((x) => x.label)));
+  // 3.27.0: the Split switch became the Task | Break control, so the details have one switch (Must do).
+  const d = await audit('dark details', 1);
+  check('the details have the Must do switch and the Task | Break control', d.length === 1 && (await I.exists(`document.querySelector('[data-detail-panel] [data-kind-choice]')`)), JSON.stringify(d.map((x) => x.label)));
   await I.shot('p31-details-dark');
   await I.click(`document.querySelector('[data-must-do-switch]')`, 600);
   const on = await switches();
@@ -116,7 +117,7 @@ async function run() {
   check('light is back (cream page)', (await pageBg()) === 'rgb(250, 247, 240)', await pageBg());
   await I.click(I.byLabel('Back'), 900);
   await openDetails();
-  await audit('light details', 2);
+  await audit('light details', 1);
   await I.shot('p31-details-light');
 
   const failed = summary();

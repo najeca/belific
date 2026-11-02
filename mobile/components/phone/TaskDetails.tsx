@@ -16,6 +16,7 @@ import { opsForProjected, opsForTask } from '../../lib/taskOps';
 import { materialise, moveDay } from '../../lib/seriesActions';
 import { MOVE_THIS_DAY_NOTE, movedCaptionLong } from '../../lib/series';
 import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
+import { BREAK_HINT, KIND_LABEL, TASK_HINT, kindOf, kindPatch, showsInside, type TaskKind } from '../../lib/taskKind';
 import { addTask, loadListsRaw, loadTasksRaw } from '../../lib/storage';
 import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, priorityPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -82,7 +83,14 @@ const make = (c: ColorTokens) => ({
   note: { ...type.meta, color: c.textSecondary },
   warn: { ...type.meta, color: c.danger },
   mark: { fontSize: 18, color: c.danger },
-  // 3.10.0: "Inside this break" and "During: Lunch".
+  // 3.27.0: Task | Break, two options of 44pt.
+  kindCard: { padding: 12, gap: 8 },
+  kindSeg: { flexDirection: 'row' as const, gap: 4, padding: 3, borderRadius: radius.md, backgroundColor: c.pane },
+  kindOpt: { flex: 1, minHeight: 44, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6, borderRadius: radius.md - 2 },
+  kindOptOn: { backgroundColor: c.accent },
+  kindText: { ...inter(600), fontSize: 15, color: c.textSecondary },
+  kindTextOn: { color: c.onAccent },
+  // 3.10.0: "Inside this break" and "Shows inside Lunch" (3.27.0; was "During: Lunch").
   hostBox: { backgroundColor: c.hostPill, borderRadius: radius.lg, paddingHorizontal: 6, paddingVertical: 4, marginTop: 10 },
   hostHead: { ...type.meta, ...inter(700), color: c.onHostPill, paddingHorizontal: 8, paddingTop: 6 },
   hostRow: { flexDirection: 'row' as const, alignItems: 'center' as const, minHeight: 48, gap: 4 },
@@ -366,7 +374,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
           {during.map((l) => (
             <View key={l.guest.id} style={[s.hostBox, s.hostRow, { paddingLeft: 12 }]} {...({ dataSet: { duringBreak: l.brk.task.title } } as object)}>
               <Text style={[s.hostName, { flex: 1 }]} numberOfLines={1}>
-                {`During: ${l.brk.task.title}`}
+                {showsInside(l.brk.task.title)}
               </Text>
               <Pressable onPress={() => void moveOut(l)} style={s.hostOut} accessibilityRole="button" accessibilityLabel="Move out" {...({ dataSet: { duringOut: l.guest.id } } as object)}>
                 <Text style={s.hostOutText}>Move out</Text>
@@ -468,6 +476,38 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                 />
               </View>
             ) : null}
+          </View>
+
+          {/* Task or Break (3.27.0): the desktop's control, for a finger. The stored value is cutsBelow. */}
+          <Text style={s.section}>{KIND_LABEL}</Text>
+          <View style={[s.card, s.kindCard]} {...({ dataSet: { kindChoice: kindOf(task) } } as object)}>
+            <View style={s.kindSeg} accessibilityRole="radiogroup" accessibilityLabel={KIND_LABEL}>
+              {(
+                [
+                  ['task', 'Task', 'checkmark-circle-outline'],
+                  ['break', 'Break', 'cafe-outline'],
+                ] as Array<[TaskKind, string, React.ComponentProps<typeof Ionicons>['name']]>
+              ).map(([k, text, icon]) => {
+                const on = kindOf(task) === k;
+                return (
+                  <Pressable
+                    key={k}
+                    onPress={() => (on ? undefined : void write(kindPatch(k)))}
+                    style={[s.kindOpt, on && s.kindOptOn]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={text}
+                    {...({ dataSet: { kind: k } } as object)}
+                  >
+                    <Ionicons name={icon} size={18} color={on ? c.onAccent : c.textSecondary} />
+                    <Text style={[s.kindText, on && s.kindTextOn]}>{text}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={s.note} {...({ dataSet: { kindHint: kindOf(task) } } as object)}>
+              {kindOf(task) === 'break' ? BREAK_HINT : TASK_HINT}
+            </Text>
           </View>
 
           <Text style={s.section}>Repeat and reminders</Text>

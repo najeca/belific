@@ -29,6 +29,7 @@ import ListEmoji from './ListEmoji';
 import { isMustDo } from '../../lib/mustDo';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText, VIBRANT_WHITE } from './vibrantStore';
+import { BREAK_CUP, BREAK_TAG } from '../../lib/taskKind';
 import { HostChip, MoreBadge, hostedTip, type HostedGuest } from './HostChips';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
@@ -328,6 +329,7 @@ export default function TimeBlock({
               {/* A break with tasks during it: one line (the title, a chip, "+N") or the title row and a chip per row. */}
               <View style={[styles.titleRow, chips.mode === 'inline' && styles.titleRowOne]} {...({ dataSet: { hostRow: chips.mode } } as object)}>
                 <Text style={[styles.title, styles.hostTitle, task.completed && styles.titleDone, vt]} numberOfLines={1} {...({ dataSet: { hostTitle: '1' } } as object)}>
+                  {task.cutsBelow ? <Text accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakCup: '1' } } as object)}>{`${BREAK_CUP} `}</Text> : null}
                   {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
@@ -345,6 +347,7 @@ export default function TimeBlock({
             <>
               <View style={[styles.titleRow, fullText && styles.titleRowTop]}>
                 <Text style={[styles.title, fullText && styles.titleWrap, task.completed && styles.titleDone, vt]} numberOfLines={fullText ? undefined : 1}>
+                  {task.cutsBelow ? <Text accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakCup: '1' } } as object)}>{`${BREAK_CUP} `}</Text> : null}
                   {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
@@ -388,6 +391,7 @@ export default function TimeBlock({
                   style={[styles.title, task.completed && styles.titleDone, vt]}
                   numberOfLines={1}
                 >
+                  {task.cutsBelow ? <Text accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakCup: '1' } } as object)}>{`${BREAK_CUP} `}</Text> : null}
                   {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
@@ -444,7 +448,7 @@ export default function TimeBlock({
 function blockTip(task: Task, piece?: CutPiece, note?: string, hosted?: string): string {
   const dur = formatDuration(task.durationMinutes);
   const when = piece && !piece.head ? `${formatTime(toTime(piece.startMin))} ${formatDuration(piece.leftMin)} left` : [formatTime(task.startTime ?? ''), dur].filter(Boolean).join(' ');
-  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, when, task.recurrence ? 'Repeats' : '', movedCaptionLong(task) ?? '', note ?? '', hosted ?? ''].filter(Boolean).join(', ');
+  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, task.cutsBelow ? BREAK_TAG : '', when, task.recurrence ? 'Repeats' : '', movedCaptionLong(task) ?? '', note ?? '', hosted ?? ''].filter(Boolean).join(', ');
 }
 
 // Where a drag would land on a time grid: a dashed outline at the snapped slot

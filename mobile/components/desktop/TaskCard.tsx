@@ -6,6 +6,7 @@ import { formatDuration } from '../../lib/duration';
 import { counter } from '../../lib/subtasks';
 import { dateKey } from '../../lib/kanban';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
+import { BREAK_CUP, BREAK_TAG } from '../../lib/taskKind';
 import { tipRef } from './tip';
 import { movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
 import { duringCaption, insidePill } from '../../lib/hosting';
@@ -248,8 +249,9 @@ export default function TaskCard({
   // right is the length, on every card.
   const whenText = [dayText, placed ? timesLabel(task) : null].filter(Boolean).join(' · ');
   const lengthText = formatDuration(task.durationMinutes);
-  const hasLine2 = !!whenText || steps.total > 0 || mustDo || !!moved || !!during || !!inside;
-  const hasMeta = !!whenText || !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || !!during || !!inside;
+  const isBreak = !!task.cutsBelow;
+  const hasLine2 = !!whenText || steps.total > 0 || mustDo || !!moved || !!during || !!inside || isBreak;
+  const hasMeta = isBreak || !!whenText || !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || !!during || !!inside;
 
   return (
     <HoverPressable
@@ -334,6 +336,12 @@ export default function TaskCard({
                 ) : null}
                 {hasLine2 ? (
                   <View style={styles.metaLine} {...({ dataSet: { cardMetaLine: '2' } } as object)}>
+                    {isBreak && (
+                      // 3.27.0: a Break says so on its card (the stored value is cutsBelow).
+                      <View style={styles.breakTag} accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakTag: '1' } } as object)}>
+                        <Text style={styles.breakTagText}>{`${BREAK_CUP} ${BREAK_TAG}`}</Text>
+                      </View>
+                    )}
                     {whenText ? (
                       <Text
                         style={styles.metaDay}
@@ -537,6 +545,8 @@ const styles = StyleSheet.create({
   meta: { gap: 2, paddingLeft: 26, minHeight: 20 },
   metaLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 8, rowGap: 2, minHeight: 20, minWidth: 0 },
   metaDay: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
+  breakTag: { height: 18, paddingHorizontal: 7, borderRadius: 9, backgroundColor: Colors.surfaceRaised, justifyContent: 'center' },
+  breakTagText: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
   hostPill: { height: 18, paddingHorizontal: 7, borderRadius: 9, backgroundColor: Colors.hostPill, justifyContent: 'center' },
   hostPillText: { fontSize: 11, fontWeight: '600', color: Colors.onHostPill },
   hostCaption: { fontSize: 11.5, fontWeight: '600', color: Colors.onHostPill, flexShrink: 1 },

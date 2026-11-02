@@ -33,8 +33,9 @@ export function guestText(g: HostedGuest): string {
   return `${g.task.emoji ? `${g.task.emoji} ` : ''}${g.task.title}${len ? ` ${len}` : ''}${g.task.completed ? ' (done)' : ''}${g.full.cutsBelow ? ` · ${SPLIT_IGNORED}` : ''}`;
 }
 
-// 3.22.0: a Split task inside another Split task is a chip like any other; its own Split is ignored while it is there.
-export const SPLIT_IGNORED = 'Its Split is ignored while it is inside';
+// 3.22.0: a Break inside another Break is a chip like any other; its own Break is ignored while it is there
+// (3.27.0: the words say Break, not Split).
+export const SPLIT_IGNORED = 'Its Break is ignored while it is inside';
 
 // 3.9.0: the chip's menu ("Move out of break", "Remove time") and the details' Move out: the result
 // is a 5 second Undo, or the note why nothing changed.
@@ -138,7 +139,7 @@ export function HostChip({
       onPress={() => openDetail(t.id)}
       style={[styles.chip, inline ? styles.chipInline : styles.chipStack]}
       accessibilityRole="button"
-      accessibilityLabel={`${t.title}${len ? `, ${len}` : ''}, during the break${t.completed ? ', done' : ''}${g.full.cutsBelow ? ', its Split is ignored' : ''}`}
+      accessibilityLabel={`${t.title}${len ? `, ${len}` : ''}, during the break${t.completed ? ', done' : ''}${g.full.cutsBelow ? ', its Break is ignored' : ''}`}
       ref={chipRef as never}
       {...({ dataSet: { hostChip: g.blockId, ...(g.full.cutsBelow ? { splitIgnored: '1' } : {}) } } as object)}
     >

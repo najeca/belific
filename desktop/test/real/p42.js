@@ -1,7 +1,7 @@
 'use strict';
 // Real check for 3.22.0 (step 3): dragging a Split task into another Split task. Real mouse input into the real app on an
 // isolated data folder (in process fake Supabase). A Split task held over a break for about a second outlines it with
-// "Drop inside" and the drop hosts it there (a chip, its own Split ignored); dropped without the pause it is placed as
+// "Drop inside" and the drop hosts it there (a chip, its own Break ignored); dropped without the pause it is placed as
 // before; one longer than the break shows "Longer than the break (1 h 30 min)" and is not highlighted; leaving the
 // break cancels the pause. Light and dark. BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
@@ -107,7 +107,7 @@ async function run() {
     await C.sleep(1000);
     check(`${mode}: the drop hosts it inside Lunch (it starts at the break's start, 12:00)`, byId(id).startTime === '12:00' && byId(id).dueDate === TODAY, JSON.stringify(byId(id)));
     await scrollLunch();
-    check(`${mode}: it is a chip in Lunch, its own Split ignored`, (await I.exists(chip(`task:${id}`))) && (await I.exists(`document.querySelector('[data-host-chip="task:${id}"][data-split-ignored]')`)));
+    check(`${mode}: it is a chip in Lunch, its own Break ignored`, (await I.exists(chip(`task:${id}`))) && (await I.exists(`document.querySelector('[data-host-chip="task:${id}"][data-split-ignored]')`)));
     check(`${mode}: and Lunch counts it inside`, (await I.js(`(${block('task:lunch')} || {}).getAttribute?.('data-host-count')`)) === '1');
     await I.shot(`p42-hosted-${mode}`);
   }
@@ -167,7 +167,7 @@ async function run() {
   await I.click(chip('task:focus'), 900).catch(() => {});
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 6000).catch(() => {});
   const note = await I.js(`(() => { const n = document.querySelector('[data-detail-panel] [data-split-ignored]'); return n ? n.innerText.trim() : null; })()`);
-  check('the details of a hosted Split task say its Split is ignored', note === 'Its Split is ignored while it is during Lunch.', String(note));
+  check('the details of a hosted Split task say its Break is ignored', note === 'Its Break is ignored while it is inside Lunch.', String(note));
   await I.shot('p42-details-light');
   await I.key('Escape', [], 600);
 

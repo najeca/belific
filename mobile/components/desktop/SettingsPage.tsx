@@ -240,12 +240,12 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               <ToggleRow label={STREAK_TEXT.settingLabel} value={prefs.showStreaks} onChange={(v) => setPref({ showStreaks: v })} />
               <Text style={styles.hint}>{STREAK_TEXT.settingHint}</Text>
               <View style={styles.timeRow}>
-                <Text style={styles.body}>Smallest piece when a break splits a task</Text>
+                <Text style={styles.body}>Minimum piece size when a Break cuts a task</Text>
                 <select
                   value={String(cutMin)}
                   onChange={(e) => setCutMin(parseCutMin(e.target.value))}
                   style={domStyle}
-                  aria-label="Smallest piece when a break splits a task"
+                  aria-label="Minimum piece size when a Break cuts a task"
                 >
                   {CUT_MIN_OPTIONS.map((m) => (
                     <option key={m} value={String(m)}>
@@ -255,7 +255,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
                 </select>
               </View>
               <Text style={styles.hint}>
-                A task with "Split" on (for example a break) splits the tasks it overlaps into pieces. It only does so when every piece left is at least this long; otherwise the two sit side by side and the break says why. Nothing is changed on the tasks themselves.
+                A Break cuts the tasks it overlaps into pieces. It only does so when every piece left is at least this long; otherwise the two sit side by side and the Break says why. Nothing is changed on the tasks themselves.
               </Text>
               <View {...({ dataSet: { breakTwiceSetting: '1' } } as object)}>
                 <ToggleRow label="Count minutes done during a break twice" value={breakTwice} onChange={(v) => setBreakTwice(v)} />

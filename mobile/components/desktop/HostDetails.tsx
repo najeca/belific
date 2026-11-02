@@ -10,9 +10,10 @@ import { labelColor } from '../../lib/labelColors';
 import type { Project } from '../../lib/types';
 import { moveOut, tickGuest, MOVE_OUT, type HostedGuest } from './HostChips';
 import { notifyChanged, openDetail } from './uiStore';
+import { showsInside } from '../../lib/taskKind';
 
 // The details of a task during a break (3.10.0): a break lists "Inside this break" (each task's tick,
-// title (Open), length and Move out); a hosted task says "During: Lunch" with Move out.
+// title (Open), length and Move out); a hosted task says "Shows inside Lunch" (3.27.0; was "During: Lunch") with Move out.
 const guestOf = (l: HostLink, labels: Project[]): HostedGuest => ({
   blockId: l.guest.id,
   task: l.guest.task,
@@ -70,7 +71,7 @@ export function DuringBreak({ links, labels }: { links: HostLink[]; labels: Proj
         <View key={l.guest.id} style={styles.row}>
           <Ionicons name="cafe-outline" size={14} color={Colors.onHostPill} />
           <Text style={styles.during} numberOfLines={1}>
-            {`During: ${l.brk.task.title}`}
+            {showsInside(l.brk.task.title)}
             {links.length > 1 ? ` (${formatTime(toTime(l.guest.startMin))})` : ''}
           </Text>
           <Pressable

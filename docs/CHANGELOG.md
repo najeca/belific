@@ -8,6 +8,25 @@ to know the current version and recent history.
 
 ---
 
+## 3.27.0 — 2026-11-02 (Task or Break: the Split switch becomes a two option control; Split is called Break everywhere)
+
+**Desktop and phone. No schema change, no migration, no data change: the stored value is still `cutsBelow` (Break = true, Task = unset); internal names stay.**
+- **The details** (desktop modal and the phone sheet): the Split on/off switch is replaced by **Task | Break**, two options with an icon each (a check circle for Task, a coffee cup for Break) and one plain line under them. Task: "A normal task. If you place it inside a break it shows as a chip in that break." Break: "Cuts the tasks it overlaps into pieces and can hold other tasks inside it." On the desktop the row is called **Type** (tooltip and accessible name "Task or Break"); on the phone it is its own section, "Task or Break", with two 44 pt options. The phone had no Split switch before; it has the control now.
+- **A Break shows it:** a small **"☕ Break"** tag on its card (meta line 2) and a **☕ before its title** on its Calendar and Timebox block (week and day; its accessible name says "Break").
+- **A Task placed over a Break:** its details say **"Shows inside Lunch"** (the "During: Lunch" caption, renamed; desktop and phone; Move out is unchanged). A Task over another Task shows nothing new. The card's "During Lunch" caption is unchanged.
+- **Every user visible text changed (Split to Break):**
+  1. details row "Split" (switch, tooltip "Split") → row "Type", "Task or Break", Task | Break;
+  2. "Splits the tasks it overlaps, so you still see them before and after it." → the Task line or the Break line above;
+  3. "Its Split is ignored while it is during Lunch." → "Its Break is ignored while it is inside Lunch.";
+  4. the chip's tooltip "· Its Split is ignored while it is inside" → "· Its Break is ignored while it is inside", and its accessible name ", its Split is ignored" → ", its Break is ignored";
+  5. Settings "Smallest piece when a break splits a task" (label and accessible name) → **"Minimum piece size when a Break cuts a task"**;
+  6. Settings note 'A task with "Split" on (for example a break) splits the tasks it overlaps into pieces. ... the break says why.' → "A Break cuts the tasks it overlaps into pieces. ... the Break says why.";
+  7. the block note "Not splitting Boot camp: a piece would be ..." → "Not cutting Boot camp: ..." and the badge "Not split: 20 min piece (min 30)" → "Not cut: 20 min piece (min 30)";
+  8. "No breaks today. A break is a task with Split on." → "No breaks today. A break is a task set to Break in its details.";
+  9. details "During: Lunch" → "Shows inside Lunch" (desktop and phone).
+- **How:** `lib/taskKind.ts` (new: the words, `kindOf`, `kindPatch`), `TaskDetailPanel.tsx` (`KindChoice`), phone `TaskDetails.tsx`, `TaskCard.tsx`, `TimeBlock.tsx`, `HostDetails.tsx`, `HostChips.tsx`, `SettingsPage.tsx`, `TaskPopovers.tsx`, `lib/cuts.ts`.
+- **Tests:** `taskKind.test.ts` (new, 2), `cuts.test.ts` (the notes' new words, changed on purpose). Real: **p48** (new, light and dark: Task | Break with icons and lines, Break stores only cutsBelow, the card tag and the block cup, Task clears it, "Shows inside Lunch", nothing new for a Task over a Task, no "Split" in the details, the board or Settings); **phone-p14** (+4: the phone control, 44 pt, Break and Task stored); changed on purpose: **p11** (the row is "Task or Break", up to 72 px with its control and line), **p14** (Task | Break instead of the switch; "Not cut"; the Settings label), **p16** (the row, the option, the tooltip; "no Split" instead of "no cut", since Jethro's Break line says "Cuts"), **p28** ("Shows inside Lunch"; Task instead of the switch), **p31**, **p42** ("Its Break is ignored while it is inside Lunch."), **phone-p14** ("Shows inside Tea").
+
 ## 3.26.0 — 2026-11-02 (Actual time and the timer removed from the interface; nothing stored is deleted)
 
 **Desktop (the phone never showed actual time). No schema change, no migration, no new backup, no data change.**

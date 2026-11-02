@@ -639,7 +639,7 @@ export function DuringBreakBody({ task, ops, done }: BodyProps) {
           a11y={`Do during ${b.title}, ${span(b)}`}
         />
       ))}
-      {breaks && breaks.length === 0 && <Text style={styles.hint}>No breaks today. A break is a task with Split on.</Text>}
+      {breaks && breaks.length === 0 && <Text style={styles.hint}>No breaks today. A break is a task set to Break in its details.</Text>}
       {short.length > 0 && (
         <Text style={styles.hint} {...({ dataSet: { duringBreakShort: '1' } } as object)}>
           {LONGER_THAN_BREAK}: {short.map((b) => b.title).join(', ')}

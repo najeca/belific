@@ -15,6 +15,7 @@ import { addTask, loadLists, loadTasksRaw } from '../../lib/storage';
 import { DETAILS_LONGER, hostLinks, type HostLink } from '../../lib/hosting';
 import { breakRefusal } from '../../lib/hostActions';
 import { DuringBreak, InsideBreak } from './HostDetails';
+import { BREAK_HINT, KIND_LABEL, TASK_HINT, breakIgnored, kindOf, kindPatch, type TaskKind } from '../../lib/taskKind';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
@@ -477,15 +478,15 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
           <RepeatField task={task} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
-        {/* Split (Part B; field cutsBelow): a break splits the timed tasks it overlaps into pieces. Off by default. */}
-        <DetailRow icon="cut-outline" label="Split" shown="Split" tip="Split">
-          <View style={styles.row}>
-            <Toggle value={!!task.cutsBelow} onValueChange={(v) => patch({ cutsBelow: v ? true : undefined })} label="Split" dataSet={{ cutSwitch: task.cutsBelow ? '1' : '0' }} />
-            <Text style={styles.hintText}>Splits the tasks it overlaps, so you still see them before and after it.</Text>
-          </View>
+        {/* Task or Break (3.27.0; was the Split switch, field cutsBelow): a Break cuts the timed tasks it overlaps into pieces. */}
+        <DetailRow icon={kindOf(task) === 'break' ? 'cafe-outline' : 'checkmark-circle-outline'} label={KIND_LABEL} shown="Type" tip={KIND_LABEL}>
+          <KindChoice value={kindOf(task)} onChange={(k) => patch(kindPatch(k))} />
+          <Text style={styles.hintText} {...({ dataSet: { kindHint: kindOf(task) } } as object)}>
+            {kindOf(task) === 'break' ? BREAK_HINT : TASK_HINT}
+          </Text>
           {task.cutsBelow && links.some((l) => l.guest.full.id === task.id) ? (
             <Text style={styles.quietSub} {...({ dataSet: { splitIgnored: '1' } } as object)}>
-              {`Its Split is ignored while it is during ${links.find((l) => l.guest.full.id === task.id)?.brk.full.title ?? 'the break'}.`}
+              {breakIgnored(links.find((l) => l.guest.full.id === task.id)?.brk.full.title ?? 'the break')}
             </Text>
           ) : null}
         </DetailRow>
@@ -810,6 +811,35 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
 // value on the right, no divider lines.
 // `label` keys the row; `shown` replaces the words on screen (the priority row shows
 // only its mark) and `tip` is then its hover tooltip and screen reader name.
+// Task | Break (3.27.0): two options side by side, each with its icon; the chosen one is filled.
+function KindChoice({ value, onChange }: { value: TaskKind; onChange: (k: TaskKind) => void }) {
+  const opts: Array<[TaskKind, string, React.ComponentProps<typeof Ionicons>['name']]> = [
+    ['task', 'Task', 'checkmark-circle-outline'],
+    ['break', 'Break', 'cafe-outline'],
+  ];
+  return (
+    <View style={styles.kindSeg} accessibilityRole="radiogroup" accessibilityLabel={KIND_LABEL} {...({ dataSet: { kindChoice: value } } as object)}>
+      {opts.map(([k, text, icon]) => {
+        const on = value === k;
+        return (
+          <Pressable
+            key={k}
+            onPress={() => !on && onChange(k)}
+            style={[styles.kindOpt, on && styles.kindOptOn]}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: on }}
+            accessibilityLabel={text}
+            {...({ 'aria-checked': on, dataSet: { kind: k } } as object)}
+          >
+            <Ionicons name={icon} size={14} color={on ? Colors.onAccent : Colors.textSecondary} />
+            <Text style={[styles.kindText, on && styles.kindTextOn]}>{text}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function DetailRow({ glyph, icon, label, shown, tip, children }: { glyph?: string; icon?: React.ComponentProps<typeof Ionicons>['name']; label: string; shown?: string; tip?: string; children: React.ReactNode }) {
   const text = shown ?? label;
   return (
@@ -849,6 +879,11 @@ const domSelect: React.CSSProperties = {
 };
 
 const styles = StyleSheet.create({
+  kindSeg: { flexDirection: 'row', alignSelf: 'flex-start', padding: 2, gap: 2, borderRadius: 9, backgroundColor: Colors.surfaceRaised },
+  kindOpt: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 26, paddingHorizontal: 10, borderRadius: 7 },
+  kindOptOn: { backgroundColor: Colors.accent },
+  kindText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  kindTextOn: { color: Colors.onAccent },
   layer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: Colors.scrim, cursor: 'default' } as never,
   centre: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24 },

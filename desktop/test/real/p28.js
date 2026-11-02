@@ -190,7 +190,7 @@ async function run() {
   check('and again unticks it', !(byId('pill').timesDone || []).includes('12:40'), JSON.stringify(byId('pill')));
   await I.click(`document.querySelector('[data-inside-open="task:pill@12:40"]')`, 900);
   check('its title opens that task', (await I.js(`[...document.querySelectorAll('[data-detail-panel] input')].map((e) => e.value).join('|')`)).includes('Take a pill'));
-  check('a hosted task\'s details say "During: Lunch" with Move out', /During: Lunch/.test(await detailText()) && (await I.exists(`document.querySelector('[data-during-out]')`)), await detailText());
+  check('a hosted task\'s details say "Shows inside Lunch" with Move out (3.27.0)', /Shows inside Lunch/.test(await detailText()) && (await I.exists(`document.querySelector('[data-during-out]')`)), await detailText());
   await I.shot('p28-06-hosted-details-light');
   await I.click(`document.querySelector('[data-during-out]')`, 900);
   check('Move out from the details moves only that time out, with Undo', JSON.stringify(byId('pill').extraTimes) === '["13:30"]' && /Moved Take a pill out of Lunch/.test(await undoText()), JSON.stringify(byId('pill')));
@@ -313,7 +313,7 @@ async function run() {
 
   // Split turned off: its tasks go back to normal blocks.
   await I.click(card('Tea break'), 900);
-  await I.click(`document.querySelector('[data-detail-panel] [data-cut-switch]')`, 900);
+  await I.click(`document.querySelector('[data-detail-panel] [data-kind="task"]')`, 900);
   await closeDetails();
   check('Split off: the walk is a block of its own again, the tea break hosts nothing', (await I.exists(V(tb(walkId)))) && !(await I.js(`!!(${V(tb('tea'))} || {}).getAttribute?.('data-host-count')`)));
   // A break deleted: its tasks go back to normal blocks.

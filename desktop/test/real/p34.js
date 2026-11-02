@@ -79,9 +79,10 @@ async function run() {
     const dayId = day(0);
     const dfit = await placeholderFit(dayId);
     check(`${mode}: a day column's Add row keeps its placeholder whole too, and its label button`, !!dfit && dfit.room >= dfit.text && dfit.buttons.includes('addLabel') && !dfit.buttons.includes('addDetails'), JSON.stringify(dfit));
-    const dayTotal = await I.js(`(() => { const b = ${box(dayId)}; return b ? /\\d+:\\d\\d \\/ \\d+:\\d\\d/.test(b.innerText) : null; })()`);
-    check(`${mode}: and the day's total (0:00 / 7:00) is still in it`, dayTotal === true, String(dayTotal));
-    const oneLine = await I.js(`(() => { const t = [...${box(dayId)}.querySelectorAll('div')].find((e) => /\\d+:\\d\\d \\/ \\d+:\\d\\d/.test(e.textContent) && e.children.length === 0); return t ? Math.round(t.getBoundingClientRect().height) : null; })()`);
+    // 3.26.0 (changed on purpose): the total is the estimate alone ("7:00", it was "0:00 / 7:00").
+    const dayTotal = await I.js(`(() => { const b = ${box(dayId)}; const t = b && b.querySelector('[aria-label^="Estimated for the day"]'); return t ? /^\\d+:\\d\\d$/.test(t.textContent.trim()) && !/\\//.test(b.innerText) : null; })()`);
+    check(`${mode}: and the day's total (the estimate, H:MM) is still in it`, dayTotal === true, String(dayTotal));
+    const oneLine = await I.js(`(() => { const t = [...${box(dayId)}.querySelectorAll('[aria-label^="Estimated for the day"]')][0]; return t ? Math.round(t.getBoundingClientRect().height) : null; })()`);
     check(`${mode}: the total stays on one line`, oneLine !== null && oneLine <= 24, String(oneLine));
   }
 

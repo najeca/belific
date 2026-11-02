@@ -71,6 +71,13 @@ async function run() {
   const visible = (sel) => `[...document.querySelectorAll(${JSON.stringify(sel)})].reverse().find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.left >= -1 && r.left < innerWidth && r.top < innerHeight && r.bottom > 0; })`;
   const inSheet = (sel) => `(() => { const root = document.querySelector('[data-task-details]'); const sheet = root && root.parentElement; return sheet ? [...sheet.querySelectorAll(${JSON.stringify(sel)})].find((e) => e.getBoundingClientRect().height > 0) : null; })()`;
   const scrollTo = (sel) => P.js(`(() => { const e = ${inSheet(sel)}; if (e) e.scrollIntoView({ block: 'center' }); return !!e; })()`);
+  // A day of the open month grid, computed from today (3.29.0): the first of the wanted days the grid shows; when
+  // none is shown (today is near the end of a month) the grid goes to the next month first. No fixed date.
+  const gridDay = async (wanted) => {
+    for (const k of wanted) if (await P.js(`!!${inSheet(`[data-day="${k}"]`)}`)) return k;
+    await tapIn('[aria-label="Next month"]');
+    return wanted[0];
+  };
   const tapIn = async (sel, wait = 700) => {
     await scrollTo(sel);
     await C.sleep(250);
@@ -121,8 +128,9 @@ async function run() {
   await tapIn('[aria-label="Tomorrow"]');
   check('Tomorrow sets tomorrow', task('full').dueDate === day(1) && kept(task('full')));
   await tapIn('[data-detail-row="date"]');
-  await tapIn(`[data-day="${day(5)}"]`);
-  check('a day in the month grid sets that day', task('full').dueDate === day(5));
+  const picked = await gridDay([day(5), day(4), day(3), day(6)]);
+  await tapIn(`[data-day="${picked}"]`);
+  check('a day in the month grid sets that day', task('full').dueDate === picked, `${task('full').dueDate} / ${picked}`);
   await shot('phone-p6-date');
 
   // Time: a clash with the other time is refused with a note; a free time is saved, the other kept.

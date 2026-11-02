@@ -73,6 +73,13 @@ async function run() {
   const inSheet = (sel) => `(() => { const root = document.querySelector('[data-task-details]'); const sheet = root && root.parentElement; return sheet ? [...sheet.querySelectorAll(${JSON.stringify(sel)})].find((e) => e.getBoundingClientRect().height > 0) : null; })()`;
   const sheetText = () => P.js(`(document.querySelector('[data-task-details]') || {}).parentElement?.innerText || ''`);
   const scrollTo = (sel) => P.js(`(() => { const e = ${inSheet(sel)}; if (e) e.scrollIntoView({ block: 'center' }); return !!e; })()`);
+  // A day of the open month grid, computed from today (3.29.0): the first of the wanted days the grid shows; when
+  // none is shown (today is near the end of a month) the grid goes to the next month first. No fixed date.
+  const gridDay = async (wanted) => {
+    for (const k of wanted) if (await P.js(`!!${inSheet(`[data-day="${k}"]`)}`)) return k;
+    await tapIn('[aria-label="Next month"]');
+    return wanted[0];
+  };
   const tapIn = async (sel, wait = 700) => {
     await scrollTo(sel);
     await C.sleep(250);
@@ -93,10 +100,11 @@ async function run() {
   check('the date sheet of a repeating day says only this day moves', sheet.includes('Only this day moves'), sheet.slice(0, 400));
   check('and has no "No date" (a day of a series keeps a Day)', !(await P.js(`!!${inSheet('[aria-label="No date"]')}`)));
   await shot('phone-p12-date-sheet');
-  await tapIn(`[data-day="${day(2)}"]`);
+  const moveTo = await gridDay([day(2), day(3), day(4)]);
+  await tapIn(`[data-day="${moveTo}"]`);
   await C.sleep(500);
   const moved = task(`walk:${today}`);
-  check('the day is stored with its own id on the new Day, keeping its rule', !!moved && moved.dueDate === day(2) && moved.recurrence === 'daily' && !moved.deletedAt, JSON.stringify(moved));
+  check('the day is stored with its own id on the new Day, keeping its rule', !!moved && moved.dueDate === moveTo && moved.recurrence === 'daily' && !moved.deletedAt, JSON.stringify(moved));
   check('the series is unchanged', task('walk').dueDate === day(-7) && task('walk').startTime === '07:00' && read('belific_tasks').filter((t) => t.id.startsWith('walk')).length === 2);
   await P.finger.tap(visible('[aria-label="Done"]'), 900);
   check('today no longer shows the walk (it moved away)', (await todayRows('Morning walk')) === 0);

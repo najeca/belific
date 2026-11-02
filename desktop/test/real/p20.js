@@ -132,7 +132,7 @@ async function run() {
   const d1 = await box(cal(D, 'brk'));
   const d2 = await box(cal(D, 'brk@15:00'));
   // A short block is one line: a done time shows its title struck through (the "done" word needs a taller block).
-  const struck = (expr) => I.js(`(() => { const e = ${expr}; if (!e) return null; const t = Array.from(e.querySelectorAll('*')).find((n) => n.children.length === 0 && n.textContent.trim() === 'Short break'); return t ? getComputedStyle(t).textDecorationLine.includes('line-through') : null; })()`);
+  const struck = (expr) => I.js(`(() => { const e = ${expr}; if (!e) return null; const t = Array.from(e.querySelectorAll('*')).filter((n) => n.textContent.replace('☕', '').trim() === 'Short break').pop(); return t ? getComputedStyle(t).textDecorationLine.includes('line-through') : null; })()`);
   check('D: ticking 11:00 marks only the 11:00 block as done (its title is struck through, the 15:00 one is not)', !!d1 && !!d2 && (await struck(cal(D, 'brk'))) === true && (await struck(cal(D, 'brk@15:00'))) === false, JSON.stringify([await struck(cal(D, 'brk')), await struck(cal(D, 'brk@15:00'))]));
 
   // ======== E: dragging one block moves only its time ========

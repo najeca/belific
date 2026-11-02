@@ -827,6 +827,7 @@ export default function CalendarPane({
                         note={d.notes.get(b.id)}
                         badge={d.badges.get(b.id)}
                         hosted={d.hostedBy.get(b.id)}
+                        wideChips={effView === 'day'}
                         fullText
                         gridNode={() => gridEl.current}
                         onChanged={onChanged}

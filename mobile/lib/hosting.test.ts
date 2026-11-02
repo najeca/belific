@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. A task during a break (3.5.0): hosted when fully inside a break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DETAILS_LONGER, breakLosesGuests, fitRefusal, hostSnapshot, longerNote, lostGuests, lostNote, duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
+import { DETAILS_LONGER, breakLosesGuests, fitRefusal, hostSnapshot, longerNote, lostGuests, lostNote, duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, chipsThatFit, chipLines, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
 import { cutDay, planCuts } from './cuts.ts';
 import { COMPACT_BLOCK_PX, PX_PER_HOUR } from './timebox.ts';
 import type { Task } from './types.ts';
@@ -352,4 +352,52 @@ test('breaksFitting: strict for a Split task (a break as long as the task would 
 test('breakEntries: the entries that are breaks now, not the hosted Split tasks', () => {
   const entries = [brk('outer', h(9), h(13)), brk('inner', h(10), h(11)), task('x', h(14), h(15))];
   assert.deepEqual(breakEntries(entries).map((e) => e.id), ['outer']);
+});
+
+// 3.28.0: Day view chips, as many as fit. Chips 100 px wide with a 4 px gap, in rows of 14 px with 2 px between.
+function lay(n: number, lineW: number, lines: number, chipW = 100): { chips: Array<{ left: number; top: number; right: number; bottom: number }>; area: { left: number; top: number; right: number; bottom: number } } {
+  // How a wrapping row lays them out: a chip goes on the next line when it does not fit on this one.
+  const chips = [];
+  let x = 0;
+  let line = 0;
+  for (let i = 0; i < n; i++) {
+    const w = Math.min(chipW, lineW);
+    if (x > 0 && x + w > lineW) {
+      x = 0;
+      line += 1;
+    }
+    chips.push({ left: x, top: line * 16, right: x + w, bottom: line * 16 + 14 });
+    x += w + 4;
+  }
+  return { chips, area: { left: 0, top: 0, right: lineW, bottom: lines * 16 - 2 } };
+}
+test('3.28.0 chipsThatFit: 1, 2, 3 and 5 hosted tasks at several widths, one line and two', () => {
+  const fit = (n: number, w: number, lines: number) => {
+    const { chips, area } = lay(n, w, lines);
+    return chipsThatFit(chips, area);
+  };
+  // One line (a short break in Day view).
+  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 600, 1)), [1, 2, 3, 5], 'a wide line: every chip');
+  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 320, 1)), [1, 2, 3, 3], '320 px: three fit, +2');
+  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 210, 1)), [1, 2, 2, 2], '210 px: two fit');
+  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 120, 1)), [1, 1, 1, 1], '120 px: one');
+  // Two lines (a taller break): the chips wrap.
+  assert.deepEqual([1, 2, 3, 5].map((n) => fit(n, 210, 2)), [1, 2, 3, 4], '210 px, two lines: four fit, +1');
+  // Narrower means fewer, never more.
+  for (const n of [1, 2, 3, 5]) for (const lines of [1, 2]) {
+    let prev = Infinity;
+    for (const w of [700, 500, 320, 210, 150, 104]) {
+      const k = fit(n, w, lines);
+      assert.ok(k <= prev, `${n} chips, ${lines} lines, ${w} px`);
+      prev = k;
+    }
+  }
+  // A chip that sticks out stops the count there (and every one after it is "+N").
+  assert.equal(chipsThatFit([{ left: 0, top: 0, right: 90, bottom: 14 }, { left: 94, top: 0, right: 230, bottom: 14 }, { left: 0, top: 0, right: 10, bottom: 14 }], { left: 0, top: 0, right: 200, bottom: 14 }), 1);
+  assert.equal(chipsThatFit([], { left: 0, top: 0, right: 200, bottom: 14 }), 0);
+});
+test('3.28.0 chipLines: the lines of chips under the title, at least one', () => {
+  assert.equal(chipLines(30), 1);
+  assert.equal(chipLines(52), 2);
+  assert.equal(chipLines(84), 4);
 });

@@ -129,13 +129,16 @@ async function run() {
 
   // The four breaks, in one place (`where` names the view and the theme).
   // `four`: after the menu put Plan the week in Long lunch too.
-  const checkBreaks = async (where, sel, { narrow = false, four = false } = {}) => {
+  const checkBreaks = async (where, sel, { narrow = false, four = false, day = false } = {}) => {
     const expect = {
       tea1: { mode: 'inline', chips: narrow ? 0 : 1, more: narrow ? '1' : '0', titles: ['Stretch'] },
       tea3: { mode: 'inline', chips: narrow ? 0 : 1, more: narrow ? '3' : '2', titles: ['Water the plants', 'Check the post', 'Text Mum'] },
       lunch1: { mode: 'stack', chips: 1, more: '0', titles: ['Listen to a podcast'] },
       lunch3: { mode: 'stack', chips: 2, more: four ? '2' : '1', titles: ['Reply to Sam', 'Call the bank', 'Read a chapter', ...(four ? ['Plan the week'] : [])] },
     };
+    // 3.28.0 (changed on purpose): the Calendar's Day view is one wide column, so every chip that fits is shown side
+    // by side ("flow-"), and here (about 1000 px) they all fit: no "+N".
+    if (day) for (const e of Object.values(expect)) Object.assign(e, { mode: `flow-${e.mode}`, chips: e.titles.length, more: '0' });
     for (const [id, e] of Object.entries(expect)) {
       await scrollTo(sel(id));
       await C.sleep(250);
@@ -291,7 +294,7 @@ async function run() {
   await I.shot('p27-09-timebox-dark-60min');
   await I.click(`document.querySelector('[aria-label="Show the Calendar"]') || document.querySelector('[aria-label="Show Calendar"]')`, 1200);
   await C.waitFor(() => I.exists(V(calSel('lunch1'))), 6000).catch(() => {});
-  await checkBreaks('Calendar dark', calSel, { four: true });
+  await checkBreaks('Calendar dark', calSel, { four: true, day: true });
   await scrollTo(calSel('tea3'));
   await I.shot('p27-10-calendar-dark-20min');
   await scrollTo(calSel('lunch3'));

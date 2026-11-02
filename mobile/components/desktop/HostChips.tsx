@@ -72,10 +72,13 @@ export function HostChip({
   brk,
   scope = '',
   gridNode,
+  flow,
 }: {
   g: HostedGuest;
   onChanged: () => void;
   inline?: boolean;
+  // 3.28.0: side by side in a wide column: the chip keeps its own width (its title and length), at most the line.
+  flow?: boolean;
   brk: HostBreak;
   scope?: string;
   gridNode: () => HTMLElement | null;
@@ -137,7 +140,7 @@ export function HostChip({
   return (
     <Pressable
       onPress={() => openDetail(t.id)}
-      style={[styles.chip, inline ? styles.chipInline : styles.chipStack]}
+      style={[styles.chip, flow ? styles.chipFlow : inline ? styles.chipInline : styles.chipStack]}
       accessibilityRole="button"
       accessibilityLabel={`${t.title}${len ? `, ${len}` : ''}, during the break${t.completed ? ', done' : ''}${g.full.cutsBelow ? ', its Break is ignored' : ''}`}
       ref={chipRef as never}
@@ -229,6 +232,7 @@ const styles = StyleSheet.create({
   } as object,
   chipInline: { flexShrink: 1, maxWidth: '62%' },
   chipStack: { alignSelf: 'flex-start', maxWidth: '100%', marginTop: 2 },
+  chipFlow: { flexShrink: 0, maxWidth: '100%' },
   dotHit: { width: 10, height: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   check: { fontSize: 9, lineHeight: 10, fontWeight: '700', color: Colors.onHostChip },

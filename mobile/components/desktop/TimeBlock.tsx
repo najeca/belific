@@ -5,7 +5,7 @@ import { Colors } from '../../lib/theme';
 import { formatTime } from '../../lib/data';
 import { formatDuration } from '../../lib/duration';
 import { toMinutes, toTime, blockHeightPx, COMPACT_BLOCK_PX } from '../../lib/timebox';
-import { chipPlan } from '../../lib/hosting';
+import { chipLines, chipPlan, chipsThatFit } from '../../lib/hosting';
 import { BLOCK_DROP_ORDER, blockPlan } from '../../lib/blockLayout';
 import { pieceTimeText, type CutPiece } from '../../lib/cuts';
 import { nudgeBlock, slotLabel, taskDuration, yToMinutes, type BlockNudge } from '../../lib/drag';
@@ -75,7 +75,11 @@ export default function TimeBlock({
   time,
   blockSuffix,
   hosted,
+  wideChips,
 }: {
+  // 3.28.0: the Calendar's Day view (one wide column): a break shows as many chips as fit on its line or lines,
+  // "+N" only for the rest. The week view and the Timebox (a narrow column) leave it unset and keep chipPlan.
+  wideChips?: boolean;
   // A break (3.6.0, lib/hosting.ts): the tasks fully inside it, drawn as chips in this block.
   hosted?: HostedGuest[];
   // A task with several times a day (Part C) is drawn once per time: `task` is the single-time copy this
@@ -276,6 +280,28 @@ export default function TimeBlock({
   // 3.6.0: the chips of the tasks during this break (not while it is being resized).
   const guests = hosted && hosted.length > 0 && resizing === undefined ? hosted : undefined;
   const chips = guests ? chipPlan(shownH, boxW, guests.length, COMPACT_BLOCK_PX) : null;
+  // 3.28.0: in a wide column the chips flow side by side; they are drawn, measured, and the ones that do not fit
+  // (with everything after them) become "+N". Measured again whenever the size, the tasks or their titles change.
+  const flow = !!chips && !!guests && !!wideChips;
+  const flowKey = flow && guests ? `${shownH}|${boxW}|${chips?.mode}|${guests.map((g) => `${g.blockId}:${g.task.title}:${g.task.durationMinutes}:${g.task.completed}`).join(',')}` : '';
+  const [flowFit, setFlowFit] = useState({ key: '', n: 0 });
+  const flowN = flow && guests ? (flowFit.key === flowKey ? flowFit.n : guests.length) : 0;
+  const chipsBox = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (!flow || !guests) return;
+    if (flowFit.key !== flowKey) {
+      setFlowFit({ key: flowKey, n: guests.length });
+      return;
+    }
+    const box = chipsBox.current;
+    if (!box) return;
+    const rect = (e: Element) => {
+      const r = e.getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    };
+    const k = chipsThatFit(Array.from(box.children).map(rect), rect(box));
+    if (k < flowFit.n) setFlowFit({ key: flowKey, n: k });
+  });
   // Where "Move out" puts a task: right after this break (this block's own time).
   const hostBreak = { endMin: startMin + taskDuration(task), title: task.title };
   useLayoutEffect(() => {
@@ -324,7 +350,34 @@ export default function TimeBlock({
           accessibilityLabel={`${a11y}${time ? `, ${formatTime(time)}` : ''}${piece ? `, part ${piece.index + 1} of ${piece.count}` : ''}${moved ? `, ${moved}` : ''}${hosted?.length ? `, ${hostTip.toLowerCase()}` : ''}`}
           {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
-          {chips && guests ? (
+          {flow && chips && guests ? (
+            <>
+              {/* 3.28.0, a wide column: the title, then the chips side by side (one line, or wrapping over the lines the block has), "+N" for the rest. */}
+              <View style={[styles.titleRow, chips.mode === 'inline' && styles.titleRowOne]} {...({ dataSet: { hostRow: `flow-${chips.mode}` } } as object)}>
+                <Text style={[styles.title, styles.hostTitle, chips.mode === 'inline' && styles.flowTitle, task.completed && styles.titleDone, vt]} numberOfLines={1} {...({ dataSet: { hostTitle: '1' } } as object)}>
+                  {task.cutsBelow ? <Text accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakCup: '1' } } as object)}>{`${BREAK_CUP} `}</Text> : null}
+                  {task.emoji ? `${task.emoji} ` : ''}
+                  {task.title}
+                </Text>
+                {chips.mode === 'inline' && (
+                  <View ref={((n: unknown) => { chipsBox.current = domNode(n); }) as never} style={styles.flowLine} {...({ dataSet: { hostChips: String(flowN) } } as object)}>
+                    {guests.slice(0, flowN).map((g) => <HostChip key={g.blockId} g={g} onChanged={onChanged} flow brk={hostBreak} scope={scope} gridNode={gridNode} />)}
+                  </View>
+                )}
+                {chips.mode === 'stack' && !!inlineText && (
+                  <Text style={[styles.timeInline, styles.hostTime, vm]} numberOfLines={1}>
+                    {inlineText}
+                  </Text>
+                )}
+                {guests.length - flowN > 0 && <MoreBadge n={guests.length - flowN} tip={hostTip} />}
+              </View>
+              {chips.mode === 'stack' && (
+                <View ref={((n: unknown) => { chipsBox.current = domNode(n); }) as never} style={[styles.flowWrap, { maxHeight: chipLines(shownH) * 16 - 2 }]} {...({ dataSet: { hostChips: String(flowN) } } as object)}>
+                  {guests.slice(0, flowN).map((g) => <HostChip key={g.blockId} g={g} onChanged={onChanged} flow brk={hostBreak} scope={scope} gridNode={gridNode} />)}
+                </View>
+              )}
+            </>
+          ) : chips && guests ? (
             <>
               {/* A break with tasks during it: one line (the title, a chip, "+N") or the title row and a chip per row. */}
               <View style={[styles.titleRow, chips.mode === 'inline' && styles.titleRowOne]} {...({ dataSet: { hostRow: chips.mode } } as object)}>
@@ -481,6 +534,10 @@ const styles = StyleSheet.create({
   titleRowOne: { flex: 1 },
   // A break's title keeps some room beside its chip; its own time gives way first.
   hostTitle: { minWidth: 36 },
+  // 3.28.0: the chips of a wide column. The title keeps up to half of a one line break; the chips take the rest.
+  flowTitle: { flexShrink: 0, maxWidth: '50%' },
+  flowLine: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 4, overflow: 'hidden', height: 14 },
+  flowWrap: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 4, rowGap: 2, marginTop: 2, overflow: 'hidden', minWidth: 0 },
   hostTime: { flexShrink: 10, minWidth: 0, marginLeft: 'auto' } as object,
   rightText: { marginLeft: 'auto' },
   noShrink: { flexShrink: 0 },

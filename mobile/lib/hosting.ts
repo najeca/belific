@@ -325,6 +325,32 @@ export function chipPlan(heightPx: number, widthPx: number, count: number, compa
   return { mode: 'stack', shown, more: n - shown };
 }
 
+// 3.28.0: the Day view (and the Timebox, a single wide column) lays the chips out as many as fit, side by side
+// on the break's line or lines, each with its title and length; "+N" counts only the ones that do not fit.
+// The chips are drawn, then measured: this counts how many of them, in order, sit wholly inside the box the
+// chips may use (a chip that sticks out, or wraps below the last line, and every chip after it, is "+N").
+// Half a pixel of rounding is allowed. The week view keeps chipPlan as it was.
+export interface Box {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+export function chipsThatFit(chips: Box[], area: Box): number {
+  let n = 0;
+  for (const c of chips) {
+    const inside = c.left >= area.left - 0.5 && c.right <= area.right + 0.5 && c.top >= area.top - 0.5 && c.bottom <= area.bottom + 0.5;
+    if (!inside || c.right - c.left <= 0) break;
+    n += 1;
+  }
+  return n;
+}
+
+// How many lines of chips a stacked break has room for under its title (at least one).
+export function chipLines(heightPx: number, rowPx = CHIP_ROW_PX, topPx = STACK_TOP_PX): number {
+  return Math.max(1, Math.floor((heightPx - topPx) / rowPx));
+}
+
 // The minutes a day's hosted tasks share with their breaks: for each break, the time its tasks cover
 // (each is fully inside it; two that overlap each other share those minutes once). "Count minutes done
 // during a break twice" off (the default) takes these off a total that adds up lengths, so the

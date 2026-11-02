@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.28.0 — 2026-11-02 (Day view: a break shows as many hosted chips as fit, "+N" only for the rest)
+
+**Desktop, the Calendar's Day view. No schema change, no migration, no data change.**
+- **Before:** a break that hosts tasks drew one chip beside its title (a short break) or one chip per row (a taller one), the same in every view, so a 20 minute break in a 1000 px wide Day view showed one chip and "+4".
+- **Now, in Day view:** the chips sit side by side, each with its title and length: a short break puts them on its one line after the title; a taller break wraps them over the lines it has under its title. "+N" (on the title row, its tooltip listing everything) counts only the chips that do not fit. A narrower window or column shows fewer chips and a larger "+N". The title keeps up to half of a one line break; a single chip wider than the line shortens its own title with an ellipsis. **Nothing overlaps:** the chips are drawn, measured and trimmed until every one shown is wholly inside its line (`lib/hosting.ts` `chipsThatFit`, `chipLines`; measured again when the size, the tasks or their titles change).
+- **Unchanged:** the week view and the Timebox (a narrow column) keep the old layout (`chipPlan`); the phone keeps its badge; ticking, opening, the ⋯ menu and dragging a chip are the same.
+- **Tests:** `hosting.test.ts` +2 (1, 2, 3 and 5 chips at 600, 320, 210 and 120 px on one line and two; narrower never shows more; a chip that sticks out stops the count; `chipLines`). Real **p49** (new, 161 checks, light and dark: 1, 2, 3 and 5 hosted tasks in a 60 and a 20 minute break at window widths 1440, 1100, 900 and 760: shown plus "+N" equals the tasks in order, a narrower block never shows more, nothing overlaps or sticks out, every chip has a title and a length, the week view keeps "stack"). **p27** changed on purpose: its Calendar part is in Day view, where every chip now fits (no "+N").
+
 ## 3.27.0 — 2026-11-02 (Task or Break: the Split switch becomes a two option control; Split is called Break everywhere)
 
 **Desktop and phone. No schema change, no migration, no data change: the stored value is still `cutsBelow` (Break = true, Task = unset); internal names stay.**

@@ -71,14 +71,23 @@ async function run() {
   win.show();
   win.focus();
   win.webContents.focus();
+  // 3.29.2: Windows can leave the test window covered; a covered window has document.visibilityState
+  // "hidden" and Chromium then drops the mouse moves that reveal a card's icons, so the clicks below
+  // fell through to the card (details instead of the ⋮ menu, or no Tasks view at all). Raise it and wait.
+  win.setAlwaysOnTop(true);
+  win.moveTop();
+  await C.waitFor(async () => (await js('document.visibilityState')) === 'visible', 10000).catch(() => {});
   const body = () => js('document.body.innerText');
   await C.waitFor(async () => (await body()).includes('Daily walk'), 20000);
   // 2.28.0: the app opens on the Calendar; this check starts on the Tasks view.
-  {
+  // 3.29.2: press Show Tasks until the Tasks board is really there (the first mouse events of a fresh window can be dropped).
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (await win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[data-day-col]')).some((e) => e.getBoundingClientRect().width > 0)`, true)) break;
     const pt = await win.webContents.executeJavaScript(`(() => { const e = document.querySelector('[aria-label="Show Tasks"]'); if (!e) return null; const b = e.getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }; })()`, true);
     if (pt) for (const type of ['mouseMove', 'mouseDown', 'mouseUp']) win.webContents.sendInputEvent({ type, x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
     await C.sleep(700);
   }
+  await C.waitFor(() => win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[aria-label="Task Daily walk"]:not([data-block-id])')).some((c) => { const col = c.closest('[data-day-col]'); return col && col.getBoundingClientRect().width > 0; })`, true), 8000).catch(() => {});
 
   const rectOf = (expr) =>
     js(`(() => { const el = ${expr}; if (!el) return null; el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), w: r.width, h: r.height, top: r.top, bottom: r.bottom, left: r.left, right: r.right }; })()`);
@@ -96,6 +105,16 @@ async function run() {
       const same = again && again.x === r.x && again.y === r.y;
       r = again || r;
       if (same) break;
+    }
+    // 3.29.2: press only once the element really is under the pointer (card icons only take the
+    // pointer after the card is hovered); if not, move away and back to raise the hover again.
+    for (let i = 0; i < 6; i++) {
+      const hit = await js(`(() => { const e = ${expr}; if (!e) return false; const t = document.elementFromPoint(${r.x}, ${r.y}); return !!t && (t === e || e.contains(t)); })()`);
+      if (hit) break;
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.max(1, r.x - 40), y: Math.max(1, r.y + 40) });
+      await C.sleep(120);
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: r.x, y: r.y });
+      await C.sleep(200);
     }
     mouse('mouseDown', r.x, r.y);
     mouse('mouseUp', r.x, r.y);

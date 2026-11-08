@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   dotHit: { width: 10, height: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   check: { fontSize: 9, lineHeight: 10, fontWeight: '700', color: Colors.onHostChip },
-  chipTitle: { flexShrink: 1, minWidth: 0, fontSize: 10, lineHeight: 14, fontWeight: '600', color: Colors.onHostChip },
+  chipTitle: { flexShrink: 1, minWidth: 0, fontSize: 10, lineHeight: 14, fontWeight: '700', color: Colors.onHostChip },
   chipDone: { textDecorationLine: 'line-through' },
   chipLen: { flexShrink: 0, fontSize: 10, lineHeight: 14, color: Colors.onHostChip },
   menuBtn: { width: 12, height: 14, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: -2, marginRight: -4 },

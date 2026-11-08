@@ -85,7 +85,8 @@ async function run() {
   // What a screen is checked for: the radii it draws, shadows on raised surfaces and the readable text.
   const audit = (name) =>
     I.js(`(() => {
-      const scale = new Set([0, 4, 6, 8, 10, 16]);
+      // 3.32.0 (on purpose): 12 is the task card's corner (radius.card).
+      const scale = new Set([0, 4, 6, 8, 10, 12, 16]);
       const bad = [];
       const parse = (s) => (s.match(/[\\d.]+/g) || []).map(Number);
       const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
@@ -142,7 +143,7 @@ async function run() {
         await C.sleep(500);
         await I.shot(`p23-${themeName}-${name}`);
         const a = await audit(name);
-        check(`${themeName}: ${name}: no radius outside the scale 4, 6, 8, 10, 16 or round`, a.radii.length === 0, JSON.stringify(a.radii));
+        check(`${themeName}: ${name}: no radius outside the scale 4, 6, 8, 10, 12, 16 or round`, a.radii.length === 0, JSON.stringify(a.radii));
         check(`${themeName}: ${name}: every line of text is at least 4.5:1 on its background`, a.lowText.length === 0, JSON.stringify(a.lowText));
         await close();
         await C.sleep(400);

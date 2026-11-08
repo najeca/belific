@@ -97,10 +97,10 @@ const styles = StyleSheet.create({
   checkOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   dot: { width: 8, height: 8, borderRadius: 4 },
   titleBtn: { flex: 1, minWidth: 0 },
-  title: { fontSize: 13, fontWeight: '600', color: Colors.onHostPill },
+  title: { fontSize: 14, fontWeight: '700', color: Colors.onHostPill },
   done: { textDecorationLine: 'line-through' },
   meta: { fontSize: 12, color: Colors.onHostPill },
   during: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.onHostPill },
-  btn: { paddingHorizontal: 10, height: 26, borderRadius: 8, borderWidth: 1, borderColor: Colors.onHostPill, justifyContent: 'center' },
-  btnText: { fontSize: 12, fontWeight: '600', color: Colors.onHostPill },
+  btn: { paddingHorizontal: 10, height: 26, borderRadius: 0, borderWidth: 2, borderColor: Colors.onHostPill, justifyContent: 'center' },
+  btnText: { fontSize: 12, fontWeight: '700', color: Colors.onHostPill },
 });

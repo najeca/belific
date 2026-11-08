@@ -40,7 +40,9 @@ import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
 import Toggle from '../Toggle';
 import ListPick from './ListPick';
-import { RoundCheck, checkRing, checkRingDone } from './ui';
+import { PaneBand, RoundCheck, ShortDivider, checkRing, checkRingDone } from './ui';
+import { useResolvedTheme } from './themeStore';
+import { radius } from '../../lib/tokens';
 
 // The task details (build plan phase 2; a centred modal since 2.26.0): every
 // field of a task in one place, as fields and not as steps. Opens from Open
@@ -182,6 +184,7 @@ function blankDraft(id: string, where: NewTaskWhere): Task {
 
 function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
   const drafting = !!draftPatch;
+  const dark = useResolvedTheme() === 'dark';
   const draftOps: TaskOps = {
     patch: draftPatch ?? (async () => {}),
     patchDay: draftPatch ?? (async () => {}),
@@ -315,7 +318,8 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
   const subtasks = task.subtasks ?? [];
 
   return (
-    <View style={styles.panel} accessibilityLabel="Task details" {...({ role: 'dialog', 'aria-modal': true, dataSet: { detailPanel: '1' } } as object)}>
+    <View style={[styles.panel, dark ? styles.panelDark : styles.panelSlab]} accessibilityLabel="Task details" {...({ role: 'dialog', 'aria-modal': true, dataSet: { detailPanel: '1' } } as object)}>
+      <PaneBand />
       <View style={styles.header}>
         {!drafting && (
         <Pressable
@@ -325,7 +329,7 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
           accessibilityRole="button"
           accessibilityLabel={task.completed ? 'Reopen the task' : 'Mark the task complete'}
         >
-          {task.completed && <Ionicons name="checkmark" size={16} color={Colors.success} />}
+          {task.completed && <Ionicons name="checkmark" size={18} color={Colors.onAccent} />}
         </Pressable>
         )}
         {task.emoji ? <Text style={styles.titleEmoji}>{task.emoji}</Text> : null}
@@ -356,10 +360,11 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
           <Ionicons name="ellipsis-vertical" size={16} color={Colors.textSecondary} />
         </Pressable>
         )}
-        <Pressable onPress={closeDetail} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Close task details">
-          <Ionicons name="close" size={18} color={Colors.textSecondary} />
+        <Pressable onPress={closeDetail} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Close task details">
+          <Ionicons name="close" size={22} color={Colors.background} />
         </Pressable>
       </View>
+      <ShortDivider width={80} style={{ marginTop: 14, marginBottom: 6 }} />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {projected && <SeriesNote />}
@@ -831,7 +836,7 @@ function KindChoice({ value, onChange }: { value: TaskKind; onChange: (k: TaskKi
             accessibilityLabel={text}
             {...({ 'aria-checked': on, dataSet: { kind: k } } as object)}
           >
-            <Ionicons name={icon} size={14} color={on ? Colors.onAccent : Colors.textSecondary} />
+            <Ionicons name={icon} size={16} color={on ? Colors.onAccent : Colors.onHostPill} />
             <Text style={[styles.kindText, on && styles.kindTextOn]}>{text}</Text>
           </Pressable>
         );
@@ -864,13 +869,14 @@ function DetailRow({ glyph, icon, label, shown, tip, children }: { glyph?: strin
 
 // A value that reads as text until it is used (2.27.1, the compact rows).
 const domSelect: React.CSSProperties = {
-  height: 28,
+  height: 34,
   padding: '0 6px',
   borderRadius: 8,
   border: '1px solid transparent',
   background: 'transparent',
   color: Colors.textPrimary,
-  fontSize: 13,
+  fontSize: 16,
+  fontWeight: 700,
   fontFamily: DESKTOP_FONT_FAMILY,
   outlineColor: Colors.accent,
   cursor: 'pointer',
@@ -879,67 +885,75 @@ const domSelect: React.CSSProperties = {
 };
 
 const styles = StyleSheet.create({
-  kindSeg: { flexDirection: 'row', alignSelf: 'flex-start', padding: 2, gap: 2, borderRadius: 9, backgroundColor: Colors.surfaceRaised },
-  kindOpt: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 26, paddingHorizontal: 10, borderRadius: 7 },
+  // 3.32.0: Task | Break: two square buttons side by side, the chosen one primary.
+  kindSeg: { flexDirection: 'row', alignSelf: 'flex-start' },
+  kindOpt: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 16, borderRadius: radius.square, backgroundColor: Colors.hostPill },
   kindOptOn: { backgroundColor: Colors.accent },
-  kindText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  kindText: { fontSize: 16, fontWeight: '700', color: Colors.onHostPill },
   kindTextOn: { color: Colors.onAccent },
   layer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: Colors.scrim, cursor: 'default' } as never,
   centre: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24 },
   panel: {
-    width: 600,
+    width: 640,
     maxWidth: '100%',
     maxHeight: '100%',
     backgroundColor: Colors.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: Colors.border,
-    boxShadow: Colors.shadowLg,
   } as never,
+  // 3.32.0: a flat 10 px slab behind the window on light (--ds-slab-window-offset, 0 on dark, where the soft shadow stays).
+  panelSlab: { boxShadow: `var(--ds-slab-window-offset, 0px) var(--ds-slab-window-offset, 0px) 0 0 ${Colors.borderStrong}` } as never,
+  panelDark: { boxShadow: Colors.shadowLg } as never,
   // The study's measurements: header 20px 35px 5px, body 0 35px 30px.
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 35, paddingTop: 20, paddingBottom: 5 },
-  tick: { ...checkRing(22) } as object,
+  header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 34, paddingTop: 8 + 22, paddingBottom: 5 },
+  tick: { ...checkRing(26), borderWidth: 3 } as object,
   tickOn: { ...checkRingDone },
   titleEmoji: { fontSize: 22 },
-  titleInput: { flex: 1, minWidth: 0, fontSize: 20, fontWeight: '700', color: Colors.textPrimary, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: 'transparent', outlineColor: Colors.accent },
+  titleInput: { flex: 1, minWidth: 0, fontSize: 30, fontWeight: '800', letterSpacing: -0.6, color: Colors.textPrimary, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: 'transparent', outlineColor: Colors.accent },
   titleDone: { color: Colors.textSecondary, textDecorationLine: 'line-through' },
-  iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: radius.square },
+  // The close button is a 44 px ink circle (round, like the avatar).
+  closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: Colors.textPrimary },
   iconBtnOn: { backgroundColor: Colors.hover },
   scroll: { flexGrow: 0, flexShrink: 1 },
-  body: { paddingHorizontal: 35, paddingBottom: 30, gap: 2 },
-  divider: { height: 1, backgroundColor: Colors.border, marginTop: 10 },
+  body: { paddingHorizontal: 34, paddingBottom: 30, gap: 2 },
+  // A short, thick, centred divider between the sections.
+  divider: { height: 4, width: 80, alignSelf: 'center', backgroundColor: Colors.border, marginTop: 14, marginBottom: 4 },
   // One line per row: the name on the left, the value on the right, no lines.
-  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, minHeight: 32 },
-  // An icon in front of a grey bold label.
-  rowLabelBox: { width: 126, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 32 },
-  rowGlyph: { fontSize: 14, width: 126, minHeight: 32, lineHeight: 32, flexShrink: 0, color: Colors.textPrimary },
-  rowLabel: { flexShrink: 1, fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, minHeight: 44 },
+  // An icon in front of a grey bold label (15/700; 156 px so "Estimated time" is not cut).
+  rowLabelBox: { width: 156, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  rowGlyph: { fontSize: 16, width: 156, minHeight: 44, lineHeight: 44, flexShrink: 0, color: Colors.textPrimary },
+  rowLabel: { flexShrink: 1, fontSize: 15, fontWeight: '700', color: Colors.textSecondary },
   rowBody: { flex: 1, minWidth: 0, gap: 4 },
   valueText: { fontSize: 13, color: Colors.textPrimary, paddingHorizontal: 6 },
   section: { gap: 4, paddingTop: 10 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  sectionLabel: { fontSize: 15, fontWeight: '700', color: Colors.textSecondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   input: { flex: 1, minWidth: 120, height: 28, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
   inputBad: { borderColor: Colors.danger },
   bad: { fontSize: 12, color: Colors.danger },
-  notes: { minHeight: 44, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, color: Colors.textPrimary, fontSize: 14, outlineColor: Colors.accent },
+  // Notes: a raised, quiet field (no outline), radius 10.
+  notes: { minHeight: 70, paddingVertical: 12, paddingHorizontal: 16, borderRadius: radius.lg, backgroundColor: Colors.surfaceRaised, color: Colors.textPrimary, fontSize: 15, outlineColor: Colors.accent },
   muted: { fontSize: 12, color: Colors.textSecondary },
-  bigBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 26, borderRadius: 8, backgroundColor: Colors.background },
+  bigBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 16, height: 36, borderRadius: radius.square, backgroundColor: Colors.accent },
   bigBtnOn: { backgroundColor: Colors.accent },
-  bigBtnText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
+  bigBtnText: { fontSize: 16, fontWeight: '700', color: Colors.onAccent },
   bigBtnTextOn: { color: Colors.onAccent },
-  quiet: { paddingHorizontal: 6, height: 28, borderRadius: 8, justifyContent: 'center' },
-  quietText: { fontSize: 13, color: Colors.textPrimary },
+  quiet: { paddingHorizontal: 6, height: 36, borderRadius: 8, justifyContent: 'center' },
+  // A value in a row: 16/700 in the text colour.
+  quietText: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   // A hint: 11px, grey (the study's hint size).
-  hintText: { fontSize: 11, color: Colors.textSecondary },
-  quietSub: { fontSize: 12, color: Colors.textSecondary },
+  hintText: { fontSize: 12, color: Colors.textSecondary },
+  quietSub: { fontSize: 13, color: Colors.textSecondary },
   openBg: { backgroundColor: Colors.background },
   labelBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
   labelDot: { width: 8, height: 8, borderRadius: 4 },
-  xBtn: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  xBtn: { width: 26, height: 26, borderRadius: radius.square, alignItems: 'center', justifyContent: 'center' },
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 28 },
   subText: { flex: 1, fontSize: 14, color: Colors.textPrimary },
   subDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },

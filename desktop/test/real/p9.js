@@ -173,10 +173,14 @@ async function run() {
   const ring = () => I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Steps task"]'); const r = c && c.querySelector('[data-card-meta] [data-steps-ring]'); return r ? r.dataset.stepsRing : null; })()`);
   const faces = await I.js(`[...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/["']/g, '') + ' ' + f.weight)`);
   check('Inter is loaded from the app and draws the card titles (as the "Segoe UI" face of the text stack)', faces.some((f) => /^Segoe UI 600/.test(f)) && /Segoe UI/.test(await fontOf(`document.querySelector('[aria-label="Title Today task"]')`)), JSON.stringify(faces));
-  check('the estimate figure uses Roboto Mono', /Roboto Mono/.test(await fontOf(`document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"] [data-card-time]')`)));
+  // 3.32.0 (Motorways restyle, on purpose): the card's estimate figure is Inter ExtraBold (800), as in the mock; Roboto Mono stays for the steps count and clocks.
+  const estFont = await fontOf(`document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"] [data-card-time]')`);
+  const estWeight = await I.js(`getComputedStyle(document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"] [data-card-time]')).fontWeight`);
+  check('the estimate figure is Inter ExtraBold (800), not Roboto Mono', !/Roboto Mono/.test(estFont) && estWeight === '800', JSON.stringify([estFont, estWeight]));
   const cardStyle = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); const s = getComputedStyle(c); return { r: s.borderTopLeftRadius, shadow: s.boxShadow !== 'none', border: s.borderTopWidth, pt: s.paddingTop, pl: s.paddingLeft }; })()`);
   // 2.42.0 (the Ellie look, on purpose): flat cards, 10 px corners and a 1px outline instead of the light shadow and 12 px corners; the padding stays 11 x 12.
-  check('cards: 10 px corners, a 1px outline, no shadow, padding 11 x 12', cardStyle.r === '10px' && !cardStyle.shadow && cardStyle.border === '1px' && cardStyle.pt === '11px' && cardStyle.pl === '12px', JSON.stringify(cardStyle));
+  // 3.32.0 (on purpose): 12 px corners, a 2 px outline, padding 12 x 14 (16 on top under a label's 6 px band).
+  check('cards: 12 px corners, a 2px outline, no shadow, padding 12 x 14 (16 on top under a band)', cardStyle.r === '12px' && !cardStyle.shadow && cardStyle.border === '2px' && /^(12|16)px$/.test(cardStyle.pt) && cardStyle.pl === '14px', JSON.stringify(cardStyle));
   check('a task with one of two steps done shows a part filled ring', (await ring()) === 'part');
   await I.js(`document.querySelector('[data-day-col="${today}"] [aria-label="Task Steps task"]').focus()`);
   await I.key('s');
@@ -335,8 +339,9 @@ async function run() {
   await C.sleep(400);
   const tint = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); return c ? getComputedStyle(c).backgroundColor : ''; })()`);
   check('the card takes the teal tint', tint === 'rgb(210, 246, 241)', tint);
-  const tealEdge = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); return c ? getComputedStyle(c).borderLeftColor : ''; })()`);
-  check('and the strong teal as its left edge', tealEdge === 'rgb(15, 158, 142)', tealEdge);
+  const tealEdge = await I.js(`(() => { const c = document.querySelector('[data-day-col="${today}"] [aria-label="Task Today task"]'); const b = c && c.querySelector('[data-card-band]'); return b ? getComputedStyle(b).backgroundColor : ''; })()`);
+  // 3.32.0 (on purpose): the strong colour is a 6 px band across the top of the card, not a left edge.
+  check('and the strong teal as a band across its top', tealEdge === 'rgb(15, 158, 142)', tealEdge);
   check('the unlock is stored locally only', readKv(dataDir)('belific_desktop_label_colors_227_ok') === 1 || readKv(dataDir)('belific_desktop_label_colors_227_ok') === '1');
   await openLabelMenu();
   check('Remove label is offered for a task with a label', await I.exists(I.byLabel('Remove label')));
@@ -352,9 +357,9 @@ async function run() {
   await I.key('o');
   await C.waitFor(() => I.exists(I.byLabel('Task details')), 6000).catch(() => {});
   const modal = await I.js(`(() => { const m = document.querySelector('[data-detail-panel]'); if (!m) return null; const r = m.getBoundingClientRect(); const t = m.querySelector('[aria-label="Title"]'); return { w: Math.round(r.width), cx: Math.round(r.left + r.width / 2), cy: Math.round(r.top + r.height / 2), vw: innerWidth, vh: innerHeight, font: t ? getComputedStyle(t).fontSize : '', rows: [...m.querySelectorAll('[data-detail-row]')].map((e) => e.dataset.detailRow), role: m.getAttribute('role') }; })()`);
-  check('O opens the details as a centred modal about 600 px wide', !!modal && modal.w === 600 && Math.abs(modal.cx - modal.vw / 2) <= 2 && Math.abs(modal.cy - modal.vh / 2) <= 40 && modal.role === 'dialog', JSON.stringify(modal));
+  check('O opens the details as a centred modal about 640 px wide (600 until 3.32.0)', !!modal && modal.w === 640 && Math.abs(modal.cx - modal.vw / 2) <= 2 && Math.abs(modal.cy - modal.vh / 2) <= 40 && modal.role === 'dialog', JSON.stringify(modal));
   // 2.43.0 (the Ellie look, on purpose): the modal title is 20 px bold (it was 23 px).
-  check('its title is 20 px', !!modal && modal.font === '20px', modal && modal.font);
+  check('its title is 30 px (20 until 3.32.0)', !!modal && modal.font === '30px', modal && modal.font);
   // 2.27.0 (item 9): the Must do switch sits between Label and Repeats.
   check('rows in order: Task date, Estimated time, Label, Must do, Repeats (then List), then Notes and Subtasks (3.26.0: no Actual time)', !!modal && modal.rows.slice(0, 5).join('|') === 'Task date|Estimated time|Label|Must do|Repeats' && (await I.js(`(() => { const m = document.querySelector('[data-detail-panel]'); const t = m.innerText; return t.indexOf('Repeats') < t.indexOf('Notes') && t.indexOf('Notes') < t.indexOf('Subtasks'); })()`)), JSON.stringify(modal && modal.rows));
   check('no duplicate or delete buttons on the modal itself', !(await I.exists(`document.querySelector('[data-detail-panel] [aria-label="Duplicate task"]')`)) && !(await I.exists(`document.querySelector('[data-detail-panel] [aria-label="Delete task"]')`)));

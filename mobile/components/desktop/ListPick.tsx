@@ -113,9 +113,9 @@ function Body({ lists, value, onChange }: { lists: TaskList[]; value: string | u
 }
 
 const styles = StyleSheet.create({
-  trigger: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 28, paddingHorizontal: 6, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },
+  trigger: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: 6, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },
   triggerOpen: { backgroundColor: Colors.hover },
-  triggerText: { fontSize: 13, color: Colors.textPrimary },
+  triggerText: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   emoji: { fontSize: 16, width: 22, textAlign: 'center' },
   emojiGap: { width: 22 },
   rule: { height: 1, backgroundColor: Colors.border, marginVertical: 4 },

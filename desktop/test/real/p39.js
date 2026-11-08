@@ -50,8 +50,11 @@ async function run() {
   await C.sleep(1200);
 
   check('the page is dark, as saved', (await I.js('document.documentElement.getAttribute("data-theme")')) === 'dark');
-  const tb = await I.js(`(() => { const b = document.querySelector('[data-block-id="boot"]'); if (!b) return null; const els = [...b.querySelectorAll('div[dir="auto"]')].filter((e) => e.children.length === 0 && e.innerText.trim()); return { colors: els.map((e) => getComputedStyle(e).color), fw: els.map((e) => getComputedStyle(e).fontWeight) }; })()`);
-  check('Vibrant stayed off: the Timebox card is not bold white', !!tb && !(tb.colors.every((c) => c === 'rgb(255, 255, 255)') && Number(tb.fw[0]) >= 700), JSON.stringify(tb));
+  const tb = await I.js(`(() => { const b = document.querySelector('[data-block-id="boot"]'); if (!b) return null; const els = [...b.querySelectorAll('div[dir="auto"]')].filter((e) => e.children.length === 0 && e.innerText.trim()); const chroma = (c) => { const m = /rgba?[(]([0-9]+), ([0-9]+), ([0-9]+)/.exec(c); return m ? Math.max(+m[1], +m[2], +m[3]) - Math.min(+m[1], +m[2], +m[3]) : 0; };
+    const fills = [b, ...b.querySelectorAll('div')].slice(0, 8).map((e) => chroma(getComputedStyle(e).backgroundColor));
+    return { colors: els.map((e) => getComputedStyle(e).color), fw: els.map((e) => getComputedStyle(e).fontWeight), maxFillChroma: Math.max(...fills) }; })()`);
+  // 3.32.0 (on purpose): a block's title is bold (700) on dark too, so Vibrant is told by its saturated fill, not by bold white text alone.
+  check('Vibrant stayed off: the Timebox card is not bold white on a saturated fill', !!tb && !(tb.colors.every((c) => c === 'rgb(255, 255, 255)') && Number(tb.fw[0]) >= 700 && tb.maxFillChroma > 90), JSON.stringify(tb));
   const icon = (await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in';
   await I.click(I.byLabel(icon));
   await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 700);

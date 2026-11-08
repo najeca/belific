@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
   meta: { fontSize: 12, color: Colors.textSecondary },
-  btn: { paddingHorizontal: 14, height: 34, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
-  btnText: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
+  btn: { paddingHorizontal: 14, height: 34, borderRadius: 0, justifyContent: 'center', backgroundColor: Colors.hostPill },
+  btnText: { fontSize: 13, fontWeight: '700', color: Colors.onHostPill },
   off: { opacity: 0.5 },
 });

@@ -124,6 +124,6 @@ export default function DayMenu({ dayKey, tasks, away, awayDays, onChanged }: { 
 }
 
 const styles = StyleSheet.create({
-  btn: { marginLeft: 'auto', width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
+  btn: { marginLeft: 'auto', width: 28, height: 28, borderRadius: 0, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
   btnOpen: { backgroundColor: Colors.surface },
 });

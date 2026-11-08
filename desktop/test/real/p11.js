@@ -104,7 +104,8 @@ async function run() {
   const rows = await I.js(`[...${panel}.querySelectorAll('[data-detail-row]')].map((r) => { const s = getComputedStyle(r); const b = r.getBoundingClientRect(); return { name: r.dataset.detailRow, h: Math.round(b.height), lines: parseFloat(s.borderTopWidth) + parseFloat(s.borderBottomWidth) }; })`);
   check('1: the rows keep their order', rows.slice(0, 5).map((r) => r.name).join('|') === 'Task date|Estimated time|Label|Must do|Repeats' && !rows.some((r) => r.name === 'Actual time'), JSON.stringify(rows.map((r) => r.name)));
   // The Split row (2.33.0) carries a plain sentence that wraps to two lines (at most 46 px); every other row stays one line.
-  check('1: every row is one compact line (at most 36 px; the Task or Break row, with its control and sentence, at most 72)', rows.length >= 7 && rows.every((r) => r.h <= (r.name === 'Task or Break' ? 72 : 36)), JSON.stringify(rows));
+  // 3.32.0 (Motorways restyle, on purpose): a row is at least 44 px (the mock's 52, kept tighter), values 16/700.
+  check('1: every row is one line (at most 44 px; the Task or Break row, with its control and sentence, at most 84)', rows.length >= 7 && rows.every((r) => r.h <= (r.name === 'Task or Break' ? 84 : 44)), JSON.stringify(rows));
   check('1: no row has a divider line', rows.every((r) => r.lines === 0), JSON.stringify(rows));
   const lined = await I.js(`[...${panel}.querySelectorAll('*')].filter((e) => { if (e.tagName === 'INPUT' || e.tagName === 'SELECT' || e.tagName === 'TEXTAREA') return false; const s = getComputedStyle(e); const r = e.getBoundingClientRect(); return r.width > 120 && ((parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none' && s.borderTopColor !== 'rgba(0, 0, 0, 0)') || (parseFloat(s.borderBottomWidth) > 0 && s.borderBottomStyle !== 'none' && s.borderBottomColor !== 'rgba(0, 0, 0, 0)')); }).length`);
   check('1: nothing wide in the modal draws a line', lined === 0, String(lined));
@@ -112,7 +113,8 @@ async function run() {
   check('1: the name is on the left and the value on the right, on the same line', label.sameLine && label.nameLeft, JSON.stringify(label));
   const tall = await I.js(`Math.round(${panel}.getBoundingClientRect().height)`);
   // 2.43.0 (the Ellie look, on purpose): the study's paddings (header 20px 35px 5px, body 0 35px 30px) and two dividers make the modal about 40 px taller: under 680 now.
-  check('1: the whole modal is short (under 680 px with notes and two subtasks)', tall < 680, String(tall));
+  // 3.32.0 (on purpose): the 30 px title, the 8 px band, 44 px rows and the 70 px notes make it taller: under 840 now (it scrolls inside itself when the window is shorter).
+  check('1: the whole modal is short (under 840 px with notes and two subtasks)', tall < 840, String(tall));
   await I.shot('p11-01-modal');
   await closeModal();
   // A card has no line inside it (only the label's colour edge on the left).
@@ -230,7 +232,8 @@ async function run() {
   // Changed on purpose in 3.14.1: a task in Brain Dump shows its brain.
   check('3: a task with no list shows the Brain Dump brain', (await I.js(`((${card(today, 'Plain task')}).querySelector('[data-card-list-emoji]') || {}).textContent || ''`)).replace(/️/g, '') === '🧠');
   const emojiSize = await I.js(`parseFloat(getComputedStyle(${card(today, 'Modal task')}.querySelector('[data-card-list-emoji]')).fontSize)`);
-  check('3: it is small', emojiSize <= 12, String(emojiSize));
+  // 3.32.0 (on purpose): the card's meta line is 13 px.
+  check('3: it is small', emojiSize <= 13, String(emojiSize));
   // The left pane: the Games list.
   await I.click(`document.querySelector('[aria-label^="List: "][aria-label$="Change list"]')`, 400);
   await I.click(I.byLabel('Show list Games'), 600);

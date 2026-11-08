@@ -152,11 +152,11 @@ const domInput: React.CSSProperties = {
 };
 
 const styles = StyleSheet.create({
-  btn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 28, paddingHorizontal: 6, borderRadius: 8, alignSelf: 'flex-start' },
-  btnCompact: { height: 26, paddingHorizontal: 5 },
+  btn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 6, borderRadius: 8, alignSelf: 'flex-start' },
+  btnCompact: { height: 28, paddingHorizontal: 5 },
   btnHover: { backgroundColor: Colors.background },
-  value: { fontSize: 13, color: Colors.textPrimary },
-  valueCompact: { fontSize: 12 },
+  value: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  valueCompact: { fontSize: 12, fontWeight: '600' },
   placeholder: { color: Colors.textSecondary },
   list: { paddingVertical: 4 },
   custom: { paddingHorizontal: 10, paddingVertical: 6, gap: 4 },

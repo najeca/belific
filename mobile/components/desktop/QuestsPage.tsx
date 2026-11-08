@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   empty: { padding: 16, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   body: { fontSize: 14, color: Colors.textPrimary },
   section: { gap: 8, marginTop: 6 },
-  sectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary, textTransform: 'uppercase' },
+  sectionTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 1, color: Colors.textSecondary, textTransform: 'uppercase' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   card: { width: 340, padding: 14, gap: 8, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   cardDone: { backgroundColor: Colors.background },
@@ -222,6 +222,6 @@ const styles = StyleSheet.create({
   dueDone: { color: Colors.accentText, backgroundColor: Colors.surface },
   streak: { fontSize: 12, color: Colors.textSecondary },
   actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  action: { paddingHorizontal: 10, height: 30, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', backgroundColor: Colors.background },
-  actionText: { fontSize: 12, color: Colors.textPrimary },
+  action: { paddingHorizontal: 10, height: 30, borderRadius: 0, justifyContent: 'center', backgroundColor: Colors.hostPill },
+  actionText: { fontSize: 12, fontWeight: '700', color: Colors.onHostPill },
 });

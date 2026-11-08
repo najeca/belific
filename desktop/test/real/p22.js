@@ -110,8 +110,8 @@ async function run() {
       const hour = [...document.querySelectorAll('[data-cal-scroller] div,[data-cal-scroller] span')].find((e) => e.children.length === 0 && /^0?9:00$/.test(e.textContent.trim()));
       return { blockRadius: blk ? px(getComputedStyle(blk).borderTopLeftRadius) : null, nowColor: now ? getComputedStyle(now).backgroundColor : null, nowH: now ? now.getBoundingClientRect().height : null, hourSize: hour ? getComputedStyle(hour).fontSize : null };
     })()`);
-    check(`${name}: event blocks have small 4px corners`, calShape.blockRadius === 4, JSON.stringify(calShape));
-    check(`${name}: the current time is a thin red line`, calShape.nowColor === 'rgb(229, 72, 77)' && calShape.nowH <= 2, JSON.stringify([calShape.nowColor, calShape.nowH]));
+    check(`${name}: event blocks have 8px corners (4 until 3.32.0)`, calShape.blockRadius === 8, JSON.stringify(calShape));
+    check(`${name}: the current time is a 3px red line (1.5 until 3.32.0)`, calShape.nowColor === 'rgb(229, 72, 77)' && calShape.nowH === 3, JSON.stringify([calShape.nowColor, calShape.nowH]));
     check(`${name}: hour labels are tiny (10px)`, calShape.hourSize === '10px', String(calShape.hourSize));
     const blocks = ['w1', 'w2', 'w3', 'brk', 'plain'];
     for (const id of blocks) {
@@ -134,11 +134,11 @@ async function run() {
         outlined: btn ? [getComputedStyle(btn).borderTopWidth, px(getComputedStyle(btn).borderTopLeftRadius)] : null,
         segBorder: seg ? getComputedStyle(seg).borderTopWidth : null, pillRadius: pill ? px(getComputedStyle(pill).borderTopLeftRadius) : null };
     })()`);
-    check(`${name}: the checkbox is round`, shape.checkRadius === true && shape.checkSize === 18, JSON.stringify(shape));
+    check(`${name}: the checkbox is round (20 px since 3.32.0)`, shape.checkRadius === true && shape.checkSize === 20, JSON.stringify(shape));
     // 3.31.0 (Motorways restyle, on purpose): buttons are flat and square: no outline, 0 px corners, a soft green fill.
     check(`${name}: Only today is a flat square button (no outline, 0 px corners)`, !!shape.outlined && shape.outlined[0] === '0px' && shape.outlined[1] === 0, JSON.stringify(shape.outlined));
     check(`${name}: the Calendar/Tasks toggle is two square buttons side by side (no track outline)`, shape.segBorder === '0px', String(shape.segBorder));
-    check(`${name}: the duration is a soft pill (6px corners)`, shape.pillRadius === 6, String(shape.pillRadius));
+    check(`${name}: the duration is a small square tag (0 px corners since 3.32.0)`, shape.pillRadius === 0, String(shape.pillRadius));
     // Day columns and cards (step 4).
     const cardShape = await I.js(`(() => {
       const col = document.querySelector('[data-day-col="${today}"]');
@@ -155,7 +155,8 @@ async function run() {
         addRadius: add ? getComputedStyle(add).borderTopLeftRadius : null, addBorder: add ? getComputedStyle(add).borderTopWidth : null,
         weekdayWeight: wk ? getComputedStyle(wk).fontWeight : null, labelChipBg: lab ? getComputedStyle(lab).backgroundColor : null, dotRound: dot ? px(getComputedStyle(dot).borderTopLeftRadius) >= 4 : null };
     })()`);
-    check(`${name}: a card is flat: 10px corners, a 1px outline, no shadow, padding 11 x 12`, cardShape.radius === '10px' && cardShape.outline === '1px' && cardShape.shadow === 'none' && cardShape.pad === '11px 12px', JSON.stringify(cardShape));
+    // 3.32.0 (on purpose): 12 px corners, a 2 px outline, no shadow, padding 12 x 14 (16 under a label's 6 px band: 6 + 10).
+    check(`${name}: a card is flat: 12px corners, a 2px outline, no shadow, padding 12 x 14 (or 16 x 14 under a band)`, cardShape.radius === '12px' && cardShape.outline === '2px' && cardShape.shadow === 'none' && /^(12|16)px 14px$/.test(cardShape.pad), JSON.stringify(cardShape));
     check(`${name}: the day header is a heavy (800) weekday with a small square Today tag`, cardShape.weekdayWeight === '800' && cardShape.tagRadius === 0 && cardShape.tagBg === true, JSON.stringify(cardShape));
     check(`${name}: Add a task is a dashed 10px row (2 px dashed outline)`, cardShape.addRadius === '10px' && cardShape.addBorder === '2px', JSON.stringify([cardShape.addRadius, cardShape.addBorder]));
     check(`${name}: a label is a dot and its name, not a filled chip`, cardShape.labelChipBg === 'rgba(0, 0, 0, 0)' && cardShape.dotRound === true, JSON.stringify([cardShape.labelChipBg, cardShape.dotRound]));

@@ -57,7 +57,7 @@ export default function MissedList({ items, labels, todayKey, actions, empty, ro
             <View style={styles.head}>
               {actions.tick && m.kind === 'task' && (
                 <Pressable onPress={() => actions.tick?.(t)} style={[styles.box, t.completed && styles.boxOn]} accessibilityRole="button" accessibilityLabel={t.completed ? `Mark ${t.title} not done` : `Mark ${t.title} done`}>
-                  {t.completed && <Ionicons name="checkmark" size={13} color={Colors.success} />}
+                  {t.completed && <Ionicons name="checkmark" size={13} color={Colors.onAccent} />}
                 </Pressable>
               )}
               {label && <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />}

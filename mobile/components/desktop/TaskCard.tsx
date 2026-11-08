@@ -24,7 +24,8 @@ import type { TaskOps } from './taskOps';
 import { notifyChanged, openDetail, type DetailFocus } from './uiStore';
 import { timesLabel } from '../../lib/times';
 import StreakLine from './StreakLine';
-import { useTint } from './themeStore';
+import { useResolvedTheme, useTint } from './themeStore';
+import { THEMES, band, labelTint, radius } from '../../lib/tokens';
 import { checkRing, checkRingDone } from './ui';
 
 // A task on the board, in the left list, or in any list (2.27.0). The card is a
@@ -83,6 +84,9 @@ export default function TaskCard({
 }) {
   // Ctrl+Delete opens the ⋮ menu already asking "Delete? Yes / No".
   const tint = useTint();
+  // 3.32.0: a labelled card has a soft outline of its colour (20 % over the surface) and a 6 px band of it on top.
+  const theme = useResolvedTheme();
+  const outline = color ? labelTint(color.edge, THEMES[theme].surface) : undefined;
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [focusWithin, setFocusWithin] = useState(false);
 
@@ -266,9 +270,8 @@ export default function TaskCard({
         { backgroundColor: (color ? tint(color) : CARD_PLAIN) },
         // 3.31.0: a Brain Dump row with no label is a quiet raised row (the Motorways mock), not an outlined card.
         variant === 'row' && !color && styles.rowPlain,
-        // 2.27.0: the label's strong colour as a left edge, so labels are easy to
-        // tell apart (the tints stay light for readable text).
-        color && { borderLeftWidth: 3, borderLeftColor: color.edge, paddingLeft: 9 },
+        // 3.32.0: the label's strong colour is a band across the top (it was a left edge until 3.31); no label, no band.
+        color && { borderColor: outline, paddingTop: 6 + 10 },
         task.completed && styles.done,
         dragging && styles.dragging,
         projected && styles.projected,
@@ -285,6 +288,7 @@ export default function TaskCard({
         const iconsShown = hovered || focusWithin || labelOpen || moreOpen || deleteArmed;
         return (
           <>
+            {color ? <View pointerEvents="none" style={[styles.band, { backgroundColor: color.edge }]} {...({ dataSet: { cardBand: color.key } } as object)} /> : null}
             <View style={styles.titleRow}>
               <Pressable
                 onPress={() => wrapped.setCompleted(!task.completed)}
@@ -292,7 +296,7 @@ export default function TaskCard({
                 accessibilityRole="button"
                 accessibilityLabel={task.completed ? `Mark ${task.title} incomplete` : `Mark ${task.title} complete`}
               >
-                <View style={[styles.box, task.completed && styles.boxDone]}>{task.completed && <Ionicons name="checkmark" size={13} color={Colors.success} />}</View>
+                <View style={[styles.box, task.completed && styles.boxDone]}>{task.completed && <Ionicons name="checkmark" size={14} color={Colors.onAccent} />}</View>
               </Pressable>
               <Text style={[styles.title, task.completed && styles.titleDone]} numberOfLines={3} accessibilityLabel={`Title ${task.title}`}>
                 {task.emoji ? `${task.emoji} ` : ''}
@@ -302,8 +306,7 @@ export default function TaskCard({
                 <Text
                   style={[styles.chipText, task.completed && styles.chipDone]}
                   accessibilityLabel={`Estimate ${lengthText}`}
-                  {...MONO}
-                  {...({ dataSet: { cardTime: '1', cardLength: '1', mono: '1' } } as object)}
+                  {...({ dataSet: { cardTime: '1', cardLength: '1' } } as object)}
                 >
                   {lengthText}
                 </Text>
@@ -366,7 +369,7 @@ export default function TaskCard({
                     {moved && (
                       <Text
                         ref={tipRef(movedCaptionLong(task)) as never}
-                        style={styles.metaDay}
+                        style={styles.metaNote}
                         accessibilityLabel={movedCaptionLong(task)}
                         {...({ dataSet: { movedFrom: movedFrom(task) } } as object)}
                       >
@@ -408,7 +411,7 @@ export default function TaskCard({
             )}
 
             {/* At most three icons, over the top right corner in the card's own colour. */}
-            <View style={[styles.icons, { backgroundColor: (color ? tint(color) : variant === 'row' ? Colors.surfaceRaised : CARD_PLAIN) }, !iconsShown && styles.quiet]} {...({ dataSet: { cardControls: '1' } } as object)}>
+            <View style={[styles.icons, { backgroundColor: (color ? tint(color) : variant === 'row' ? Colors.surfaceRaised : CARD_PLAIN) }, color && { top: 8 + band.card }, !iconsShown && styles.quiet]} {...({ dataSet: { cardControls: '1' } } as object)}>
               <IconControl id={`${id}:label`} ctl="label" a11y={label ? `Label: ${label.name}` : 'Select label'} shown={iconsShown} glyph="🏷️">
                 {(anchor) => (
                   <Popover id={`${id}:label`} anchor={anchor} width={284} maxHeight={540}>
@@ -530,36 +533,39 @@ function IconControl({
 
 const styles = StyleSheet.create({
   // Flat and raised: a 1px outline, no shadow (the Ellie look). Hover only changes the outline's colour: nothing moves (real check cp8e).
-  card: { paddingVertical: 11, paddingHorizontal: 12, gap: 6, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, transitionDuration: '120ms', transitionProperty: 'border-color', cursor: 'pointer' } as object,
+  card: { paddingVertical: 12, paddingHorizontal: 14, gap: 8, borderRadius: radius.card, borderWidth: 2, borderColor: Colors.border, overflow: 'hidden', transitionDuration: '120ms', transitionProperty: 'border-color', cursor: 'pointer' } as object,
   hover: { borderColor: Colors.borderStrong } as object,
-  rowPlain: { backgroundColor: Colors.surfaceRaised, borderColor: Colors.surfaceRaised, borderWidth: 2, paddingVertical: 10, paddingHorizontal: 11 } as object,
-  done: { opacity: 0.72 },
+  rowPlain: { backgroundColor: Colors.surfaceRaised, borderColor: Colors.surfaceRaised, borderRadius: radius.lg } as object,
+  band: { position: 'absolute', top: 0, left: 0, right: 0, height: band.card, borderTopLeftRadius: radius.card - 2, borderTopRightRadius: radius.card - 2 } as object,
+  done: {},
   dragging: { opacity: 0.35 },
   projected: { opacity: 0.82 },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   check: { paddingTop: 1 },
-  box: { ...checkRing(18), borderColor: Colors.trackLine } as object,
+  box: { ...checkRing(20) } as object,
   boxDone: { ...checkRingDone },
-  title: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', color: Colors.textPrimary, minWidth: 0 },
+  title: { flex: 1, fontSize: 15, lineHeight: 20, fontWeight: '700', color: Colors.textPrimary, minWidth: 0 },
   titleDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  chipText: { fontSize: 11.5, lineHeight: 20, fontWeight: '600', color: Colors.textPrimary, paddingHorizontal: 7, borderRadius: 6, backgroundColor: Colors.chip, overflow: 'hidden' } as object,
+  chipText: { fontSize: 13, lineHeight: 20, fontWeight: '800', color: Colors.textPrimary, paddingHorizontal: 7, borderRadius: radius.square, backgroundColor: Colors.chip, overflow: 'hidden' } as object,
   chipTextMuted: { color: Colors.textSecondary },
   chipDone: { color: Colors.textTertiary },
-  meta: { gap: 2, paddingLeft: 26, minHeight: 20 },
+  meta: { gap: 2, paddingLeft: 30, minHeight: 20 },
   metaLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 8, rowGap: 2, minHeight: 20, minWidth: 0 },
-  metaDay: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
-  breakTag: { height: 18, paddingHorizontal: 7, borderRadius: 9, backgroundColor: Colors.surfaceRaised, justifyContent: 'center' },
-  breakTagText: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
-  hostPill: { height: 18, paddingHorizontal: 7, borderRadius: 9, backgroundColor: Colors.hostPill, justifyContent: 'center' },
-  hostPillText: { fontSize: 11, fontWeight: '600', color: Colors.onHostPill },
-  hostCaption: { fontSize: 11.5, fontWeight: '600', color: Colors.onHostPill, flexShrink: 1 },
-  listEmoji: { fontSize: 11, lineHeight: 16 },
+  // The day and time: bold, in the text colour (the label name beside it is the quiet grey).
+  metaDay: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
+  metaNote: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
+  breakTag: { height: 20, paddingHorizontal: 7, borderRadius: radius.square, backgroundColor: Colors.surfaceRaised, justifyContent: 'center' },
+  breakTagText: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
+  hostPill: { height: 20, paddingHorizontal: 8, borderRadius: 10, backgroundColor: Colors.hostPill, justifyContent: 'center' },
+  hostPillText: { fontSize: 12, fontWeight: '700', color: Colors.onHostPill },
+  hostCaption: { fontSize: 13, fontWeight: '600', color: Colors.onHostPill, flexShrink: 1 },
+  listEmoji: { fontSize: 13, lineHeight: 18 },
   // A label is a coloured dot and its name, not a filled chip.
-  labelChip: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 18, flexShrink: 1, minWidth: 0 },
-  labelChipText: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary, flexShrink: 1 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  labelChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 20, flexShrink: 1, minWidth: 0 },
+  labelChipText: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary, flexShrink: 1 },
+  dot: { width: 9, height: 9, borderRadius: 5 },
   ringBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingRight: 2 },
-  counter: { fontSize: 11.5, fontWeight: '500', color: Colors.textSecondary },
+  counter: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
   counterDone: { color: Colors.accentText, fontWeight: '700' },
   mustDo: { fontSize: 12, lineHeight: 16, color: Colors.textPrimary },
   icons: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: 8, paddingLeft: 4 },

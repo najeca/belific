@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
   figureValue: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
   railButtons: { flexDirection: 'row', gap: 8 },
   backBtn: { width: 44, height: 44, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  primary: { flex: 1, height: 44, borderRadius: 10, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
+  primary: { flex: 1, height: 44, borderRadius: 0, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
   primaryText: { fontSize: 15, fontWeight: '700', color: Colors.onAccent },
   off: { opacity: 0.5 },
   cancel: { alignSelf: 'center', padding: 8 },

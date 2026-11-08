@@ -188,6 +188,6 @@ const styles = StyleSheet.create({
   note: { fontSize: 13, color: Colors.textPrimary },
   hint: { fontSize: 12, color: Colors.textSecondary },
   warn: { color: Colors.danger },
-  primary: { marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 36, borderRadius: 10, backgroundColor: Colors.accent },
+  primary: { marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 36, borderRadius: 0, backgroundColor: Colors.accent },
   primaryText: { fontSize: 13, fontWeight: '600', color: Colors.onAccent },
 });

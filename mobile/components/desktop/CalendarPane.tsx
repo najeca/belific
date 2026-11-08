@@ -893,7 +893,7 @@ const styles = StyleSheet.create({
   hourLine: { position: 'absolute', height: StyleSheet.hairlineWidth, backgroundColor: Colors.border },
   halfLine: { position: 'absolute', height: StyleSheet.hairlineWidth, backgroundColor: Colors.border, opacity: 0.45 },
   blockWrap: { position: 'absolute', padding: 1 },
-  block: { flex: 1, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden', justifyContent: 'flex-start' },
+  block: { flex: 1, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden', justifyContent: 'flex-start' },
   taskBlock: { backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
   projected: { opacity: 0.82 },
   // Imported, read only: a dashed outline on the plain background, never a label colour.
@@ -901,14 +901,14 @@ const styles = StyleSheet.create({
   // Lines break at spaces only (2.28.2): a word wider than its lane is clipped, never split.
   blockTitle: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary, minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
   blockTime: { fontSize: 10, color: Colors.textSecondary, minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
-  chip: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginVertical: 1, backgroundColor: Colors.background, minHeight: 20, justifyContent: 'center' },
+  chip: { borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, marginVertical: 1, backgroundColor: Colors.background, minHeight: 20, justifyContent: 'center' },
   chipText: { fontSize: 11, color: Colors.textPrimary },
   chipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
   chipTextFlex: { flexShrink: 1, minWidth: 0 },
   chipDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   // The current time: a thin red line with a small red triangle at its start (red is only ever the time).
-  nowLine: { position: 'absolute', left: 0, right: 0, height: 1.5, backgroundColor: Colors.now },
-  nowDot: { position: 'absolute', left: -1, top: -4, width: 0, height: 0, borderTopWidth: 4, borderBottomWidth: 4, borderLeftWidth: 7, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: Colors.now },
+  nowLine: { position: 'absolute', left: 0, right: 0, height: 3, marginTop: -1, backgroundColor: Colors.now },
+  nowDot: { position: 'absolute', left: -6, top: -5, width: 13, height: 13, borderRadius: 7, backgroundColor: Colors.now },
   month: { flex: 1 },
   monthHead: { flexDirection: 'row', paddingVertical: 6 },
   monthHeadText: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700', color: Colors.textSecondary },

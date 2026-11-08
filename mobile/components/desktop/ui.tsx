@@ -72,13 +72,14 @@ export function Pill({ children, tone = 'quiet', mono = false, label }: { childr
 // The round checkbox: an empty ring; done is the success green on its dark green (the tick sits
 // inside). `size` is the diameter.
 export const checkRing = (size = 18) =>
-  ({ width: size, height: size, borderRadius: radius.full, borderWidth: 1.5, borderColor: Colors.borderStrong, backgroundColor: Colors.checkFill, alignItems: 'center', justifyContent: 'center' }) as const;
-export const checkRingDone = { borderColor: Colors.success, backgroundColor: Colors.successBg } as const;
+  ({ width: size, height: size, borderRadius: radius.full, borderWidth: 2.5, borderColor: Colors.textPrimary, backgroundColor: Colors.checkFill, alignItems: 'center', justifyContent: 'center' }) as const;
+// 3.32.0: a done box is the accent with a white tick (the ring of an empty one is the text colour, 2.5 px).
+export const checkRingDone = { borderColor: Colors.accent, backgroundColor: Colors.accent } as const;
 
 export function RoundCheck({ done, size = 18 }: { done: boolean; size?: number }) {
   return (
     <View style={[checkRing(size), done && checkRingDone]}>
-      {done && <Ionicons name="checkmark" size={Math.round(size * 0.72)} color={Colors.success} />}
+      {done && <Ionicons name="checkmark" size={Math.round(size * 0.72)} color={Colors.onAccent} />}
     </View>
   );
 }

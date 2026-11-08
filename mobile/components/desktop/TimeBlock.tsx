@@ -537,8 +537,8 @@ const styles = StyleSheet.create({
   wrap: { position: 'absolute', paddingRight: 2, paddingBottom: 1 },
   lifted: { opacity: 0.35 },
   // Flat: a 1px inset outline (no layout change), small 4px corners.
-  base: { flex: 1, borderRadius: 4, overflow: 'hidden' } as object,
-  block: { flex: 1, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3, minWidth: 0, overflow: 'hidden', borderLeftWidth: 3, boxShadow: `inset 0 0 0 1px ${Colors.border}` } as object,
+  base: { flex: 1, borderRadius: 8, overflow: 'hidden' } as object,
+  block: { flex: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, minWidth: 0, overflow: 'hidden', borderLeftWidth: 3, boxShadow: `inset 0 0 0 1px ${Colors.border}` } as object,
   // The shortest blocks (20px) fit one 16px line only with 1px above and below.
   blockOne: { paddingVertical: 1, justifyContent: 'center' },
   continues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
   noShrink: { flexShrink: 0 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' } as object,
   metaText: { flexShrink: 1, minWidth: 0 },
-  title: { flexShrink: 1, minWidth: 0, fontSize: 12, lineHeight: 16, fontWeight: '600', color: Colors.textPrimary },
+  title: { flexShrink: 1, minWidth: 0, fontSize: 12, lineHeight: 16, fontWeight: '700', color: Colors.textPrimary },
   cutInfo: { fontSize: 11, lineHeight: 16, color: Colors.textSecondary, flexShrink: 0 },
   cutNote: { fontSize: 10, lineHeight: 13, fontStyle: 'italic', color: Colors.textSecondary, minWidth: 0, overflowWrap: 'normal', wordBreak: 'normal', wordWrap: 'normal' } as object,
   titleRowTop: { alignItems: 'flex-start' },
@@ -575,5 +575,5 @@ const styles = StyleSheet.create({
   continuesTag: { position: 'absolute', right: 6, bottom: 2, flexDirection: 'row', alignItems: 'center', gap: 2 },
   continuesText: { fontSize: 10, color: Colors.textSecondary },
   handle: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 6 },
-  preview: { position: 'absolute', left: 0, right: 2, borderRadius: 4, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: Colors.accentSoft, paddingHorizontal: 8, paddingVertical: 2, zIndex: 5 },
+  preview: { position: 'absolute', left: 0, right: 2, borderRadius: 8, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: Colors.accentSoft, paddingHorizontal: 8, paddingVertical: 2, zIndex: 5 },
 });

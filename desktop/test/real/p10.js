@@ -222,8 +222,9 @@ async function run() {
   const vt = labelNamed('Violet thing');
   check('2: a wheel colour is stored as a hex value in the label colour field', !!vt && vt.colorKey === '#7A3FD0', JSON.stringify(vt));
   await C.sleep(400);
-  const vtEdge = await I.js(`getComputedStyle(${card(today, 'Later task')}).borderLeftColor`);
-  check('2: the card draws it (edge in the colour, a light tint)', vtEdge === 'rgb(122, 63, 208)', vtEdge);
+  // 3.32.0 (on purpose): the strong colour is the band across the card's top.
+  const vtEdge = await I.js(`(() => { const b = ${card(today, 'Later task')}.querySelector('[data-card-band]'); return b ? getComputedStyle(b).backgroundColor : ''; })()`);
+  check('2: the card draws it (a band in the colour, a light tint)', vtEdge === 'rgb(122, 63, 208)', vtEdge);
   await I.shot('p10-02-colours');
 
   // ======== 3. No two labels with the same colour ========

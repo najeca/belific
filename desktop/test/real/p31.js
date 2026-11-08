@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.15.0 step 1: every switch is the same shared Toggle (44 x 26, a light knob, the sage track
 // when on, a plain grey track when off, one focus ring) in light and dark: Settings, the filter, the task
 // details (Must do, Split). BELIFIC_SHOTS: a folder for screenshots.

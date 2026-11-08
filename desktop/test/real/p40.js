@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (drag)
 // Real check for 3.20.0 (step 1): no "This day only / All days" question, ever. The first time of a repeating task
 // (set in the details) goes to every repeat day; a later time from the details reaches every day that was not
 // changed on its own, and a day with its own time keeps it; the details say so in one quiet line. Light and dark.

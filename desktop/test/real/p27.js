@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real check for 3.6.0: a task during a break (lib/hosting.ts). Real mouse input into the real app on an
 // isolated data folder; Supabase is the in process fake (signed out, nothing leaves the machine).
 // Today has four breaks (tasks with Split on): 20 minutes with one and with three tasks inside it, and

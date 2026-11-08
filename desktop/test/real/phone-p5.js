@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P5 (2.53.0): the Tasks tab at 390 x 844. The list switcher (Brain
 // Dump, lists, Repeating, New list); the quick add row; every task of the chosen list (a named list
 // keeps its dated tasks); swipe right marks done (with Undo); swipe left shows Tomorrow and Delete; a

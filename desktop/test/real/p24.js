@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 2.47.0: small Calendar and Timebox blocks never overlap their own text.
 // Blocks of 15, 20, 30, 45, 60 and 90 minutes (and three narrow side by side 20 minute blocks), each with a
 // long title, a repeat, a top priority mark and a list emoji, in light and in dark, on the Calendar's day

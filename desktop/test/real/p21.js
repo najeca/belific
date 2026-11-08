@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 2.38.0 (Part C, P5): a task with several times a day reminds at each of them.
 // Real Electron, isolated data folder (asserted), in process fake Supabase. Like p15 it captures
 // Notification calls in the main process instead of looking at the screen, and waits for the real

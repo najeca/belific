@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.15.1 (step 2): the task details' List row is the app's own themed popover list (emoji, name,
 // a tick on the chosen one, "New list" at the bottom), no native select; the native selects that remain (Settings)
 // take the theme: color-scheme on <html> and option colours from the tokens. Light and dark.

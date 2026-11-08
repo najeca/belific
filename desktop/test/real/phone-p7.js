@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P7 (2.55.0): Repeat, times a day and reminders in the phone's task
 // details at 390 x 844, and the phone's "Remind me on this device" switch. (Notifications arriving on
 // an iPhone cannot be shown here: the web export schedules none; see the hand test list.)

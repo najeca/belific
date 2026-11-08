@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 2.34.0: (1) the List row of a repeating task's projected day, (2) the list
 // emoji on the time line of blocks and cards, (3) readable "Vibrant task colours" text.
 // Real mouse and key input into the real app, isolated data folder, in process fake Supabase.

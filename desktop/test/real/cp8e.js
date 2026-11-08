@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real pointer check for 2.12.3: nothing in a task card moves when the pointer
 // arrives or leaves (the hover icons reserve their space). Real mouse movement
 // into the real app on an isolated data folder asserted NOT to be the real one.

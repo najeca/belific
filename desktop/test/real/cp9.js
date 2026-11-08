@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real pointer and keyboard check for checkpoint 9 (2.15.0): the profile icon
 // and its popover (signed out and signed in), the Settings page, the Labels
 // page, the inert hidden panes and the keyboard route for cards. Real mouse and

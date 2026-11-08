@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for 3.2.0 to 3.4.0 on the phone at 390 x 844: one day of a repeating task, this day only.
 //  3.2.0: the details' date sheet moves a day of a repeating task through seriesActions.moveDay: a
 //         projected day is stored on the new Day (the series unchanged), the series' first row has its day

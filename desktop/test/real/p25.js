@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 2.48.0: edit a list (name and emoji) from a pencil on its row in the lists dropdown.
 // Real mouse, key and text input into the real app on an isolated data folder; Supabase is the in process
 // fake (signed out, nothing leaves the machine). The edit is checked in the stored list (same key, same

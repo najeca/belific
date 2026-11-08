@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real check, rewritten for 3.26.0 (Actual time and the timer removed). It was the check of
 // 2.34.1 (the timer on any task at any time); now it checks that nothing offers a timer:
 //  1. the details of a shown day of a repeating task and of a task whose time has begun

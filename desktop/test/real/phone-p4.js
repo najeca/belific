@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P4 (2.52.0): Today at 390 x 844. Only today, timed in time order,
 // Anytime below (routines first, top priority next); a tap opens a row in place; a step ticks; a tick
 // takes the row away with Undo; Done today shows it again; a projected repeating day is stored by

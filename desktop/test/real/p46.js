@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.25.0: Missed. (1) "Show missed tasks" is off by default: no Earlier pill, no Missed panel, no "what
 // you missed" step in Daily Planning, and Finish brings nothing onto today; the switch is in Settings and writes the
 // synced row. (2) On: the Missed list holds one off tasks only (a repeating task's past days are never listed and

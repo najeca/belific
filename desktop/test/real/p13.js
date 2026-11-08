@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for Part B, phases P1 and P2 (2.28.2 word breaking, 2.29.0 top priority
 // first): real app, isolated data folder, in process fake Supabase.
 // BELIFIC_SHOTS: a folder for screenshots.

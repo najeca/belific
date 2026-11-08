@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real check for build plan phase 6 (Analytics, Trash, data export) on the
 // desktop: real mouse and key input into the real app, on an isolated data
 // folder asserted NOT to be the real one; Supabase is the in process fake (signed

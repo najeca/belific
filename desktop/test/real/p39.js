@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.19.0 (step 8): a person with settings saved BEFORE the change keeps them. Here the saved file has
 // no vibrant key (it was written when Vibrant was off by default) and Theme Dark: after the update Vibrant is still
 // off, Theme still Dark, Match system untouched. (The unit tests cover the other saved shapes.)

@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real check for 2.37.0 (Part C, P4): a task with several times is drawn once per time on the Calendar
 // and the Timebox, each time splits the task it overlaps on its own, ticks per time show on its block,
 // one time is dragged on its own, a clash is refused with a note, and a repeating task has its times on every day.

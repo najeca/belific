@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.18.0 (step 6): the reminder options can be chosen before a task has a day and a time. They are
 // stored on the task as usual (`reminders`), the menu says "Applies once you set a time", nothing is scheduled
 // until a time is set, and then they fire normally (the main process scheduler holds one reminder per lead).

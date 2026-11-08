@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, window resize)
 // Real keyboard and pointer check for build plan phase 3 (desktop layout).
 // Real key and mouse input into the real app, on an isolated data folder
 // asserted NOT to be the real one. Supabase is the in process fake from

@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (runs cp8b/cp8f, which use hover and drag)
 // Driver for the checkpoint 8.2 real pointer checks (plain node). Phase 1 runs
 // the whole interaction check on a fresh isolated data folder; phase 2
 // relaunches on the SAME folder to prove the filter was remembered across a

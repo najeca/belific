@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for 3.9.0 to 3.11.0 on the phone at 390 x 844: a task during a break, follow up.
 //  3.9.0: the break's sheet has, per task, Tick, Open (its title) and "Move out" (right after the
 //         break, with Undo for 5 seconds); Undo puts it back.

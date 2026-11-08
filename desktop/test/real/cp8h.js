@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real pointer and keyboard check for checkpoint 8.4 part C (2.14.0): repeating
 // tasks as series with projected occurrences. A daily routine shows on every
 // day from today without being stored; ticking, skipping, editing, dragging to

@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 2.45.0, the Ellie Planner restyle, step 7: every remaining screen in both themes.
 // It opens each screen (Settings, Progress, Analytics, Trash, Labels, Quests, Daily Planning, Sign in, the
 // shortcut help, quick capture, search, the Missed list, the Calendar month) and saves a screenshot per theme

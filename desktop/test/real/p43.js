@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (window resize)
 // Real check for 3.23.0, step 2: the meta line of a left pane task card. Two lines: line 1 the list emoji, the label
 // dot and the label NAME (an ellipsis only when the name truly cannot fit); line 2 the day and time and the Must do
 // mark. Window sizes 1024 (the narrowest), 1440 and 1920 wide, light and dark. BELIFIC_SHOTS: screenshots.

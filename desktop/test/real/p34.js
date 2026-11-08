@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.16.0 (step 4): the Add row. A full width "+ Add a task" field whose placeholder is never cut,
 // at the left pane's width and at narrower and wider ones; the total ("3h planned") is a quiet caption under the
 // list header, not in the row; Enter creates. 3.23.0 (step 1): the + opens a new task card (the details modal,

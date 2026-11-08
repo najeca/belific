@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, middle button)
 // Real check for build plan phase 7 (power feature toggles, Labels overlay,
 // pomodoro (3.26.0: the timer under it is no longer shown), task templates, reset local cache, emoji on the
 // Settings, Labels and Progress pages) on the desktop: real mouse and key input

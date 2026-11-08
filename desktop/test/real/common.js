@@ -10,6 +10,71 @@ const os = require('node:os');
 const path = require('node:path');
 
 const MAIN = path.join(__dirname, '..', '..', 'main.js');
+
+// Quiet runs (harness only, no app change). Input in these checks is already in the page (webContents.sendInputEvent,
+// or CDP touch events for the phone checks): the real mouse and keyboard are never used. What takes the user's focus
+// is the window itself: it is created shown and active, and a check calls show(), focus() and sometimes moveTop() and
+// setAlwaysOnTop(). Two environment variables:
+//   BELIFIC_TEST_DISPLAY=2  the app's windows open on the second (not primary) display with showInactive(); show()
+//                           means showInactive(); focus(), moveTop() and setAlwaysOnTop() do nothing. With one
+//                           display the variable is ignored and the window behaves as before.
+//   BELIFIC_QUIET=1         a check tagged "// @real-input: pointer" (hover, native drag, wheel, middle button, window
+//                           resize: it needs a visible, unobscured, active window) prints SKIP and ends; "quiet" ones run.
+function secondDisplay() {
+  const { screen } = require('electron');
+  const primary = screen.getPrimaryDisplay().id;
+  return screen.getAllDisplays().find((d) => d.id !== primary) || null;
+}
+
+let quietInstalled = false;
+function installQuietDisplay() {
+  if (quietInstalled || process.env.BELIFIC_TEST_DISPLAY !== '2') return;
+  quietInstalled = true;
+  const Module = require('node:module');
+  const electron = require('electron');
+  const Real = electron.BrowserWindow;
+  // A plain function that returns a real BrowserWindow (a subclass would not be listed by getAllWindows or fromId, which
+  // the checks use), with its show and focus methods replaced on that one object.
+  function QuietWindow(opts = {}) {
+    const second = secondDisplay();
+    // One display only: exactly as before.
+    if (!second) return new Real(opts);
+    const wa = second.workArea;
+    const w = new Real({ ...opts, show: false, x: opts.x ?? wa.x + 40, y: opts.y ?? wa.y + 40 });
+    w.show = () => w.showInactive();
+    w.focus = () => {};
+    w.moveTop = () => {};
+    w.setAlwaysOnTop = () => {};
+    if (opts.show !== false) w.showInactive();
+    return w;
+  }
+  Object.setPrototypeOf(QuietWindow, Real);
+  QuietWindow.prototype = Real.prototype;
+  const proxy = new Proxy(electron, { get: (t, k) => (k === 'BrowserWindow' ? QuietWindow : t[k]) });
+  const load = Module._load;
+  Module._load = function (request, ...rest) {
+    const m = load.call(this, request, ...rest);
+    return request === 'electron' && m === electron ? proxy : m;
+  };
+  console.log('QUIET windows open on the second display, inactive');
+}
+
+// BELIFIC_QUIET=1: a check that needs the pointer or an active window skips itself.
+function skipIfPointerCheck() {
+  if (process.env.BELIFIC_QUIET !== '1') return;
+  const file = process.argv[1] || '';
+  let head = '';
+  try {
+    head = fs.readFileSync(file, 'utf8').slice(0, 600);
+  } catch {
+    return;
+  }
+  const m = /@real-input: pointer(.*)/.exec(head);
+  if (m) {
+    console.log(`SKIP ${path.basename(file)} needs the pointer or an active window${m[1]} (BELIFIC_QUIET=1)`);
+    app.exit(0);
+  }
+}
 const SUPABASE_HOST = 'vlogfwnmaqorhialcqbr.supabase.co';
 
 function realFolders() {
@@ -21,6 +86,8 @@ function realFolders() {
 // Sets userData to a folder under the OS temp dir (or the one given by the
 // parent run) and asserts it is isolated before main.js loads.
 function isolate() {
+  skipIfPointerCheck();
+  installQuietDisplay();
   const userData = path.resolve(process.env.BELIFIC_REAL_USERDATA || fs.mkdtempSync(path.join(os.tmpdir(), 'belific-real-')));
   const lower = userData.toLowerCase();
   if (!lower.startsWith(path.resolve(os.tmpdir()).toLowerCase())) throw new Error(`ASSERT: ${userData} is not under the temp folder`);

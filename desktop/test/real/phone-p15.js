@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for the lists batch (3.12.0 to 3.14.1) on the phone, 390 x 844.
 //  3.14.0: one emoji per list: taken emojis greyed out (tap says which list), a typed one refused, the shared
 //          emoji of two existing lists kept with a note in the edit sheet.

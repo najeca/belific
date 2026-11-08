@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real pointer check for checkpoint 8.2 (run: npx electron test/real/cp8b.js after
 // building the web export). Edit tasks ON the card: small anchored dropdowns,
 // never a modal. Real mouse input (sendInputEvent) into the real app on an

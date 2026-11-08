@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, window resize)
 // Real check for the Calendar Day view break chips (3.28.0), on real shaped data since 3.29.1: a repeating
 // "Short break" of 20 minutes (one line, about 19 px high) at 11:00 with an extra time at 15:00, a Must do with a
 // label; today's day of it stored, tomorrow's projected. A 7 hour repeating task under both, cut by them, and a Long

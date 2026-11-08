@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P11 (2.59.0): every phone screen in Light and in Dark at 390 x 844.
 // The Theme setting (Settings, On this iPhone: Light, Dark, Match system) switches the whole app at
 // once; each screen is audited like the desktop's p23: no corner radius outside the scale (4, 6, 8, 10,

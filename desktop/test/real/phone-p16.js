@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for the 3.15.0 batch on the phone, 390 x 844. Sections are added step by step.
 //  Step 6 (3.18.0): the reminder chips can be tapped before a task has a time; stored as usual, hint shown.
 //  Step 4 (3.16.0): the Tasks tab's add row is a full width field whose placeholder is whole; the + button adds.

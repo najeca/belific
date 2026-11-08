@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.23.2: with "Vibrant task colours" on, a grey label (Work) is not the same blue as Study. Real
 // blocks on the Timebox, their computed colours read back, light and dark. BELIFIC_SHOTS: screenshots.
 const fs = require('node:fs');

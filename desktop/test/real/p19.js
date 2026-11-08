@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 2.36.0 (Part C, P3): one task, several times in a day.
 //  1. the details panel: "+ Add another time", a tick, a move and a remove per time, refusals with a note,
 //  2. completion per time (ticking the last open time completes the task, unticking reopens it),

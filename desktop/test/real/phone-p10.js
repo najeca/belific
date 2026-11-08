@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P10 (2.58.0): press and hold a block on the Day timeline, then drag
 // it in time, at 390 x 844. 15 minute steps (decision 6); the drop writes the desktop's fields; Undo
 // puts it back; one time of a task with several times moves alone (an overlap is refused with a note);

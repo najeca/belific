@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P9 (2.57.0): the Calendar's Week and Month at 390 x 844, and the
 // sideways swipe. Week has seven columns with short titles; a tap on a day in Week or Month opens it in
 // Day view and never creates a task; a sideways swipe moves one day, week or month; a vertical scroll

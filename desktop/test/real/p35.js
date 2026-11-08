@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.17.0 (step 5): the Today button (jump to today) sits beside the Tasks / Calendar toggle and
 // Only today sits next to Day / Week / Month (and next to Filter on the board), each with a tooltip; today is marked
 // with a small "Today" tag on its column header in Day, Week and Month and a clear today style in the month grid.

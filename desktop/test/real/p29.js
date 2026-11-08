@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.12.0 to 3.14.1: the lists batch. Real mouse, key and text input into the real app on an
 // isolated data folder; Supabase is the in process fake (signed out, nothing leaves the machine).
 //  3.14.0: one emoji per list: taken emojis greyed out with the list that has them, nothing chosen from them,

@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for build plan phase 8 (calendar connections) on the desktop: real
 // mouse, key and text input into the real app, on an isolated data folder
 // asserted NOT to be the real one; Supabase is the in process fake.

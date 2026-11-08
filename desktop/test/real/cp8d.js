@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real pointer check for 2.12.2: "Daily" in the Repeat dropdown. Real mouse input
 // into the real app on an isolated data folder asserted NOT to be the real one.
 const fs = require('node:fs');

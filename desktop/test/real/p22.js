@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 2.39.0, the Ellie Planner restyle (tokens, light and dark): real input into the real app
 // on an isolated data folder, Supabase is the in process fake (signed out). One pass in the default
 // theme, one after choosing Dark in Settings, one for Match system. For each theme it saves screenshots

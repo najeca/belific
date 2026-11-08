@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real check for 3.18.1 (step 7): dragging a repeating task from the left list onto the Calendar or the Timebox.
 // "Zone 2" repeats Mon and Thu and has an empty date. REPRODUCED first on 3.18.0: the drop preview said
 // "16:30 to 18:00" but nothing was written. Fixed: a drop on a day that matches the repeat rule sets that day's

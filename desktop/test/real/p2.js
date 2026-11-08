@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real keyboard and pointer check for build plan phase 2 (task model and timer).
 // Real key and text input into the real app, on an isolated data folder asserted
 // NOT to be the real one. Supabase is the in process fake from common.js: signed

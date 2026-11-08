@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for Part B, phase P4 (2.31.0): "Split". Real mouse, key and
 // text input into the real app, isolated data folder, in process fake Supabase.
 // The drawing: one wide column, full width boxes stacked top to bottom: the first piece

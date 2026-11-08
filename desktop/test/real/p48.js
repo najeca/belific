@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.27.0: "Task or Break" replaces the Split switch in the details.
 //   1. a plain task's details: Task | Break with Task chosen, an icon each, and the Task line,
 //   2. choosing Break stores cutsBelow true (nothing else), shows the Break line, the card gets a "☕ Break" tag

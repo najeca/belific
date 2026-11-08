@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 2.33.0: the "Split" wording and "Vibrant task colours" (Settings, Appearance).
 // Real mouse and key input into the real app, isolated data folder, in process fake Supabase.
 // OFF (the default) must look exactly as before: colours, sizes and positions are recorded,

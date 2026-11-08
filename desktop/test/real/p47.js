@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for the stale titles on repeating days (step 4 of the 2026-11-02 batch). A repeating task on three
 // weekdays: a past day that is done, yesterday's day (stored, not done), and today's day, stored because it was
 // moved into the Short break and shortened to 10 minutes (it shows as a chip in the break). The task is renamed

@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.14.1: the list emoji of every kind of list on every surface. The Brain Dump brain was
 // missing from task cards, Calendar blocks and Timebox blocks (listEmojiOf gave nothing for a task with no list).
 // Lists: Brain Dump, Games (an emoji), Plain (none), Old name (renamed during the check to Reading), and a task on

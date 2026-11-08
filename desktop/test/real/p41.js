@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.21.0 (step 2): undo and redo of task changes on the desktop. Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z with the
 // real keyboard in the real app (isolated data folder, in process fake Supabase; the sync queue itself is covered by undoStack.test.ts: a signed out
 // app never queues): a time edit, a tick, a create, a delete; the keys are left to a text field that has the keyboard;

@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, middle button, drag)
 // Real check for 3.24.0: middle mouse drag pans the Calendar and the Timebox like a hand. Synthetic middle button
 // events (mouseDown / mouseMove with the middle button held / mouseUp) into the real app: the Calendar week strip moves
 // through the days sideways and the hours scroll up and down; a grabbing cursor while it pans; the press is cancelled

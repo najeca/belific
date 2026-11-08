@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real pointer check for checkpoint 10 (2.16.0): routines from the iPhone become
 // repeating tasks. Real mouse events into the real app on an isolated data
 // folder asserted NOT to be the real one. Supabase is the in process fake from

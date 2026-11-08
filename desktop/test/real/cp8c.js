@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real keyboard and pointer check for 2.12.1: typing (including spaces and Enter)
 // in any field inside a card or popover must never reach the card (no collapse,
 // no drag). Real key events (keyDown, char, keyUp) and real mouse clicks into the

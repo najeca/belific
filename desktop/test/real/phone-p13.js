@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for 3.7.0 on the phone at 390 x 844: a task during a break in the Calendar's Day view.
 // A 20 minute break with two tasks inside it shows a "+2" badge (no room for chips); a 60 minute one
 // with one task shows its chip; a 90 minute one with three shows three chips. The hosted tasks have no

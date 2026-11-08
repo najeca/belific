@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.19.0 (step 8): the defaults for a NEW user (no settings ever saved): Vibrant task colours ON and
 // Theme Light (not Match system). Nothing is stored until something is changed; changing another setting keeps
 // them. Existing saved settings are not changed (see p39). BELIFIC_SHOTS: a folder for screenshots.

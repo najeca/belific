@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real check for checkpoint 12 (2.18.0): the Sign in page with Apple and Google.
 // Real mouse and key events into the real app on an isolated data folder
 // asserted NOT to be the real one. Supabase is the in process fake from

@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P2 (2.50.0): the phone's touch kit on list rows (since P5 the Tasks
 // tab's Brain Dump rows; the old Brain Dump tab went in P3), at
 // 390 x 844 with real touch events (phone-common.js). A short still tap opens a card; a finger that

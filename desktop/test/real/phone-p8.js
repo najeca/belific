@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P8 (2.56.0): the Calendar's Day view at 390 x 844. Day is chosen;
 // blocks for timed tasks (a break splits the long task under it into pieces), a projected repeating
 // day, an old event in grey, the all day row, the red now line; text in a block never runs over other

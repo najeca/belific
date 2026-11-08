@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real check for 3.22.0 (step 3): dragging a Split task into another Split task. Real mouse input into the real app on an
 // isolated data folder (in process fake Supabase). A Split task held over a break for about a second outlines it with
 // "Drop inside" and the drop hosts it there (a chip, its own Break ignored); dropped without the pause it is placed as

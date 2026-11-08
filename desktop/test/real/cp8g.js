@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, wheel, drag)
 // Real pointer and keyboard check for checkpoint 8.4 (2.14.0): the 24 hour
 // Timebox, "My day starts at", overnight blocks and their continuation, column
 // order (part A and D), and repeating series with projected occurrences (part C).

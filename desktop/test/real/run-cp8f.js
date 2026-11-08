@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (runs cp8b/cp8f, which use hover and drag)
 // Driver for the duration chip and dropdown real check (plain node): one fresh
 // isolated data folder. Screenshots go to BELIFIC_SHOTS when set.
 const { spawnSync } = require('node:child_process');

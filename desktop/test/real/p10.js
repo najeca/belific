@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real check for the 2.27.0 fix batch: real mouse, key and text input into the
 // real app, on an isolated data folder asserted NOT to be the real one; Supabase
 // is the in process fake (signed out, nothing leaves the machine). One section

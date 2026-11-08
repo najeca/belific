@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real pointer and keyboard check for checkpoint 11 (2.17.0): streaks and the
 // Progress page, derived from repeating series. Real mouse and key events into
 // the real app on an isolated data folder asserted NOT to be the real one.

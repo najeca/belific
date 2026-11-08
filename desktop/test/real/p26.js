@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real check for 3.2.0 to 3.4.0: one day of a repeating task, this day only. Real mouse and key input into
 // the real app on an isolated data folder; Supabase is the in process fake (signed out, nothing leaves
 // the machine).

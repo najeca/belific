@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P6 (2.54.0): a task's details on the phone at 390 x 844. Title,
 // emoji, top priority, date (chips and the month grid), time, length (presets and typed), label (and
 // a new one), list, notes, steps (add, tick, rename, delete) and Delete; every edit is stored at once

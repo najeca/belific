@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for 3.23.0, step 1, on the phone (390 x 844): the + beside the Tasks tab's add row opens a new
 // task card (the task details sheet, empty, the title focused, "Save" at the top); nothing is stored until it has
 // a title; closing it empty stores nothing. Step 2: the Tasks rows show the label's NAME on its own line, then the

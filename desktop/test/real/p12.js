@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for the 2.28.0 display batch (Part A): real mouse, key and text input
 // into the real app, on an isolated data folder asserted NOT to be the real one;
 // Supabase is the in process fake (signed out, nothing leaves the machine).

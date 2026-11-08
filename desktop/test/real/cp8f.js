@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover)
 // Real pointer and keyboard check for the duration chip and dropdown (2.13.0)
 // and the removal of Actual time (2.14.0, decision 022 superseded). Real mouse
 // and key events into the real app on an isolated data folder asserted NOT to

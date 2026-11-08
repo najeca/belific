@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Driver for the checkpoint 7 real checks (plain node). Part 1 runs the app
 // under the harness (toasts, tray) and asserts that Quit from the tray really
 // ends the process. Part 2 (with --installer) builds the NSIS installer, then

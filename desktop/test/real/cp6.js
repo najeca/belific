@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real-app check for checkpoint 6 (run: npx electron test/real/cp6.js, after
 // building the web export). Isolated data folder asserted before launch.
 // No real Apple sign in. The REAL auth-js client runs in the page against a fake

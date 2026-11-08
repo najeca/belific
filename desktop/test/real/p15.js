@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for Part B, phase P5 (2.32.0): several reminders per timed task.
 // Real Electron, isolated data folder (asserted), in process fake Supabase. Like cp7 it
 // captures Notification and Tray calls in the main process instead of looking at the screen.

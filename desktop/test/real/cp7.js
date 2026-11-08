@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real-app check for checkpoint 7 (run through test/real/run-cp7.js). The
 // harness captures Notification and Tray calls in the main process instead of
 // looking at the screen. Isolated data folder asserted before launch; the

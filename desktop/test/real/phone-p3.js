@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real touch check for PLAN_phone P3 (2.51.0): the phone shell at 390 x 844. Three tabs (Today,
 // Calendar, Tasks); the avatar opens Settings on every tab; the round + opens the quick add with the
 // place filled in, Cancel is one tap, Add stores the task there; Tasks holds Brain Dump, All and

@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: pointer (hover, drag)
 // Real check for 3.9.0 to 3.11.0: a task during a break, follow up. Real mouse input into the real app on
 // an isolated data folder; Supabase is the in process fake (signed out, nothing leaves the machine).
 //  3.9.0: the chip's menu (right click or its small ⋯ button): "Move out of break" (right after the

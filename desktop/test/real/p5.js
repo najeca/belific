@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for build plan phase 5 (Daily Planning, Daily Shutdown, rollover,
 // the phase 5 keys) on the desktop: real mouse and key input into the real app,
 // on an isolated data folder asserted NOT to be the real one; Supabase is the in

@@ -1,4 +1,5 @@
 'use strict';
+// @real-input: quiet
 // Real check for 3.15.2 (step 3): on every task card the bold figure at the top right is the LENGTH (3h, 1h 30m,
 // 30m), the start time is only in the meta line, a card with no length shows no figure. Left pane, the Tasks board
 // (its Today column), light and dark. BELIFIC_SHOTS: a folder for screenshots.

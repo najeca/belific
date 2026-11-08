@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { THEMES, accents, cssVarName, darkTokens, lightTokens } from './tokens.ts';
+import fs from 'node:fs';
+import path from 'node:path';
+import { THEMES, accents, band, borderWidth, cssVarName, darkTokens, divider, focusRing, fontWeight, labelTint, lightTokens, radius, slab, slabOffset } from './tokens.ts';
 import { DEFAULT_THEME_MODE, normalizeThemeMode, resolveTheme } from './themeMode.ts';
-import { LABEL_COLORS, LEGACY_COLORS, contrast, darkTint, tintFor } from './labelColors.ts';
+import { LABEL_COLORS, LEGACY_COLORS, colorDistance, contrast, darkTint, hueShadeToHex, tintFor } from './labelColors.ts';
+import { VIBRANT_NEUTRAL, vibrantColor } from './vibrant.ts';
 import { Colors } from './theme.ts';
 
 const HEX = /^#[0-9A-F]{6}$/i;
@@ -143,6 +146,65 @@ test('3.15.0: a switch reads in both themes: a light knob, a track against the p
     assert.ok(contrast(t.switchOn, t.switchOff) >= 1.3, `on against off ${contrast(t.switchOn, t.switchOff).toFixed(2)}`);
   }
   assert.ok(contrast(darkTokens.switchKnob, '#000000') > 15 && contrast(lightTokens.switchKnob, '#000000') > 15, 'the knob is light in both themes');
+});
+
+// 3.30.0: the Mini Motorways restyle tokens (docs/design/motorways/BUILD_PLAN.md, section 2).
+test('3.30.0: labelTint mixes about 20 % of the label over the surface, for every kind of label colour, on both surfaces', () => {
+  const wheel: string[] = [];
+  for (let hue = 0; hue < 360; hue += 15) for (const shade of [0, 25, 50, 75, 100]) wheel.push(hueShadeToHex(hue, shade));
+  const palette = [...LABEL_COLORS, ...LEGACY_COLORS].map((c) => c.edge);
+  const colours = [...palette, ...wheel, ...palette.map(vibrantColor), VIBRANT_NEUTRAL];
+  for (const surface of [lightTokens.surface, darkTokens.surface]) {
+    for (const c of colours) {
+      const t = labelTint(c, surface);
+      assert.match(t, HEX, `${c} on ${surface}`);
+      // Each channel sits between the surface and the colour, a fifth of the way (rounded).
+      for (const i of [1, 3, 5]) {
+        const s = parseInt(surface.slice(i, i + 2), 16);
+        const k = parseInt(c.slice(i, i + 2), 16);
+        assert.ok(Math.abs(parseInt(t.slice(i, i + 2), 16) - (s + (k - s) * 0.2)) <= 0.5, `${c} on ${surface} channel ${i}`);
+      }
+      // Never the label colour itself, and close to the surface: an outline, not a fill.
+      assert.ok(colorDistance(t, surface) < colorDistance(c, surface), `${c} on ${surface} nearer the surface`);
+    }
+    // The palette's colours still show as a colour round a card (CIE76 above about 2.3 is noticeable).
+    for (const c of palette) assert.ok(colorDistance(labelTint(c, surface), surface) >= 2.3, `${c} visible on ${surface} ${colorDistance(labelTint(c, surface), surface).toFixed(2)}`);
+  }
+  assert.equal(labelTint('#5C7A6B', '#FFFFFF'), '#DEE4E1');
+  assert.equal(labelTint('#5C7A6B', '#FFFFFF', 0), '#FFFFFF');
+  assert.equal(labelTint('#5C7A6B', '#FFFFFF', 1), '#5C7A6B');
+  assert.equal(labelTint('#5c7a6b', '#ffffff'), '#DEE4E1', 'any case');
+  for (const junk of ['', 'sage', '#FFF', 'var(--ds-accent)']) assert.equal(labelTint(junk, '#282828'), '#282828', `junk ${junk}`);
+});
+
+test('3.30.0: the slab is 7 px behind a pane and 10 px behind the details window, light desktop only', () => {
+  assert.equal(slab.offset, 7);
+  assert.equal(slabOffset('pane', 'light'), 7);
+  assert.equal(slabOffset('window', 'light'), 10);
+  assert.equal(slabOffset('pane', 'dark'), 0);
+  assert.equal(slabOffset('window', 'dark'), 0);
+  assert.equal(slabOffset('pane', 'light', true), 0);
+  assert.equal(slabOffset('window', 'light', true), 0);
+});
+
+test('3.30.0: the shape tokens: square corners, thick lines, bands, short dividers, the focus ring and weight 800', () => {
+  assert.equal(radius.square, 0);
+  assert.equal(radius.card, 12);
+  assert.equal(radius.xl, 16, 'panes and the details window');
+  assert.deepEqual(borderWidth, { hair: 1, thick: 2, heavy: 3 });
+  assert.deepEqual(band, { pane: 8, card: 6 });
+  assert.equal(divider.height, 4);
+  assert.ok(divider.short >= 60 && divider.long <= 80);
+  assert.equal(fontWeight.heavy, '800');
+  assert.equal(focusRing.width, 2);
+  assert.equal(focusRing.offset, 2);
+  // The ring is the text colour: readable on every surface in both themes.
+  for (const t of [lightTokens, darkTokens]) for (const bg of [t.background, t.pane, t.surface, t.surfaceRaised]) assert.ok(contrast(t[focusRing.color], bg) >= 3, `ring on ${bg}`);
+});
+
+test('3.30.0: Inter ExtraBold (800) ships beside the other weights, for the desktop (woff2) and the iPhone (ttf)', () => {
+  const dir = path.join(import.meta.dirname, '..', 'assets', 'fonts');
+  for (const f of ['Inter-800.woff2', 'Inter-800.ttf', 'Inter-OFL.txt']) assert.ok(fs.statSync(path.join(dir, f)).size > 1000, f);
 });
 
 test('3.10.0: the "N inside" pill and the "During" caption read at 6:1 in both themes, on the pill and on a card', () => {

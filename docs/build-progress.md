@@ -755,3 +755,18 @@ tsc clean; mobile `npm test` 1079/1079; desktop `npm test` 114/114; iOS export p
 ## Check fix: cp8h (no app change, no version bump)
 
 cp8h failed on 3.29.0 and 3.29.1 on 3 Nov and passed on 2 Nov. Not the date (the second column is a plain Wed 4 Nov and every date-dependent target was already computed from today) and not a bug in the app. In the failing runs the test window was covered, so `document.visibilityState` was `hidden`; Chromium then drops the mouse moves, the card is never hovered, the ⋮ stays `pointer-events: none`, and the click falls through to the card title (details modal instead of the menu). The same cause made the first "Show Tasks" click miss (no cards at all, `n=0`). Fixed in `desktop/test/real/cp8h.js` only: raise the window and wait for it to be visible, press Show Tasks until the board is there, and press a target only once it is under the pointer. Assertions unchanged. 20/20 passes after the fix (about 1 in 4 failed before). The other flaky checks (p2, p11, p37, p42) share the same click helper and probably the same cause; not changed here.
+
+## Mini Motorways restyle (2026-11-08): phases 0 and 1 of 5
+From Jethro's prompt, saved as `docs/design/motorways/BUILD_PROMPT.md` (resume from it). Local only: not pushed, no EAS build, no schema change, no migration, no backup. Phases 2 to 5 not started.
+
+### Baseline
+`docs/screens-motorways-baseline/` (not committed): 18 shots from the new recorder `desktop/test/real/motorways-shots.js` (desktop 1440 x 900 and phone 390 x 844, light and dark; the page clock fixed at Mon 9 Nov 2026 10:20 so runs compare pixel for pixel). The recorder raises the window and waits until it is visible (the cp8h lesson) and opens the Tasks board itself (a new data folder opens on the Calendar).
+
+### Phase 0 (docs, no version): `94470df`
+`BUILD_PLAN.md`: the screens and components per phase, 23 mock versus app differences with the decision for each, the fonts (Inter 800 missing; the bundled Inter is `@fontsource/inter` 5.1.0, byte for byte), the tokens, the dark defaults against today's dark tokens, contrast figures, risks.
+
+### Phase 1, 3.30.0: tokens
+Files: `mobile/lib/tokens.ts`, `mobile/lib/tokens.test.ts`, `mobile/scripts/export-tokens.mjs`, `design-tokens/*` (generated), `mobile/assets/fonts/Inter-800.woff2`, `Inter-800.ttf`, `mobile/app.json`, `mobile/lib/easConfig.test.ts`, `desktop/test/real/motorways-shots.js`. Choices made without asking: `onAccent` already existed, so its dark value moves to `#101010` in phase 5 (dark pass), not now; Inter 800 files added now but registered in phase 2 (the done tick already asks for 800, registering it would change a pixel); `radius.card` 12 and `divider` added (not in the prompt's list, needed by phases 2 and 3); shape tokens kept out of `ColorTokens` so no new CSS variables are set on the page; `slabOffset` derives the window's 10 px as offset + 3 so one value turns both off; `labelTint` gives the surface back for anything that is not `#RRGGBB`; the Inter `.ttf` made with fontTools as before (reproduces the shipped 700 byte for byte).
+Gates: tsc clean; mobile `npm test` 1083/1083 (was 1079, +4) from Git Bash; desktop 114/114; iOS export plus `check:ios-markers` OK (48 markers, 0 hits, none added or removed); security scan passed (from Git Bash). Screenshots `docs/screens-3.30.0/` (not committed): 18 of 18 pixel identical to the baseline. No real regression this phase (the prompt asks for it at phases 2, 3 and 5).
+Noted: run from PowerShell, the security scan and the 6 tests of `securityScan` that call it cannot find `git` (its bash has another PATH) and skip or fail; from Git Bash all pass. Not an app problem.
+Check by hand: nothing should look different anywhere.

@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 3.30.0 — 2026-11-08 (Mini Motorways restyle, phase 1: the tokens; nothing on screen changes)
+
+**Desktop and phone (shared `lib/tokens.ts`). No schema change, no migration, no data change, no visible change.**
+- The plan: `docs/design/motorways/BUILD_PLAN.md` (phase 0), from `SPEC.md`, the six mockups and `BUILD_PROMPT.md`.
+- **New tokens** in `mobile/lib/tokens.ts`, for light and dark: `radius.square` (0: buttons, tags, chips, segmented toggles; one line to change to 4) and `radius.card` (12); `borderWidth` (hair 1, thick 2, heavy 3); `band` (pane 8, card 6); `divider` (4 px tall, 60 to 80 wide); `focusRing` (2 px, 2 px offset, the text colour); `fontWeight` (400 to 800, `heavy` 800); `slab.offset` (7) with `slabOffset(kind, theme, phone)`: 7 px behind a desktop pane, 10 px behind the details window, 0 in dark, on the phone, or when the offset is set to 0.
+- **`labelTint(color, surface, amount = 0.2)`**: a label colour mixed about 20 % over the surface (the card outline of the restyle). Any `#RRGGBB` (the 20 palette colours, the 12 legacy ones, a colour wheel pick, a Vibrant colour), on the light or the dark surface; anything else gives the surface back.
+- **`onAccent`** already existed (light `#FFFFFF`, dark `#121212`, 8.1:1 on the dark accent); its move to `#101010` is left to the dark pass (phase 5) so this phase stays pixel identical.
+- **Inter ExtraBold (800)** added to `mobile/assets/fonts` (`Inter-800.woff2` for the desktop, `Inter-800.ttf` for the iPhone): `@fontsource/inter` 5.1.0, latin, Inter 4.001, the same package, version and subset as the bundled 400 to 700 (their files match it byte for byte), SIL OFL 1.1 (`Inter-OFL.txt`). **Not registered yet** (phase 2): the card's done tick already asks for weight 800, so loading the real face now would change it.
+- `design-tokens/` regenerated with `mobile/scripts/export-tokens.mjs`, which now also writes the weights, line widths, bands, dividers, focus ring and slab offset (json, CSS variables, Tailwind `fontWeight` and `borderWidth`). Only additions; existing entries unchanged.
+- **New recorder** `desktop/test/real/motorways-shots.js`: the same 18 screenshots on every run (desktop week board, Day view with a break, task details, Settings, the Filter popover; phone Today, Calendar, Tasks, details; light and dark), the page clock fixed at Mon 9 Nov 2026 10:20. The 3.30.0 shots are pixel identical to the 3.29.1 baseline (18 of 18).
+- **Tests:** `tokens.test.ts` +4 (`labelTint` over every palette, legacy, wheel and Vibrant colour on both surfaces; the slab; the shape tokens and the focus ring's contrast; the Inter 800 files). `easConfig.test.ts` version 3.30.0.
+
 ## 3.29.1 — 2026-11-02 (Day view break chips: packed from their own widths, the "⋯" only on hover)
 
 **Desktop, the Calendar's Day view. No schema change, no migration, no data change.**

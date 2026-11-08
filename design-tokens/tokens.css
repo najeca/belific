@@ -54,6 +54,8 @@
   --ds-radius-lg: 10px;
   --ds-radius-xl: 16px;
   --ds-radius-full: 999px;
+  --ds-radius-square: 0px;
+  --ds-radius-card: 12px;
   --ds-space-4: 4px;
   --ds-space-6: 6px;
   --ds-space-8: 8px;
@@ -73,6 +75,24 @@
   --ds-font-size-hour: 10px;
   --ds-font-size-modal-title: 20px;
   --ds-font-size-row-label: 13px;
+  --ds-font-weight-regular: 400;
+  --ds-font-weight-medium: 500;
+  --ds-font-weight-semibold: 600;
+  --ds-font-weight-bold: 700;
+  --ds-font-weight-heavy: 800;
+  --ds-border-width-hair: 1px;
+  --ds-border-width-thick: 2px;
+  --ds-border-width-heavy: 3px;
+  --ds-band-pane: 8px;
+  --ds-band-card: 6px;
+  --ds-divider-height: 4px;
+  --ds-divider-short: 60px;
+  --ds-divider-medium: 70px;
+  --ds-divider-long: 80px;
+  --ds-focus-ring-width: 2px;
+  --ds-focus-ring-offset: 2px;
+  --ds-focus-ring-color: var(--ds-text-primary);
+  --ds-slab-offset: 7px;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;

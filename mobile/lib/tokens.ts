@@ -158,7 +158,10 @@ export const THEMES: Record<ThemeName, ColorTokens> = { light: lightTokens, dark
 
 // One scale, nothing between: cards and add rows 10, popovers 10 (rows 6), pills 6, buttons 8,
 // modals 16, an avatar or a round checkbox full.
-export const radius = { xs: 4, sm: 6, md: 8, lg: 10, xl: 16, full: 999 } as const;
+// 3.30.0 (the Mini Motorways restyle, docs/design/motorways/): `square` is the corner of every button, tag, chip and
+// segmented toggle (0; one line to make it 4), `card` a task card's corner. Avatar, close button, checkboxes and the
+// phone's quick add stay round (`full`).
+export const radius = { xs: 4, sm: 6, md: 8, lg: 10, xl: 16, full: 999, square: 0, card: 12 } as const;
 export const space = { s4: 4, s6: 6, s8: 8, s10: 10, s12: 12, s16: 16, s20: 20, s30: 30, s35: 35 } as const;
 export const fonts = {
   ui: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
@@ -168,6 +171,39 @@ export const fonts = {
 // The sizes the study reads off Ellie (by eye): day header, card title, meta, hint, hour label,
 // modal title, modal row label.
 export const fontSize = { dayHeader: 20, cardTitle: 13, meta: 12, hint: 11, hour: 10, modalTitle: 20, rowLabel: 13 } as const;
+// 3.30.0: the Inter weights the app ships (800, ExtraBold, for the heavy titles of the restyle).
+export const fontWeight = { regular: '400', medium: '500', semibold: '600', bold: '700', heavy: '800' } as const;
+
+// ---- 3.30.0: the Mini Motorways restyle (docs/design/motorways/SPEC.md and BUILD_PROMPT.md) ----
+// Line widths: a card's outline, an input, the dashed add row (thick); the details' checkbox ring (heavy).
+export const borderWidth = { hair: 1, thick: 2, heavy: 3 } as const;
+// The coloured band across the top of a pane and the details window, and of a labelled task card.
+export const band = { pane: 8, card: 6 } as const;
+// The short centred divider that replaces a full width hairline under a title and between sections.
+export const divider = { height: 4, short: 60, medium: 70, long: 80 } as const;
+// The keyboard focus ring of every button, input and tab (`:focus-visible`), in the theme's text colour.
+export const focusRing = { width: 2, offset: 2, color: 'textPrimary' } as const satisfies { width: number; offset: number; color: keyof ColorTokens };
+// The flat offset "slab" behind the three desktop panes and the task details window: a solid copy of the shape, moved
+// right and down. `offset` is the one switch (0 turns every slab off). The window's is 3 px more. Light theme on the
+// desktop only: none in dark, none on the phone.
+export const slab = { offset: 7 } as const;
+export function slabOffset(kind: 'pane' | 'window', theme: ThemeName, phone = false): number {
+  if (phone || theme === 'dark' || slab.offset <= 0) return 0;
+  return kind === 'pane' ? slab.offset : slab.offset + 3;
+}
+
+// A label's soft outline on a card: the label colour mixed `amount` (about 20 %) over the surface it sits on. Works for
+// any "#RRGGBB": the 20 palette colours, the legacy ones, a colour wheel pick and a Vibrant colour, on the light or the
+// dark surface. Anything that is not a hex colour gives the surface back unchanged. Pure; tokens.test.ts checks it.
+export function labelTint(color: string, surface: string, amount = 0.2): string {
+  const hex = /^#[0-9A-F]{6}$/i;
+  if (!hex.test(color) || !hex.test(surface)) return surface;
+  const t = Math.max(0, Math.min(1, amount));
+  const ch = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const a = ch(color);
+  const b = ch(surface);
+  return `#${b.map((v, i) => Math.round(v + (a[i] - v) * t).toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+}
 
 // Per app accent (the study, section 7). Belific is sage; Landis and Proload take their own.
 // `onAccent` is the text on an accent fill (white, or near black where white would not reach 4.5:1:

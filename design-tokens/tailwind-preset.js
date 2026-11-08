@@ -56,7 +56,9 @@ module.exports = {
         "md": "8px",
         "lg": "10px",
         "xl": "16px",
-        "full": "9999px"
+        "full": "9999px",
+        "square": "0px",
+        "card": "12px"
       },
       spacing: {
         "4": "4px",
@@ -82,6 +84,18 @@ module.exports = {
         "hour": "10px",
         "modal-title": "20px",
         "row-label": "13px"
+      },
+      fontWeight: {
+        "regular": "400",
+        "medium": "500",
+        "semibold": "600",
+        "bold": "700",
+        "heavy": "800"
+      },
+      borderWidth: {
+        "hair": "1px",
+        "thick": "2px",
+        "heavy": "3px"
       },
       boxShadow: {
         sm: 'var(--ds-shadow-sm)',

@@ -24,6 +24,8 @@ const INTER: Array<[number, number]> = [
   [500, require('../../assets/fonts/Inter-500.woff2')],
   [600, require('../../assets/fonts/Inter-600.woff2')],
   [700, require('../../assets/fonts/Inter-700.woff2')],
+  // 3.31.0: ExtraBold, the weight of the heavy titles of the Motorways restyle.
+  [800, require('../../assets/fonts/Inter-800.woff2')],
 ];
 const NEWSREADER: Array<[number, number]> = [
   [500, require('../../assets/fonts/Newsreader-500.woff2')],

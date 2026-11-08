@@ -26,6 +26,7 @@ import { openDetail, openNewTask, useSelectedList } from './uiStore';
 import { editDumpItem } from '../../lib/taskActions';
 import { useFeature } from './featureStore';
 import TemplatePicker from './TemplatePicker';
+import { ShortDivider } from './ui';
 
 // Desktop Brain Dump (decision 009, product flow 2c): the thing you capture IS
 // the task. Typing a thought and pressing Enter creates a Task straight away
@@ -113,6 +114,12 @@ export default function BrainDumpPane({
         <ListSwitcher lists={lists} counts={counts} selected={selected} />
         {showMissed && <MissedButton refreshKey={refreshKey} />}
       </View>
+      {/* 3.31.0: Brain Dump says how many tasks have no day yet, the number in bold (never a nag: nothing at zero). */}
+      {selected === undefined && rows.length > 0 ? (
+        <Text style={styles.countLine} {...({ dataSet: { noDayCount: String(rows.length) } } as object)}>
+          <Text style={styles.countNum}>{rows.length}</Text> {rows.length === 1 ? 'task' : 'tasks'}, no day yet
+        </Text>
+      ) : null}
       {/* 3.16.0: the total is a quiet caption under the list header, not a pill in the Add row. */}
       {planned ? (
         <Text style={styles.plannedCaption} accessibilityLabel={`Estimated time still to do in this list: ${planned}`} {...({ dataSet: { planned: '1' } } as object)}>
@@ -125,6 +132,7 @@ export default function BrainDumpPane({
           <AddTaskBox
             id="left"
             a11y="Capture a thought"
+            variant="field"
             autoFocus
             inputRef={captureRef}
             onAdd={async (title, extra, openDetails) => {
@@ -183,6 +191,7 @@ export default function BrainDumpPane({
 
       {doneToday.length > 0 && (
         <View style={styles.doneSection}>
+          <ShortDivider width={70} style={{ marginBottom: 4 }} />
           <Pressable
             onPress={() => setDoneOpen((o) => !o)}
             style={styles.doneHeader}
@@ -227,9 +236,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
-  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginLeft: -10 },
+  // 3.31.0: wraps, so the Earlier pill drops under the (bigger) list title instead of leaving the pane.
+  headRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 8, rowGap: 2, marginLeft: -10 },
   totals: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
-  captureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 8 },
+  captureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 8 },
   captureBox: { flex: 1, minWidth: 0, marginBottom: -10 },
   capturePlus: { fontSize: 14, color: Colors.textSecondary, width: 16, textAlign: 'center' },
   captureInput: {
@@ -242,7 +252,9 @@ const styles = StyleSheet.create({
   } as object,
   addBtn: { height: 28, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
   addText: { fontSize: 12, fontWeight: '700', color: Colors.onAccent },
-  plannedCaption: { fontSize: 12, color: Colors.textSecondary, paddingLeft: 2, marginTop: 4, fontVariant: ['tabular-nums'] },
+  countLine: { fontSize: 13, color: Colors.textSecondary, paddingLeft: 2, marginTop: 2 },
+  countNum: { fontWeight: '700', color: Colors.textPrimary },
+  plannedCaption: { fontSize: 13, color: Colors.textSecondary, paddingLeft: 2, marginTop: 4, fontVariant: ['tabular-nums'] },
   list: { flex: 1 },
   // 2.26.0: cards 10 px apart, with room for their shadow.
   listContent: { gap: 10, padding: 2, paddingBottom: 12 },
@@ -280,8 +292,6 @@ const styles = StyleSheet.create({
   pencil: { width: 18, paddingTop: 3, alignItems: 'center' },
   doneSection: {
     marginTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
     maxHeight: '40%',
   },
   doneHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 4 },

@@ -31,7 +31,7 @@ import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { pressStyle } from './pressStyle';
 import type { Project, Task, TaskList } from '../../lib/types';
-import { outlinedBtn, outlinedBtnText } from './ui';
+import { ShortDivider, outlinedBtn, outlinedBtnText } from './ui';
 
 // The Tasks board (desktop): day columns in one continuous sideways strip
 // (2.26.0, lib/dayStrip.ts). It opens with today at the left edge and scrolls
@@ -268,8 +268,13 @@ export default function KanbanPane({
           <Text style={[styles.date, head.when === 'past' && styles.past]}>{head.date}</Text>
           {head.when === 'today' && <Text style={styles.todayTag}>Today</Text>}
           {away && <Text style={styles.awayTag}>Away</Text>}
-          {head.when !== 'past' && <DayMenu dayKey={day.key} tasks={tasks} away={away} awayDays={awayDays} onChanged={onChanged} />}
+          {head.when !== 'past' && (
+            <View style={styles.dayMenu}>
+              <DayMenu dayKey={day.key} tasks={tasks} away={away} awayDays={awayDays} onChanged={onChanged} />
+            </View>
+          )}
         </View>
+        <ShortDivider style={styles.headDivider} />
         {head.when === 'past' ? (
           <View style={styles.pastTotals}>
             <DayTotals items={items.map((i) => i.task)} now={now} />
@@ -335,7 +340,7 @@ export default function KanbanPane({
           accessibilityRole="button"
           accessibilityLabel="Earlier days"
         >
-          <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
         </Pressable>
         <Pressable
           onPress={() => {
@@ -348,13 +353,13 @@ export default function KanbanPane({
           accessibilityRole="button"
           accessibilityLabel="Later days"
         >
-          <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
+          <Ionicons name="chevron-forward" size={22} color={Colors.textPrimary} />
         </Pressable>
         <Pressable onPress={() => setJumpOpen((o) => !o)} style={styles.titleBtn} accessibilityRole="button" accessibilityLabel="Jump to date">
           <Text style={styles.title} numberOfLines={1} {...({ dataSet: { stripTitle: '1' } } as object)}>
             {title}
           </Text>
-          <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
+          <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }} />
         <FilterButton filter={filter} labels={projects} onChange={onFilterChange} />
@@ -401,12 +406,13 @@ export default function KanbanPane({
 const styles = StyleSheet.create({
   // Inside the centre pane (2.26.0), which draws the frame.
   pane: { flex: 1, minWidth: 0 },
-  nav: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
-  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  nav: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
+  navBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 0 },
   navHover: { backgroundColor: Colors.hover },
   off: { opacity: 0.35 },
-  titleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: 32, flexShrink: 1 },
-  title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  titleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: 40, flexShrink: 1 },
+  // 3.31.0: the month title is 30/800.
+  title: { fontSize: 30, fontWeight: '800', letterSpacing: -0.6, color: Colors.textPrimary },
   todayBtn: { ...outlinedBtn, paddingHorizontal: 14, height: 32, justifyContent: 'center' } as object,
   todayText: { ...outlinedBtnText },
   jump: { position: 'absolute', top: 40, left: 72, zIndex: 30, padding: 12, gap: 6, backgroundColor: Colors.surface, borderRadius: 10, boxShadow: Colors.shadowMd } as object,
@@ -414,20 +420,24 @@ const styles = StyleSheet.create({
   board: { flex: 1 },
   column: { width: COLUMN_WIDTH, borderRadius: 10 },
   columnTarget: { backgroundColor: Colors.accentSoft },
-  columnHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingHorizontal: 2, paddingTop: 4, paddingBottom: 10 },
-  weekday: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
-  date: { fontSize: 20, fontWeight: '500', color: Colors.textSecondary },
+  // 3.31.0: the day heading is centred, 22/800 with the date at 500; the day's menu sits at the right edge.
+  columnHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6, paddingHorizontal: 30, paddingTop: 4, paddingBottom: 8 },
+  dayMenu: { position: 'absolute', right: 0, top: 0 },
+  headDivider: { marginBottom: 12 },
+  weekday: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary },
+  date: { fontSize: 22, fontWeight: '500', color: Colors.textSecondary },
   past: { opacity: 0.6 },
   // The small Today tag: a soft accent pill.
-  todayTag: { marginLeft: 4, alignSelf: 'center', height: 20, lineHeight: 20, paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden', fontSize: 11, fontWeight: '700', color: Colors.accentText, backgroundColor: Colors.accentSoft } as object,
+  todayTag: { marginLeft: 4, alignSelf: 'center', height: 22, lineHeight: 22, paddingHorizontal: 8, borderRadius: 0, overflow: 'hidden', fontSize: 12, fontWeight: '700', color: Colors.onAccent, backgroundColor: Colors.accent } as object,
   // An away day (2.27.0): greyed, with a small tag.
   awayColumn: { backgroundColor: Colors.surfaceRaised },
-  awayTag: { marginLeft: 4, alignSelf: 'center', height: 20, lineHeight: 20, paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden', fontSize: 11, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surfaceRaised } as object,
+  awayTag: { marginLeft: 4, alignSelf: 'center', height: 22, lineHeight: 22, paddingHorizontal: 8, borderRadius: 0, overflow: 'hidden', fontSize: 12, fontWeight: '700', color: Colors.textSecondary, backgroundColor: Colors.surfaceRaised } as object,
   addBox: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 10, paddingRight: 8, borderRadius: 10, backgroundColor: Colors.background, marginBottom: 10 },
   addPlus: { fontSize: 14, color: Colors.textSecondary, width: 16, textAlign: 'center' },
   addInput: { flex: 1, minWidth: 0, height: 40, fontSize: 14, color: Colors.textPrimary, outlineStyle: 'none' } as object,
   pastTotals: { minHeight: 20, marginBottom: 10, paddingHorizontal: 2, flexDirection: 'row' },
-  totals: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, backgroundColor: Colors.surfaceRaised, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontVariant: ['tabular-nums'] },
+  // The day's total: bold, in the text colour (a figure inside the row, not a pill).
+  totals: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
   columnList: { flex: 1 },
   columnListContent: { gap: 10, padding: 2, paddingBottom: 16 },
   placeholder: { height: 52, borderRadius: 10, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.accent, backgroundColor: Colors.accentSoft, justifyContent: 'center', paddingHorizontal: 12 },

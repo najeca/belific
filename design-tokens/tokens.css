@@ -141,6 +141,7 @@
   --ds-shadow-lg: 0 16px 48px rgba(0,0,0,0.6);
   --ds-chart-actual: #8FB39A;
   --ds-chart-estimate: #D9955F;
+  --ds-slab-offset: 0px;
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
@@ -190,6 +191,7 @@
     --ds-shadow-lg: 0 16px 48px rgba(0,0,0,0.6);
     --ds-chart-actual: #8FB39A;
     --ds-chart-estimate: #D9955F;
+    --ds-slab-offset: 0px;
   }
 }
 /* One accent per app. Belific is the default (the values above). */

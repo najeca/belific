@@ -11,6 +11,7 @@ export function usePhoneFonts(): boolean {
     'Inter-500': require('../../assets/fonts/Inter-500.ttf'),
     'Inter-600': require('../../assets/fonts/Inter-600.ttf'),
     'Inter-700': require('../../assets/fonts/Inter-700.ttf'),
+    'Inter-800': require('../../assets/fonts/Inter-800.ttf'),
     'Newsreader-500': require('../../assets/fonts/Newsreader-500.ttf'),
     'Newsreader-600': require('../../assets/fonts/Newsreader-600.ttf'),
     'Newsreader-700': require('../../assets/fonts/Newsreader-700.ttf'),

@@ -135,8 +135,9 @@ async function run() {
         segBorder: seg ? getComputedStyle(seg).borderTopWidth : null, pillRadius: pill ? px(getComputedStyle(pill).borderTopLeftRadius) : null };
     })()`);
     check(`${name}: the checkbox is round`, shape.checkRadius === true && shape.checkSize === 18, JSON.stringify(shape));
-    check(`${name}: Only today is an outlined small button (1px outline, 8px corners)`, !!shape.outlined && shape.outlined[0] === '1px' && shape.outlined[1] === 8, JSON.stringify(shape.outlined));
-    check(`${name}: the Calendar/Tasks toggle is a bordered segmented control`, shape.segBorder === '1px', String(shape.segBorder));
+    // 3.31.0 (Motorways restyle, on purpose): buttons are flat and square: no outline, 0 px corners, a soft green fill.
+    check(`${name}: Only today is a flat square button (no outline, 0 px corners)`, !!shape.outlined && shape.outlined[0] === '0px' && shape.outlined[1] === 0, JSON.stringify(shape.outlined));
+    check(`${name}: the Calendar/Tasks toggle is two square buttons side by side (no track outline)`, shape.segBorder === '0px', String(shape.segBorder));
     check(`${name}: the duration is a soft pill (6px corners)`, shape.pillRadius === 6, String(shape.pillRadius));
     // Day columns and cards (step 4).
     const cardShape = await I.js(`(() => {
@@ -155,8 +156,8 @@ async function run() {
         weekdayWeight: wk ? getComputedStyle(wk).fontWeight : null, labelChipBg: lab ? getComputedStyle(lab).backgroundColor : null, dotRound: dot ? px(getComputedStyle(dot).borderTopLeftRadius) >= 4 : null };
     })()`);
     check(`${name}: a card is flat: 10px corners, a 1px outline, no shadow, padding 11 x 12`, cardShape.radius === '10px' && cardShape.outline === '1px' && cardShape.shadow === 'none' && cardShape.pad === '11px 12px', JSON.stringify(cardShape));
-    check(`${name}: the day header is a bold weekday with a small Today pill`, cardShape.weekdayWeight === '700' && cardShape.tagRadius === 6 && cardShape.tagBg === true, JSON.stringify(cardShape));
-    check(`${name}: Add a task is a bordered 10px row`, cardShape.addRadius === '10px' && cardShape.addBorder === '1px', JSON.stringify([cardShape.addRadius, cardShape.addBorder]));
+    check(`${name}: the day header is a heavy (800) weekday with a small square Today tag`, cardShape.weekdayWeight === '800' && cardShape.tagRadius === 0 && cardShape.tagBg === true, JSON.stringify(cardShape));
+    check(`${name}: Add a task is a dashed 10px row (2 px dashed outline)`, cardShape.addRadius === '10px' && cardShape.addBorder === '2px', JSON.stringify([cardShape.addRadius, cardShape.addBorder]));
     check(`${name}: a label is a dot and its name, not a filled chip`, cardShape.labelChipBg === 'rgba(0, 0, 0, 0)' && cardShape.dotRound === true, JSON.stringify([cardShape.labelChipBg, cardShape.dotRound]));
     // The list picker (a popover: lists with their emoji, + New list at the bottom).
     await I.click(`document.querySelector('[aria-label^="List:"]')`, 600);

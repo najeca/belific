@@ -497,13 +497,13 @@ export default function CalendarPane({
     <View style={styles.pane} accessibilityLabel="Calendar" {...({ dataSet: { calendar: effView } } as object)}>
       <View style={styles.nav}>
         <Pressable onPress={() => step(-1)} disabled={onlyToday} style={[styles.navBtn, onlyToday && styles.off]} accessibilityRole="button" accessibilityLabel={`Calendar previous ${effView}`}>
-          <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
         </Pressable>
         <Text style={styles.title} numberOfLines={1} accessibilityRole="header" accessibilityLabel={`Calendar ${title}`}>
           {title}
         </Text>
         <Pressable onPress={() => step(1)} disabled={onlyToday} style={[styles.navBtn, onlyToday && styles.off]} accessibilityRole="button" accessibilityLabel={`Calendar next ${effView}`}>
-          <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
+          <Ionicons name="chevron-forward" size={22} color={Colors.textPrimary} />
         </Pressable>
         <View style={{ flex: 1 }} />
         {totalsText ? (
@@ -858,17 +858,18 @@ const styles = StyleSheet.create({
   pane: { flex: 1, minWidth: 0 },
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 6, flexWrap: 'wrap' },
-  navBtn: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  navBtn: { width: 40, height: 40, borderRadius: 0, alignItems: 'center', justifyContent: 'center' },
   off: { opacity: 0.4 },
-  title: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, minWidth: 0, flexShrink: 1 },
+  // 3.31.0: the range title is 30/800, like the Tasks board's month.
+  title: { fontSize: 30, fontWeight: '800', letterSpacing: -0.6, color: Colors.textPrimary, minWidth: 0, flexShrink: 1 },
   totals: { fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   seg: { ...segTrack } as object,
-  segBtn: { ...segBtn, paddingHorizontal: 10 } as object,
+  segBtn: { ...segBtn, paddingHorizontal: 14 } as object,
   segOn: { ...segBtnOn },
-  segText: { ...segLabel, fontSize: 12 },
+  segText: { ...segLabel },
   segTextOn: { ...segLabelOn },
   todayBtn: { ...outlinedBtn, height: 32, justifyContent: 'center' } as object,
-  todayText: { ...outlinedBtnText, fontSize: 12 },
+  todayText: { ...outlinedBtnText },
   note: { fontSize: 12, color: Colors.textSecondary, marginBottom: 6 },
   headRow: { flexDirection: 'row' },
   dayHead: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },

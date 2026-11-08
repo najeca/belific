@@ -59,7 +59,7 @@ export default function ProfileMenu({
         onPress={() => togglePopover(POPOVER_ID, get)}
         style={(state) => {
           const s = state as typeof state & { hovered?: boolean };
-          return [styles.icon, signedIn && styles.iconOn, (open || s.hovered) && styles.iconActive];
+          return [styles.icon, (open || s.hovered) && styles.iconActive];
         }}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
@@ -68,7 +68,7 @@ export default function ProfileMenu({
         {signedIn && initial ? (
           <Text style={styles.initial}>{initial}</Text>
         ) : (
-          <Ionicons name="person-outline" size={18} color={signedIn ? Colors.onAccent : Colors.textSecondary} />
+          <Ionicons name="person-outline" size={22} color={Colors.background} />
         )}
       </Pressable>
       <Popover id={POPOVER_ID} anchor={get} width={288} label="Profile menu" maxHeight={720}>
@@ -178,10 +178,10 @@ function SignedInBody({ actions, account, status, ui, onOpenSettings, onOpenProg
 }
 
 const styles = StyleSheet.create({
-  icon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
-  iconOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  iconActive: { borderColor: Colors.accent },
-  initial: { fontSize: 14, fontWeight: '700', color: Colors.onAccent },
+  // 3.31.0: the avatar is a 44 px ink circle (the text colour), its initial or icon in the page colour.
+  icon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.textPrimary },
+  iconActive: { opacity: 0.85 },
+  initial: { fontSize: 17, fontWeight: '700', color: Colors.background },
   body: { padding: 14, gap: 6 },
   rows: { paddingBottom: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
   title: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },

@@ -8,7 +8,7 @@ import { createList, editList, removeList } from '../../lib/taskCommands';
 import type { TaskList } from '../../lib/types';
 import EmojiField from './EmojiField';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover, useIsOpen, usePopoverAnchor, popoverStyles } from './Popover';
-import { outlinedBtn, outlinedBtnHover, outlinedBtnText } from './ui';
+import { compactBtnText, outlinedBtn, outlinedBtnHover } from './ui';
 import { notifyChanged, selectList } from './uiStore';
 
 const POPOVER_ID = 'list-switcher';
@@ -46,7 +46,7 @@ export default function ListSwitcher({
         <Text style={styles.buttonText} numberOfLines={1}>
           {listTitle(current)}
         </Text>
-        <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
+        <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
       </Pressable>
       <Popover id={POPOVER_ID} anchor={get} width={360} maxHeight={640} label="Lists">
         <Body lists={lists} counts={counts} selected={selected} />
@@ -154,7 +154,7 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
             accessibilityState={{ disabled: !create.enabled }}
             {...({ dataSet: { createList: create.enabled ? 'on' : 'off' } } as object)}
           >
-            <Text style={[outlinedBtnText, create.enabled ? styles.btnPrimaryText : styles.btnOffText]}>Create list</Text>
+            <Text style={[compactBtnText, create.enabled ? styles.btnPrimaryText : styles.btnOffText]}>Create list</Text>
           </Pressable>
         </View>
         {create.why ? (
@@ -198,7 +198,7 @@ function EditBox({ list, lists, count, onDone }: { list: TaskList; lists: TaskLi
       accessibilityRole="button"
       accessibilityLabel={a11y}
     >
-      <Text style={[outlinedBtnText, primary && styles.btnPrimaryText]}>{label}</Text>
+      <Text style={[compactBtnText, primary && styles.btnPrimaryText]}>{label}</Text>
     </Pressable>
   );
 
@@ -261,14 +261,15 @@ function EditBox({ list, lists, count, onDone }: { list: TaskList; lists: TaskLi
 }
 
 const styles = StyleSheet.create({
-  button: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: 10, height: 30, borderRadius: 10 },
+  // 3.31.0: the list's name is the pane title: 24/800 (26 in the mock; "Brain Dump" does not fit the 248 px pane at 26).
+  button: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: 10, height: 40, borderRadius: 10 },
   buttonOpen: { backgroundColor: Colors.background },
-  buttonText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, color: Colors.textPrimary, flexShrink: 1 },
+  buttonText: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, color: Colors.textPrimary, flexShrink: 1 },
   emoji: { fontSize: 15, width: 22, textAlign: 'center' },
   pencil: { width: 26, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   pencilOn: { backgroundColor: Colors.surfaceRaised },
   buttons: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  btn: { ...outlinedBtn, height: 30 },
+  btn: { ...outlinedBtn, height: 34 },
   btnPrimary: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   btnPrimaryText: { color: Colors.onAccent, fontWeight: '700' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

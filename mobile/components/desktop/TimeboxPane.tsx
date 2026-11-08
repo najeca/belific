@@ -62,7 +62,7 @@ import {
 } from '../../lib/storage';
 import type { CustomCategory, CustomEvent, Project, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { openDetail } from './uiStore';
-import { outlinedBtn, outlinedBtnText } from './ui';
+import { PaneBand, ShortDivider, outlinedBtn, outlinedBtnText, paneSlab } from './ui';
 import { IconHeading } from './ui';
 
 // Desktop Timebox (decision 009): an hourly grid for one day, the whole 24
@@ -344,8 +344,9 @@ export default function TimeboxPane({
 
   return (
     <View style={styles.pane}>
+      <PaneBand />
       <View style={styles.headRow}>
-        <IconHeading icon="time-outline" style={styles.paneTitle}>Timebox</IconHeading>
+        <IconHeading icon="time-outline" size={22} style={styles.paneTitle}>Timebox</IconHeading>
         {onHide && (
           <Pressable onPress={onHide} style={styles.hideBtn} accessibilityRole="button" accessibilityLabel="Hide Timebox">
             <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
@@ -355,7 +356,7 @@ export default function TimeboxPane({
 
       <View style={styles.nav}>
         <Pressable onPress={() => go(-1)} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Previous day">
-          <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
         </Pressable>
         <Pressable
           onPress={() => setPickerOpen((o) => !o)}
@@ -367,7 +368,7 @@ export default function TimeboxPane({
           <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
         </Pressable>
         <Pressable onPress={() => go(1)} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Next day">
-          <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
+          <Ionicons name="chevron-forward" size={20} color={Colors.textPrimary} />
         </Pressable>
         <View style={{ flex: 1 }} />
         <Pressable
@@ -401,7 +402,17 @@ export default function TimeboxPane({
         </View>
       )}
 
-      <Text style={styles.total}>{total > 0 ? `Scheduled ${formatMinutes(total)}` : 'Nothing scheduled'}</Text>
+      {/* 3.31.0: the figure in a sentence is bold, in the text colour. */}
+      <Text style={styles.total}>
+        {total > 0 ? (
+          <>
+            Scheduled <Text style={styles.totalNum}>{formatMinutes(total)}</Text>
+          </>
+        ) : (
+          'Nothing scheduled'
+        )}
+      </Text>
+      <ShortDivider width={70} style={{ marginTop: 10 }} />
 
       <ScrollView
         ref={setScrollRef as never}
@@ -688,22 +699,26 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 24,
     minWidth: 0,
+    ...paneSlab,
   } as object,
-  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32 },
-  paneTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  hideBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 36 },
+  // 3.31.0: the pane title is 26/800.
+  paneTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, color: Colors.textPrimary },
+  hideBtn: { width: 32, height: 32, borderRadius: 0, alignItems: 'center', justifyContent: 'center' },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12 },
-  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 0 },
   dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, height: 32 },
   dateText: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  todayBtn: { ...outlinedBtn, paddingHorizontal: 12, height: 28, justifyContent: 'center' } as object,
+  todayBtn: { ...outlinedBtn, paddingHorizontal: 12, height: 32, justifyContent: 'center' } as object,
   todayBtnDisabled: { opacity: 0.4 },
-  todayText: { ...outlinedBtnText },
+  todayText: { ...outlinedBtnText, fontSize: 14 },
   picker: {
     position: 'absolute',
-    top: 84,
+    top: 96,
     left: 16,
     zIndex: 20,
     padding: 10,
@@ -712,7 +727,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  total: { marginTop: 8, fontSize: 12, color: Colors.textSecondary },
+  total: { marginTop: 8, fontSize: 13, color: Colors.textSecondary },
+  totalNum: { fontWeight: '700', color: Colors.textPrimary },
   outside: { marginTop: 4, fontSize: 12, color: Colors.textSecondary },
   scroll: { flex: 1, marginTop: 8 },
   grid: { position: 'relative' },

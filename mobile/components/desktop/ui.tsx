@@ -2,41 +2,60 @@ import React, { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { radius } from '../../lib/tokens';
+import { band, divider as dividerToken, fontWeight, radius } from '../../lib/tokens';
 import { addDays, dateKey, isDateKey, parseDateKey } from '../../lib/kanban';
 
 // The shared pieces of the Ellie Planner look (docs/DESIGN_SYSTEM.md): outlined small buttons, the
 // segmented toggle, pills, the round checkbox and the one line icon style. Plain style objects
 // (not StyleSheet.create) so a screen can spread one into its own style and still change a size.
 
-// An outlined small button: a 1px outline, no fill, a quiet fill on hover (the top bar's Today,
-// Filter, Only today, Quests, Back). The height is the caller's.
+// 3.31.0 (the Mini Motorways restyle, docs/design/motorways/): buttons are flat and square (`radius.square`).
+// The secondary button (the top bar's Today, Filter, Only today, Quests, Back) is the soft green `hostPill` with its
+// text colour, 16/700; the primary (a chosen toggle, Save) is the accent with `onAccent`. The names keep their old
+// "outlined" spelling so no caller changes; there is no outline any more. The height is the caller's.
 export const outlinedBtn = {
   flexDirection: 'row',
   alignItems: 'center',
   gap: 6,
-  paddingHorizontal: 12,
-  borderRadius: radius.md,
-  borderWidth: 1,
-  borderColor: Colors.borderStrong,
-  backgroundColor: Colors.surface,
+  paddingHorizontal: 16,
+  borderRadius: radius.square,
+  backgroundColor: Colors.hostPill,
 } as const;
-export const outlinedBtnHover = { backgroundColor: Colors.hover } as const;
-export const outlinedBtnOn = { borderColor: Colors.accent, backgroundColor: Colors.accentSoft } as const;
-export const outlinedBtnText = { fontSize: 13, fontWeight: '600', color: Colors.textPrimary } as const;
+export const outlinedBtnHover = { backgroundColor: Colors.pickerTabOn } as const;
+export const outlinedBtnOn = { backgroundColor: Colors.accent } as const;
+export const outlinedBtnText = { fontSize: 16, fontWeight: fontWeight.bold, color: Colors.onHostPill } as const;
+export const outlinedBtnTextOn = { color: Colors.onAccent } as const;
+// The same button in a small place (a popover's Save and Cancel, a form row).
+export const compactBtnText = { ...outlinedBtnText, fontSize: 14 } as const;
 
-// The segmented toggle (Calendar / Tasks, Day / Week / Month): a quiet track with a 1px border;
-// the active segment is filled with the accent.
-export const segTrack = { flexDirection: 'row', borderRadius: radius.lg, padding: 3, gap: 2, backgroundColor: Colors.surfaceRaised, borderWidth: 1, borderColor: Colors.border } as const;
-export const segBtn = { paddingHorizontal: 12, height: 30, borderRadius: radius.md, justifyContent: 'center' } as const;
+// The segmented toggle (Tasks / Calendar, Day / Week / Month): two or three square buttons side by side, the chosen
+// one primary, the others secondary (no track round them).
+export const segTrack = { flexDirection: 'row', gap: 0 } as const;
+export const segBtn = { paddingHorizontal: 16, height: 38, borderRadius: radius.square, justifyContent: 'center', backgroundColor: Colors.hostPill } as const;
 export const segBtnOn = { backgroundColor: Colors.accent } as const;
-export const segBtnHover = { backgroundColor: Colors.hover } as const;
-export const segLabel = { fontSize: 13, fontWeight: '600', color: Colors.textPrimary } as const;
-export const segLabelOn = { color: Colors.onAccent, fontWeight: '700' } as const;
+export const segBtnHover = { backgroundColor: Colors.pickerTabOn } as const;
+export const segLabel = { fontSize: 16, fontWeight: fontWeight.bold, color: Colors.onHostPill } as const;
+export const segLabelOn = { color: Colors.onAccent, fontWeight: fontWeight.bold } as const;
+
+// The coloured band across the top of a pane (and the details window, 8 px), inside the pane's own corner. The pane
+// needs no `overflow: hidden` (popovers and drag previews are not clipped); the band follows its corner itself.
+export function PaneBand({ corner = radius.xl - 1 }: { corner?: number }) {
+  return <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: band.pane, backgroundColor: Colors.accent, borderTopLeftRadius: corner, borderTopRightRadius: corner }} />;
+}
+
+// The flat slab behind a pane: a solid copy of its shape moved right and down by `--ds-slab-offset` (7 px on light, 0
+// on dark; themeStore sets it from tokens.slabOffset). A zero blur box shadow, so it follows the corner, takes no
+// room and catches no mouse.
+export const paneSlab = { boxShadow: `var(--ds-slab-offset, 0px) var(--ds-slab-offset, 0px) 0 0 ${Colors.border}` } as object;
+
+// A short, thick, centred divider (under a title, between sections): replaces a full width hairline.
+export function ShortDivider({ width = dividerToken.short, style }: { width?: number; style?: object }) {
+  return <View style={[{ height: dividerToken.height, width, backgroundColor: Colors.border, alignSelf: 'center' }, style]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
+}
 
 // A small soft pill: the duration (0:30), a count, the Today tag.
-export const pillBox = { height: 20, paddingHorizontal: 7, borderRadius: radius.sm, backgroundColor: Colors.surfaceRaised, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4 } as const;
-export const pillLabel = { fontSize: 11.5, lineHeight: 16, fontWeight: '600', color: Colors.textSecondary } as const;
+export const pillBox = { height: 20, paddingHorizontal: 7, borderRadius: radius.square, backgroundColor: Colors.surfaceRaised, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4 } as const;
+export const pillLabel = { fontSize: 11.5, lineHeight: 16, fontWeight: fontWeight.bold, color: Colors.textSecondary } as const;
 export const pillAccentBox = { backgroundColor: Colors.accentSoft } as const;
 export const pillAccentLabel = { color: Colors.accentText } as const;
 

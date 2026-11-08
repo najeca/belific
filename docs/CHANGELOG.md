@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 3.31.0 — 2026-11-08 (Mini Motorways restyle, phase 2: the desktop shell)
+
+**Desktop (the web export) and the iPhone font list. No schema change, no migration, no data change, no behaviour change: colours, shapes and type only.**
+- **Inter ExtraBold (800) is registered** on the desktop (`desktopFonts.ts`, which also declares it under "Segoe UI") and on the phone (`phoneFonts.ts` for the web export, `phoneFonts.native.ts` as `Inter-800`, `type.ts` weight 800). The card's done tick (✓ at weight 800) now draws in the real ExtraBold.
+- **Panes** (Brain Dump, the centre, Timebox): an 8 px accent band across the top (`PaneBand`, follows the 16 px corner, no clipping), and on the light theme a flat 7 px slab behind them in the border colour (`paneSlab`: a zero blur box shadow reading `--ds-slab-offset`, which `themeStore` sets from `slabOffset`: 7 px light, 0 dark). No page grid. Widths and gaps are unchanged.
+- **Titles:** Timebox 26/800/-0.5; the list's name at the top of Brain Dump 24/800 (it is the list switcher; 26 does not fit "Brain Dump" in the 248 px pane); the Tasks board's month and the Calendar's range 30/800/-0.6; a day's weekday 22/800 with the date at 500, centred, with the day's menu at the right edge. Short centred 4 px dividers (60 to 70 px) under the day heading and the Timebox total, and above "Done today"; the hairline above "Done today" is gone. Hour lines and day separators stay.
+- **Buttons** (`ui.tsx`, so every button that used them): square (`radius.square`), the secondary is the soft green `hostPill` with `onHostPill` text, 16/700; the chosen one of a toggle (Filter with labels on, Only today on, Tasks or Calendar, Day, Week or Month) is the accent with `onAccent`. The Tasks/Calendar and Day/Week/Month toggles are two or three square buttons side by side with no track. Small pills are square. A popover's own buttons take a 14 px size (`compactBtnText`). The avatar is a 44 px ink circle (text colour) with its icon or initial in the page colour; the edge buttons and arrows are square.
+- **Brain Dump:** the input is 46 px with a 2 px text colour outline and square corners; its rows (cards with no label) are quiet raised rows (`surfaceRaised`, 10 px corners); a count line under the title, "**N** task(s), no day yet" (only for Brain Dump, not at 0); the planned total caption is 13 px.
+- **Day columns:** the "Add a task" row is 2 px dashed in `borderStrong`; the day's total is a bold figure in the text colour, not a pill; the Today and Away tags are square (Today is the accent). The Timebox's "Scheduled" total shows its figure in bold.
+- **Found by the real checks and fixed:** the wider list title pushed the Earlier pill out of the pane (the header row now wraps); a wider left pane padding put the centre of a Brain Dump card under its hover icons, so a click opened the label menu (the padding is back to 12 px).
+- **Tests changed on purpose:** `p22` (four checks: Only today is a flat square button, the Calendar/Tasks toggle is two square buttons, the day heading is 800 with a square Today tag, Add a task is a 2 px dashed row) and `p34` (the planned caption is 13 px, was 12). `easConfig.test.ts` version 3.31.0.
+
 ## 3.30.0 — 2026-11-08 (Mini Motorways restyle, phase 1: the tokens; nothing on screen changes)
 
 **Desktop and phone (shared `lib/tokens.ts`). No schema change, no migration, no data change, no visible change.**

@@ -33,6 +33,7 @@ export default function AddTaskBox({
   autoFocus,
   inputRef,
   warning,
+  variant = 'dashed',
   onAdd,
   onNew,
 }: {
@@ -46,6 +47,8 @@ export default function AddTaskBox({
   inputRef?: React.RefObject<TextInput | null>;
   // A quiet line under the box (an away day, item 8).
   warning?: string | null;
+  // 3.31.0: 'field' is the Brain Dump's input (46 px, 2 px ink outline, square); 'dashed' the day's "Add a task" row.
+  variant?: 'field' | 'dashed';
   // The + with nothing typed: the caller opens a new task card (with this box's label, time and estimate if chosen).
   onNew?: (extra: { startTime?: string; projectKey?: string; durationMinutes?: number }) => void;
   // `openDetails`: the + was pressed with a title typed; the caller opens the new task's details once it is created.
@@ -97,7 +100,7 @@ export default function AddTaskBox({
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.box} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)} {...({ dataSet: { addBox: id } } as object)}>
+      <View style={[styles.box, variant === 'field' ? styles.boxField : styles.boxDashed]} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)} {...({ dataSet: { addBox: id } } as object)}>
         <Pressable
           onPress={() => {
             if (typing) void add(true);
@@ -110,7 +113,7 @@ export default function AddTaskBox({
           focusable={false}
           {...({ title: 'New task card', dataSet: { addPlus: id } } as object)}
         >
-          <Ionicons name="add-circle-outline" size={17} color={Colors.textSecondary} />
+          <Ionicons name="add-circle-outline" size={variant === 'field' ? 20 : 17} color={variant === 'field' ? Colors.textPrimary : Colors.textSecondary} />
         </Pressable>
         <TextInput
           ref={field as never}
@@ -120,7 +123,7 @@ export default function AddTaskBox({
           blurOnSubmit={false}
           placeholder="Add a task"
           placeholderTextColor={Colors.textSecondary}
-          style={[styles.input, typing && { minWidth: TYPING_MIN }]}
+          style={[styles.input, variant === 'field' && styles.inputField, typing && { minWidth: TYPING_MIN }]}
           accessibilityLabel={a11y}
           autoFocus={autoFocus}
         />
@@ -171,10 +174,13 @@ const timeStyle: React.CSSProperties = {
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 10, gap: 4 },
-  box: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 10, paddingRight: 6, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, minWidth: 0 },
+  box: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 10, paddingRight: 6, backgroundColor: Colors.surface, minWidth: 0 },
+  boxDashed: { borderRadius: 10, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.borderStrong } as object,
+  boxField: { height: 46, borderRadius: 0, borderWidth: 2, borderStyle: 'solid', borderColor: Colors.textPrimary, paddingLeft: 12 } as object,
   plus: { width: 22, height: 28, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: -3 },
   input: { flex: 1, minWidth: INPUT_MIN, height: 40, fontSize: 14, color: Colors.textPrimary, outlineStyle: 'none' } as object,
-  labelBtn: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  inputField: { height: 42, fontSize: 15 } as object,
+  labelBtn: { width: 28, height: 28, borderRadius: 0, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   labelOn: { backgroundColor: Colors.hover },
   glyph: { fontSize: 13 },
   dot: { width: 10, height: 10, borderRadius: 5 },

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { THEMES, cssVarName, type ThemeName } from '../../lib/tokens';
+import { THEMES, cssVarName, slabOffset, type ThemeName } from '../../lib/tokens';
 import { tintFor, type LabelColor } from '../../lib/labelColors';
 import { DEFAULT_THEME_MODE, normalizeThemeMode, resolveTheme, type ThemeMode } from '../../lib/themeMode';
 
@@ -55,6 +55,9 @@ function apply() {
   const root = document.documentElement;
   const tokens = THEMES[next];
   for (const [k, v] of Object.entries(tokens)) root.style.setProperty(cssVarName(k), v);
+  // 3.31.0: the flat slab behind the three panes and the details window follows the theme (none in dark).
+  root.style.setProperty('--ds-slab-offset', `${slabOffset('pane', next)}px`);
+  root.style.setProperty('--ds-slab-window-offset', `${slabOffset('window', next)}px`);
   root.setAttribute('data-theme', next);
   root.style.colorScheme = next;
   emit();

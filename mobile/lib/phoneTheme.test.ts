@@ -14,7 +14,8 @@ const phoneDir = path.join(root, 'components', 'phone');
 test('every font the iPhone registers is a TrueType file of a desktop family, with its licence beside it', () => {
   const src = fs.readFileSync(path.join(phoneDir, 'phoneFonts.native.ts'), 'utf8');
   const entries = [...src.matchAll(/'([A-Za-z]+-\d{3})': require\('\.\.\/\.\.\/assets\/fonts\/([A-Za-z]+-\d{3})\.ttf'\)/g)];
-  assert.equal(entries.length, 9, 'Inter 400 to 700, Newsreader 500 to 700, Roboto Mono 400 and 500');
+  // 3.31.0: Inter 800 (ExtraBold) registered for the heavy titles.
+  assert.equal(entries.length, 10, 'Inter 400 to 800, Newsreader 500 to 700, Roboto Mono 400 and 500');
   for (const [, name, file] of entries) {
     assert.equal(name, file, 'the registered name is the file name');
     const buf = fs.readFileSync(path.join(root, 'assets', 'fonts', `${file}.ttf`));

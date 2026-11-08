@@ -10,6 +10,7 @@ const FACES: Array<[string, number, number]> = [
   ['Inter', 500, require('../../assets/fonts/Inter-500.woff2')],
   ['Inter', 600, require('../../assets/fonts/Inter-600.woff2')],
   ['Inter', 700, require('../../assets/fonts/Inter-700.woff2')],
+  ['Inter', 800, require('../../assets/fonts/Inter-800.woff2')],
   ['Newsreader', 500, require('../../assets/fonts/Newsreader-500.woff2')],
   ['Newsreader', 600, require('../../assets/fonts/Newsreader-600.woff2')],
   ['Newsreader', 700, require('../../assets/fonts/Newsreader-700.woff2')],

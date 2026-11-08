@@ -264,6 +264,8 @@ export default function TaskCard({
       style={[
         styles.card,
         { backgroundColor: (color ? tint(color) : CARD_PLAIN) },
+        // 3.31.0: a Brain Dump row with no label is a quiet raised row (the Motorways mock), not an outlined card.
+        variant === 'row' && !color && styles.rowPlain,
         // 2.27.0: the label's strong colour as a left edge, so labels are easy to
         // tell apart (the tints stay light for readable text).
         color && { borderLeftWidth: 3, borderLeftColor: color.edge, paddingLeft: 9 },
@@ -406,7 +408,7 @@ export default function TaskCard({
             )}
 
             {/* At most three icons, over the top right corner in the card's own colour. */}
-            <View style={[styles.icons, { backgroundColor: (color ? tint(color) : CARD_PLAIN) }, !iconsShown && styles.quiet]} {...({ dataSet: { cardControls: '1' } } as object)}>
+            <View style={[styles.icons, { backgroundColor: (color ? tint(color) : variant === 'row' ? Colors.surfaceRaised : CARD_PLAIN) }, !iconsShown && styles.quiet]} {...({ dataSet: { cardControls: '1' } } as object)}>
               <IconControl id={`${id}:label`} ctl="label" a11y={label ? `Label: ${label.name}` : 'Select label'} shown={iconsShown} glyph="🏷️">
                 {(anchor) => (
                   <Popover id={`${id}:label`} anchor={anchor} width={284} maxHeight={540}>
@@ -530,6 +532,7 @@ const styles = StyleSheet.create({
   // Flat and raised: a 1px outline, no shadow (the Ellie look). Hover only changes the outline's colour: nothing moves (real check cp8e).
   card: { paddingVertical: 11, paddingHorizontal: 12, gap: 6, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, transitionDuration: '120ms', transitionProperty: 'border-color', cursor: 'pointer' } as object,
   hover: { borderColor: Colors.borderStrong } as object,
+  rowPlain: { backgroundColor: Colors.surfaceRaised, borderColor: Colors.surfaceRaised, borderWidth: 2, paddingVertical: 10, paddingHorizontal: 11 } as object,
   done: { opacity: 0.72 },
   dragging: { opacity: 0.35 },
   projected: { opacity: 0.82 },

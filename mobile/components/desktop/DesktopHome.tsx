@@ -42,7 +42,7 @@ import { refreshBreakTwice } from './breakTwiceStore';
 import { refreshDefaultReminders } from './reminderStore';
 import { refreshVibrant } from './vibrantStore';
 import { refreshTheme } from './themeStore';
-import { outlinedBtn, outlinedBtnOn, outlinedBtnText, segBtn, segBtnHover, segBtnOn, segLabel, segLabelOn, segTrack } from './ui';
+import { PaneBand, outlinedBtn, outlinedBtnOn, outlinedBtnText, paneSlab, segBtn, segBtnHover, segBtnOn, segLabel, segLabelOn, segTrack } from './ui';
 import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
 import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
@@ -413,7 +413,7 @@ export default function DesktopHome() {
       {view !== 'home' && (
         <View style={styles.strip}>
           <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
-            <Ionicons name="arrow-back" size={16} color={Colors.accentText} />
+            <Ionicons name="arrow-back" size={18} color={Colors.onHostPill} />
             <Text style={styles.backText}>Back</Text>
           </Pressable>
           <View style={styles.stripRight}>{profile}</View>
@@ -431,6 +431,7 @@ export default function DesktopHome() {
           </Sidebar>
         </View>
         <View style={styles.centre} {...({ dataSet: { pane: 'center' } } as object)}>
+          <PaneBand />
           <View style={styles.topRow} accessibilityLabel="Centre controls">
             {layout.sidebar === 'hidden' && (
               <Pressable onPress={toggleSidebar} style={pressStyle(({ hovered }) => [styles.edgeBtn, hovered && styles.edgeHover])} accessibilityRole="button" accessibilityLabel="Show sidebar">
@@ -448,7 +449,7 @@ export default function DesktopHome() {
                   accessibilityLabel={label}
                 >
                   <View style={styles.segInner}>
-                    <Ionicons name={icon} size={15} color={paneState.center === v ? Colors.onAccent : Colors.textSecondary} />
+                    <Ionicons name={icon} size={17} color={paneState.center === v ? Colors.onAccent : Colors.onHostPill} />
                     <Text style={[styles.segText, paneState.center === v && styles.segTextOn]}>{text}</Text>
                   </View>
                 </Pressable>
@@ -465,11 +466,11 @@ export default function DesktopHome() {
               accessibilityLabel={paneState.center === 'calendar' ? 'Calendar go to today' : 'Show today in Tasks'}
               {...({ dataSet: { ctl: 'today' } } as object)}
             >
-              <Ionicons name="locate-outline" size={15} color={Colors.textSecondary} />
+              <Ionicons name="locate-outline" size={17} color={Colors.onHostPill} />
               <Text style={styles.rowText}>Today</Text>
             </Pressable>
             <Pressable onPress={() => showView('quests')} style={pressStyle(({ hovered }) => [styles.rowBtn, hovered && styles.segHover])} accessibilityRole="button" accessibilityLabel="Quests">
-              <Ionicons name="trophy-outline" size={15} color={Colors.textSecondary} />
+              <Ionicons name="trophy-outline" size={17} color={Colors.onHostPill} />
               <Text style={styles.rowText}>Quests</Text>
             </Pressable>
             <View style={{ flex: 1 }} />
@@ -588,12 +589,13 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   strip: { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
   stripRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  back: { ...outlinedBtn, height: 36 } as object,
-  backText: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
+  back: { ...outlinedBtn, height: 38 } as object,
+  backText: { ...outlinedBtnText },
   body: { flex: 1, flexDirection: 'row', padding: 16, gap: 16 },
-  centre: { flex: 1, minWidth: 0, backgroundColor: Colors.pane, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 } as object,
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, marginBottom: 8 },
-  edgeBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  // 3.31.0: a pane is 16 px round with an 8 px accent band on top (PaneBand) and, on light, a 7 px flat slab (paneSlab).
+  centre: { flex: 1, minWidth: 0, backgroundColor: Colors.pane, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, ...paneSlab } as object,
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginBottom: 8 },
+  edgeBtn: { width: 32, height: 32, borderRadius: 0, alignItems: 'center', justifyContent: 'center' },
   edgeHover: { backgroundColor: Colors.hover },
   seg: { ...segTrack } as object,
   segBtn: { ...segBtn, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
@@ -602,11 +604,11 @@ const styles = StyleSheet.create({
   segOn: { ...segBtnOn },
   segText: { ...segLabel },
   segTextOn: { ...segLabelOn },
-  rowBtn: { ...outlinedBtn, height: 36, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
+  rowBtn: { ...outlinedBtn, height: 38, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
   rowBtnOn: { ...outlinedBtnOn },
   rowOff: { opacity: 0.45 },
   rowText: { ...outlinedBtnText },
-  rowTextOn: { color: Colors.accentText },
+  rowTextOn: { color: Colors.onAccent },
   sidebarOverlay: { position: 'absolute', left: 16, top: 16, bottom: 16, width: SIDEBAR_WIDTH, zIndex: 20 },
   timeboxOverlay: { position: 'absolute', right: 16, top: 16, bottom: 16, width: TIMEBOX_WIDTH, zIndex: 20 },
   scrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 19, backgroundColor: Colors.scrimSoft },

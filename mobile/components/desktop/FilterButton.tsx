@@ -8,7 +8,7 @@ import { normalizeName } from '../../lib/labelRules';
 import { EMPTY_FILTER, filterCount, toggleLabel, type TaskFilter } from '../../lib/taskFilter';
 import type { Project } from '../../lib/types';
 import Popover, { Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
-import { SearchField, outlinedBtn, outlinedBtnOn, outlinedBtnText } from './ui';
+import { SearchField, outlinedBtn, outlinedBtnHover, outlinedBtnOn, outlinedBtnText, outlinedBtnTextOn } from './ui';
 
 // The board filter (checkpoint 8.2, decision 021), top right of the week
 // header. Multi select labels, a "No label" row and a "Show complete" switch;
@@ -31,12 +31,12 @@ export default function FilterButton({
       <Pressable
         ref={ref as never}
         onPress={() => togglePopover('filter', get)}
-        style={[styles.btn, count > 0 && styles.btnOn, open && styles.btnOpen]}
+        style={[styles.btn, count > 0 && styles.btnOn, open && count === 0 && styles.btnOpen]}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={text}
       >
-        <Ionicons name="funnel-outline" size={14} color={count > 0 ? Colors.accentText : Colors.textSecondary} />
+        <Ionicons name="funnel-outline" size={16} color={count > 0 ? Colors.onAccent : Colors.onHostPill} />
         <Text style={[styles.text, count > 0 && styles.textOn]}>{text}</Text>
       </Pressable>
       <Popover id="filter" anchor={get} width={272}>
@@ -96,11 +96,11 @@ function FilterBody({ filter, labels, onChange }: { filter: TaskFilter; labels: 
 }
 
 const styles = StyleSheet.create({
-  btn: { ...outlinedBtn, height: 36 } as object,
+  btn: { ...outlinedBtn, height: 38 } as object,
   btnOn: { ...outlinedBtnOn },
-  btnOpen: { backgroundColor: Colors.hover },
+  btnOpen: { ...outlinedBtnHover },
   text: { ...outlinedBtnText },
-  textOn: { color: Colors.accentText },
+  textOn: { ...outlinedBtnTextOn },
   body: { paddingBottom: 6 },
   searchWrap: { padding: 10, paddingBottom: 4 },
   search: {

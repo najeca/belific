@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { pressStyle } from './pressStyle';
 import { tipRef } from './tip';
-import { outlinedBtn, outlinedBtnOn, outlinedBtnText } from './ui';
+import { outlinedBtn, outlinedBtnHover, outlinedBtnOn, outlinedBtnText, outlinedBtnTextOn } from './ui';
 
 // "Only today" (3.17.0): next to Day / Week / Month in the Calendar and next to Filter on the board. It narrows
 // the view to today's column; on again shows everything. Its tooltip says what it does.
@@ -21,16 +21,16 @@ export default function OnlyTodayButton({ on, onPress }: { on: boolean; onPress:
       accessibilityLabel="Show only today"
       {...({ 'aria-pressed': on, dataSet: { onlyToday: on ? '1' : '0' } } as object)}
     >
-      <Ionicons name="today-outline" size={15} color={on ? Colors.accentText : Colors.textSecondary} />
+      <Ionicons name="today-outline" size={17} color={on ? Colors.onAccent : Colors.onHostPill} />
       <Text style={[styles.text, on && styles.textOn]}>Only today</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  btn: { ...outlinedBtn, height: 32, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
+  btn: { ...outlinedBtn, height: 38, transitionDuration: '120ms', transitionProperty: 'background-color' } as object,
   btnOn: { ...outlinedBtnOn },
-  hover: { backgroundColor: Colors.hover },
-  text: { ...outlinedBtnText, fontSize: 12 },
-  textOn: { color: Colors.accentText },
+  hover: { ...outlinedBtnHover },
+  text: { ...outlinedBtnText },
+  textOn: { ...outlinedBtnTextOn },
 });

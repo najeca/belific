@@ -61,7 +61,7 @@ async function run() {
     check(`${mode}: the row holds the label button (and no details pen) at the left pane width`, !!fit && fit.buttons.includes('addLabel') && !fit.buttons.includes('addDetails'), JSON.stringify(fit && fit.buttons));
     check(`${mode}: the "planned" total is not in the Add row`, !!fit && fit.planned === false, JSON.stringify(fit));
     const cap = await I.js(`(() => { const c = document.querySelector('[data-planned]'); if (!c) return null; const sw = document.querySelector('[data-ctl="lists"]').getBoundingClientRect(); const b = ${box('left')}.getBoundingClientRect(); const r = c.getBoundingClientRect(); return { text: c.innerText.trim(), top: r.top, headBottom: sw.bottom, boxTop: b.top, boxBottom: b.bottom, inBox: ${box('left')}.contains(c), size: getComputedStyle(c).fontSize }; })()`);
-    check(`${mode}: the total is a caption "3h planned" directly under the list header, above the Add row`, !!cap && cap.text === '3h planned' && !cap.inBox && cap.top >= cap.headBottom - 1 && cap.top + 14 <= cap.boxTop + 2 && cap.size === '12px', JSON.stringify(cap));
+    check(`${mode}: the total is a caption "3h planned" directly under the list header, above the Add row`, !!cap && cap.text === '3h planned' && !cap.inBox && cap.top >= cap.headBottom - 1 && cap.top + 14 <= cap.boxTop + 2 && cap.size === '13px', JSON.stringify(cap));
     await I.shot(`p34-left-${mode}`);
 
     // ---- narrower and wider boxes (the box is given a width; its controls follow) ----

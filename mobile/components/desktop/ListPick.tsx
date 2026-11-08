@@ -8,7 +8,7 @@ import { createList } from '../../lib/taskCommands';
 import type { TaskList } from '../../lib/types';
 import Popover, { Row, closePopover, togglePopover, useIsOpen, usePopoverAnchor, popoverStyles } from './Popover';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
-import { outlinedBtnText } from './ui';
+import { compactBtnText } from './ui';
 import { notifyChanged } from './uiStore';
 
 // A list without an emoji shows its name only (the details have always read so); the rows keep the emoji column.
@@ -100,7 +100,7 @@ function Body({ lists, value, onChange }: { lists: TaskList[]; value: string | u
               accessibilityState={{ disabled: !state.enabled }}
               {...({ dataSet: { createList: state.enabled ? 'on' : 'off' } } as object)}
             >
-              <Text style={[outlinedBtnText, state.enabled ? styles.btnOnText : styles.btnOffText]}>Create list</Text>
+              <Text style={[compactBtnText, state.enabled ? styles.btnOnText : styles.btnOffText]}>Create list</Text>
             </Pressable>
           </View>
           {state.why || problem ? <Text style={popoverStyles.note}>{problem ?? state.why}</Text> : null}

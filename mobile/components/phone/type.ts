@@ -4,7 +4,7 @@ import { Platform, type TextStyle } from 'react-native';
 // (phoneFonts.native.ts: 'Inter-600'); on the web export by family and weight (the desktop's
 // @font-face rules). Inter for the interface, Newsreader for the app name and big titles only,
 // Roboto Mono for clock figures.
-type Weight = 400 | 500 | 600 | 700;
+type Weight = 400 | 500 | 600 | 700 | 800;
 const web = Platform.OS === 'web';
 
 function face(family: 'Inter' | 'Newsreader' | 'Roboto Mono', file: string, w: Weight): TextStyle {

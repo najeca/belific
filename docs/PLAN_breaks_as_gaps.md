@@ -1,6 +1,6 @@
 # Plan: breaks as gaps
 
-Planning only, 2026-11-09, on top of 3.32.0 (branch v2-redesign). No code yet. Goal: a Break is a free gap in
+Planning only, 2026-11-09 (decisions D1 to D5 settled the same day, section 9), on top of 3.32.0 (branch v2-redesign). No code yet. Goal: a Break is a free gap in
 the day, not a task.
 
 ## 0. Today in three lines
@@ -25,7 +25,7 @@ the day, not a task.
 | Kanban day total, Daily Planning, Brain Dump "planned" | Break estimate counts | Never counts |
 | Timebox "Scheduled" | Break span counts | Gaps excluded; tasks in gaps count at their real length |
 | Analytics time card | Ticked breaks count | Breaks never count, history included |
-| Day column card | Card with tick box and ☕ tag | Hidden; one quiet line per day (Q1) |
+| Day column card | Card with tick box and ☕ tag | Hidden; one quiet line per day (D1) |
 | Tick box | On the card | None, on any Break card |
 | Missed | A past unticked one off break can show | Never |
 | Calendar and Timebox drawing | Tinted ☕ block with chips | A light hatched gap; tasks in it are full width blocks |
@@ -38,7 +38,7 @@ One pure helper in `lib/taskKind.ts`: `isBreak(t) = !!t.cutsBelow`. Every total 
 
 - `taskTotals.totalsOf` and `plannedText` skip breaks. `hostedEstimate` is no longer subtracted. A task in a gap no longer
   shares minutes with anything, so it counts in full, once.
-- **A task cut by gaps counts only its pieces (Q4).** Boot Camp is stored as 7 h, but with 1 h 40 of gaps in it the day
+- **A task cut by gaps counts only its pieces (D4).** Boot Camp is stored as 7 h, but with 1 h 40 of gaps in it the day
   holds 5 h 20 of Boot Camp. A new `gapMinutes(tasks)` (next to `hostedEstimate`, the same per day walk over `cutDay`) takes
   the cut away minutes off the estimate. Kanban, Daily Planning and Analytics then agree with the Timebox: 7:00 for the
   example below, not 8:40.
@@ -48,7 +48,7 @@ One pure helper in `lib/taskKind.ts`: `isBreak(t) = !!t.cutsBelow`. Every total 
 - Settings loses the "Count minutes done during a break twice" row. `breakTwiceStore` and `BREAK_TWICE_KEY` stay until the
   phone phase (P5), then go. The stored `user_settings` row is left alone; older builds still read it.
 - **Cards.** A Break with a day and a time is not a card in its day column. It is drawn on the grid and is edited from its
-  gap there. The column ends with one quiet line instead (Q1): `☕ 3 breaks · 1h 40m`, muted, no tick. Pressing it opens a
+  gap there. The column ends with one quiet line instead (D1): `☕ 3 breaks · 1h 40m`, muted, no tick. Pressing it opens a
   small popover that lists them; each row opens that break's details.
 - **No time yet** (in Brain Dump, a list, or a day with no time): the Break keeps a card, because the grid has nothing to
   draw. The card has no tick box, still shows the "☕ Break" tag, and counts in no "planned". `C` on that card does nothing.
@@ -87,8 +87,8 @@ One pure helper in `lib/taskKind.ts`: `isBreak(t) = !!t.cutsBelow`. Every total 
 ### Edge cases
 
 - **A refused cut** (a piece would be under the minimum, or the break covers the task): the host draws whole over the gap.
-  The gap's dashed outline is drawn above the host (no pointer events), and the hover note says why (`refusalNote`). With Q3's
-  default the scissors cannot make one, so only old data or later edits reach this.
+  The gap's dashed outline is drawn above the host (no pointer events), and the hover note says why (`refusalNote`). Under D3
+  the scissors cannot make one, so only old data or later edits reach this.
 - **A break inside a longer break** (3.22.0) is just a second outline inside the first. Neither one hosts the other on screen.
 - **Overnight**: the rest of yesterday's break (`cont`) is a gap at the top of today, the same as a block.
 - **A break on empty grid** (nothing under it) is a gap on its own: free time you have marked.
@@ -97,7 +97,7 @@ One pure helper in `lib/taskKind.ts`: `isBreak(t) = !!t.cutsBelow`. Every total 
 
 ### Behaviour
 
-- **Toggle**: a square flat button with scissors in the Calendar header and in the Timebox header, and the key `C` (Q2). While
+- **Toggle**: a square flat button with scissors in the Calendar header and in the Timebox header, and the key `C` (D2). While
   it is on, the button shows as pressed, the pointer is a crosshair over the grid, and a quiet hint reads
   `Click the start of a break, then its end · Esc to stop`.
 - **Hover**: a horizontal line across the day column under the pointer (time runs down, so the blade lies flat), snapped to 5
@@ -107,7 +107,7 @@ One pure helper in `lib/taskKind.ts`: `isBreak(t) = !!t.cutsBelow`. Every total 
   order. The shortest gap is 5 min. The gap stays in the column where it started, so in Week it cannot cross into another day.
 - **The task under it** is the timed, non-break task block under the first click. If there is one, the gap is clamped to that
   task's span and its title is used in the popover. If there is none, the gap is a one off break on the empty grid.
-- **Minimum piece (Q3)**: if the gap would leave a piece of the task shorter than `planner.cut_min`, the preview turns muted
+- **Minimum piece (D3)**: if the gap would leave a piece of the task shorter than `planner.cut_min`, the preview turns muted
   and shows the reason (`A piece would be 10 min (min 30)`), and the second click does nothing.
 - **Popover** at the second click, only when the task under it repeats: `This day only` / `All days of Boot Camp`, with the
   second focused (Enter picks it). Esc closes it and drops the cut. The popover is flat and square, like 3.32's.
@@ -130,7 +130,7 @@ One pure helper in `lib/taskKind.ts`: `isBreak(t) = !!t.cutsBelow`. Every total 
   refusal, worded), `bladeTask(span, dayKey, scope, template?)`, and the tool's states: `off → armed → cutting → asking`.
 - `components/desktop/BladeLayer.tsx`: the line, the time tag, the preview and the popover, over a day column. It is used by
   `CalendarPane` (each day column) and `TimeboxPane`. It reads `yToMinutes` from `lib/drag`.
-- `uiStore`: `bladeOn` and its toggle. `lib/shortcuts.ts`: `{ id: 'blade', keys: 'C', scope: 'home' }` (Q2).
+- `uiStore`: `bladeOn` and its toggle. `lib/shortcuts.ts`: `{ id: 'blade', keys: 'C', scope: 'home' }` (D2).
 
 ## 5. Data model and older builds (wanted 4)
 
@@ -282,11 +282,11 @@ Enter                  → one Break series, 11:00 20 min, Mon–Fri from Tue 10
 | Block size tiers (`blockLayout`, `MIN_BLOCK_PX`) | Blocks in gaps are often short (20 min is 19 px, tier 1). The 20 px floor would overflow a 10 min gap. | Use the normal tiers. In a gap the floor is 10 px. A tier 1 block's tooltip carries its text. |
 | Drag and drop (`DragProvider`, `hostDrop`, `dwellDrop`) | A drop on a gap still lands inside it (`hostStart`), and a task too long for it is refused. Gaps are no longer blocks, so the drop target is the gap layer's span, not a block. | Keep the rules. Feed `setDayBreaks` from the gap list (the same data). Dragging a Break onto a gap: the 3.22.0 dwell stays. |
 | Resize and move a gap | A gap is under the blocks, so its edges can be covered by tasks inside it | The gap's edge handles sit in a thin strip above the blocks (z above, 6 px). Its body can be dragged where no task covers it. `lostGuests` and its note stay. |
-| Host moved "this day only" (3.20.0), or a series time changed from the details | The break series does not follow, so the gaps are left on empty grid and the moved task is whole again | Q5: in the same gesture, move the breaks that sat wholly inside the host's old span on that day by the same delta. That is derived, nothing stored, and still one undo. For a series edit, move the break series the same way. |
+| Host moved "this day only" (3.20.0), or a series time changed from the details | The break series does not follow, so the gaps are left on empty grid and the moved task is whole again | D5: in the same gesture, move the breaks that sat wholly inside the host's old span on that day by the same delta. That is derived, nothing stored, and still one undo. For a series edit, move the break series the same way. |
 | Totals change on screen for every user with breaks | Day totals and Analytics drop | A CHANGELOG line, and the Settings row is removed with a note in its place for one version: "Breaks no longer count in totals". |
 | The phone | It shares `lib` (totals, missed) but draws chips (`PhoneBlock`, `HostedSheet`) | P1's counting change reaches the phone on its next build. P5 draws gaps on the phone. There is no scissors on the phone (no hover). |
 | Tests that pin the chip layout | `hosting.test.ts` (32 chip refs), `tokens.test.ts`, real tests p27, p28, p42, p47, p48, p49, phone-p13, phone-p14 (`data-host-chip`, `break-cup`, `break-tag`, `host-pill`), p14 (cuts), plus `taskTotals`, `analytics`, `partB`, `planningDraft` expectations that breaks count | Each phase rewrites the tests it breaks (section 8). The Motorways screenshot baseline is re-recorded in P2. |
-| Key C | `C` already ticks the focused card | Q2 |
+| Key C | `C` already ticks the focused card | D2: `C` toggles the scissors only when no card has focus; a focused card keeps `C` = complete |
 | Calendar feed | Breaks export as busy events | Out of scope. A one line follow up later (export them as free, or skip them). |
 | Missed and Daily Planning | An unticked past break would nag | Covered in P1 |
 
@@ -298,24 +298,26 @@ Each phase is one version, with targeted tests while building and the full regre
 |---|---|---|---|---|
 | P1 Counting | 3.33.0 | `isBreak`, `gapMinutes`, totals, planned, Analytics, Scheduled, Missed, Planning; no tick on break cards; day column quiet line; Settings row removed | `taskTotals`, `analytics`, `partB`, `planningDraft`, `missed` units; p42 and p48 card checks; one new real check of the quiet line | ½ day |
 | P2 Gaps drawn | 3.34.0 | Gap layer and tokens; hosted tasks as items; refusal outline; chip code off the desktop; block menu "Move out" | `hosting.test` chip cases removed, new `gapItems` units; p27, p28, p47, p49 rewritten to assert gap and block; screenshot baseline | 1½ days |
-| P3 Gap editing | 3.35.0 | Drop onto gaps, move and resize a gap, edge strip, Q5 carry on host move | `hostActions`, `seriesMove` units; p14 and p48 drag checks; a new resize real check | 1 day |
+| P3 Gap editing | 3.35.0 | Drop onto gaps, move and resize a gap, edge strip, D5 carry on host move | `hostActions`, `seriesMove` units; p14 and p48 drag checks; a new resize real check | 1 day |
 | P4 Scissors | 3.36.0 | `blade.ts`, `BladeLayer`, button, `C`, popover, Esc, undo | `blade.test.ts` (snap, span, clamp, refusal, task fields, All days rule); `shortcuts.test`; a real check that cuts a gap, picks All days, and undoes | 1½ days |
 | P5 Phone | 3.37.0 | Phone draws gaps and hosted blocks; `chipPlan`, `HostedSheet` chips and the break twice store removed | phone-p6, phone-p13, phone-p14; `phoneDay.test`; iOS markers | ¾ day |
 
 About 5 days in all. P1 is safe to ship alone. P2 and P3 belong together for a beta, because after P2 a gap cannot yet be resized.
 
-## 9. Questions (each with the default I would build)
+## 9. Decisions (2026-11-09)
 
-1. **Breaks in a day column**: one quiet line `☕ 3 breaks · 1h 40m` at the foot of the column that opens a list, or hidden
-   completely? *Default: the quiet line.*
-2. **Key C** already ticks a focused card. *Default: `C` turns the scissors on and off when no card has focus, and a focused
-   card keeps `C` = complete. The button's tooltip says "Scissors (C)".* The other choice is `B`, as in Resolve.
-3. **Minimum piece** (`planner.cut_min`, 30 min): keep it for gaps? *Default: keep it. The scissors show the reason live and
-   refuse the cut.* The other choice is to drop the minimum for breaks only, so any gap of 5 min or more always cuts.
-4. **A task cut by gaps counts only its pieces** (Boot Camp counts 5:20, not 7:00). *Default: yes, so the totals match the
-   Timebox.*
-5. **When the host moves on one day, or its series time changes**: do the breaks inside it move with it? *Default: yes, in
-   the same gesture and the same undo.*
+All five questions were answered with the recommended default. They are referred to above as D1 to D5.
+
+1. **D1, breaks in a day column**: one quiet line `☕ 3 breaks · 1h 40m` at the foot of the column. Pressing it opens a list;
+   each row opens that break's details. Breaks with a time are not cards.
+2. **D2, key C**: `C` turns the scissors on and off only when no card has focus. A focused card keeps `C` = complete. The
+   scissors button in the Calendar and Timebox headers does the same, and its tooltip says "Scissors (C)". No `B`.
+3. **D3, minimum piece**: the 30 minute minimum (`planner.cut_min`) stays for gaps. The scissors show the reason live
+   (`A piece would be 10 min (min 30)`) and refuse the cut.
+4. **D4, a cut task counts only its pieces**: Boot Camp counts 5:20, not 7:00, so Kanban, Daily Planning and Analytics
+   match the Timebox.
+5. **D5, breaks follow their task**: when the task under the breaks moves on one day, or its series time changes, the breaks
+   wholly inside its old span move by the same amount in the same gesture, so one Ctrl+Z puts everything back.
 
 ## 10. Done when
 

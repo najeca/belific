@@ -140,7 +140,8 @@ export default function TaskCard({
     };
     switch (sc) {
       case 'complete':
-        w?.setCompleted(!t.completed);
+        // A Break has no tick (it is a gap, not work): C does nothing on its card.
+        if (!t.cutsBelow) w?.setCompleted(!t.completed);
         return true;
       case 'openDetails':
       case 'toggleSubtasks':
@@ -290,6 +291,7 @@ export default function TaskCard({
           <>
             {color ? <View pointerEvents="none" style={[styles.band, { backgroundColor: color.edge }]} {...({ dataSet: { cardBand: color.key } } as object)} /> : null}
             <View style={styles.titleRow}>
+              {!isBreak && (
               <Pressable
                 onPress={() => wrapped.setCompleted(!task.completed)}
                 style={styles.check}
@@ -298,6 +300,7 @@ export default function TaskCard({
               >
                 <View style={[styles.box, task.completed && styles.boxDone]}>{task.completed && <Ionicons name="checkmark" size={14} color={Colors.onAccent} />}</View>
               </Pressable>
+              )}
               <Text style={[styles.title, task.completed && styles.titleDone]} numberOfLines={3} accessibilityLabel={`Title ${task.title}`}>
                 {task.emoji ? `${task.emoji} ` : ''}
                 {task.title}

@@ -11,7 +11,9 @@ import type { BrainDumpItem, Project, Task, TaskList } from './types.ts';
 import { addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
 import { toCsv } from './csv.ts';
 import { estimateOf } from './taskTotals.ts';
-import { hostedEstimate } from './hosting.ts';
+import { gapMinutes } from './hosting.ts';
+import { DEFAULT_CUT_MIN } from './cuts.ts';
+import { isBreak } from './taskKind.ts';
 import { effectiveListKey } from './lists.ts';
 import { formatClock } from './duration.ts';
 
@@ -96,7 +98,7 @@ export function completedDay(t: Pick<Task, 'completed' | 'completedAt' | 'delete
 export function completedIn(tasks: Task[], r: DateRange): Task[] {
   return tasks.filter((t) => {
     const d = completedDay(t);
-    return d !== null && d >= r.start && d <= r.end;
+    return !isBreak(t) && d !== null && d >= r.start && d <= r.end;
   });
 }
 
@@ -140,9 +142,9 @@ export interface TimeCard {
   text: string;
 }
 
-// 3.8.0: a done task inside a done break shares its estimated minutes with it; they count once unless
-// "Count minutes done during a break twice" is on (`breakTwice`, lib/hosting.ts).
-export function timeCard(tasks: Task[], r: DateRange, breakTwice = false): TimeCard {
+// P1 of PLAN_breaks_as_gaps: breaks are not work (completedIn leaves them out), and a done task the breaks of its day cut
+// counts only its pieces (D4). The breaks come from all the stored tasks, ticked or not (lib/hosting.ts gapMinutes).
+export function timeCard(tasks: Task[], r: DateRange, cutMin: number = DEFAULT_CUT_MIN): TimeCard {
   const done = completedIn(tasks, r);
   let estimated = 0;
   let actual = 0;
@@ -155,7 +157,7 @@ export function timeCard(tasks: Task[], r: DateRange, breakTwice = false): TimeC
       actual += act(t);
     }
   }
-  if (!breakTwice) estimated -= hostedEstimate(done);
+  estimated -= gapMinutes(done.filter((t) => estimateOf(t) > 0), cutMin, tasks);
   const withoutEstimate = done.length - withEstimate;
   const text = withEstimate === 0 ? '' : `${formatClock(actual)} spent of ${formatClock(estimated)} estimated`;
   return { estimated, actual, withEstimate, withoutEstimate, text };

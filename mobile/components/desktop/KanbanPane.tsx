@@ -22,7 +22,9 @@ import DayMenu from './DayMenu';
 import { useAwayDays } from './awayStore';
 import { createTaskIn } from '../../lib/taskCommands';
 import { formatTotals, totalsOf } from '../../lib/taskTotals';
-import { useBreakTwice } from './breakTwiceStore';
+import { useCutMin } from './cutStore';
+import BreakLine from './BreakLine';
+import { isTimedBreak } from '../../lib/breakLine';
 import { useTick } from './timerUi';
 import { openDetail, openNewTask, useGoToday, useReveal } from './uiStore';
 import OnlyTodayButton from './OnlyTodayButton';
@@ -65,7 +67,7 @@ const STEP = COLUMN_WIDTH + COLUMN_GAP;
 // "1:30": the estimated time of the day (3.26.0: actual time is no longer shown).
 // Nothing planned shows nothing.
 function DayTotals({ items, now }: { items: Task[]; now: number }) {
-  const totals = totalsOf(items, now, useBreakTwice());
+  const totals = totalsOf(items, now, useCutMin());
   const text = formatTotals(totals);
   if (!text) return null;
   return (
@@ -251,6 +253,9 @@ export default function KanbanPane({
 
   const renderColumn = (day: ColumnDay, left: number | null) => {
     const items = columns.days[day.key] ?? [];
+    // P1 of PLAN_breaks_as_gaps (D1): a Break with a time is a gap, not a card; the column ends with one quiet line for them.
+    const cards = items.filter((i) => !isTimedBreak(i.task));
+    const dayBreaks = items.filter((i) => isTimedBreak(i.task)).map((i) => i.task);
     const head = columnHeading(day.key, todayKey);
     const isTarget = dropDay === day.key;
     const away = awayDays.has(day.key);
@@ -283,7 +288,7 @@ export default function KanbanPane({
           <DayAddBox dayKey={day.key} items={items.map((i) => i.task)} now={now} onChanged={onChanged} away={away} />
         )}
         <ScrollView ref={scrollRef(`day:${day.key}`) as never} style={styles.columnList} contentContainerStyle={styles.columnListContent} showsVerticalScrollIndicator={false}>
-          {items.map((item) => {
+          {cards.map((item) => {
             const { task, projected: isProjected } = item;
             const proj = projects.find((p) => p.key === task.projectKey);
             return (
@@ -314,6 +319,7 @@ export default function KanbanPane({
               />
             );
           })}
+          {dayBreaks.length > 0 && <BreakLine dayKey={day.key} breaks={dayBreaks} />}
           {isTarget && drag && (
             <View style={styles.placeholder} pointerEvents="none" accessibilityLabel="Drop here" {...({ dataSet: { dropPlaceholder: day.key } } as object)}>
               <Text style={styles.placeholderText} numberOfLines={1}>

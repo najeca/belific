@@ -62,6 +62,8 @@ async function run() {
       at('long', 'Too long task', '19:30', 90),
       // For the menu: 25 minutes, no time.
       T('plain', 'Plan the week', { durationMinutes: 25 }),
+      // P1 of PLAN_breaks_as_gaps: a Break with no time keeps its card, with no tick box.
+      T('freebrk', 'Quiet break', { durationMinutes: 15, cutsBelow: true }),
     ]),
   );
   fs.writeFileSync(path.join(dataDir, 'belific_projects.kv'), JSON.stringify([{ key: 'work', name: 'Work', colorKey: 'sky', createdAt: stamp, updatedAt: stamp }]));
@@ -301,8 +303,10 @@ async function run() {
   await scrollTo(calSel('lunch3'));
   await I.shot('p27-11-calendar-dark-60min');
 
-  // ======== 3.8.0: Count minutes done during a break twice ========
-  // Shared with breaks now: Stretch 10, Coffee's three 20, Listen 30, Long lunch's four (14:00 to 14:55) 55 = 115.
+  // ======== P1 of PLAN_breaks_as_gaps: breaks are free gaps, not work ========
+  // Today's work: Stretch 10, Water 5, Post 5, Text Mum 10, Podcast 30, Reply 15, Call 20, Read 25 (all inside a break, full
+  // length), Partly over 40 less the 10 minutes Long lunch cuts away = 30, Fits 30, Too long 90, Plan the week 25
+  // = 295 (4:55). The Timebox's Scheduled has no unplaced task, and Call the bank and Read a chapter overlap by 5 minutes (counted once): 265 (4h 25m). The five breaks (220 minutes) count in neither.
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
   const mins = (t) => { const h = /(\d+)h/.exec(t); const m = /(\d+)m/.exec(t); return (h ? +h[1] * 60 : 0) + (m ? +m[1] : 0); };
   // 3.26.0: the day total is the estimate alone ("Estimated for the day: 1:30").
@@ -311,19 +315,24 @@ async function run() {
     scheduled: mins(await I.js(`([...document.querySelectorAll('div')].find((d) => /^Scheduled /.test(d.innerText || '') && ![...d.children].some((c) => c.tagName === 'DIV')) || {}).innerText || ''`)),
     estimate: clock(await I.js(`(${V(`[data-day-col="${TODAY}"] [aria-label^="Estimated for the day"]`)} || {}).getAttribute?.('aria-label')`)),
   });
-  const once = await figures();
+  const fig = await figures();
+  check("the day's estimate leaves the breaks out and cuts Partly over to its piece: 4:55", fig.estimate === 295, JSON.stringify(fig));
+  check("the Timebox's Scheduled leaves the gaps out and counts the tasks inside them at their length: 4h 25m", fig.scheduled === 265, JSON.stringify(fig));
+  check('a Break with a time is not a card in its day column', !(await I.exists(`document.querySelector('[data-day-col="${TODAY}"] [data-task-card="tea1"]')`)));
+  const line = await I.js(`(() => { const l = document.querySelector('[data-break-line="${TODAY}"]'); return l ? l.innerText : null; })()`);
+  check('the column ends with one quiet line: "☕ 5 breaks · 3h 40m"', line === '☕ 5 breaks · 3h 40m', String(line));
+  await I.click(`document.querySelector('[data-break-line="${TODAY}"]')`, 600);
+  const listed = await I.js(`[...document.querySelectorAll('[role="dialog"] [role="button"], [role="dialog"] [role="menuitem"]')].map((e) => e.innerText.split('\\n')[0]).filter(Boolean)`);
+  check('pressing the line lists the five breaks', ['Tea break', 'Coffee', 'Lunch', 'Long lunch', 'Nap'].every((t) => listed.includes(t)), JSON.stringify(listed));
+  await I.key('Escape');
+  await C.sleep(300);
+  const quiet = `Array.from(document.querySelectorAll('[aria-label="Task Quiet break"]')).find((e) => e.getBoundingClientRect().width > 0)`;
+  check('a Break with no time keeps a card with no tick box', (await I.exists(quiet)) && !(await I.js(`!!(${quiet}).querySelector('[aria-label^="Mark Quiet break"]')`)));
+  await I.shot('p27-12-breaks-quiet-line');
   await I.click(`document.querySelector('[aria-label="Profile and account"]') || document.querySelector('[aria-label="Profile, not signed in"]')`, 500);
   await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 800);
-  const row = await I.js(`(document.querySelector('[data-break-twice-setting]') || {}).innerText || ''`);
-  check('Settings has "Count minutes done during a break twice", off by default', row.includes('Count minutes done during a break twice') && ['false', 'null'].includes(await I.js(`(() => { const s = document.querySelector('[data-break-twice-setting] [role="switch"]'); return s ? s.getAttribute('aria-checked') || String(s.checked) : 'missing'; })()`)), row);
-  await I.shot('p27-12-settings-switch');
-  await I.click(`document.querySelector('[data-break-twice-setting] [role="switch"]')`, 700);
-  check('the switch is stored as a synced setting', JSON.stringify(read('belific_user_settings') || []).includes('planner.break_count_twice'), JSON.stringify(read('belific_user_settings')));
+  check('Settings no longer has "Count minutes done during a break twice"; a note says breaks are not counted', !(await I.js(`!!document.querySelector('[data-break-twice-setting]')`)) && (await I.js(`!!document.querySelector('[data-breaks-not-counted]')`)));
   if (await I.exists(I.byLabel('Back'))) await I.click(I.byLabel('Back'), 700);
-  await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
-  const twice = await figures();
-  check("on: the Timebox's Scheduled adds the 115 shared minutes again", twice.scheduled - once.scheduled === 115, JSON.stringify({ once, twice }));
-  check("on: the day's estimate counts every task in full (+115)", twice.estimate - once.estimate === 115, JSON.stringify({ once, twice }));
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

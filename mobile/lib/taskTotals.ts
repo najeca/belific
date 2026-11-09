@@ -9,7 +9,9 @@ import type { Task } from './types.ts';
 import { formatClock } from './duration.ts';
 import { shownMinutes } from './taskTimer.ts';
 import { timesCount, timesLeft } from './times.ts';
-import { hostedEstimate } from './hosting.ts';
+import { gapMinutes } from './hosting.ts';
+import { DEFAULT_CUT_MIN } from './cuts.ts';
+import { isBreak } from './taskKind.ts';
 
 export interface Totals {
   count: number;
@@ -18,9 +20,15 @@ export interface Totals {
   actual: number;
 }
 
-export function estimateOf(task: Pick<Task, 'durationMinutes'>): number {
+// The length a task has (whole minutes), whatever it is.
+export function lengthOf(task: Pick<Task, 'durationMinutes'>): number {
   const m = task.durationMinutes;
   return typeof m === 'number' && Number.isFinite(m) && m > 0 ? Math.round(m) : 0;
+}
+
+// The estimate that counts in a total: a Break is a free gap, not work, so it has none (PLAN_breaks_as_gaps, P1).
+export function estimateOf(task: Pick<Task, 'durationMinutes'> & Partial<Pick<Task, 'cutsBelow'>>): number {
+  return isBreak(task) ? 0 : lengthOf(task);
 }
 
 export function actualOf(task: Pick<Task, 'actualMinutes' | 'timerStartedAt'>, nowMs: number): number {
@@ -32,20 +40,19 @@ export function actualOf(task: Pick<Task, 'actualMinutes' | 'timerStartedAt'>, n
 type TotalsInput = Pick<Task, 'durationMinutes' | 'actualMinutes' | 'timerStartedAt' | 'completed' | 'deletedAt'> &
   Partial<Pick<Task, 'startTime' | 'extraTimes' | 'timesDone' | 'completedAt' | 'dueDate' | 'cutsBelow'>>;
 
-// 3.8.0 (task during a break): a task fully inside a break shares its minutes with the break. Unless
-// "Count minutes done during a break twice" is on (`breakTwice`), the estimate counts them once
-// (lib/hosting.ts hostedEstimate). The actual time is never changed: one timer runs at a time, so a
-// task's and its break's timed minutes never overlap.
-export function totalsOf(tasks: TotalsInput[], nowMs: number, breakTwice = false): Totals {
+// P1 of PLAN_breaks_as_gaps: a Break is not work. It is not counted, has no estimate, and its time is not planned time.
+// A task the breaks cut counts only its pieces (D4: hosting.ts gapMinutes, with `cutMin`, the setting's smallest piece);
+// a task inside a break is not cut and counts in full. The actual time is never changed.
+export function totalsOf(tasks: TotalsInput[], nowMs: number, cutMin: number = DEFAULT_CUT_MIN): Totals {
   const t: Totals = { count: 0, done: 0, estimate: 0, actual: 0 };
   for (const task of tasks) {
-    if (task.deletedAt) continue;
+    if (task.deletedAt || isBreak(task)) continue;
     t.count += 1;
     if (task.completed) t.done += 1;
     t.estimate += estimateOf(task) * timesCount(task);
     t.actual += actualOf(task, nowMs);
   }
-  if (!breakTwice) t.estimate -= hostedEstimate(tasks);
+  t.estimate -= gapMinutes(tasks, cutMin);
   return t;
 }
 

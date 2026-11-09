@@ -321,7 +321,7 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
     <View style={[styles.panel, dark ? styles.panelDark : styles.panelSlab]} accessibilityLabel="Task details" {...({ role: 'dialog', 'aria-modal': true, dataSet: { detailPanel: '1' } } as object)}>
       <PaneBand />
       <View style={styles.header}>
-        {!drafting && (
+        {!drafting && !task.cutsBelow && (
         <Pressable
           // Completing goes through setTaskCompleted (subtasks, repeats), not a bare patch.
           onPress={() => ops.setCompleted(!task.completed).then(onSaved)}

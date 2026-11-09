@@ -22,6 +22,12 @@ export function kindOf(task: Pick<Task, 'cutsBelow'>): TaskKind {
   return task.cutsBelow ? 'break' : 'task';
 }
 
+// Breaks are free gaps, not work (PLAN_breaks_as_gaps, P1): every planned total and estimate, Analytics and Missed
+// leave them out, and they have no tick box.
+export function isBreak(task: Pick<Task, 'cutsBelow'>): boolean {
+  return !!task.cutsBelow;
+}
+
 // The patch for a choice: Break stores cutsBelow true, Task clears it (as the old switch did).
 export function kindPatch(kind: TaskKind): Pick<Task, 'cutsBelow'> {
   return { cutsBelow: kind === 'break' ? true : undefined };

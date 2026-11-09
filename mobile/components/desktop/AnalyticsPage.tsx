@@ -26,7 +26,7 @@ import {
   type GroupBy,
   type RangeKey,
 } from '../../lib/analytics';
-import { useBreakTwice } from './breakTwiceStore';
+import { useCutMin } from './cutStore';
 import type { BrainDumpItem, Project, Task, TaskList } from '../../lib/types';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { dayStamp, downloadText } from './download';
@@ -79,8 +79,8 @@ export default function AnalyticsPage({ refreshKey }: { refreshKey: number }) {
 
   const r = useMemo(() => rangeFor(range, todayKey, custom), [range, todayKey, custom]);
   const completed = useMemo(() => completedCard(tasks, r), [tasks, r]);
-  const breakTwice = useBreakTwice();
-  const time = useMemo(() => timeCard(tasks, r, breakTwice), [tasks, r, breakTwice]);
+  const cutMin = useCutMin();
+  const time = useMemo(() => timeCard(tasks, r, cutMin), [tasks, r, cutMin]);
   const age = useMemo(() => brainDumpAge(tasks, dump, lists, Date.now()), [tasks, dump, lists]);
   const perDay = useMemo(() => bucketBars(timePerDay(tasks, r)), [tasks, r]);
   const shares = useMemo(() => tasksByLabel(tasks, r, labels), [tasks, r, labels]);

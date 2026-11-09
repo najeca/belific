@@ -43,7 +43,6 @@ import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
 import { calendarTitle, minutesOfDay, monthGrid, nowLineTop, splitAllDay, stepAnchor, visibleDayKeys } from '../../lib/calendarView';
 import type { CalendarView } from '../../lib/paneState';
 import { formatTotals, totalsOf } from '../../lib/taskTotals';
-import { useBreakTwice } from './breakTwiceStore';
 import { labelColor } from '../../lib/labelColors';
 import { listEmojiOf, listNameOf } from '../../lib/lists';
 import ListEmoji from './ListEmoji';
@@ -159,7 +158,6 @@ export default function CalendarPane({
   // Away days (2.27.0) are greyed in every view.
   const awayDays = useAwayDays(refreshKey);
   const cutMin = useCutMin();
-  const breakTwice = useBreakTwice();
   // "Vibrant task colours" (Settings): saturated chips and blocks with bold white text; off = as before.
   const vibrant = useVibrant();
   const tint = useTint();
@@ -474,9 +472,9 @@ export default function CalendarPane({
         );
       }
     }
-    const t = totalsOf(shown, now, breakTwice);
+    const t = totalsOf(shown, now, cutMin);
     return formatTotals(t);
-  }, [effView, key, todayKey, monthTasks, days, now, breakTwice]);
+  }, [effView, key, todayKey, monthTasks, days, now, cutMin]);
 
   const labelOf = (t: Task) => labels.find((p) => p.key === t.projectKey);
   const hours: number[] = [];

@@ -1,7 +1,10 @@
 // Run with `npm test` from mobile/. Estimate against actual (build plan phase 2).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { actualOf, estimateOf, formatTotals, totalsOf } from './taskTotals.ts';
+import { actualOf, estimateOf, formatTotals, plannedText, totalsOf } from './taskTotals.ts';
+import { planCuts } from './cuts.ts';
+import { hostDay, scheduledSpans, type HostEntry } from './hosting.ts';
+import { totalScheduledMinutes } from './timebox.ts';
 import { startTimer } from './taskTimer.ts';
 import type { Task } from './types.ts';
 
@@ -54,12 +57,54 @@ test('2.26.0 the add task box total: estimated time still to do, "5h planned"', 
   assert.equal(plannedText([t(45), t(600, true), t(60, false, '2026-10-01T00:00:00Z')]), '45m planned');
 });
 
-test('3.8.0: a task during a break counts its estimate once by default, twice with the setting on', () => {
+test('P1: a Break is a free gap: it has no estimate, is not counted, and a task inside it counts in full', () => {
   const lunch = task({ id: 'lunch', dueDate: '2026-10-26', startTime: '12:00', durationMinutes: 60, cutsBelow: true });
   const call = task({ id: 'call', dueDate: '2026-10-26', startTime: '12:10', durationMinutes: 20, actualMinutes: 15 });
   const after = task({ id: 'after', dueDate: '2026-10-26', startTime: '13:00', durationMinutes: 30 });
-  assert.equal(totalsOf([lunch, call, after], T0).estimate, 90, 'the 20 minutes inside Lunch count once');
-  assert.equal(totalsOf([lunch, call, after], T0, true).estimate, 110, 'twice: every estimate in full');
-  assert.equal(totalsOf([lunch, call, after], T0).actual, 15, 'the actual time never changes');
-  assert.equal(totalsOf([call, after], T0).estimate, 50, 'without the break in the list nothing is shared');
+  assert.equal(estimateOf(lunch), 0);
+  assert.deepEqual(totalsOf([lunch, call, after], T0), { count: 2, done: 0, estimate: 50, actual: 15 });
+  assert.equal(totalsOf([lunch], T0).estimate, 0);
+  assert.equal(totalsOf([lunch, task({ id: 'x', completed: true, cutsBelow: true })], T0).done, 0, 'a ticked break is not a done task');
+  assert.equal(plannedText([lunch, call]), '20m planned', 'Brain Dump and list figures leave the break out');
+  assert.equal(plannedText([{ ...lunch, durationMinutes: 600 }]), '');
+});
+
+// The example of PLAN_breaks_as_gaps: Boot Camp 9:30 for 7 h, short break 11:00 for 20 min, long break 12:30 for 1 h,
+// short break 15:00 for 20 min; on Monday four tasks sit in the gaps. Monday is 7:00 in Kanban and in the Timebox.
+const DAY = '2026-11-09';
+const exampleDay = (withTasks: boolean) => {
+  const t = (id: string, startTime: string, durationMinutes: number, extra: Partial<Task> = {}) => task({ id, title: id, dueDate: DAY, startTime, durationMinutes, ...extra });
+  return [
+    t('boot', '09:30', 420),
+    t('short1', '11:00', 20, { cutsBelow: true }),
+    t('long', '12:30', 60, { cutsBelow: true }),
+    t('short2', '15:00', 20, { cutsBelow: true }),
+    ...(withTasks ? [t('warm', '11:00', 20), t('run', '12:30', 30), t('lunch', '13:00', 30), t('shower', '15:00', 20)] : []),
+  ];
+};
+// The Timebox pane's own steps: entries, hosting, cuts, then the Scheduled spans.
+function scheduledOf(tasks: Task[]): number {
+  const toMin = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));
+  const entries: HostEntry[] = tasks.map((t) => ({ id: t.id, startMin: toMin(t.startTime as string), endMin: toMin(t.startTime as string) + (t.durationMinutes as number), breaks: !!t.cutsBelow }));
+  const host = hostDay(entries);
+  const plan = planCuts(entries.filter((e) => !host.hostOf.has(e.id)), 30, (id) => id);
+  return totalScheduledMinutes(scheduledSpans(plan.items, entries));
+}
+
+test('P1 Boot Camp, Monday: 7:00 in Kanban and in the Timebox (5:20 of Boot Camp and 1:40 of tasks)', () => {
+  const monday = exampleDay(true);
+  assert.equal(formatTotals(totalsOf(monday, T0)), '7:00');
+  assert.equal(scheduledOf(monday), 420);
+});
+
+test('P1 Boot Camp, Tuesday: the same breaks and no tasks in them is 5:20 in both', () => {
+  const tuesday = exampleDay(false);
+  assert.equal(formatTotals(totalsOf(tuesday, T0)), '5:20');
+  assert.equal(scheduledOf(tuesday), 320);
+});
+
+test('P1 Boot Camp: the smallest piece (D3) keeps a refused cut whole; with no breaks in the list nothing is cut', () => {
+  const tuesday = exampleDay(false);
+  assert.equal(formatTotals(totalsOf(tuesday, T0, 90)), '6:40', 'a larger smallest piece refuses the cuts that leave 70 minutes: only the first one cuts');
+  assert.equal(formatTotals(totalsOf(tuesday.filter((t) => !t.cutsBelow), T0)), '7:00');
 });

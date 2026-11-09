@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 3.33.0 — 2026-11-09 (Breaks are free gaps, phase 1: counting; PLAN_breaks_as_gaps)
+
+**Desktop and the shared totals code. No schema change, no migration, no data change: a Break is still a task row with `cutsBelow`. Nothing is drawn differently on the Calendar or the Timebox (phase 2).**
+- **A Break counts nowhere.** It has no estimate (`estimateOf` is 0 for a Break; `lengthOf` is its raw length). It is left out of the Tasks board's day totals, the Calendar header total, Daily Planning's and Daily Shutdown's figures (and their "tasks" counts), Brain Dump and list "planned" text, and Analytics (`completedIn` skips breaks, so they are not finished tasks, nor in the time card, the per day bars or the per label shares). It is never in the Missed list.
+- **A task cut by gaps counts only its pieces (D4).** `gapMinutes` (lib/hosting.ts) takes off the minutes the day's breaks cut away, by the drawing's own rules (lib/cuts.ts with the setting's smallest piece, D3; a cut that would leave a piece under it is refused and the task counts whole; a task wholly inside a break is not cut and counts in full). `totalsOf` and `timeCard` take the smallest piece in place of the old boolean; Analytics reads the day's breaks from all stored tasks, ticked or not.
+- **The Timebox "Scheduled" total** counts work, not gaps (`scheduledSpans`): a Break's span is left out, a task inside a break counts at its real length. Boot Camp 9:30 for 7 h with breaks 11:00 (20 min), 12:30 (1 h) and 15:00 (20 min) is 5:20 on its own and 7:00 with 1:40 of tasks in the gaps, in the Tasks board and the Timebox alike.
+- **"Count minutes done during a break twice" is gone** (Settings row, `breakTwiceStore.ts`, `hostedEstimate`, `hostedMinutes`, `parseBreakTwice`). A quiet note in its place says breaks are not counted. The old synced row `planner.break_count_twice` is left alone and is no longer read; older builds still read it. The iOS marker for the switch was retired.
+- **Day columns (D1).** A Break with a time is no longer a card on the Tasks board. Each day column ends with one quiet line, "☕ 3 breaks · 1h 40m" (`BreakLine.tsx`, lib/breakLine.ts; a Break with no length reads as 30 minutes, as it is drawn), that opens a list of that day's breaks; each opens its details. A Break with no time keeps its card, and it (and every Break card, and the details window of a Break) has no tick box; C does nothing on its card. Breaks stay editable from their block.
+- **Tests changed on purpose:** hosting.test.ts (the hostedMinutes / hostedEstimate / parseBreakTwice cases are replaced by gapMinutes and scheduledSpans), splitAudit.test.ts (two shared-minutes assertions removed), taskTotals.test.ts and analytics.test.ts (the 3.8.0 count twice cases replaced; new Boot Camp cases: Monday 7:00, Tuesday 5:20, a refused cut stays whole), easConfig.test.ts (version), new breakLine.test.ts; p27 (the count twice section is now the new totals, quiet line and no tick checks; new seed Break with no time), p48 (a Break with a time is no longer a card).
+- **Not in this phase:** the phone still shows its own Break cards and chips (phone phase P5); no gap drawing, no scissors.
+
 ## 3.32.0 — 2026-11-08 (Mini Motorways restyle, phase 3: cards, blocks, details, popovers, pages)
 
 **Desktop. No schema change, no migration, no data change, no behaviour change: colours, shapes and type only.**

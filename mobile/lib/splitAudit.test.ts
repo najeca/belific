@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cutDay, planCuts, type CutEntry } from './cuts.ts';
-import { dayHostEntries, hostDay, hostSnapshot, hostedMinutes, lostGuests, type HostEntry } from './hosting.ts';
+import { dayHostEntries, hostDay, hostSnapshot, lostGuests, type HostEntry } from './hosting.ts';
 import type { Task } from './types.ts';
 
 const h = (hh: number, mm = 0) => hh * 60 + mm;
@@ -91,9 +91,6 @@ test('random days: the cut pieces and the hosting always satisfy their rules', (
       const items = plan.items.filter((i) => i.id === e.id || i.piece?.hostId === e.id);
       assert.ok(items.length >= 1, `${e.id} is drawn`);
     }
-    // The shared minutes are never more than the hosted tasks' own minutes.
-    const own = [...host.hostOf.keys()].reduce((m, g) => m + (byId.get(g)!.endMin - byId.get(g)!.startMin), 0);
-    assert.ok(hostedMinutes(entries) <= own, 'shared minutes never exceed what the hosted tasks add up to');
   }
 });
 
@@ -250,6 +247,3 @@ test('a chain of Split tasks: the longest is the break, the others are its chips
   assert.deepEqual(r.hosted.get('a'), ['b', 'c']);
 });
 
-test('hosted shared minutes count a nested Split task once', () => {
-  assert.equal(hostedMinutes([ent('a', h(9), h(13), true), ent('b', h(10), h(11), true), ent('c', h(10, 15), h(10, 30))]), 60 + 0, 'b and c overlap inside a: the 60 minutes once');
-});

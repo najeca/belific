@@ -99,8 +99,9 @@ async function run() {
   check(`${mode} 2: the Break line`, (await panelText()).includes('Cuts the tasks it overlaps into pieces and can hold other tasks inside it.'));
   await I.shot(`p48-2-break-${mode}`);
   await close();
-  const tag = await I.js(`(() => { const t = (${card('Plan the week')} || document).querySelector('[data-break-tag]'); return t ? t.innerText : null; })()`);
-  check(`${mode} 2: the card has a "☕ Break" tag`, tag === '☕ Break', String(tag));
+  // P1 of PLAN_breaks_as_gaps (D1): a Break with a time is a gap on the grid, not a card; its day column ends with a quiet line.
+  const line = await I.js(`(() => { const l = document.querySelector('[data-break-line="${today}"]'); return l ? l.innerText : null; })()`);
+  check(`${mode} 2: a Break with a time is not a card; the day column ends with "☕ 2 breaks · 1h 30m"`, !(await I.js(`!!document.querySelector('[data-task-card="plain"]')`)) && line === '☕ 2 breaks · 1h 30m', String(line));
   check(`${mode} 2: a plain task's card has none`, !(await I.js(`!!(${card('Deep work')} || document.body).querySelector('[data-break-tag]')`)));
   await I.shot(`p48-2-card-${mode}`);
   await I.click(I.byLabel('Show the Calendar'), 800).catch(() => {});

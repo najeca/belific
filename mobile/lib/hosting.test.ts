@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. A task during a break (3.5.0): hosted when fully inside a break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DETAILS_LONGER, breakLosesGuests, fitRefusal, hostSnapshot, longerNote, lostGuests, lostNote, duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, hostedEstimate, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, packChips, CHIP_MIN_W, CHIP_GAP_PX, MORE_W, chipLines, dayHostEntries, hostDay, hostStart, hostedMinutes, parseBreakTwice, type HostEntry } from './hosting.ts';
+import { DETAILS_LONGER, breakLosesGuests, fitRefusal, hostSnapshot, longerNote, lostGuests, lostNote, duringCaption, hostIndex, hostLinks, insidePill, ENDS_AT_MIDNIGHT, LONGER_THAN_BREAK, breakAt, hostDrop, gapMinutes, scheduledSpans, moveOutFields, removeTimeOutFields, breaksFitting, chipPlan, packChips, CHIP_MIN_W, CHIP_GAP_PX, MORE_W, chipLines, dayHostEntries, hostDay, hostStart, type HostEntry } from './hosting.ts';
 import { cutDay, planCuts } from './cuts.ts';
 import { COMPACT_BLOCK_PX, PX_PER_HOUR } from './timebox.ts';
 import type { Task } from './types.ts';
@@ -168,14 +168,6 @@ test('chipPlan: a 20 minute break is one line, a 45 and a 60 minute one stack', 
   assert.deepEqual(chipPlan(px(90), 0, 3, COMPACT_BLOCK_PX, 18, 22), { mode: 'stack', shown: 3, more: 0 });
 });
 
-test('hostedMinutes: the hosted lengths (what counting once takes off); the setting reads safely', () => {
-  assert.equal(hostedMinutes([brk('b', h(12), h(13)), task('a', h(12), h(12, 20)), task('c', h(12, 30), h(12, 45)), task('out', h(12, 50), h(13, 10))]), 35);
-  assert.equal(parseBreakTwice('true'), true);
-  assert.equal(parseBreakTwice('false'), false);
-  assert.equal(parseBreakTwice(undefined), false);
-  assert.equal(parseBreakTwice('yes'), false);
-});
-
 test('hostDrop: over a break the task starts inside it; longer is refused; elsewhere nothing changes', () => {
   const list = [{ id: 'lunch', startMin: h(12), endMin: h(13) }, { id: 'tea', startMin: h(15), endMin: h(15, 20) }];
   assert.deepEqual(hostDrop(list, h(12, 40), h(12, 30), 15), { kind: 'host', startMin: h(12, 30), brk: list[0] });
@@ -185,22 +177,30 @@ test('hostDrop: over a break the task starts inside it; longer is refused; elsew
   assert.deepEqual(hostDrop([], h(12), h(12), 15), { kind: 'none' });
 });
 
-test('hostedMinutes: two tasks overlapping each other inside a break share their minutes once', () => {
-  assert.equal(hostedMinutes([brk('b', h(12), h(13)), task('a', h(12), h(12, 40)), task('c', h(12, 20), h(12, 50))]), 50);
+test('gapMinutes (P1, D4): what the breaks of a day cut away from the tasks in the list; hosted tasks are not cut', () => {
+  const D = (id: string, extra: Partial<Task>) => T(id, extra);
+  const boot = D('boot', { startTime: '09:30', durationMinutes: 420 });
+  const b1 = D('b1', { startTime: '11:00', durationMinutes: 20, cutsBelow: true });
+  const b2 = D('b2', { startTime: '12:30', durationMinutes: 60, cutsBelow: true });
+  assert.equal(gapMinutes([boot, b1, b2]), 80, 'cut into pieces: 20 + 60 minutes are gone');
+  assert.equal(gapMinutes([boot]), 0, 'without the breaks in the list nothing is cut');
+  assert.equal(gapMinutes([boot], 30, [boot, b1, b2]), 80, 'the breaks may come from a wider list (Analytics)');
+  assert.equal(gapMinutes([b1, b2], 30, [boot, b1, b2]), 0, 'only the tasks in the list are charged');
+  assert.equal(gapMinutes([boot, { ...b1, startTime: '09:45', durationMinutes: 20 }]), 0, 'a 15 minute piece under the smallest one (30): the cut is refused, the task stays whole');
+  assert.equal(gapMinutes([boot, { ...b1, startTime: '09:45', durationMinutes: 20 }], 15), 20, '... unless the setting allows 15');
+  assert.equal(gapMinutes([boot, { ...b1, dueDate: '2026-10-27' }]), 0, 'another day');
+  assert.equal(gapMinutes([boot, { ...b1, deletedAt: '2026-10-26T00:00:00.000Z' }]), 0, 'deleted break');
+  const call = D('call', { startTime: '12:40', durationMinutes: 20 });
+  assert.equal(gapMinutes([b2, call]), 0, 'a task inside a break is not cut: it counts in full');
+  assert.equal(gapMinutes([boot, { ...b1, durationMinutes: undefined }]), 30, 'a Break with no length is the default 30 minutes, as it is drawn');
+  assert.equal(gapMinutes([D('pill', { startTime: '08:00', durationMinutes: 240, extraTimes: ['14:00'] }), b2]), 0, 'a time clear of the break');
+  assert.equal(gapMinutes([D('pill', { startTime: '08:00', durationMinutes: 60, extraTimes: ['12:00'] }), b2]), 30, 'only the time the break cuts');
 });
 
-test('hostedEstimate: only tasks and breaks with an estimate, in the list, on the same day', () => {
-  const D = (id: string, extra: Partial<Task>) => T(id, extra);
-  const lunch = D('lunch', { startTime: '12:00', durationMinutes: 60, cutsBelow: true });
-  const call = D('call', { startTime: '12:10', durationMinutes: 20 });
-  const read = D('read', { startTime: '12:30', durationMinutes: 15 });
-  assert.equal(hostedEstimate([lunch, call, read]), 35);
-  assert.equal(hostedEstimate([call, read]), 0, 'the break is not in the list');
-  assert.equal(hostedEstimate([{ ...lunch, durationMinutes: undefined }, call]), 0, 'a break with no estimate counts nothing twice');
-  assert.equal(hostedEstimate([lunch, { ...call, durationMinutes: undefined }]), 0, 'a task with no estimate counts nothing');
-  assert.equal(hostedEstimate([lunch, { ...call, dueDate: '2026-10-27' }]), 0, 'another day');
-  assert.equal(hostedEstimate([lunch, { ...call, deletedAt: '2026-10-26T00:00:00.000Z' }]), 0, 'deleted');
-  assert.equal(hostedEstimate([lunch, D('pill', { startTime: '08:00', durationMinutes: 10, extraTimes: ['12:40'] })]), 10, 'only the time inside the break');
+test('scheduledSpans (P1): a Break is a gap and is left out; a task inside a break counts at its real length', () => {
+  const entries: HostEntry[] = [brk('b', h(12), h(13)), task('call', h(12), h(12, 20)), task('boot', h(9), h(11))];
+  const items = [{ id: 'b', startMin: h(12), endMin: h(13) }, { id: 'boot', startMin: h(9), endMin: h(11) }, { id: 'event:1', startMin: h(14), endMin: h(15) }];
+  assert.deepEqual(scheduledSpans(items, entries).map((s) => s.id), ['boot', 'event:1', 'call']);
 });
 
 test('3.9.0: moving out starts the task when the break ends, same day and length; Remove time makes it Anytime', () => {

@@ -16,8 +16,8 @@ import { useFeatures } from './featureStore';
 import MissedList, { type MissedActions } from './MissedList';
 import { useAwayDays } from './awayStore';
 import { finishFlow } from '../../lib/planningActions';
-import { estimateOf, formatTotals, totalsOf } from '../../lib/taskTotals';
-import { breakTwiceNow } from './breakTwiceStore';
+import { estimateOf, formatTotals, lengthOf, totalsOf } from '../../lib/taskTotals';
+import { useCutMin } from './cutStore';
 import { minutesOfDay, nowLineTop } from '../../lib/calendarView';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -45,6 +45,8 @@ import { IconHeading, type IconName } from './ui';
 // task keeps its time); Finish in Shutdown moves the chosen unfinished tasks of
 // today to tomorrow.
 export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }) {
+  // The smallest piece a Break leaves: a task the breaks cut counts only its pieces in the figures (D4).
+  const cutMin = useCutMin();
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [labels, setLabels] = useState<Project[]>([]);
   const [lists, setLists] = useState<TaskList[]>([]);
@@ -189,8 +191,8 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     const target = mode === 'planning' ? todayKey : tomorrow;
     const targetList = mode === 'planning' ? todayList : [...tomorrowList, ...view.filter((t) => carry?.has(t.id) && canCarryToTomorrow(t, todayKey))];
     figures = [
-      [mode === 'planning' ? 'For today' : 'For tomorrow', String(targetList.length)],
-      ['Estimated', formatClock(totalsOf(targetList, Date.now(), breakTwiceNow()).estimate)],
+      [mode === 'planning' ? 'For today' : 'For tomorrow', String(targetList.filter((t) => !t.cutsBelow).length)],
+      ['Estimated', formatClock(totalsOf(targetList, Date.now(), cutMin).estimate)],
     ];
     columns = (
       <>
@@ -214,9 +216,9 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
       </>
     );
   } else if (mode === 'planning' && step === 2) {
-    const tot = totalsOf(todayList, Date.now(), breakTwiceNow());
+    const tot = totalsOf(todayList, Date.now(), cutMin);
     figures = [
-      ['Tasks today', String(todayList.length)],
+      ['Tasks today', String(todayList.filter((t) => !t.cutsBelow).length)],
       ['Estimated', formatClock(tot.estimate)],
       ...byLabel(todayList, labels),
     ];
@@ -550,7 +552,7 @@ function DayPreview({ tasks, labels, isToday }: { tasks: Task[]; labels: Project
           return (
             <View
               key={t.id}
-              style={[styles.block, { top: top(t.startTime as string), height: Math.max(16, (Math.max(estimateOf(t), 30) * PREVIEW_PX_PER_HOUR) / 60) }, color && { backgroundColor: tint(color), borderLeftColor: color.edge }]}
+              style={[styles.block, { top: top(t.startTime as string), height: Math.max(16, (Math.max(lengthOf(t), 30) * PREVIEW_PX_PER_HOUR) / 60) }, color && { backgroundColor: tint(color), borderLeftColor: color.edge }]}
               accessibilityLabel={`Planned ${t.title} at ${t.startTime}`}
             >
               <Text style={styles.blockText} numberOfLines={1}>

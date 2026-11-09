@@ -165,8 +165,14 @@ async function run() {
   const card = (title) => V(`${col} [aria-label="Task ${title}"]`);
   const pillOf = (title) => I.js(`(() => { const c = ${card(title)}; const p = c && c.querySelector('[data-host-pill]'); return p ? p.getAttribute('data-host-pill') + '|' + p.innerText : null; })()`);
   const captionOf = (title) => I.js(`(() => { const c = ${card(title)}; const p = c && c.querySelector('[data-host-caption]'); return p ? p.innerText : null; })()`);
+  // 3.33.0 (breaks as gaps, P1): a Break with a time has no card, so it has no "1 inside" pill either; it opens from the
+  // day column's quiet line.
+  const openBreak = async (title) => {
+    await I.click(`document.querySelector('${col} [data-break-line]')`, 500);
+    await I.click(`document.querySelector('[aria-label="Open ${title}"]')`, 900);
+  };
   const cardChecks = async (theme) => {
-    check(`${theme}: a break's card shows "1 inside"`, (await pillOf('Tea break')) === '1|1 inside' && (await pillOf('Lunch')) === '1|1 inside', JSON.stringify([await pillOf('Tea break'), await pillOf('Lunch')]));
+    check(`${theme}: a break with a time is not a card (no "1 inside" pill); the day column has the quiet line`, !(await I.exists(card('Tea break'))) && !(await I.exists(card('Lunch'))) && (await I.exists(`document.querySelector('${col} [data-break-line]')`)), JSON.stringify([await pillOf('Tea break'), await pillOf('Lunch')]));
     check(`${theme}: a hosted task's card says "During <break>"`, (await captionOf('Short walk')) === 'During Tea break' && (await captionOf('Take a pill')) === 'During Lunch', JSON.stringify([await captionOf('Short walk'), await captionOf('Take a pill')]));
     check(`${theme}: a task not in a break has neither`, (await captionOf('Call the bank')) === null && (await pillOf('Call the bank')) === null);
     check(`${theme}: Timebox blocks get no caption (no clutter on small blocks)`, !(await I.exists(`document.querySelector('[data-block-id] [data-host-caption], [data-block-id] [data-host-pill]')`)));
@@ -181,7 +187,7 @@ async function run() {
   const closeDetails = async () => {
     if (await I.exists(`document.querySelector('[data-detail-panel]')`)) await I.click(`document.querySelector('[aria-label="Close task details"]')`, 600);
   };
-  await I.click(card('Lunch'), 900);
+  await openBreak('Lunch');
   const lunchD = await I.textOf(`document.querySelector('[data-inside-break]')`);
   check('the break\'s details list "Inside this break": title, time and length, tick and Move out', /Inside this break/i.test(lunchD) && lunchD.includes('Take a pill') && lunchD.includes('10m') && lunchD.includes('Move out') && (await I.exists(`document.querySelector('[data-inside-tick="task:pill@12:40"]')`)), lunchD);
   await I.shot('p28-05-break-details-light');
@@ -207,10 +213,8 @@ async function run() {
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
   check('the dark theme is on', (await I.js(`document.documentElement.getAttribute('data-theme')`)) === 'dark');
   await cardChecks('dark');
-  const pillColors = await I.js(`(() => { const p = ${card('Lunch')}.querySelector('[data-host-pill]'); return getComputedStyle(p).backgroundColor + ' ' + getComputedStyle(p.querySelector('div[dir="auto"]')).color; })()`);
-  check('dark: the pill uses its own tokens', pillColors === 'rgb(44, 58, 49) rgb(207, 228, 214)', pillColors);
   await I.shot('p28-07-cards-dark');
-  await I.click(card('Tea break'), 900);
+  await openBreak('Tea break');
   check('dark: the break\'s details list its task', (await I.textOf(`document.querySelector('[data-inside-break]')`)).includes('Short walk'));
   await I.shot('p28-08-break-details-dark');
   await closeDetails();
@@ -313,14 +317,20 @@ async function run() {
   check('key longer: allowed (2 h)', byId('lunch').durationMinutes === 120, JSON.stringify(byId('lunch')));
 
   // Split turned off: its tasks go back to normal blocks.
-  await I.click(card('Tea break'), 900);
+  await openBreak('Tea break');
   await I.click(`document.querySelector('[data-detail-panel] [data-kind="task"]')`, 900);
   await closeDetails();
   check('Split off: the walk is a block of its own again, the tea break hosts nothing', (await I.exists(V(tb(walkId)))) && !(await I.js(`!!(${V(tb('tea'))} || {}).getAttribute?.('data-host-count')`)));
   // A break deleted: its tasks go back to normal blocks.
-  await I.click(V(`${col} [aria-label="More actions for Lunch"]`), 600);
+  await openBreak('Lunch');
+  await I.click(`document.querySelector('[aria-label="More task actions"]')`, 600);
   await I.click(`document.querySelector('[data-popover] [aria-label="Delete task"]')`, 500);
-  await I.click(`document.querySelector('[data-popover] [aria-label="Confirm delete task"]')`, 1000);
+  // The confirmation sits at the foot of the details' scroll area: bring it into view first.
+  await I.js(`(() => { const c = document.querySelector('[aria-label="Confirm delete task"]'); if (c) c.scrollIntoView({ block: 'center' }); })()`);
+  await C.sleep(300);
+  await I.js(`document.querySelector('[aria-label="Confirm delete task"]').click()`);
+  await C.sleep(800);
+  await C.waitFor(() => !!byId('lunch').deletedAt, 5000).catch(() => {});
   check('the break deleted: the pill\'s 12:40 is a block again', !!byId('lunch').deletedAt && (await I.exists(V(tb('pill@12:40')))), JSON.stringify(byId('lunch')));
   await I.shot('p28-13-reverted-light');
 

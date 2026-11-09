@@ -178,7 +178,9 @@ async function run() {
   await I.shot('p14-timebox');
 
   // ======== Turn the switch off in the details: the cut goes, nothing stored changes on the host ========
-  await I.click(`document.querySelector('[data-day-col="${today}"] [aria-label="Title Short Break"]')`, 700);
+  // 3.33.0 (breaks as gaps, P1): a Break with a time is not a card; it opens from the day column's quiet line.
+  await I.click(`document.querySelector('[data-break-line="${today}"]')`, 500);
+  await I.click(`document.querySelector('[aria-label="Open Short Break"]')`, 700);
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 4000).catch(() => {});
   // 3.27.0: the Split switch became the Task | Break control.
   const sw = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] [data-kind-choice]'); const b = document.querySelector('[data-detail-panel] [data-kind="break"]'); return s && b ? [s.getAttribute('data-kind-choice'), b.getAttribute('aria-checked')] : null; })()`);

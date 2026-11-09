@@ -187,14 +187,18 @@ test('many days are grouped so every bar stays readable', async () => {
   assert.deepEqual(bucketBars([]), []);
 });
 
-test('3.8.0: the time card counts a done task inside a done break once, twice with the setting on', () => {
+test('P1: breaks are not work in the time card; a done task its breaks cut counts only its pieces', () => {
   const r = rangeFor('last7', TODAY);
-  const tasks = [
-    done('lunch', TODAY, { dueDate: TODAY, startTime: '12:00', durationMinutes: 60, actualMinutes: 50, cutsBelow: true }),
-    done('call', TODAY, { dueDate: TODAY, startTime: '12:10', durationMinutes: 20, actualMinutes: 10 }),
-  ];
-  assert.equal(timeCard(tasks, r).estimated, 60);
-  assert.equal(timeCard(tasks, r, true).estimated, 80);
-  assert.equal(timeCard(tasks, r).actual, 60, 'actual unchanged');
-  assert.equal(timeCard([tasks[1]], r).estimated, 20, 'the break not done: nothing shared');
+  const lunch = done('lunch', TODAY, { dueDate: TODAY, startTime: '12:00', durationMinutes: 60, actualMinutes: 50, cutsBelow: true });
+  const call = done('call', TODAY, { dueDate: TODAY, startTime: '12:10', durationMinutes: 20, actualMinutes: 10 });
+  assert.equal(timeCard([lunch, call], r).estimated, 20, 'the done break counts nothing; the task inside it counts in full');
+  assert.equal(timeCard([lunch, call], r).actual, 10);
+  assert.equal(completedCard([lunch, call], r).current, 1, 'a break is not a finished task');
+  assert.equal(timeCard([lunch], r).text, '', 'only a break was done: nothing estimated');
+  // Boot Camp 9:30 for 7 h with its breaks stored but not ticked: 5:20 of it, the breaks only cut.
+  const boot = done('boot', TODAY, { dueDate: TODAY, startTime: '09:30', durationMinutes: 420 });
+  const gap = (id: string, startTime: string, durationMinutes: number): Task => ({ ...done(id, TODAY, {}), completed: false, completedAt: undefined, dueDate: TODAY, startTime, durationMinutes, cutsBelow: true });
+  const gaps = [gap('b1', '11:00', 20), gap('b2', '12:30', 60), gap('b3', '15:00', 20)];
+  assert.equal(timeCard([boot, ...gaps], r).estimated, 320);
+  assert.equal(timeCard([boot, ...gaps], r, 90).estimated, 400, 'a larger smallest piece refuses the cuts that leave 70 minutes: only the first one cuts');
 });

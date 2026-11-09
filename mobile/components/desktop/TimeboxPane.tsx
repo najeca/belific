@@ -26,8 +26,7 @@ import {
 } from '../../lib/timebox';
 import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { timeViews } from '../../lib/times';
-import { hostDay, hostSnapshot, hostedMinutes, type HostEntry } from '../../lib/hosting';
-import { useBreakTwice } from './breakTwiceStore';
+import { hostDay, hostSnapshot, scheduledSpans, type HostEntry } from '../../lib/hosting';
 import { setDayBreaks, watchDay, type DayBreak } from './breakStore';
 import type { HostedGuest } from './HostChips';
 import { useCutMin } from './cutStore';
@@ -234,8 +233,7 @@ export default function TimeboxPane({
   // "Vibrant task colours" (Settings): saturated cards with bold white text; off = as before.
   const vibrant = useVibrant();
   const tint = useTint();
-  const breakTwice = useBreakTwice();
-  const { sources, items, notes, badges, hostedBy, breaks, sharedMin, snap } = useMemo(() => {
+  const { sources, items, scheduled, notes, badges, hostedBy, breaks, snap } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: TimeboxItem[] = [];
     for (const e of getWeeklyEventsForDate(day)) {
@@ -316,7 +314,10 @@ export default function TimeboxPane({
       }
       list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
     }
-    return { sources: map, items: list, notes: plan.notes, badges: plan.badges, hostedBy, breaks, sharedMin: hostedMinutes(entries), snap: hostSnapshot(entries) };
+    // P1 of PLAN_breaks_as_gaps: the Scheduled total counts work, not gaps. A Break's span is left out; a task inside a
+    // break (hosted, so not in `list`) counts at its real length. Events and the pieces of cut tasks count as before.
+    const scheduled = scheduledSpans(list, entries);
+    return { sources: map, items: list, scheduled, notes: plan.notes, badges: plan.badges, hostedBy, breaks, snap: hostSnapshot(entries) };
   }, [day, key, todayKey, events, categories, tasks, filter, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
   useEffect(() => {
@@ -325,9 +326,8 @@ export default function TimeboxPane({
   }, [key, breaks, snap]);
 
   const layout = useMemo(() => layoutItems(items), [items]);
-  // The blocks' time once; with "Count minutes done during a break twice" on, the minutes tasks share
-  // with their breaks are added again (3.8.0).
-  const total = totalScheduledMinutes(items) + (breakTwice ? sharedMin : 0);
+  // The work's time once (breaks are gaps and do not count, P1 of PLAN_breaks_as_gaps).
+  const total = totalScheduledMinutes(scheduled);
 
   function go(delta: number) {
     setPickerOpen(false);

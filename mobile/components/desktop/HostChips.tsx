@@ -50,6 +50,8 @@ export const moveOut = (g: HostedGuest, brk: HostBreak) => moveOutOfBreak(g, brk
 export const removeTime = (g: HostedGuest) => removeTimeInBreak(g).then(showOutResult);
 // Ticks (or reopens) a hosted task: only its time inside the break, for a task with several times.
 export function tickGuest(g: HostedGuest): Promise<void> {
+  // A Break inside a break has no tick either (PLAN_breaks_as_gaps, P1).
+  if (g.full.cutsBelow) return Promise.resolve();
   const ops = g.projected ? opsForProjected(g.full) : opsForTask(g.full);
   return g.time ? ops.setTimeDone(g.time, !g.task.completed) : ops.setCompleted(!g.task.completed);
 }

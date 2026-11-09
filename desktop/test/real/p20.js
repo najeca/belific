@@ -97,7 +97,7 @@ async function run() {
   await I.shot('p20-day-split');
   // The day's planned time counts every block once: Boot Camp 7h (cut in pieces, counted once) + two 20 min breaks + the walk twice at 30 min.
   const dayTotal = await I.js(`(() => { const e = document.querySelector('[aria-label^="Estimated:"]'); return e ? e.getAttribute('aria-label') : null; })()`);
-  check('A: the day total counts every time once and a split task once (7h + 2 x 20m + 2 x 30m = 8:40)', dayTotal === 'Estimated: 8:40', String(dayTotal));
+  check('A: the day total counts every time once, the breaks not at all and the cut task by its pieces (7h - 2 x 20m + 2 x 30m = 7:20; 8:40 until 3.32.0)', dayTotal === 'Estimated: 7:20', String(dayTotal));
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 900).catch(() => {});
   await scrollTo(9);
   await C.sleep(400);

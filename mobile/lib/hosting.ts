@@ -21,7 +21,8 @@
 //    gives A the break and B and C its chips.
 import type { Task } from './types.ts';
 import { tasksForTimebox } from './timeboxTasks.ts';
-import { continuationOf, taskToItem, toMinutes, toTime } from './timebox.ts';
+import { DEFAULT_CUT_MIN, cutDay } from './cuts.ts';
+import { DEFAULT_TASK_MINUTES, continuationOf, taskToItem, toMinutes, toTime } from './timebox.ts';
 import { isMultiTime, moveTimeFields, removeTimeFields, timeViews, timesOf } from './times.ts';
 
 export const LONGER_THAN_BREAK = 'Longer than the break';
@@ -375,49 +376,54 @@ export function chipLines(heightPx: number, rowPx = CHIP_ROW_PX, topPx = STACK_T
   return Math.max(1, Math.floor((heightPx - topPx) / rowPx));
 }
 
-// The minutes a day's hosted tasks share with their breaks: for each break, the time its tasks cover
-// (each is fully inside it; two that overlap each other share those minutes once). "Count minutes done
-// during a break twice" off (the default) takes these off a total that adds up lengths, so the
-// overlapped minutes count once; on, they are added to a total that already counts them once.
-export function hostedMinutes(entries: HostEntry[]): number {
-  const { hosted } = hostDay(entries);
-  const byId = new Map(entries.map((e) => [e.id, e]));
+// P1 of PLAN_breaks_as_gaps (D4): a Break is a free gap, not work. A task that gaps cut counts only its PIECES, so a
+// list's estimate is its tasks' lengths minus what the breaks cut away. Which tasks are cut is the drawing's own
+// rule (cuts.ts with the smallest piece `minLen`, after hosting: a task wholly inside a break is a guest, never cut, and
+// counts in full). `tasks` are the ones being totalled; `context` may hold more (the breaks of the same days that are
+// not in the list being totalled, as Analytics has). Each time of a task with several is its own entry. Breaks
+// themselves are never counted, so only their span matters here: a Break without a length is the default 30 minutes,
+// as it is drawn.
+type GapInput = Pick<Task, 'durationMinutes'> & Partial<Pick<Task, 'deletedAt' | 'dueDate' | 'startTime' | 'extraTimes' | 'cutsBelow'>>;
+export function gapMinutes(tasks: GapInput[], minLen: number = DEFAULT_CUT_MIN, context: GapInput[] = tasks): number {
+  const counted = new Set<GapInput>(tasks);
+  const all = context === tasks ? tasks : [...new Set<GapInput>([...tasks, ...context])];
+  const byDay = new Map<string, Array<HostEntry & { counted: boolean }>>();
+  all.forEach((t, i) => {
+    if (t.deletedAt || !t.dueDate) return;
+    const len = typeof t.durationMinutes === 'number' && Number.isFinite(t.durationMinutes) ? Math.round(t.durationMinutes) : 0;
+    const span = len > 0 ? len : t.cutsBelow ? DEFAULT_TASK_MINUTES : 0;
+    if (span <= 0) return;
+    const list = byDay.get(t.dueDate) ?? [];
+    for (const time of timesOf(t)) {
+      const s = toMinutes(time);
+      if (s !== null) list.push({ id: `${i}@${time}`, startMin: s, endMin: s + span, breaks: !!t.cutsBelow, counted: counted.has(t) });
+    }
+    byDay.set(t.dueDate, list);
+  });
   let m = 0;
-  for (const ids of hosted.values()) {
-    const spans = ids.map((id) => byId.get(id) as HostEntry).sort((a, b) => a.startMin - b.startMin);
-    let end = -Infinity;
-    for (const s of spans) {
-      const from = Math.max(s.startMin, end);
-      if (s.endMin > from) m += s.endMin - from;
-      end = Math.max(end, s.endMin);
+  for (const list of byDay.values()) {
+    if (!list.some((e) => e.breaks)) continue;
+    const { hostOf } = hostDay(list);
+    const plain = list.filter((e) => !hostOf.has(e.id));
+    const res = cutDay(plain, minLen);
+    for (const e of plain) {
+      if (!res.cut.has(e.id) || !e.counted || e.breaks) continue;
+      const kept = res.pieces.filter((p) => p.hostId === e.id).reduce((n, p) => n + (p.endMin - p.startMin), 0);
+      m += Math.max(0, e.endMin - e.startMin - kept);
     }
   }
   return m;
 }
 
-// The same for a list of tasks being totalled by their estimates (a day column, the Calendar's header,
-// the planning flow, Analytics): only a task and a break that both have an estimate count the shared
-// minutes twice, and only when both are in the list. Each time of a task with several is its own entry.
-type EstimateInput = Pick<Task, 'durationMinutes'> & Partial<Pick<Task, 'deletedAt' | 'dueDate' | 'startTime' | 'extraTimes' | 'cutsBelow'>>;
-export function hostedEstimate(tasks: EstimateInput[]): number {
-  const byDay = new Map<string, HostEntry[]>();
-  tasks.forEach((t, i) => {
-    const len = typeof t.durationMinutes === 'number' && Number.isFinite(t.durationMinutes) ? Math.round(t.durationMinutes) : 0;
-    if (t.deletedAt || !t.dueDate || len <= 0) return;
-    const list = byDay.get(t.dueDate) ?? [];
-    for (const time of timesOf(t)) {
-      const s = toMinutes(time);
-      if (s !== null) list.push({ id: `${i}@${time}`, startMin: s, endMin: s + len, breaks: !!t.cutsBelow });
-    }
-    byDay.set(t.dueDate, list);
-  });
-  let m = 0;
-  for (const list of byDay.values()) m += hostedMinutes(list);
-  return m;
-}
-
-// The user_settings row for the switch (synced; absent = off).
-export const BREAK_TWICE_KEY = 'planner.break_count_twice';
-export function parseBreakTwice(value: unknown): boolean {
-  return value === 'true' || value === true;
+// P1 of PLAN_breaks_as_gaps: the spans the Timebox's "Scheduled" total counts. `items` are the day's planned items (the
+// pieces of cut tasks, whole tasks and events; a Break is one of them with its own id). A Break is a gap and is left out;
+// a task inside a break is not in `items` (it is a chip today) and counts at its real length. `entries` are the day's
+// entries as the pane built them.
+export function scheduledSpans<T extends { id: string; startMin: number; endMin: number }>(items: T[], entries: HostEntry[]): Array<Pick<T, 'id' | 'startMin' | 'endMin'>> {
+  const { hostOf } = hostDay(entries);
+  const gaps = new Set(entries.filter((e) => e.breaks).map((e) => e.id));
+  return [
+    ...items.filter((i) => !gaps.has(i.id)),
+    ...entries.filter((e) => !e.breaks && hostOf.has(e.id)).map((e) => ({ id: e.id, startMin: e.startMin, endMin: e.endMin })),
+  ];
 }

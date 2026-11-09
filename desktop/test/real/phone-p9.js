@@ -87,8 +87,10 @@ async function run() {
   check('Week: short titles only', chips.length >= 3 && chips.every((t) => t.length <= 9) && chips.includes('Buy milk'), JSON.stringify(chips));
   await shot('phone-p9-week');
   const n0 = count();
-  await P.finger.tap(visible(`[data-week-day="${day(1)}"]`), 1000);
-  check('Week: a tap on a day opens it in Day view, and creates nothing', !!(await P.js(`document.querySelector('[data-day-view="${day(1)}"]')`)) && count() === n0 && !(await P.js(`!!document.querySelector('[data-quick-add]')`)));
+  // Tomorrow, unless today is the last day of the shown week (a Sunday: tomorrow is in the next week), then yesterday.
+  const other = cols.includes(day(1)) ? day(1) : day(-1);
+  await P.finger.tap(visible(`[data-week-day="${other}"]`), 1000);
+  check('Week: a tap on a day opens it in Day view, and creates nothing', !!(await P.js(`document.querySelector('[data-day-view="${other}"]')`)) && count() === n0 && !(await P.js(`!!document.querySelector('[data-quick-add]')`)));
   await P.finger.tap(visible('[data-seg="week"]'), 900);
   const weekBefore = await P.js(`document.querySelector('[data-week-view]').getAttribute('data-week-view')`);
   await swipe(-220);

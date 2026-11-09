@@ -129,6 +129,10 @@ async function run() {
   await I.shot('p37-next-week');
   await I.click(I.byLabel('Calendar previous week'), 900);
   await C.sleep(400);
+  // Coming back to this week the Calendar opens again at about an hour before now (late in the day that is far from 16:30 to 19:00),
+  // so B, C and D aimed above or below the visible hours. Scroll to the afternoon again, as before A.
+  await scrollGridTo('16:00');
+  await C.sleep(300);
 
   // ======== B: Zone timed (the series has 08:00) onto Thursday 18:30 -> no question, this day only ========
   from = await cardPoint('Zone timed');

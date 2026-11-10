@@ -9,7 +9,7 @@ import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
 import { BREAK_CUP, BREAK_TAG } from '../../lib/taskKind';
 import { tipRef } from './tip';
 import { movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
-import { duringCaption, insidePill } from '../../lib/hosting';
+import { duringCaption } from '../../lib/hosting';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { isEditableTarget } from '../../lib/editable';
@@ -55,7 +55,6 @@ export default function TaskCard({
   showDay,
   listEmoji,
   during,
-  inside,
 }: {
   task: Task;
   ops: TaskOps;
@@ -78,9 +77,9 @@ export default function TaskCard({
   // The emoji of the task's list (2.27.1), first on the meta line; none when the
   // task has no list or its list has no emoji.
   listEmoji?: string;
-  // 3.10.0: a hosted task's "During Lunch" and a break's "3 inside" (lib/hosting.ts hostIndex).
+  // 3.10.0: a hosted task's "During Lunch" (lib/hosting.ts hostIndex). A break's "3 inside" pill went with 3.34.0: a
+  // break with a time is no card (3.33.0) and is drawn as a gap with its tasks as blocks in it.
   during?: string;
-  inside?: number;
 }) {
   // Ctrl+Delete opens the ⋮ menu already asking "Delete? Yes / No".
   const tint = useTint();
@@ -255,8 +254,8 @@ export default function TaskCard({
   const whenText = [dayText, placed ? timesLabel(task) : null].filter(Boolean).join(' · ');
   const lengthText = formatDuration(task.durationMinutes);
   const isBreak = !!task.cutsBelow;
-  const hasLine2 = !!whenText || steps.total > 0 || mustDo || !!moved || !!during || !!inside || isBreak;
-  const hasMeta = isBreak || !!whenText || !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || !!during || !!inside;
+  const hasLine2 = !!whenText || steps.total > 0 || mustDo || !!moved || !!during || isBreak;
+  const hasMeta = isBreak || !!whenText || !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || !!during;
 
   return (
     <HoverPressable
@@ -359,11 +358,6 @@ export default function TaskCard({
                         {whenText}
                       </Text>
                     ) : null}
-                    {!!inside && (
-                      <View style={styles.hostPill} accessibilityLabel={`${insidePill(inside)} this break`} {...({ dataSet: { hostPill: String(inside) } } as object)}>
-                        <Text style={styles.hostPillText}>{insidePill(inside)}</Text>
-                      </View>
-                    )}
                     {during && (
                       <Text style={styles.hostCaption} numberOfLines={1} {...({ dataSet: { hostCaption: during } } as object)}>
                         {duringCaption(during)}
@@ -559,8 +553,6 @@ const styles = StyleSheet.create({
   metaNote: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
   breakTag: { height: 20, paddingHorizontal: 7, borderRadius: radius.square, backgroundColor: Colors.surfaceRaised, justifyContent: 'center' },
   breakTagText: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
-  hostPill: { height: 20, paddingHorizontal: 8, borderRadius: 10, backgroundColor: Colors.hostPill, justifyContent: 'center' },
-  hostPillText: { fontSize: 12, fontWeight: '700', color: Colors.onHostPill },
   hostCaption: { fontSize: 13, fontWeight: '600', color: Colors.onHostPill, flexShrink: 1 },
   listEmoji: { fontSize: 13, lineHeight: 18 },
   // A label is a coloured dot and its name, not a filled chip.

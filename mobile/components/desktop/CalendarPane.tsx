@@ -5,12 +5,14 @@ import TimeBlock, { SlotPreview } from './TimeBlock';
 import { tipRef } from './tip';
 import PriorityMark from './PriorityMark';
 import { isMustDo } from '../../lib/mustDo';
-import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
+import { pieceTimeText, type CutEntry, type CutPiece } from '../../lib/cuts';
+import { gapLayout } from '../../lib/gaps';
 import { timeViews } from '../../lib/times';
 import { useCutMin } from './cutStore';
 import { hostDay, hostSnapshot, type HostEntry, type HostSnapshot } from '../../lib/hosting';
 import { setDayBreaks, watchDay, type DayBreak } from './breakStore';
-import type { HostedGuest } from './HostChips';
+import type { HostBreak, HostedGuest } from './HostChips';
+import { GapEdges, GapLayer, type DrawnGap } from './GapLayer';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { taskDuration } from '../../lib/drag';
@@ -110,12 +112,13 @@ interface DayData {
   allDay: DayTask[];
   importedAllDay: ImportedSeg[];
   sources: Map<string, Source>;
-  // Why a break could not cut, by the break's block id: the sentence and the short badge.
+  // Why a break could not cut, by the block id of the task drawn whole: the sentence and the short badge.
   notes: Map<string, string>;
   badges: Map<string, string>;
   blocks: ReturnType<typeof layoutItems>['blocks'];
-  // 3.6.0: the tasks during each break (by the break's block id), and the day's breaks.
-  hostedBy: Map<string, HostedGuest[]>;
+  // 3.34.0: the day's breaks as gaps under the blocks, and the blocks that sit in a gap (lib/gaps.ts).
+  gaps: DrawnGap[];
+  inGap: Map<string, { guest: HostedGuest; brk: HostBreak }>;
   breaks: DayBreak[];
   snap: HostSnapshot;
 }
@@ -258,24 +261,19 @@ export default function CalendarPane({
         const s = sources.get(id);
         return s && (s.kind === 'task' || s.kind === 'continuation') ? s.task.title : id;
       };
-      // 3.6.0: a task fully inside a break is a chip in it (lib/hosting.ts), not cut, not beside it.
+      // 3.34.0 (PLAN_breaks_as_gaps P2): a break is a gap under the blocks; a task fully inside it (lib/hosting.ts) is
+      // an ordinary block at its real size; a task it cuts is its pieces (lib/gaps.ts).
       const host = hostDay(entries);
-      const hostedBy = new Map<string, HostedGuest[]>();
-      for (const [breakId, ids] of host.hosted) {
-        const guests: HostedGuest[] = [];
-        for (const id of ids) {
-          const s = sources.get(id);
-          if (!s || s.kind !== 'task') continue;
-          const color = labelColor(labels.find((p) => p.key === s.task.projectKey)?.colorKey);
-          guests.push({ blockId: id, task: s.task, full: s.full ?? s.task, projected: s.projected, ...(s.time ? { time: s.time } : {}), dot: color?.edge ?? Colors.textSecondary });
-        }
-        hostedBy.set(breakId, guests);
-      }
+      const plan = gapLayout(entries, cutMin, titleOf);
       const breaks: DayBreak[] = entries.flatMap((e) => {
         const s = sources.get(e.id);
         return host.breakIds.has(e.id) && s && s.kind === 'task' ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, taskId: s.task.id }] : [];
       });
-      const plan = planCuts(entries.filter((e) => !host.hostOf.has(e.id)), cutMin, titleOf);
+      const gaps: DrawnGap[] = plan.gaps.flatMap((g) => {
+        const s = sources.get(g.id);
+        return s && (s.kind === 'task' || s.kind === 'continuation') ? [{ ...g, task: s.task, full: s.full ?? s.task, projected: s.projected, ...(s.time ? { time: s.time, suffix: s.suffix } : {}) }] : [];
+      });
+      const inGap = new Map<string, { guest: HostedGuest; brk: HostBreak }>();
       for (const it of plan.items) {
         if (it.piece) {
           const host = sources.get(it.piece.hostId);
@@ -283,7 +281,17 @@ export default function CalendarPane({
             sources.set(it.id, { kind: 'piece', task: host.task, projected: host.projected, piece: it.piece, cont: host.kind === 'continuation', full: host.full, time: host.time, suffix: host.suffix });
           }
         }
-        items.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
+        const g = it.gapId ? sources.get(it.id) : undefined;
+        const b = it.gapId ? sources.get(it.gapId) : undefined;
+        if (g && g.kind === 'task' && b && b.kind === 'task') {
+          const color = labelColor(labels.find((p) => p.key === g.task.projectKey)?.colorKey);
+          const brk = entries.find((e) => e.id === it.gapId);
+          inGap.set(it.id, {
+            guest: { blockId: it.id, task: g.task, full: g.full ?? g.task, projected: g.projected, ...(g.time ? { time: g.time } : {}), dot: color?.edge ?? Colors.textSecondary },
+            brk: { endMin: brk?.endMin ?? it.endMin, title: b.task.title },
+          });
+        }
+        items.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id), ...(it.minPx !== undefined ? { minPx: it.minPx } : {}) });
       }
       const importedAllDay: ImportedSeg[] = [];
       for (const seg of segmentsForDay(imported, dayKey) as ImportedSeg[]) {
@@ -297,7 +305,7 @@ export default function CalendarPane({
       }
       // 2.29.0: top priority first in the all day row (a stable sort; nothing stored).
       allDay.sort((a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)));
-      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.notes, badges: plan.badges, blocks: layoutItems(items).blocks, hostedBy, breaks, snap: hostSnapshot(entries) };
+      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.hostNotes, badges: plan.hostBadges, blocks: layoutItems(items).blocks, gaps, inGap, breaks, snap: hostSnapshot(entries) };
     });
   }, [effView, keys, tasks, events, categories, filter, todayKey, imported, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
@@ -723,6 +731,7 @@ export default function CalendarPane({
                   style={[styles.dayCol, awayDays.has(d.key) && styles.awayDay, { left: GUTTER + colLeft(d.key), width: colW }]}
                   {...({ dataSet: { calCol: d.key } } as object)}
                 >
+                  <GapLayer gaps={d.gaps} scope={scopeOf(d.key)} gridNode={() => gridEl.current} />
                   {d.blocks.map((b) => {
                     const source = d.sources.get(b.id);
                     if (!source) return null;
@@ -824,14 +833,14 @@ export default function CalendarPane({
                         blockSuffix={source.suffix}
                         note={d.notes.get(b.id)}
                         badge={d.badges.get(b.id)}
-                        hosted={d.hostedBy.get(b.id)}
-                        wideChips={effView === 'day'}
+                        inGap={d.inGap.get(b.id)}
                         fullText
                         gridNode={() => gridEl.current}
                         onChanged={onChanged}
                       />
                     );
                   })}
+                  <GapEdges gaps={d.gaps} scope={scopeOf(d.key)} gridNode={() => gridEl.current} />
                   {d.key === todayKey && (
                     <View pointerEvents="none" style={[styles.nowLine, { top: nowTop }]} accessibilityLabel="Current time" {...({ dataSet: { nowLine: '1' } } as object)}>
                       <View style={styles.nowDot} />

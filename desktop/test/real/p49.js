@@ -1,25 +1,27 @@
 'use strict';
-// @real-input: pointer (hover, window resize)
-// Real check for the Calendar Day view break chips (3.28.0), on real shaped data since 3.29.1: a repeating
-// "Short break" of 20 minutes (one line, about 19 px high) at 11:00 with an extra time at 15:00, a Must do with a
-// label; today's day of it stored, tomorrow's projected. A 7 hour repeating task under both, cut by them, and a Long
-// Break. Hosted: today at 11:00 "Apply to 1 application" (10m, itself a Break) and "Put laundry in washing machine"
-// (5m), both starting with the break; at 15:00 "Eat banana and do running pre warm up exercises" (10m). Tomorrow
-// (projected): at 11:00 a task with a very long title and a 10 minute one; at 15:00 five short tasks.
-// At window widths 1440, 1100, 900 and 760, Vibrant colours on, light and dark (P49_DARK):
-//   - shown chips + N = the hosted tasks, in order; a narrower block never shows more;
-//   - a chip is never cut short while it would fit whole: only a chip wider than its whole line is, and then to at
-//     least 72 px, keeping room for "+N";
-//   - a chip goes to "+N" only when the free room left on the line is less than it needs;
-//   - nothing overlaps or sticks out of the block, nothing covers the break's title;
-//   - the "⋯" of a chip shows only on hover or focus (it read as a title cut short);
-//   - the week view keeps its old layout (one chip, "+N").
-// Real app, isolated data folder, in process fake Supabase. BELIFIC_SHOTS: screenshots.
+// @real-input: quiet
+// Real check for PLAN_breaks_as_gaps P2 and P3 (3.34.0): a Break is drawn as a free gap. Until 3.33.0 this file
+// checked the Calendar Day view's break chips (3.28.0 to 3.29.1); the chips are gone, so it checks the plan's own
+// example instead (section 6): Boot Camp 9:30 for 7 h, repeating; Short break 11:00 (20 min), Long break 12:30 (1 h)
+// and Short break 15:00 (20 min), repeating with it. Today four tasks were dropped into the gaps: Get changed and warm
+// up (11:00, 20 min), Run (12:30, 30 min), Lunch (13:00, 30 min), Shower (15:00, 20 min). Tomorrow has one 10 minute
+// task at 11:00 and otherwise empty gaps.
+//   - Day view: three gaps at their real times, hatched with a dashed outline, no ☕, no chip, no break block; Boot
+//     Camp in four pieces; the four tasks as full width blocks at their real times inside the gaps;
+//   - the 10 minute task is 10 px high and ends inside its gap; the free part of the gap shows (hatched);
+//   - hover text "Short break · 20 min"; a click on a gap opens the break's details;
+//   - Week view and the Timebox draw the same; the Timebox says Scheduled 7h today and 5h 30m tomorrow (5h 20m of
+//     Boot Camp and the 10 minute task);
+//   - D5: Boot Camp moved 30 minutes later on tomorrow (the Down key on its block) takes tomorrow's three gaps along,
+//     today's stay; one Ctrl+Z puts all four back;
+//   - a block in a gap has a menu (right click): Move out of break puts it right after the break.
+// Real app, isolated data folder, in process fake Supabase. Keys and clicks only (sendInputEvent), so it runs quiet.
+// BELIFIC_SHOTS: screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
 const { app } = require('electron');
 const C = require('./common');
-const { makeInput, dayKeyFrom } = require('./input');
+const { makeInput, dayKeyFrom, readKv } = require('./input');
 
 process.env.BELIFIC_NO_PROTOCOL_REGISTER = '1';
 const userData = C.isolate();
@@ -45,37 +47,31 @@ async function run() {
   const T = (id, title, extra = {}) => ({ id, title, completed: false, createdAt: stamp, updatedAt: stamp, ...extra });
   const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const wd = (s) => WD[new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + s).getDay()];
-  // Today and tomorrow are always in the rule (as Mon to Thu are for Jethro).
-  const rule = { recurrence: 'weekly', recurrenceDays: [wd(0), wd(1), wd(2), wd(3)] };
-  const brk = { ...rule, startTime: '11:00', durationMinutes: 20, extraTimes: ['15:00'], cutsBelow: true, priority: 'high', projectKey: 'rest', reminders: [0, 5] };
-  const LONG = 'Write the long weekly review of every application sent, every reply received and every interview booked, with notes for next week';
-  const FIVE = ['Drink water', 'Stretch the legs', 'Text Sam back', 'Tidy the desk', 'Check the post'];
+  // Today and tomorrow are always in the rule (as Mon to Fri are in the plan).
+  const rule = { recurrence: 'weekly', recurrenceDays: [wd(-1), wd(0), wd(1), wd(2)] };
   fs.writeFileSync(
     path.join(dataDir, 'belific_tasks.kv'),
     JSON.stringify([
-      T('brk', 'Short break', { ...brk, dueDate: dk(-14) }),
-      // Today's day of the break is stored (as when a task was moved into it); tomorrow's is projected.
-      T(`brk:${today}`, 'Short break', { ...brk, dueDate: today, updatedAt: '2026-09-02T07:00:00.000Z' }),
-      T('camp', 'Online boot camp session', { ...rule, dueDate: dk(-13), startTime: '09:30', durationMinutes: 420 }),
-      T('long', 'Long Break', { ...rule, dueDate: dk(-12), startTime: '12:30', durationMinutes: 60, cutsBelow: true }),
-      T('apply1', 'Apply to 1 application', { dueDate: today, startTime: '11:00', durationMinutes: 10, cutsBelow: true, projectKey: 'work' }),
-      T('laundry', 'Put laundry in washing machine', { dueDate: today, startTime: '11:00', durationMinutes: 5, projectKey: 'home' }),
-      T('banana', 'Eat banana and do running pre warm up exercises', { dueDate: today, startTime: '15:00', durationMinutes: 10, cutsBelow: true, projectKey: 'health' }),
-      T('longtitle', LONG, { dueDate: tomorrow, startTime: '11:00', durationMinutes: 10, projectKey: 'work' }),
-      T('short1', 'Reply to Sam', { dueDate: tomorrow, startTime: '11:10', durationMinutes: 5 }),
-      ...FIVE.map((t, i) => T(`f${i + 1}`, t, { dueDate: tomorrow, startTime: `15:${String(i * 3).padStart(2, '0')}`, durationMinutes: 5 })),
+      T('camp', 'Boot Camp', { ...rule, dueDate: dk(-7), startTime: '09:30', durationMinutes: 420 }),
+      T('short1', 'Short break', { ...rule, dueDate: dk(-7), startTime: '11:00', durationMinutes: 20, cutsBelow: true }),
+      T('long', 'Long break', { ...rule, dueDate: dk(-7), startTime: '12:30', durationMinutes: 60, cutsBelow: true }),
+      T('short2', 'Short break', { ...rule, dueDate: dk(-7), startTime: '15:00', durationMinutes: 20, cutsBelow: true }),
+      T('warm', 'Get changed and warm up', { dueDate: today, startTime: '11:00', durationMinutes: 20, projectKey: 'health' }),
+      T('run', 'Run', { dueDate: today, startTime: '12:30', durationMinutes: 30, projectKey: 'health' }),
+      T('lunch', 'Lunch', { dueDate: today, startTime: '13:00', durationMinutes: 30 }),
+      T('shower', 'Shower', { dueDate: today, startTime: '15:00', durationMinutes: 20 }),
+      T('apply', 'Apply to 1 application', { dueDate: tomorrow, startTime: '11:00', durationMinutes: 10, projectKey: 'work' }),
     ]),
   );
   fs.writeFileSync(
     path.join(dataDir, 'belific_projects.kv'),
     JSON.stringify([
       { key: 'work', name: 'Work', colorKey: '#8B4FC9', createdAt: stamp, updatedAt: stamp },
-      { key: 'rest', name: 'Rest', colorKey: 'sage', createdAt: stamp, updatedAt: stamp },
-      { key: 'home', name: 'Home', colorKey: 'sky', createdAt: stamp, updatedAt: stamp },
       { key: 'health', name: 'Health', colorKey: 'rose', createdAt: stamp, updatedAt: stamp },
     ]),
   );
-  fs.writeFileSync(path.join(dataDir, 'belific_desktop_settings.kv'), JSON.stringify({ vibrantColours: true }));
+  const read = readKv(dataDir);
+  const byId = (id) => (read('belific_tasks') || []).find((t) => t.id === id);
 
   require(C.MAIN);
   await app.whenReady();
@@ -86,158 +82,152 @@ async function run() {
   win.webContents.focus();
   const I = makeInput(win, process.env.BELIFIC_SHOTS || '');
   await C.sleep(3500);
-  const mode = process.env.P49_DARK ? 'dark' : 'light';
-  if (mode === 'dark') {
-    const ic = (await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in';
-    await I.click(I.byLabel(ic));
-    await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 700);
-    await I.waitBody('POWER FEATURES', 8000);
-    await I.click(`document.querySelector('[data-theme-setting] [data-theme-mode="dark"]')`, 900);
-    await I.click(I.byLabel('Back'), 900);
-  }
   await I.click(I.byLabel('Show the Calendar'), 800).catch(() => {});
   await I.key('d');
   await C.sleep(800);
 
-  // What a break block shows: its chips (in order), +N, cut titles, free room, and whether anything overlaps.
-  const read = (key) =>
+  // One day column as drawn: its gaps and its blocks, in px from the column's top (56 px an hour).
+  const colOf = (day) => `[...document.querySelectorAll('[data-cal-col="${day}"]')].find((e) => e.getBoundingClientRect().width > 0)`;
+  const readCol = (day) =>
     I.js(`(() => {
-      const b = [...document.querySelectorAll('[data-cal-block="${key}"]')].find((e) => e.getBoundingClientRect().width > 0);
-      if (!b) return null;
-      const s = document.querySelector('[data-cal-scroller]');
-      if (s) s.scrollTop += b.getBoundingClientRect().top - s.getBoundingClientRect().top - 160;
-      const box = b.getBoundingClientRect();
-      const chips = [...b.querySelectorAll('[data-host-chip]')].filter((e) => e.getBoundingClientRect().width > 0);
-      const more = b.querySelector('[data-host-more]');
-      const title = b.querySelector('[data-host-title]');
-      const row = b.querySelector('[data-host-row]');
-      const line = b.querySelector('[data-host-chips]');
-      const natural = [...(b.querySelector('[data-host-measure]') || { children: [] }).children].map((e) => e.getBoundingClientRect().width);
-      const R = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width }; };
-      const parts = [title, ...chips, more].filter(Boolean).map(R).filter((r) => r.w > 0);
-      let overlap = false;
-      for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
-        const a = parts[i], c = parts[j];
-        if (Math.min(a.r, c.r) - Math.max(a.l, c.l) > 0.5 && Math.min(a.b, c.b) - Math.max(a.t, c.t) > 0.5) overlap = true;
-      }
-      const outside = parts.some((p) => p.l < box.left - 0.5 || p.r > box.right + 0.5 || p.t < box.top - 0.5 || p.b > box.bottom + 0.5);
-      // A chip whose title shows an ellipsis.
-      const cut = chips.map((c) => { const t = c.children[1]; return !!t && t.scrollWidth > t.clientWidth + 1; });
-      // The title is whole or keeps at least its own short text ("☕ Short break" is never covered).
-      const titleWhole = !!title && title.scrollWidth <= title.clientWidth + 1;
-      const last = chips[chips.length - 1];
-      const L = line ? R(line) : null;
-      const free = L ? L.r - (last ? last.getBoundingClientRect().right + 4 : L.l) : 0;
-      const menus = chips.map((c) => getComputedStyle(c.querySelector('[data-host-menu]')).opacity);
-      return {
-        layout: row ? row.getAttribute('data-host-row') : null,
-        shown: chips.map((c) => c.getAttribute('data-host-chip').replace(/^task:/, '')),
-        widths: chips.map((c) => Math.round(c.getBoundingClientRect().width)),
-        texts: chips.map((c) => c.innerText.replace(/\\s+/g, ' ').trim()),
-        natural: natural.map(Math.round),
-        lineW: L ? Math.round(L.w) : 0,
-        free: Math.round(free),
-        cut,
-        titleWhole,
-        menus,
-        more: more ? Number(more.getAttribute('data-host-more')) : 0,
-        overlap,
-        outside,
-        width: Math.round(box.width),
-      };
+      const col = ${colOf(day)};
+      if (!col) return null;
+      const cr = col.getBoundingClientRect();
+      const R = (e) => { const r = e.getBoundingClientRect(); return { top: Math.round((r.top - cr.top) * 10) / 10, h: Math.round(r.height * 10) / 10, w: Math.round(r.width), l: Math.round(r.left - cr.left) }; };
+      const gaps = [...col.querySelectorAll('[data-gap]')].map((g) => { const cs = getComputedStyle(g); return { id: g.getAttribute('data-gap'), ...R(g), hatch: cs.backgroundImage, border: cs.borderTopStyle, tip: g.getAttribute('title') || '', text: g.innerText.trim() }; });
+      const blocks = [...col.querySelectorAll('[data-cal-block]:not([data-gap])')].map((b) => ({ id: b.getAttribute('data-cal-block').replace(/^cal[0-9-]+:/, ''), piece: b.getAttribute('data-piece'), inGap: b.getAttribute('data-in-gap'), ...R(b.parentElement.parentElement) }));
+      return { colW: Math.round(cr.width), gaps, blocks, cups: col.querySelectorAll('[data-break-cup]').length, chips: col.querySelectorAll('[data-host-chip]').length, counts: col.querySelectorAll('[data-host-count]').length };
     })()`);
-
-  const widths = [1440, 1100, 900, 760];
-  // The window really takes the width (a maximized or snapped window ignores setSize): asked again until it does.
-  const size = async (w) => {
-    if (win.isMaximized()) win.unmaximize();
-    for (let i = 0; i < 6; i++) {
-      win.setSize(w, 900);
-      await C.sleep(500);
-      if (Math.abs(win.getSize()[0] - w) <= 2 && (await I.js('window.innerWidth')) <= w) return true;
-    }
-    return false;
-  };
-  const breaks = [
-    { day: 0, key: `cal${today}:brk:${today}`, name: 'today 11:00 (stored)', want: ['apply1', 'laundry'] },
-    { day: 0, key: `cal${today}:brk:${today}@15:00`, name: 'today 15:00 (extra time)', want: ['banana'] },
-    { day: 1, key: `cal${tomorrow}:brk:${tomorrow}`, name: 'tomorrow 11:00 (projected, a very long title)', want: ['longtitle', 'short1'] },
-    { day: 1, key: `cal${tomorrow}:brk:${tomorrow}@15:00`, name: 'tomorrow 15:00 (projected, five tasks)', want: FIVE.map((_, i) => `f${i + 1}`) },
-  ];
-  let at = 0;
-  let cutSeen = false;
-  for (const day of [0, 1]) {
-    if (day !== at) {
-      await I.click(I.byLabel('Calendar next day'), 800);
-      at = day;
-    }
-    for (const bk of breaks.filter((x) => x.day === day)) {
-      let prev = Infinity;
-      let prevW = Infinity;
-      for (const w of widths) {
-        const sized = await size(w);
-        await C.sleep(400);
-        if (!sized) check(`${mode} ${bk.name}: the window takes the width ${w}`, false, String(win.getSize()));
-        const r = await read(bk.key);
-        const tag = `${mode} ${bk.name} at ${w}`;
-        if (!r) {
-          check(`${tag}: the block is there`, false);
-          continue;
-        }
-        const n = bk.want.length;
-        check(`${tag}: the wide layout (${r.layout})`, r.layout === 'flow-inline', String(r.layout));
-        check(`${tag}: shown ${r.shown.length} + "+${r.more}" = ${n}, in order (block ${r.width} px)`, r.shown.length + r.more === n && JSON.stringify(r.shown) === JSON.stringify(bk.want.slice(0, r.shown.length)), JSON.stringify(r));
-        check(`${tag}: never more than in a wider block`, r.width > prevW || r.shown.length <= prev, `${r.shown.length} > ${prev}`);
-        prev = r.shown.length;
-        prevW = r.width;
-        check(`${tag}: nothing overlaps, nothing sticks out, the break title is whole`, !r.overlap && !r.outside && r.titleWhole, JSON.stringify(r));
-        // Only a chip wider than its whole line is cut, and then to at least 72 px.
-        const badCut = r.cut.map((c, i) => c && !(r.natural[i] > r.lineW + 1 && r.widths[i] >= 71)).some(Boolean);
-        check(`${tag}: no chip is cut short while it would fit whole`, !badCut, JSON.stringify({ cut: r.cut, natural: r.natural, widths: r.widths, lineW: r.lineW }));
-        // "+N" only when the next chip truly does not fit what is left.
-        if (r.more > 0) {
-          const next = r.natural[r.shown.length];
-          check(`${tag}: "+${r.more}" only because the next chip (${next} px) does not fit the ${r.free} px left`, next > r.free + 0.5 && (next <= r.lineW || r.free < 72), JSON.stringify(r));
-        }
-        check(`${tag}: each chip shows a title and a length`, r.texts.every((t) => /\d+m/.test(t) && t.length > 4), JSON.stringify(r.texts));
-        check(`${tag}: the "⋯" is hidden until hover or focus`, r.menus.every((o) => o === '0'), JSON.stringify(r.menus));
-        // The real data's expectations.
-        if (bk.name.startsWith('today') && w >= 1100) check(`${tag}: every chip whole at a wide window`, r.more === 0 && r.cut.every((c) => !c), JSON.stringify(r));
-        // The very long title (about 680 px): whole where the line has room, cut to the line where it has not,
-        // never "+N" for it.
-        if (bk.name.includes('long title')) {
-          check(`${tag}: the very long title shows, ${r.natural[0] > r.lineW ? 'cut to its line' : 'whole'}, not "+N"`, r.shown[0] === 'longtitle' && r.cut[0] === r.natural[0] > r.lineW + 1, JSON.stringify(r));
-          if (r.natural[0] > r.lineW + 1) cutSeen = true;
-        }
-        if (w === 1440 || w === 900 || w === 760) await I.shot(`p49-${mode}-${bk.key.replace(/^cal\d{4}-\d\d-\d\d:/, '').replace(/[^a-z0-9@]+/gi, '-')}-${w}`);
-      }
-    }
-    await size(1440);
-    await C.sleep(400);
-  }
-  check(`${mode}: at some width the very long title was wider than its line (and shown cut)`, cutSeen);
-  // Hover shows the "⋯".
-  const hoverId = `task:short1`;
-  await I.js(`(() => { const b = document.querySelector('[data-cal-block="cal${tomorrow}:brk:${tomorrow}"]'); const s = document.querySelector('[data-cal-scroller]'); if (b && s) s.scrollTop += b.getBoundingClientRect().top - s.getBoundingClientRect().top - 160; })()`);
+  const scrollTo = (min) => I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); if (s) s.scrollTop = ${(min / 60) * 56}; })()`);
+  await scrollTo(10 * 60 + 30);
   await C.sleep(400);
-  const hc = await I.js(`(() => { const c = document.querySelector('[data-cal-block="cal${tomorrow}:brk:${tomorrow}"] [data-host-chip="${hoverId}"]'); if (!c) return null; const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
-  if (hc) {
-    win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(hc.x), y: Math.round(hc.y) });
-    await C.sleep(400);
-  }
-  const shown = await I.js(`(() => { const m = document.querySelector('[data-cal-block="cal${tomorrow}:brk:${tomorrow}"] [data-host-menu="${hoverId}"]'); return m ? getComputedStyle(m).opacity : null; })()`);
-  check(`${mode}: hovering a chip shows its "⋯"`, shown === '1', String(shown));
-  await I.shot(`p49-${mode}-hover`);
-  win.webContents.sendInputEvent({ type: 'mouseMove', x: 5, y: 5 });
+  const px = (min) => Math.round(((min / 60) * 56) * 10) / 10;
+  const near = (a, b, tol = 1.5) => Math.abs(a - b) <= tol;
+  const m = (h, mm = 0) => h * 60 + mm;
 
-  // The week view keeps its old layout.
+  // ---- Day view, today: the four tasks fill the three gaps ----
+  const d0 = await readCol(today);
+  check('Day today: the column is drawn', !!d0, JSON.stringify(d0));
+  if (d0) {
+    const g = (id) => d0.gaps.find((x) => x.id === `${id}:${today}`);
+    check('Day today: three gaps, nothing else drawn for the breaks (no ☕, no chip, no break block, no "inside" count)', d0.gaps.length === 3 && d0.cups === 0 && d0.chips === 0 && d0.counts === 0 && !d0.blocks.some((b) => /^(short1|long|short2)/.test(b.id)), JSON.stringify(d0));
+    for (const [id, s, len] of [['short1', m(11), 20], ['long', m(12, 30), 60], ['short2', m(15), 20]]) {
+      const x = g(id);
+      check(`Day today: the ${id} gap at its real times`, !!x && near(x.top, px(s)) && near(x.h, px(len)), JSON.stringify(x));
+      check(`Day today: the ${id} gap is hatched with a dashed outline and has no text`, !!x && /repeating-linear-gradient/.test(x.hatch) && x.border === 'dashed' && x.text === '', JSON.stringify(x));
+      check(`Day today: the ${id} gap is the full column width`, !!x && x.w >= d0.colW - 4, JSON.stringify(x));
+    }
+    check('Day today: the hover text says the name and the length', g('short1')?.tip === 'Short break · 20 min' && g('long')?.tip === 'Long break · 1 h', JSON.stringify(d0.gaps.map((x) => x.tip)));
+    const pieces = d0.blocks.filter((b) => b.id.startsWith(`camp:${today}`));
+    check('Day today: Boot Camp is four pieces around the gaps', pieces.length === 4 && near(pieces[0].top, px(m(9, 30))) && near(pieces[1].top, px(m(11, 20))) && near(pieces[2].top, px(m(13, 30))) && near(pieces[3].top, px(m(15, 20))), JSON.stringify(pieces));
+    for (const [id, s, len, gap] of [['warm', m(11), 20, 'Short break'], ['run', m(12, 30), 30, 'Long break'], ['lunch', m(13), 30, 'Long break'], ['shower', m(15), 20, 'Short break']]) {
+      const b = d0.blocks.find((x) => x.id === id);
+      check(`Day today: ${id} is a block in its gap at its real time and size`, !!b && b.inGap === gap && near(b.top, px(s)) && near(b.h, px(len)), JSON.stringify(b));
+      check(`Day today: ${id} is full width (not a chip, not a lane)`, !!b && b.w >= d0.colW - 4 && b.l <= 1, JSON.stringify(b));
+    }
+  }
+  await I.shot('p49-day-today');
+
+  // ---- tomorrow: empty gaps show; the 10 minute task is 10 px and stays in its gap ----
+  await I.click(I.byLabel('Calendar next day'), 800);
+  await scrollTo(10 * 60 + 30);
+  await C.sleep(400);
+  const d1 = await readCol(tomorrow);
+  if (d1) {
+    const apply = d1.blocks.find((b) => b.id === 'apply');
+    const short1 = d1.gaps.find((x) => x.id === `short1:${tomorrow}`);
+    check('Day tomorrow: three gaps', d1.gaps.length === 3, JSON.stringify(d1.gaps));
+    check('Day tomorrow: the 10 minute task is 10 px high (not 20) and ends inside its 20 minute gap', !!apply && !!short1 && near(apply.h, 10, 0.6) && apply.top + apply.h <= short1.top + short1.h + 0.5, JSON.stringify({ apply, short1 }));
+  } else check('Day tomorrow: the column is drawn', false);
+  const free = await I.js(`(() => {
+    const out = {};
+    for (const id of ['short1', 'long', 'short2']) {
+      const g = document.querySelector('[data-gap="' + id + ':${tomorrow}"]');
+      if (!g) { out[id] = null; continue; }
+      const r = g.getBoundingClientRect();
+      // Above the bottom edge strip (6 px, 4 under 24 px).
+      const at = document.elementFromPoint(r.left + r.width / 2, r.bottom - (r.height >= 24 ? 6 : 4) - 1.5);
+      out[id] = !!at && !!at.closest('[data-gap]');
+    }
+    return out;
+  })()`);
+  check('Day tomorrow: the free part of each gap shows (nothing covers it)', !!free && free.short1 && free.long && free.short2, JSON.stringify(free));
+  await I.shot('p49-day-tomorrow');
+  // A click on a gap opens the break's details.
+  const panel = `document.querySelector('[data-detail-panel]')`;
+  await I.click(`document.querySelector('[data-gap="long:${tomorrow}"]')`, 900);
+  await C.waitFor(() => I.exists(panel), 4000).catch(() => {});
+  const ptitle = await I.js(`[...(${panel} || document).querySelectorAll('input, textarea')].map((e) => e.value).join('|')`);
+  check('a click on the Long break gap opens its details', (await I.exists(panel)) && ptitle.split('|').includes('Long break'), ptitle);
+  await I.key('Escape', [], 600);
+
+  // ---- D5: Boot Camp 30 minutes later, tomorrow only; its gaps follow; one Ctrl+Z puts everything back ----
+  const gapTops = async (day) => {
+    const c = await readCol(day);
+    return c ? Object.fromEntries(c.gaps.map((x) => [x.id.replace(/:.*/, ''), x.top])) : null;
+  };
+  const before1 = await gapTops(tomorrow);
+  await I.js(`(() => { const b = document.querySelector('[data-cal-block="cal${tomorrow}:camp:${tomorrow}"]'); if (b) b.focus(); })()`);
+  await C.sleep(200);
+  await I.key('Down', [], 1500);
+  const after1 = await gapTops(tomorrow);
+  const shifted = !!before1 && !!after1 && ['short1', 'long', 'short2'].every((id) => near(after1[id], before1[id] + 28));
+  check('D5: Boot Camp moved 30 minutes later takes its three gaps along (tomorrow)', shifted, JSON.stringify({ before1, after1 }));
+  const campTop = await I.js(`(() => { const b = document.querySelector('[data-cal-block="cal${tomorrow}:camp:${tomorrow}"]'); const c = ${colOf(tomorrow)}; return b && c ? Math.round(b.getBoundingClientRect().top - c.getBoundingClientRect().top) : null; })()`);
+  check('D5: and Boot Camp starts at 10:00 there', near(campTop, px(m(10)), 3), String(campTop));
+  await I.shot('p49-d5-moved');
   await I.blur();
+  await I.key('Z', ['control'], 1500);
+  const undone1 = await gapTops(tomorrow);
+  check('D5: one Ctrl+Z puts Boot Camp and its three gaps back', !!undone1 && !!before1 && ['short1', 'long', 'short2'].every((id) => near(undone1[id], before1[id])), JSON.stringify({ before1, undone1 }));
   await I.click(I.byLabel('Calendar previous day'), 800);
+  await scrollTo(10 * 60 + 30);
+  await C.sleep(300);
+  const t0 = await gapTops(today);
+  check('D5: today\'s gaps did not move (that day only)', !!t0 && near(t0.short1, px(m(11))) && near(t0.long, px(m(12, 30))) && near(t0.short2, px(m(15))), JSON.stringify(t0));
+
+  // ---- Week view: the same drawing in narrow columns ----
   await I.key('w');
   await C.sleep(900);
-  const wk = await read(`cal${today}:brk:${today}`);
-  check(`${mode}: the week view keeps its old layout (not "flow")`, !!wk && !/^flow/.test(wk.layout || ''), JSON.stringify(wk));
-  await I.shot(`p49-${mode}-week`);
+  await scrollTo(10 * 60 + 30);
+  await C.sleep(300);
+  const w0 = await readCol(today);
+  const w1 = await readCol(tomorrow);
+  check('Week: three gaps in each of the two days, no chips', !!w0 && !!w1 && w0.gaps.length === 3 && w1.gaps.length === 3 && w0.chips + w1.chips === 0, JSON.stringify([w0 && w0.gaps.length, w1 && w1.gaps.length]));
+  const wl = w0 && w0.blocks.find((b) => b.id === 'lunch');
+  check('Week today: Lunch is a full width block in its gap', !!wl && wl.inGap === 'Long break' && wl.w >= w0.colW - 4, JSON.stringify(wl));
+  await I.shot('p49-week');
+  await I.key('d');
+  await C.sleep(700);
+
+  // ---- the Timebox (in the Tasks view) ----
+  await I.click(I.byLabel('Show Tasks'), 900).catch(() => {});
+  await C.sleep(600);
+  // ---- the Timebox (today) draws the same and counts 7h ----
+  const tb = await I.js(`(() => {
+    const grid = [...document.querySelectorAll('[data-timebox-grid]')].find((e) => e.getBoundingClientRect().width > 0);
+    if (!grid) return null;
+    return { gaps: grid.querySelectorAll('[data-gap]').length, warm: !!grid.querySelector('[data-block-id="warm"][data-in-gap]'), lunch: !!grid.querySelector('[data-block-id="lunch"][data-in-gap]'), chips: grid.querySelectorAll('[data-host-chip]').length };
+  })()`);
+  check('Timebox today: three gaps, the tasks in them as blocks, no chips', !!tb && tb.gaps === 3 && tb.warm && tb.lunch && tb.chips === 0, JSON.stringify(tb));
+  check('Timebox today: Scheduled 7h (Boot Camp\'s 5h 20m and the four tasks)', (await I.body()).includes('Scheduled 7h'), '');
+
+  // ---- the Timebox tomorrow: 5h 20m ----
+  await I.click(I.byLabel('Next day'), 800);
+  // Boot Camp's 5h 20m (the gaps are not work) and the 10 minute task in a gap.
+  check('Timebox tomorrow: Scheduled 5h 30m', (await I.body()).includes('Scheduled 5h 30m'), '');
+  await I.click(I.byLabel('Previous day'), 800);
+
+  // ---- a block in a gap: right click, Move out of break ----
+  await I.click(I.byLabel('Show the Calendar'), 900).catch(() => {});
+  await scrollTo(10 * 60 + 30);
+  await C.sleep(500);
+  await I.js(`(() => { const b = document.querySelector('[data-cal-block="cal${today}:shower"]'); if (b) b.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 })); })()`);
+  await C.sleep(500);
+  const menu = `document.querySelector('[data-host-block-menu="task:shower"]')`;
+  check('a block in a gap has a menu with Move out of break', (await I.textOf(menu)).includes('Move out of break'), await I.textOf(menu));
+  await I.click(`[...${menu}.querySelectorAll('[role="button"]')].find((e) => e.innerText.includes('Move out of break'))`, 1200);
+  check('Move out of break puts Shower right after the break (15:20)', byId('shower')?.startTime === '15:20', JSON.stringify(byId('shower')));
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

@@ -4,8 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { formatTime } from '../../lib/data';
 import { formatDuration } from '../../lib/duration';
-import { toMinutes, toTime, blockHeightPx, COMPACT_BLOCK_PX } from '../../lib/timebox';
-import { CHIP_GAP_PX, CHIP_MIN_W, MORE_W, chipLines, chipPlan, packChips } from '../../lib/hosting';
+import { toMinutes, toTime, blockHeightPx } from '../../lib/timebox';
 import { BLOCK_DROP_ORDER, blockPlan } from '../../lib/blockLayout';
 import { pieceTimeText, type CutPiece } from '../../lib/cuts';
 import { nudgeBlock, slotLabel, taskDuration, yToMinutes, type BlockNudge } from '../../lib/drag';
@@ -19,8 +18,9 @@ import { movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { domNode, useDrag } from './DragProvider';
-import { isPopoverOpen } from './Popover';
+import { isPopoverOpen, openPopover } from './Popover';
 import { blockChangeRefusal } from '../../lib/hostActions';
+import { carryBreaks } from '../../lib/breakCarry';
 import { openDetail, showNotice } from './uiStore';
 import { isLate } from '../../lib/lateTasks';
 import { tipRef } from './tip';
@@ -29,8 +29,7 @@ import ListEmoji from './ListEmoji';
 import { isMustDo } from '../../lib/mustDo';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText, VIBRANT_WHITE } from './vibrantStore';
-import { BREAK_CUP, BREAK_TAG } from '../../lib/taskKind';
-import { ChipMeasure, HostChip, MoreBadge, hostedTip, type HostedGuest } from './HostChips';
+import { HostMenu, type HostBreak, type HostedGuest } from './HostChips';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
 // day and week views draw the same block, so they behave the same. A press
@@ -49,9 +48,6 @@ const KEY_NUDGE: Partial<Record<string, BlockNudge>> = {
   blockShorter: 'shorter',
   blockLonger: 'longer',
 };
-
-// A break (a task with "Split" on) with no label colour: a neutral grey, no new colour in the palette.
-const BREAK_TINT = Colors.breakTint;
 
 export default function TimeBlock({
   task,
@@ -74,14 +70,12 @@ export default function TimeBlock({
   fullTask,
   time,
   blockSuffix,
-  hosted,
-  wideChips,
+  inGap,
 }: {
-  // 3.28.0: the Calendar's Day view (one wide column): a break shows as many chips as fit on its line or lines,
-  // "+N" only for the rest. The week view and the Timebox (a narrow column) leave it unset and keep chipPlan.
-  wideChips?: boolean;
-  // A break (3.6.0, lib/hosting.ts): the tasks fully inside it, drawn as chips in this block.
-  hosted?: HostedGuest[];
+  // 3.34.0 (PLAN_breaks_as_gaps P2): this block is a task inside a break, drawn at its real size in the break's gap
+  // (lib/gaps.ts). A right click opens its menu (Open, Move out of break, Remove time). A break itself is never a
+  // TimeBlock: it is a gap (GapLayer.tsx).
+  inGap?: { guest: HostedGuest; brk: HostBreak };
   // A task with several times a day (Part C) is drawn once per time: `task` is the single-time copy this
   // block shows, `fullTask` the real task (what a drag, a resize or a key writes), `time` this block's time
   // and `blockSuffix` ('@HH:mm' for every time after the first) tells the blocks of one task apart.
@@ -119,7 +113,7 @@ export default function TimeBlock({
   const { drag, sourceRef, startResize } = useDrag();
   // "Vibrant task colours" (Settings): a saturated block with bold white text; null = as before.
   const tint = useTint();
-  const look = vibrantLook(useVibrant(), color, !!task.cutsBelow);
+  const look = vibrantLook(useVibrant(), color);
   const vt = look ? vibrantText : undefined;
   const vm = look ? vibrantMeta : undefined;
   const resizing = drag?.mode === 'resize' && drag.item.id === task.id && drag.item.scope === scope ? drag.resizeDuration : undefined;
@@ -159,12 +153,15 @@ export default function TimeBlock({
   const elRef = useRef<HTMLElement | null>(null);
   // The Calendar's hover tooltip holds the whole block, kept current as the task changes.
   // A block too short to show everything has the same tooltip (2.47.0).
-  // A break with tasks during it always has one: it lists them all.
-  const hostTip = hostedTip(hosted ?? []);
-  const tipped = !!fullText || blockPlan(height).tier !== 3 || !!hostTip;
+  // A block in a gap always has one: it says which break it is in.
+  const gapTip = inGap ? `in ${inGap.brk.title}` : '';
+  const tipped = !!fullText || blockPlan(height).tier !== 3 || !!gapTip;
+  const menuId = `gapblock:${scope}${task.id}${blockSuffix ?? ''}`;
+  const liveGap = useRef(inGap);
+  liveGap.current = inGap;
   useEffect(() => {
-    if (tipped) tipRef(blockTip(task, piece, note, hostTip))(elRef.current);
-  }, [tipped, task.id, task.dueDate, task.title, task.emoji, task.startTime, task.durationMinutes, task.recurrence, piece, note, hostTip]);
+    if (tipped) tipRef(blockTip(task, piece, note, gapTip))(elRef.current);
+  }, [tipped, task.id, task.dueDate, task.title, task.emoji, task.startTime, task.durationMinutes, task.recurrence, piece, note, gapTip]);
   // The block's width decides which parts still fit.
   useEffect(() => {
     const el = elRef.current;
@@ -180,8 +177,16 @@ export default function TimeBlock({
       keysCleanup.current = null;
       const el = domNode(instance);
       elRef.current = el;
-      if (tipped) tipRef(blockTip(live.current.task, piece, note, hostTip))(el);
+      if (tipped) tipRef(blockTip(live.current.task, piece, note, gapTip))(el);
       if (!el) return;
+      // 3.34.0: a block in a gap has a menu on a right click.
+      const onMenu = (e: MouseEvent) => {
+        if (!liveGap.current) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openPopover(menuId, () => elRef.current);
+      };
+      el.addEventListener('contextmenu', onMenu);
       const onKey = (e: KeyboardEvent) => {
         if (e.target !== el || e.repeat) return;
         const sc = shortcutFor(e, { typing: false, blocked: isPopoverOpen(), scope: 'block' });
@@ -193,6 +198,7 @@ export default function TimeBlock({
         // The real task is what is written; a block of several times moves only its own time.
         const t = full ?? shown;
         let patch: Partial<Task> | null = nudgeBlock(shown, nudge, dateKey(new Date()), proj);
+        const nudged = patch;
         if (at && patch && patch.startTime) {
           const moved = moveTimeFields(t, at, patch.startTime);
           patch = moved.ok ? moved.fields : null;
@@ -215,6 +221,12 @@ export default function TimeBlock({
             if (fields.dueDate) await moveDay(t, fields.dueDate, withoutDay(fields));
             else await editRepeatingTime(t, !!proj, fields, 'day');
           } else await updateTask({ ...t, ...fields });
+          // D5 (PLAN_breaks_as_gaps P3): the breaks inside it follow it.
+          const was = toMinutes(at ?? shown.startTime);
+          if (was !== null && nudged && (nudged.startTime || nudged.dueDate)) {
+            const to = toMinutes(nudged.startTime) ?? was;
+            await carryBreaks(t, { dayKey: day, startMin: was, endMin: was + taskDuration(shown) }, nudged.dueDate ?? day, to);
+          }
         })();
         Promise.resolve(done).then(() => {
           onChanged();
@@ -228,7 +240,10 @@ export default function TimeBlock({
         });
       };
       el.addEventListener('keydown', onKey);
-      keysCleanup.current = () => el.removeEventListener('keydown', onKey);
+      keysCleanup.current = () => {
+        el.removeEventListener('keydown', onKey);
+        el.removeEventListener('contextmenu', onMenu);
+      };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dragRef, scope, tipped],
@@ -277,48 +292,8 @@ export default function TimeBlock({
   const fitKey = `${shownH}|${boxW}|${task.title}|${task.emoji ?? ''}|${task.startTime}|${task.durationMinutes}|${!!task.recurrence}|${listEmoji ?? ''}|${piece?.index ?? ''}|${isMustDo(task)}|${resizing ?? ''}|${badge ?? ''}`;
   const plan = blockPlan(shownH, fit.key === fitKey ? fit.dropped : 0);
   const tier = plan.tier;
-  // 3.6.0: the chips of the tasks during this break (not while it is being resized).
-  const guests = hosted && hosted.length > 0 && resizing === undefined ? hosted : undefined;
-  const chips = guests ? chipPlan(shownH, boxW, guests.length, COMPACT_BLOCK_PX) : null;
-  // 3.28.0: in a wide column the chips flow side by side, "+N" for the ones that do not fit.
-  // 3.29.1: packed (lib/hosting.ts packChips) from each chip's own width, read from a hidden row of unconstrained
-  // copies, and the room the line or lines have; worked out again on every draw and whenever those widths change
-  // (fonts loading), so a stale or hidden layout never leaves chips in "+N". Until measured, every chip shows.
-  const flow = !!chips && !!guests && !!wideChips;
-  const [flowPack, setFlowPack] = useState<{ shown: number; clip?: number } | null>(null);
-  const [, setMeasured] = useState(0);
-  const flowN = flow && guests ? Math.min(guests.length, flowPack?.shown ?? guests.length) : 0;
-  const chipsBox = useRef<HTMLElement | null>(null);
-  const flowRow = useRef<HTMLElement | null>(null);
-  const flowTitleEl = useRef<HTMLElement | null>(null);
-  const measureEl = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
-    if (!flow || !chips) return;
-    const m = measureEl.current;
-    if (!m) return;
-    const widths = Array.from(m.children).map((e) => e.getBoundingClientRect().width);
-    let lineW = 0;
-    if (chips.mode === 'inline') {
-      const row = flowRow.current;
-      const title = flowTitleEl.current;
-      if (row && title) lineW = row.getBoundingClientRect().width - title.getBoundingClientRect().width - CHIP_GAP_PX;
-    } else lineW = chipsBox.current?.getBoundingClientRect().width ?? 0;
-    // Hidden (a folded pane) or not laid out yet: nothing to decide.
-    if (lineW <= 0 || widths.some((w) => w <= 0)) return;
-    const next = packChips(widths, lineW, chips.mode === 'inline' ? 1 : chipLines(shownH), CHIP_GAP_PX, CHIP_MIN_W, chips.mode === 'inline' ? MORE_W : 0);
-    if (!flowPack || next.shown !== flowPack.shown || next.clip !== flowPack.clip) setFlowPack(next);
-  });
-  useEffect(() => {
-    const m = measureEl.current;
-    if (!flow || !m || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => setMeasured((n) => n + 1));
-    ro.observe(m);
-    return () => ro.disconnect();
-  }, [flow]);
-  // Where "Move out" puts a task: right after this break (this block's own time).
-  const hostBreak = { endMin: startMin + taskDuration(task), title: task.title };
-  useLayoutEffect(() => {
-    if (tier === 3 || chips) return;
+    if (tier === 3) return;
     if (fit.key !== fitKey) {
       setFit({ key: fitKey, dropped: 0 });
       return;
@@ -332,15 +307,17 @@ export default function TimeBlock({
     const metaOver = !!m && m.scrollWidth > m.clientWidth + 1;
     if ((squeezed || metaOver) && fit.dropped < BLOCK_DROP_ORDER.length) setFit({ key: fitKey, dropped: fit.dropped + 1 });
   });
-  // Tier 1's right hand text: a break and a later piece also say when they start.
+  // Tier 1's right hand text: a later piece also says when it starts.
   const lengthText = headPiece ? formatDuration(task.durationMinutes) : formatDuration(piece?.leftMin) ? `${formatDuration(piece?.leftMin)} left` : undefined;
   const clockText = formatTime(piece ? toTime(piece.startMin) : task.startTime ?? '');
-  const inlineText = lengthText ? `${task.cutsBelow || (piece && !piece.head) ? `${clockText} ` : ''}${lengthText}` : '';
+  const inlineText = lengthText ? `${piece && !piece.head ? `${clockText} ` : ''}${lengthText}` : '';
   // Tier 2's second line: the time, then the length ("left" on a later piece).
   const metaText = [plan.showTime ? clockText : '', plan.showLeft ? lengthText ?? '' : ''].filter(Boolean).join(' ') + (task.completed && lastPiece && plan.showTime ? ' done' : '');
   const pieceData = piece ? { piece: String(piece.index + 1), pieceCount: String(piece.count) } : {};
   const baseData = scope ? { calBlock: `${scope}${blockKey}`, blockTask: task.id } : { blockId: blockKey, blockTask: task.id };
-  const dataSet = { ...baseData, ...pieceData, ...(task.cutsBelow ? { cuts: '1' } : {}), ...(time ? { blockTime: time } : {}), ...(hosted?.length ? { hostCount: String(hosted.length) } : {}) };
+  const dataSet = { ...baseData, ...pieceData, ...(time ? { blockTime: time } : {}), ...(inGap ? { inGap: inGap.brk.title } : {}) };
+  // 3.34.0: a block in a gap is drawn at its real size (a 10 px floor): under 16 px the title takes a smaller line.
+  const tiny = shownH < 16;
 
   return (
     <View style={[styles.wrap, sized, lifted && styles.lifted]}>
@@ -352,72 +329,22 @@ export default function TimeBlock({
             styles.block,
             look
               ? { backgroundColor: look.bg, borderLeftColor: look.edge }
-              : { backgroundColor: (color ? tint(color) : undefined) ?? (task.cutsBelow ? BREAK_TINT : Colors.plainBlock), borderLeftColor: color?.edge ?? (task.cutsBelow ? Colors.textSecondary : Colors.accent) },
+              : { backgroundColor: (color ? tint(color) : undefined) ?? Colors.plainBlock, borderLeftColor: color?.edge ?? Colors.accent },
             tier === 1 && styles.blockOne,
+            tiny && styles.blockTiny,
             continues && styles.continues,
             projected && styles.projected,
             late && styles.late,
             resizing !== undefined && styles.active,
           ]}
           accessibilityRole="button"
-          accessibilityLabel={`${a11y}${time ? `, ${formatTime(time)}` : ''}${piece ? `, part ${piece.index + 1} of ${piece.count}` : ''}${moved ? `, ${moved}` : ''}${hosted?.length ? `, ${hostTip.toLowerCase()}` : ''}`}
+          accessibilityLabel={`${a11y}${time ? `, ${formatTime(time)}` : ''}${piece ? `, part ${piece.index + 1} of ${piece.count}` : ''}${moved ? `, ${moved}` : ''}${inGap ? `, ${gapTip}` : ''}`}
           {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
-          {flow && chips && guests ? (
-            <>
-              {/* 3.28.0, a wide column: the title, then the chips side by side (one line, or wrapping over the lines the block has), "+N" for the rest. */}
-              {/* 3.29.1: each chip at its own width, hidden, for the packing. */}
-              <View ref={((n: unknown) => { measureEl.current = domNode(n); }) as never} pointerEvents="none" style={styles.measure} aria-hidden {...({ dataSet: { hostMeasure: '1' } } as object)}>
-                {guests.map((g) => <ChipMeasure key={g.blockId} g={g} />)}
-              </View>
-              <View ref={((n: unknown) => { flowRow.current = domNode(n); }) as never} style={[styles.titleRow, chips.mode === 'inline' && styles.titleRowOne]} {...({ dataSet: { hostRow: `flow-${chips.mode}` } } as object)}>
-                <Text ref={((n: unknown) => { flowTitleEl.current = domNode(n); }) as never} style={[styles.title, styles.hostTitle, chips.mode === 'inline' && styles.flowTitle, task.completed && styles.titleDone, vt]} numberOfLines={1} {...({ dataSet: { hostTitle: '1' } } as object)}>
-                  {task.cutsBelow ? <Text accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakCup: '1' } } as object)}>{`${BREAK_CUP} `}</Text> : null}
-                  {task.emoji ? `${task.emoji} ` : ''}
-                  {task.title}
-                </Text>
-                {chips.mode === 'inline' && (
-                  <View ref={((n: unknown) => { chipsBox.current = domNode(n); }) as never} style={styles.flowLine} {...({ dataSet: { hostChips: String(flowN) } } as object)}>
-                    {guests.slice(0, flowN).map((g, i) => <HostChip key={g.blockId} g={g} onChanged={onChanged} flow clip={i === flowN - 1 ? flowPack?.clip : undefined} brk={hostBreak} scope={scope} gridNode={gridNode} />)}
-                  </View>
-                )}
-                {chips.mode === 'stack' && !!inlineText && (
-                  <Text style={[styles.timeInline, styles.hostTime, vm]} numberOfLines={1}>
-                    {inlineText}
-                  </Text>
-                )}
-                {guests.length - flowN > 0 && <MoreBadge n={guests.length - flowN} tip={hostTip} />}
-              </View>
-              {chips.mode === 'stack' && (
-                <View ref={((n: unknown) => { chipsBox.current = domNode(n); }) as never} style={[styles.flowWrap, { maxHeight: chipLines(shownH) * 16 - 2 }]} {...({ dataSet: { hostChips: String(flowN) } } as object)}>
-                  {guests.slice(0, flowN).map((g, i) => <HostChip key={g.blockId} g={g} onChanged={onChanged} flow clip={i === flowN - 1 ? flowPack?.clip : undefined} brk={hostBreak} scope={scope} gridNode={gridNode} />)}
-                </View>
-              )}
-            </>
-          ) : chips && guests ? (
-            <>
-              {/* A break with tasks during it: one line (the title, a chip, "+N") or the title row and a chip per row. */}
-              <View style={[styles.titleRow, chips.mode === 'inline' && styles.titleRowOne]} {...({ dataSet: { hostRow: chips.mode } } as object)}>
-                <Text style={[styles.title, styles.hostTitle, task.completed && styles.titleDone, vt]} numberOfLines={1} {...({ dataSet: { hostTitle: '1' } } as object)}>
-                  {task.cutsBelow ? <Text accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakCup: '1' } } as object)}>{`${BREAK_CUP} `}</Text> : null}
-                  {task.emoji ? `${task.emoji} ` : ''}
-                  {task.title}
-                </Text>
-                {chips.mode === 'inline' && chips.shown > 0 && <HostChip g={guests[0]} onChanged={onChanged} inline brk={hostBreak} scope={scope} gridNode={gridNode} />}
-                {chips.mode === 'stack' && !!inlineText && (
-                  <Text style={[styles.timeInline, styles.hostTime, vm]} numberOfLines={1}>
-                    {inlineText}
-                  </Text>
-                )}
-                {chips.more > 0 && <MoreBadge n={chips.more} tip={hostTip} />}
-              </View>
-              {chips.mode === 'stack' && guests.slice(0, chips.shown).map((g) => <HostChip key={g.blockId} g={g} onChanged={onChanged} brk={hostBreak} scope={scope} gridNode={gridNode} />)}
-            </>
-          ) : tier === 3 ? (
+          {tier === 3 ? (
             <>
               <View style={[styles.titleRow, fullText && styles.titleRowTop]}>
                 <Text style={[styles.title, fullText && styles.titleWrap, task.completed && styles.titleDone, vt]} numberOfLines={fullText ? undefined : 1}>
-                  {task.cutsBelow ? <Text accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakCup: '1' } } as object)}>{`${BREAK_CUP} `}</Text> : null}
                   {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
@@ -458,10 +385,9 @@ export default function TimeBlock({
               <View style={[styles.titleRow, tier === 1 && styles.titleRowOne]}>
                 <Text
                   ref={((n: unknown) => { titleEl.current = domNode(n); }) as never}
-                  style={[styles.title, task.completed && styles.titleDone, vt]}
+                  style={[styles.title, tiny && styles.titleTiny, task.completed && styles.titleDone, vt]}
                   numberOfLines={1}
                 >
-                  {task.cutsBelow ? <Text accessibilityLabel={BREAK_TAG} {...({ dataSet: { breakCup: '1' } } as object)}>{`${BREAK_CUP} `}</Text> : null}
                   {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
@@ -508,17 +434,18 @@ export default function TimeBlock({
             <Ionicons name="arrow-down" size={10} color={look ? VIBRANT_WHITE : Colors.textSecondary} />
           </View>
         )}
-        {lastPiece && <View ref={handleRef as never} style={styles.handle} accessibilityLabel={`Resize ${task.title}`} />}
+        {lastPiece && <View ref={handleRef as never} style={[styles.handle, tiny && styles.handleTiny]} accessibilityLabel={`Resize ${task.title}`} />}
       </View>
+      {inGap && <HostMenu id={menuId} anchor={() => elRef.current} g={inGap.guest} brk={inGap.brk} />}
     </View>
   );
 }
 
 // The whole block as one line of text, for the hover tooltip.
-function blockTip(task: Task, piece?: CutPiece, note?: string, hosted?: string): string {
+function blockTip(task: Task, piece?: CutPiece, note?: string, gap?: string): string {
   const dur = formatDuration(task.durationMinutes);
   const when = piece && !piece.head ? `${formatTime(toTime(piece.startMin))} ${formatDuration(piece.leftMin)} left` : [formatTime(task.startTime ?? ''), dur].filter(Boolean).join(' ');
-  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, task.cutsBelow ? BREAK_TAG : '', when, task.recurrence ? 'Repeats' : '', movedCaptionLong(task) ?? '', note ?? '', hosted ?? ''].filter(Boolean).join(', ');
+  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, when, task.recurrence ? 'Repeats' : '', movedCaptionLong(task) ?? '', gap ?? '', note ?? ''].filter(Boolean).join(', ');
 }
 
 // Where a drag would land on a time grid: a dashed outline at the snapped slot
@@ -541,6 +468,10 @@ const styles = StyleSheet.create({
   block: { flex: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, minWidth: 0, overflow: 'hidden', borderLeftWidth: 3, boxShadow: `inset 0 0 0 1px ${Colors.border}` } as object,
   // The shortest blocks (20px) fit one 16px line only with 1px above and below.
   blockOne: { paddingVertical: 1, justifyContent: 'center' },
+  // 3.34.0: a block in a gap under 16 px (a 10 or 15 minute task).
+  blockTiny: { paddingVertical: 0 },
+  titleTiny: { fontSize: 10, lineHeight: 11 },
+  handleTiny: { height: 3 },
   continues: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   projected: { opacity: 0.82 },
   late: { opacity: 0.5 },
@@ -549,15 +480,6 @@ const styles = StyleSheet.create({
   active: { boxShadow: `inset 0 0 0 1px ${Colors.accent}` } as object,
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' } as object,
   titleRowOne: { flex: 1 },
-  // A break's title keeps some room beside its chip; its own time gives way first.
-  hostTitle: { minWidth: 36 },
-  // 3.28.0: the chips of a wide column. The title keeps up to half of a one line break; the chips take the rest.
-  flowTitle: { flexShrink: 0, maxWidth: '50%' },
-  flowLine: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 4, overflow: 'hidden', height: 14 },
-  flowWrap: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 4, rowGap: 2, marginTop: 2, overflow: 'hidden', minWidth: 0 },
-  // 3.29.1: the hidden row of chip copies (each at its own width, never squeezed).
-  measure: { position: 'absolute', left: 0, top: 0, flexDirection: 'row', alignItems: 'flex-start', visibility: 'hidden', width: 'max-content' } as object,
-  hostTime: { flexShrink: 10, minWidth: 0, marginLeft: 'auto' } as object,
   rightText: { marginLeft: 'auto' },
   noShrink: { flexShrink: 0 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' } as object,

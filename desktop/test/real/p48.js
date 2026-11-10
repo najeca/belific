@@ -109,8 +109,9 @@ async function run() {
   await C.sleep(700);
   await I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); if (s) s.scrollTop = 8.5 * 60 * (s.scrollHeight / 1440); })()`);
   await C.sleep(400);
-  const cup = await I.js(`(() => { const b = document.querySelector('[data-cal-block="cal${today}:plain"]'); return b ? [!!b.querySelector('[data-break-cup]'), b.innerText.split('\\n')[0]] : null; })()`);
-  check(`${mode} 2: the Calendar block title starts with a ☕`, !!cup && cup[0] && cup[1].startsWith('☕'), JSON.stringify(cup));
+  // 3.34.0 (PLAN_breaks_as_gaps P2): a Break with a time is a gap on the grid (hatched, no ☕, no text), not a block.
+  const cup = await I.js(`(() => { const b = document.querySelector('[data-cal-block="cal${today}:plain"]'); return b ? [b.getAttribute('data-gap'), !!b.querySelector('[data-break-cup]'), b.innerText.trim()] : null; })()`);
+  check(`${mode} 2: on the Calendar it is a gap, with no ☕ and no text`, !!cup && cup[0] === 'plain' && !cup[1] && cup[2] === '', JSON.stringify(cup));
   const plainCup = await I.js(`!!document.querySelector('[data-cal-block="cal${today}:a"] [data-break-cup]')`);
   check(`${mode} 2: a plain task's block has no cup`, !plainCup);
   await I.shot(`p48-2-calendar-${mode}`);

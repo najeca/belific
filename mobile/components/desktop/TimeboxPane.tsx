@@ -24,11 +24,13 @@ import {
   totalScheduledMinutes,
   type TimeboxItem,
 } from '../../lib/timebox';
-import { pieceTimeText, planCuts, type CutEntry, type CutPiece } from '../../lib/cuts';
+import { pieceTimeText, type CutEntry, type CutPiece } from '../../lib/cuts';
+import { gapLayout } from '../../lib/gaps';
 import { timeViews } from '../../lib/times';
 import { hostDay, hostSnapshot, scheduledSpans, type HostEntry } from '../../lib/hosting';
 import { setDayBreaks, watchDay, type DayBreak } from './breakStore';
-import type { HostedGuest } from './HostChips';
+import type { HostBreak, HostedGuest } from './HostChips';
+import { GapEdges, GapLayer, type DrawnGap } from './GapLayer';
 import { useCutMin } from './cutStore';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
@@ -233,7 +235,7 @@ export default function TimeboxPane({
   // "Vibrant task colours" (Settings): saturated cards with bold white text; off = as before.
   const vibrant = useVibrant();
   const tint = useTint();
-  const { sources, items, scheduled, notes, badges, hostedBy, breaks, snap } = useMemo(() => {
+  const { sources, items, scheduled, notes, badges, gaps, inGap, breaks, snap } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: TimeboxItem[] = [];
     for (const e of getWeeklyEventsForDate(day)) {
@@ -284,27 +286,22 @@ export default function TimeboxPane({
         high.set(cid, isMustDo(t));
       }
     }
-    // 3.6.0: a task fully inside a break is drawn as a chip in it (lib/hosting.ts), not cut, not beside it.
+    // 3.34.0 (PLAN_breaks_as_gaps P2): a break is a gap under the blocks; a task fully inside it (lib/hosting.ts) is an
+    // ordinary block at its real size; a task it cuts is its pieces (lib/gaps.ts).
     const host = hostDay(entries);
-    const hostedBy = new Map<string, HostedGuest[]>();
-    for (const [breakId, ids] of host.hosted) {
-      const guests: HostedGuest[] = [];
-      for (const id of ids) {
-        const s = map.get(id);
-        if (!s || s.kind !== 'task') continue;
-        const color = labelColor(labels.find((p) => p.key === s.task.projectKey)?.colorKey);
-        guests.push({ blockId: id, task: s.task, full: s.full ?? s.task, projected: !!s.projected, ...(s.time ? { time: s.time } : {}), dot: color?.edge ?? Colors.textSecondary });
-      }
-      hostedBy.set(breakId, guests);
-    }
     const breaks: DayBreak[] = entries.flatMap((e) => {
       const s = map.get(e.id);
       return host.breakIds.has(e.id) && s && s.kind === 'task' ? [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, taskId: s.task.id }] : [];
     });
-    const plan = planCuts(entries.filter((e) => !host.hostOf.has(e.id)), cutMin, (id) => {
+    const plan = gapLayout(entries, cutMin, (id) => {
       const s = map.get(id);
       return s && (s.kind === 'task' || s.kind === 'continuation') ? s.task.title : id;
     });
+    const gaps: DrawnGap[] = plan.gaps.flatMap((g) => {
+      const s = map.get(g.id);
+      return s && (s.kind === 'task' || s.kind === 'continuation') ? [{ ...g, task: s.task, full: s.full ?? s.task, projected: !!s.projected, ...(s.time ? { time: s.time, suffix: s.suffix } : {}) }] : [];
+    });
+    const inGap = new Map<string, { guest: HostedGuest; brk: HostBreak }>();
     for (const it of plan.items) {
       if (it.piece) {
         const host = map.get(it.piece.hostId);
@@ -312,12 +309,22 @@ export default function TimeboxPane({
           map.set(it.id, { kind: 'piece', task: host.task, projected: host.projected, piece: it.piece, cont: host.kind === 'continuation', full: host.full, time: host.time, suffix: host.suffix });
         }
       }
-      list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
+      const g = it.gapId ? map.get(it.id) : undefined;
+      const b = it.gapId ? map.get(it.gapId) : undefined;
+      if (g && g.kind === 'task' && b && b.kind === 'task') {
+        const color = labelColor(labels.find((p) => p.key === g.task.projectKey)?.colorKey);
+        const brk = entries.find((e) => e.id === it.gapId);
+        inGap.set(it.id, {
+          guest: { blockId: it.id, task: g.task, full: g.full ?? g.task, projected: !!g.projected, ...(g.time ? { time: g.time } : {}), dot: color?.edge ?? Colors.textSecondary },
+          brk: { endMin: brk?.endMin ?? it.endMin, title: b.task.title },
+        });
+      }
+      list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id), ...(it.minPx !== undefined ? { minPx: it.minPx } : {}) });
     }
     // P1 of PLAN_breaks_as_gaps: the Scheduled total counts work, not gaps. A Break's span is left out; a task inside a
     // break (hosted, so not in `list`) counts at its real length. Events and the pieces of cut tasks count as before.
     const scheduled = scheduledSpans(list, entries);
-    return { sources: map, items: list, scheduled, notes: plan.notes, badges: plan.badges, hostedBy, breaks, snap: hostSnapshot(entries) };
+    return { sources: map, items: list, scheduled, notes: plan.hostNotes, badges: plan.hostBadges, gaps, inGap, breaks, snap: hostSnapshot(entries) };
   }, [day, key, todayKey, events, categories, tasks, filter, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
   useEffect(() => {
@@ -438,6 +445,7 @@ export default function TimeboxPane({
           ))}
 
           <View style={styles.blocks}>
+            <GapLayer gaps={gaps} gridNode={() => gridNode.current} />
             {layout.blocks.map((b) => {
               const source = sources.get(b.id);
               if (!source) return null;
@@ -511,7 +519,7 @@ export default function TimeboxPane({
                     blockSuffix={source.suffix}
                     note={notes.get(b.id)}
                     badge={badges.get(b.id)}
-                    hosted={hostedBy.get(b.id)}
+                    inGap={inGap.get(b.id)}
                     a11y={`Task ${t.title}`}
                     gridNode={() => gridNode.current}
                     onChanged={onChanged}
@@ -544,6 +552,7 @@ export default function TimeboxPane({
                 </View>
               );
             })}
+            <GapEdges gaps={gaps} gridNode={() => gridNode.current} />
             {key === dateKey(new Date(nowTick)) && (
               <View
                 pointerEvents="none"

@@ -2,9 +2,9 @@
 // @real-input: quiet
 // Real check for the stale titles on repeating days (step 4 of the 2026-11-02 batch). A repeating task on three
 // weekdays: a past day that is done, yesterday's day (stored, not done), and today's day, stored because it was
-// moved into the Short break and shortened to 10 minutes (it shows as a chip in the break). The task is renamed
+// moved into the Short break and shortened to 10 minutes (it shows as a block in the break's gap; a chip until 3.33.0). The task is renamed
 // from the details of yesterday's day, as Jethro did from a stored day.
-//   1. today's chip, today's details and the next projected day all show the NEW title,
+//   1. today's block in the gap, today's details and the next projected day all show the NEW title,
 //   2. the past day that is done keeps the old title,
 //   3. today's own time (15:05) and length (10 min) stay; the break still hosts it,
 //   4. Ctrl+Z puts every day back to the old title in one step.
@@ -71,7 +71,8 @@ async function run() {
   await C.sleep(3500);
 
   const panel = `document.querySelector('[data-detail-panel]')`;
-  const chip = (id) => `document.querySelector('[data-host-chip="cal${today}:${id}"]') || document.querySelector('[data-host-chip$=":${id}"]')`;
+  // 3.34.0 (PLAN_breaks_as_gaps P2): a task in a break is a block in the break's gap (it was a chip in the break).
+  const chip = (id) => `document.querySelector('[data-cal-block="cal${today}:${id}"][data-in-gap]')`;
   const chipText = () => I.js(`(() => { const c = ${chip(`apply:${today}`)}; return c ? c.innerText : null; })()`);
   const block = (day, id) => `document.querySelector('[data-cal-block="cal${day}:${id}"]')`;
   const blockText = (day, id) => I.js(`(() => { const b = ${block(day, id)}; return b ? b.innerText : null; })()`);
@@ -91,7 +92,7 @@ async function run() {
   await I.key('d');
   await C.sleep(700);
   await scrollTo(15);
-  check('before: today\'s day is a chip in the Short break with the old title', ((await chipText()) || '').includes(OLD), String(await chipText()));
+  check('before: today\'s day is a block in the Short break\'s gap with the old title', ((await chipText()) || '').includes(OLD), String(await chipText()));
   await I.shot('p47-01-before');
 
   // ======== Rename from yesterday's stored day ========
@@ -115,7 +116,7 @@ async function run() {
   check('1: today\'s stored day (moved into the break, shortened) has the new title', byId(`apply:${today}`)?.title === NEW, JSON.stringify(byId(`apply:${today}`)));
   await goDay(0);
   await scrollTo(15);
-  check('1: today\'s chip in the break shows the new title', ((await chipText()) || '').includes(NEW), String(await chipText()));
+  check('1: today\'s block in the gap shows the new title', ((await chipText()) || '').includes(NEW), String(await chipText()));
   await I.shot('p47-02-after');
   await goDay(2);
   await scrollTo(10);

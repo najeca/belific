@@ -31,6 +31,8 @@
   --ds-plain-block: #FFFFFF;
   --ds-break-tint: #EFEDE6;
   --ds-host-chip: #FFFFFF;
+  --ds-gap-line: #A39B88;
+  --ds-gap-hatch: rgba(27,27,27,0.14);
   --ds-on-host-chip: #1B1B1B;
   --ds-host-pill: #E6EEE8;
   --ds-on-host-pill: #3B5646;
@@ -124,6 +126,8 @@
   --ds-plain-block: #282828;
   --ds-break-tint: #3A3A3A;
   --ds-host-chip: #ECECEC;
+  --ds-gap-line: #6E6E6E;
+  --ds-gap-hatch: rgba(255,255,255,0.14);
   --ds-on-host-chip: #121212;
   --ds-host-pill: #2C3A31;
   --ds-on-host-pill: #CFE4D6;
@@ -174,6 +178,8 @@
     --ds-plain-block: #282828;
     --ds-break-tint: #3A3A3A;
     --ds-host-chip: #ECECEC;
+    --ds-gap-line: #6E6E6E;
+    --ds-gap-hatch: rgba(255,255,255,0.14);
     --ds-on-host-chip: #121212;
     --ds-host-pill: #2C3A31;
     --ds-on-host-pill: #CFE4D6;

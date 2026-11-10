@@ -36,6 +36,8 @@ export interface ColorTokens {
   plainBlock: string; // a Calendar block or card with no label colour
   breakTint: string; // a break with no label colour
   hostChip: string; // a task during a break: its chip inside the break's block (light in both themes)
+  gapLine: string; // 3.34.0: a Break drawn as a free gap: its 1 px dashed outline
+  gapHatch: string; // its 45 degree hatching (no fill tint)
   onHostChip: string; // the chip's text (dark in both themes)
   hostPill: string; // 3.10.0: "3 inside" on a break's card
   onHostPill: string; // its text, and a hosted task's "During Lunch" caption
@@ -84,6 +86,8 @@ export const lightTokens: ColorTokens = {
   plainBlock: '#FFFFFF',
   breakTint: '#EFEDE6',
   hostChip: '#FFFFFF',
+  gapLine: '#A39B88',
+  gapHatch: 'rgba(27,27,27,0.14)',
   onHostChip: '#1B1B1B',
   hostPill: '#E6EEE8',
   onHostPill: '#3B5646',
@@ -132,6 +136,8 @@ export const darkTokens: ColorTokens = {
   plainBlock: '#282828',
   breakTint: '#3A3A3A',
   hostChip: '#ECECEC',
+  gapLine: '#6E6E6E',
+  gapHatch: 'rgba(255,255,255,0.14)',
   onHostChip: '#121212',
   hostPill: '#2C3A31',
   onHostPill: '#CFE4D6',

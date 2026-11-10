@@ -297,7 +297,8 @@ export function breaksFitting<T extends BreakSpan>(breaks: T[], lengthMin: numbe
   return breaks.filter((b) => (strict ? lengthMin < b.endMin - b.startMin : lengthMin <= b.endMin - b.startMin)).sort((a, b) => a.startMin - b.startMin || a.id.localeCompare(b.id));
 }
 
-// How the chips sit in a break block of this size.
+// How the chips sit in a break block of this size. The phone only since 3.34.0 (the desktop draws a break as a gap,
+// lib/gaps.ts); it goes with the phone phase of PLAN_breaks_as_gaps (P5).
 //   inline: a short break (one line, under COMPACT px): the title, then one chip on the same line
 //           if the block is wide enough, else nothing; "+N" for the rest.
 //   stack:  a taller break: the chips one per row under the title; "+N" on the title row for the
@@ -324,56 +325,6 @@ export function chipPlan(heightPx: number, widthPx: number, count: number, compa
   const rows = Math.max(0, Math.floor((heightPx - topPx) / rowPx));
   const shown = Math.min(n, rows);
   return { mode: 'stack', shown, more: n - shown };
-}
-
-// 3.29.1: the chips of a wide column, packed from their own widths (measured once, unconstrained) and the room
-// each line has, so the result never depends on an earlier, maybe stale, layout. In order, a chip goes on the
-// current line if it fits whole, else on the next line; when no line is left it and every chip after it are "+N".
-// A chip wider than a whole line is the one case that is shortened (ellipsis), to the room it has, if that room is
-// at least CHIP_MIN_W; never a chip that would fit whole on a line. When some chips go to "+N", the first line
-// keeps moreW for the badge (a one line break draws it on that line; a taller one passes 0, its badge is on the
-// title row).
-export const CHIP_GAP_PX = 4;
-export const CHIP_MIN_W = 72;
-export const MORE_W = 28;
-export interface ChipPack {
-  shown: number;
-  // The width the last shown chip is shortened to, if it is.
-  clip?: number;
-}
-export function packChips(widths: number[], lineW: number, lines: number, gap = CHIP_GAP_PX, minW = CHIP_MIN_W, moreW = MORE_W): ChipPack {
-  const n = widths.length;
-  const pack = (reserve: number): ChipPack => {
-    let line = 0;
-    let x = 0;
-    for (let i = 0; i < n; i++) {
-      const w = widths[i];
-      for (;;) {
-        const room = lineW - (line === 0 ? reserve : 0) - x - (x > 0 ? gap : 0);
-        if (w <= room + 0.5) {
-          x += (x > 0 ? gap : 0) + w;
-          break;
-        }
-        const full = lineW - (line === 0 ? reserve : 0);
-        // Wider than a whole line: shortened here if this is the line's first chip, or the last line.
-        if (w > full + 0.5 && (x === 0 || line === lines - 1)) {
-          return room >= minW ? { shown: i + 1, clip: Math.floor(room) } : { shown: i };
-        }
-        if (line >= lines - 1) return { shown: i };
-        line += 1;
-        x = 0;
-      }
-    }
-    return { shown: n };
-  };
-  if (n === 0 || lineW <= 0) return { shown: 0 };
-  const all = pack(0);
-  return all.shown === n || moreW <= 0 ? all : pack(moreW + gap);
-}
-
-// How many lines of chips a stacked break has room for under its title (at least one).
-export function chipLines(heightPx: number, rowPx = CHIP_ROW_PX, topPx = STACK_TOP_PX): number {
-  return Math.max(1, Math.floor((heightPx - topPx) / rowPx));
 }
 
 // P1 of PLAN_breaks_as_gaps (D4): a Break is a free gap, not work. A task that gaps cut counts only its PIECES, so a
@@ -417,7 +368,8 @@ export function gapMinutes(tasks: GapInput[], minLen: number = DEFAULT_CUT_MIN, 
 
 // P1 of PLAN_breaks_as_gaps: the spans the Timebox's "Scheduled" total counts. `items` are the day's planned items (the
 // pieces of cut tasks, whole tasks and events; a Break is one of them with its own id). A Break is a gap and is left out;
-// a task inside a break is not in `items` (it is a chip today) and counts at its real length. `entries` are the day's
+// a task inside a break counts at its real length (on the desktop it is in `items` too since 3.34.0; the union counts it
+// once). `entries` are the day's
 // entries as the pane built them.
 export function scheduledSpans<T extends { id: string; startMin: number; endMin: number }>(items: T[], entries: HostEntry[]): Array<Pick<T, 'id' | 'startMin' | 'endMin'>> {
   const { hostOf } = hostDay(entries);

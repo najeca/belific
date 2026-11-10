@@ -13,6 +13,8 @@ export const PX_PER_HOUR = 56;
 // A 5 minute event still needs to be readable and clickable. 20px is less
 // than a 30 minute slot (28px), so a short block never looks like it fills one.
 export const MIN_BLOCK_PX = 20;
+// 3.34.0 (PLAN_breaks_as_gaps P2): the floor of a block inside a gap.
+export const GAP_BLOCK_MIN_PX = 10;
 // Below this height a block shows one line (title and duration).
 export const COMPACT_BLOCK_PX = 36;
 // Block length for a placed task with no durationMinutes (decision 015).
@@ -51,6 +53,9 @@ export interface TimeboxItem {
   endMin: number;
   // A top priority task (2.29.0): its lane is the first one of its cluster and it is drawn on top.
   high?: boolean;
+  // 3.34.0: the least height in px (MIN_BLOCK_PX when unset). A task in a gap uses GAP_BLOCK_MIN_PX, so a
+  // 10 minute task does not stick out of its gap into the piece below.
+  minPx?: number;
 }
 
 export interface PlacedBlock {
@@ -117,7 +122,7 @@ export function continuationOf(task: Task): TimeboxItem | null {
 // drawn to the bottom and marked "continues". Items that overlap in time share
 // width side by side.
 export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
-  type Clamped = { id: string; startMin: number; endMin: number; continues: boolean; high: boolean };
+  type Clamped = { id: string; startMin: number; endMin: number; continues: boolean; high: boolean; minPx?: number };
   const visible: Clamped[] = [];
 
   for (const item of items) {
@@ -126,7 +131,7 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
     const continues = item.endMin > GRID_END_MIN || item.endMin <= item.startMin;
     const clampedStart = Math.max(startMin, GRID_START_MIN);
     const clampedEnd = Math.min(endMin, GRID_END_MIN);
-    if (clampedEnd > clampedStart) visible.push({ id: item.id, startMin: clampedStart, endMin: clampedEnd, continues, high: item.high === true });
+    if (clampedEnd > clampedStart) visible.push({ id: item.id, startMin: clampedStart, endMin: clampedEnd, continues, high: item.high === true, ...(item.minPx !== undefined ? { minPx: item.minPx } : {}) });
   }
 
   visible.sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin || a.id.localeCompare(b.id));
@@ -162,7 +167,7 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
     cluster.push({
       id: item.id,
       top: ((item.startMin - GRID_START_MIN) / 60) * PX_PER_HOUR,
-      height: blockHeightPx(item.endMin - item.startMin),
+      height: blockHeightPx(item.endMin - item.startMin, item.minPx),
       col,
       cols: 1,
       startMin: item.startMin,
@@ -214,9 +219,9 @@ export function scrollOffsetFor(minutes: number): number {
   return Math.max(0, (minutes / 60 - GRID_START_HOUR) * PX_PER_HOUR);
 }
 
-// Block height for a length in minutes: true scale, never below MIN_BLOCK_PX.
-export function blockHeightPx(minutes: number): number {
-  return Math.max((minutes / 60) * PX_PER_HOUR, MIN_BLOCK_PX);
+// Block height for a length in minutes: true scale, never below MIN_BLOCK_PX (or `minPx`).
+export function blockHeightPx(minutes: number, minPx: number = MIN_BLOCK_PX): number {
+  return Math.max((minutes / 60) * PX_PER_HOUR, minPx);
 }
 
 export function isCompactBlock(heightPx: number): boolean {

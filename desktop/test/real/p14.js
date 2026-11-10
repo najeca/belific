@@ -3,8 +3,9 @@
 // Real check for Part B, phase P4 (2.31.0): "Split". Real mouse, key and
 // text input into the real app, isolated data folder, in process fake Supabase.
 // The drawing: one wide column, full width boxes stacked top to bottom: the first piece
-// of the task with its title and "9:30am 7h", the break as a grey box in the gap, then the
-// next piece with the same title, its start time and "5h 10m left". Nothing side by side.
+// of the task with its title and "9:30am 7h", the break as a gap (3.34.0: hatched, no text; its
+// name and length on hover), then the next piece with the same title, its start time and
+// "5h 10m left". Nothing side by side.
 // BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -84,7 +85,8 @@ async function run() {
   check('P4: stacked top to bottom: piece one, the break, piece two', p1.b <= br.t + 1 && br.b <= p2.t + 1, JSON.stringify({ p1: [p1.t, p1.b], br: [br.t, br.b], p2: [p2.t, p2.b] }));
   check('P4: nothing side by side: all three have the same left edge and the same full width', p1.l === br.l && br.l === p2.l && p1.w === br.w && br.w === p2.w && p1.w > 120, JSON.stringify({ l: [p1.l, br.l, p2.l], w: [p1.w, br.w, p2.w] }));
   check('P4: the first piece shows the title and "9:30am 7h"', p1.text.includes(BOOT) && p1.text.includes('9:30am') && p1.text.includes('7h') && !p1.text.includes('left'), p1.text);
-  check('P4: the break shows "Short Break 11:00am 20m"', br.text.includes('Short Break') && br.text.includes('11:00am') && br.text.includes('20m'), br.text);
+  // 3.34.0 (PLAN_breaks_as_gaps P2): the break is a gap: no text of its own, "Short Break · 20 min" on hover.
+  check('P4: the break is a gap that says "Short Break · 20 min" on hover', br.text === 'Short Break · 20 min', br.text);
   check('P4: the next piece has the same title, "11:20am" and "5h 10m left" (to 4:30pm)', p2.text.includes(BOOT) && p2.text.includes('11:20am') && p2.text.includes('5h 10m left') && !p2.text.includes('7h'), p2.text);
   check('P4: the break is a grey box (no label colour), the pieces carry the label colour', br.bg !== p1.bg && br.bg !== 'rgb(255, 255, 255)' && p1.bg === p2.bg, JSON.stringify({ br: br.bg, p1: p1.bg, p2: p2.bg }));
   check('P4: heights stay tied to real time (90 min and 310 min on a 56 px hour grid)', Math.abs(p1.h - 84) <= 3 && Math.abs(p2.h - 289) <= 4, JSON.stringify({ p1: p1.h, p2: p2.h }));
@@ -119,8 +121,9 @@ async function run() {
   const lateBrk = await box(cal(d2, 'late'));
   const noSecond = await I.js(`!document.querySelector('[data-cal-block="cal${d2}:short~2"]')`);
   check('P4: a cut that would leave 20 minutes is refused: the task stays whole', !!whole && noSecond && !whole.text.includes('left'), whole && whole.text);
-  check('P4: the two then sit side by side as before', !!whole && !!lateBrk && whole.l !== lateBrk.l, JSON.stringify({ w: whole && whole.l, b: lateBrk && lateBrk.l }));
-  check('P4: the break says why, in a small badge (Not cut: 20 min piece (min 30))', !!lateBrk && lateBrk.text.includes('Not cut') && lateBrk.text.includes('20 min piece') && lateBrk.text.includes('min 30'), lateBrk && lateBrk.text);
+  // 3.34.0: the task is drawn whole over the gap (same left edge, no lanes) and the gap's outline is drawn above it.
+  check('P4: the task is drawn whole over the gap, the gap outlined above it', !!whole && !!lateBrk && whole.l === lateBrk.l && (await I.exists(`document.querySelector('[data-gap-outline="late"]')`)), JSON.stringify({ w: whole && whole.l, b: lateBrk && lateBrk.l }));
+  check('P4: the task says why, in a small badge (Not cut: 20 min piece (min 30))', !!whole && whole.text.includes('Not cut') && whole.text.includes('20 min piece') && whole.text.includes('min 30'), whole && whole.text);
   const tip = await I.js(`${cal(d2, 'late')}.getAttribute('title')`);
   check('P4: and its tooltip has the note too', !!tip && tip.includes('Not cutting Short host') && tip.includes('a piece would be 20 min') && tip.includes('minimum is 30 min'), String(tip));
   await I.shot('p14-refused');
@@ -137,13 +140,13 @@ async function run() {
   const wideBrk = await box(cal(today, 'brk'));
   const wide2 = await box(cal(today, 'boot~2'));
   check('P4: in Day view the three boxes are one wide column (the drawing): same left, same wide width, stacked', !!wide && !!wideBrk && !!wide2 && wide.l === wideBrk.l && wide.w === wideBrk.w && wide.w === wide2.w && wide.w > 500 && wide.b <= wideBrk.t + 1 && wideBrk.b <= wide2.t + 1, JSON.stringify([wide && wide.w, wideBrk && wideBrk.w, wide2 && wide2.w]));
-  check('P4: with one line each as drawn: the break reads "Short Break 11:00am 20m"', !!wideBrk && wideBrk.text.includes('Short Break') && wideBrk.text.includes('11:00am') && wideBrk.text.includes('20m'), wideBrk && wideBrk.text);
+  check('P4: the break is a gap with its name and length on hover', !!wideBrk && wideBrk.text === 'Short Break · 20 min', wideBrk && wideBrk.text);
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 700);
   await dayShot(d1, 'p14-DAY-three-breaks', 9);
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 700);
   await dayShot(d2, 'p14-DAY-refused', 9);
-  const dayNote = await box(cal(d2, 'late'));
-  check('P4: in Day view the refused break shows its badge in full', !!dayNote && dayNote.text.includes('Not cut: 20 min piece (min 30)'), dayNote && dayNote.text);
+  const dayNote = await box(cal(d2, 'short'));
+  check('P4: in Day view the task drawn whole shows the badge in full', !!dayNote && dayNote.text.includes('Not cut: 20 min piece (min 30)'), dayNote && dayNote.text);
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 700);
   await scrollTo(9);
   await C.sleep(300);
@@ -224,11 +227,12 @@ async function run() {
   await C.sleep(400);
   // With 60: the 50 minute first piece of the three break day is now too small.
   const stillCut = await I.js(`!!document.querySelector('[data-cal-block="cal${d1}:long~2"]')`);
-  const noteNow = await box(cal(d1, 'b1'));
+  // 3.34.0: the reason is on the piece under the refused break (its first piece, 9:00 to 11:00), not on the gap.
+  const noteNow = await box(cal(d1, 'long'));
   const third = await I.js(`!!document.querySelector('[data-cal-block="cal${d1}:long~3"]')`);
-  check('P4: with 60 minutes each cut is judged on its own: the 50 minute first piece refuses break one (info mark), break two still cuts', stillCut && !third && !!noteNow && (await I.exists(`${cal(d1, 'b1')}.querySelector('[data-cut-note-icon]')`)), JSON.stringify([stillCut, third, noteNow && noteNow.text]));
-  const tip60 = await I.js(`(() => { const i = ${cal(d1, 'b1')}.querySelector('[data-cut-note-icon]'); return i ? i.getAttribute('title') + ' | ' + i.getAttribute('aria-label') : null; })()`);
-  check('P4: a short break (no room for the badge) carries an info mark whose tooltip and aria-label say why', !!tip60 && tip60.includes('Not cutting Long host: a piece would be 50 min (the minimum is 1 h)') && tip60.split(' | ')[1] === tip60.split(' | ')[0], String(tip60));
+  check('P4: with 60 minutes each cut is judged on its own: the 50 minute first piece refuses break one (its badge), break two still cuts', stillCut && !third && !!noteNow && noteNow.text.includes('Not cut: 50 min piece (min 60)'), JSON.stringify([stillCut, third, noteNow && noteNow.text]));
+  const tip60 = await I.js(`(${cal(d1, 'long')} || { getAttribute: () => null }).getAttribute('title')`);
+  check('P4: and its tooltip says why in full', !!tip60 && tip60.includes('Not cutting Long host: a piece would be 50 min (the minimum is 1 h)'), String(tip60));
   // today's 90 minute and 310 minute pieces are fine at 60
   check('P4: the drawing is still cut at 60 (90 and 310 minute pieces)', await I.exists(cal(today, 'boot~2')));
   await I.shot('p14-min-60');

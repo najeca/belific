@@ -25,6 +25,7 @@ import {
   type Zone,
 } from '../../lib/drag';
 import { updateTask } from '../../lib/storage';
+import { toMinutes, toTime } from '../../lib/timebox';
 import { closePopover } from './Popover';
 import { isEditableTarget } from '../../lib/editable';
 import { convertDumpItem } from '../../lib/taskActions';
@@ -37,6 +38,8 @@ import { isMultiTime } from '../../lib/times';
 import { showNotice } from './uiStore';
 import { DROP_INSIDE, DWELL_MS, dwellDrop, fitRefusal, hostDrop, longerNote } from '../../lib/hosting';
 import { blockChangeRefusal } from '../../lib/hostActions';
+import { carryBreaks } from '../../lib/breakCarry';
+import type { CarryFrom } from '../../lib/gaps';
 import { dayBreaks } from './breakStore';
 import type { BrainDumpItem, Task } from '../../lib/types';
 
@@ -86,6 +89,8 @@ export interface DragState {
   edge: -1 | 0 | 1;
   // Resize only: the snapped duration so far.
   resizeDuration?: number;
+  // 3.34.0: a gap's top edge (PLAN_breaks_as_gaps P3): the snapped new start; the end stays.
+  resizeStart?: number;
   // 3.6.0: the pointer is on a break: the task goes inside it (the target's time is already moved
   // there), or it is longer than the break and drops as before.
   // 3.11.0: 'longer' is refused (the drop snaps back) and `note` says why: "Longer than the break (1 h)".
@@ -119,10 +124,29 @@ interface DragApi {
   registerBoard: (id: string, reg: BoardReg | null) => void;
   // Ref callback factory for a drag source, cached per key.
   sourceRef: (key: string, getItem: (e: PointerEvent) => DragItem | null) => (node: unknown) => void;
-  startResize: (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected?: boolean, scope?: string) => void;
+  startResize: (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected?: boolean, scope?: string, opts?: ResizeOpts) => void;
+}
+
+// 3.34.0: a gap's edges (GapLayer.tsx): which edge, the step in minutes (5, not the blocks' 30), the time of a task
+// with several, and the length of the time shown.
+export interface ResizeOpts {
+  edge: 'top' | 'bottom';
+  snap: number;
+  time?: string;
+  length: number;
 }
 
 const DragContext = createContext<DragApi | null>(null);
+
+// D5 (PLAN_breaks_as_gaps P3): where a placed block was before it moved, so its breaks can follow it and a drag is
+// never refused by the breaks that sit inside it (they move with it). A Break carries nothing.
+function carryFromOf(item: DragItem): CarryFrom | null {
+  const t = item.task;
+  if (!t || t.cutsBelow || item.kind !== 'block' || !t.dueDate) return null;
+  const start = toMinutes(item.time ?? t.startTime);
+  return start === null ? null : { dayKey: t.dueDate, startMin: start, endMin: start + taskDuration(t) };
+}
+const notCarried = (own: CarryFrom | null, dayKey: string) => (b: { startMin: number; endMin: number }) => !(own && own.dayKey === dayKey && own.startMin <= b.startMin && b.endMin <= own.endMin);
 
 export function useDrag(): DragApi {
   const api = useContext(DragContext);
@@ -154,6 +178,7 @@ interface Pending {
   // Resize only
   startMin?: number;
   gridNode?: HTMLElement;
+  opts?: ResizeOpts;
 }
 
 export default function DragProvider({ children, onChanged }: { children: React.ReactNode; onChanged: () => void }) {
@@ -211,8 +236,20 @@ export default function DragProvider({ children, onChanged }: { children: React.
     const { x, y } = pointer.current;
     if (p.mode === 'resize') {
       const gridTop = p.gridNode ? rectOf(p.gridNode).top : 0;
-      const duration = resizedDuration(p.startMin ?? 0, yToMinutes(y, gridTop));
-      const next: DragState = { mode: 'resize', item: p.item, x, y, target: null, accepted: true, edge: 0, resizeDuration: duration };
+      const raw = yToMinutes(y, gridTop);
+      const start = p.startMin ?? 0;
+      const o = p.opts;
+      let duration = resizedDuration(start, raw);
+      let resizeStart: number | undefined;
+      if (o) {
+        // A gap: 5 minute steps, at least one step; the top edge keeps the end where it is.
+        const end = start + o.length;
+        if (o.edge === 'top') {
+          resizeStart = Math.max(0, Math.min(end - o.snap, Math.round(raw / o.snap) * o.snap));
+          duration = end - resizeStart;
+        } else duration = Math.max(o.snap, Math.min(24 * 60, Math.round((raw - start) / o.snap) * o.snap));
+      }
+      const next: DragState = { mode: 'resize', item: p.item, x, y, target: null, accepted: true, edge: 0, resizeDuration: duration, ...(resizeStart !== undefined ? { resizeStart } : {}) };
       last.current = next;
       setDrag(next);
       return;
@@ -248,7 +285,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
       const dayKey = target.dayKey;
       const zone = zones.find((z) => z.kind === 'timebox' && z.dayKey === dayKey && inside(x, y, z.rect));
       if (zone && zone.kind === 'timebox') {
-        const breaks = dayBreaks(dayKey).filter((b) => b.taskId !== p.item.id);
+        const breaks = dayBreaks(dayKey).filter((b) => b.taskId !== p.item.id).filter(notCarried(carryFromOf(p.item), dayKey));
         const hd = hostDrop(breaks, yToMinutes(y, zone.gridTop), target.startMin, p.item.duration);
         if (hd.kind === 'host') {
           target = { ...target, startMin: hd.startMin };
@@ -377,7 +414,10 @@ export default function DragProvider({ children, onChanged }: { children: React.
     const todayKey = dateKey(new Date());
     if (p.mode === 'resize') {
       const task = p.item.task;
-      if (!task || !state.resizeDuration || state.resizeDuration === task.durationMinutes) return;
+      if (!task || !state.resizeDuration) return;
+      // 3.34.0: a gap's top edge moves its start and keeps its end.
+      const fields: Partial<Task> = state.resizeStart !== undefined ? { startTime: toTime(state.resizeStart), durationMinutes: state.resizeDuration } : { durationMinutes: state.resizeDuration };
+      if (fields.durationMinutes === task.durationMinutes && (fields.startTime === undefined || fields.startTime === task.startTime)) return;
       // A resize changes the length of every time of a task with several: refused if two would overlap.
       const refusal = resizeRefusal(task, state.resizeDuration);
       if (refusal) {
@@ -386,14 +426,14 @@ export default function DragProvider({ children, onChanged }: { children: React.
       }
       // 3.12.0: a length that would take a task out of its break (the break shrinking, or a hosted time of this
       // task growing past its own break) is refused, nothing written.
-      const brkNote = await blockChangeRefusal(task, { durationMinutes: state.resizeDuration }, task.dueDate ?? '');
+      const brkNote = await blockChangeRefusal(task, fields, task.dueDate ?? '');
       if (brkNote) {
         showNotice(brkNote);
         return;
       }
       // Resizing a day of a repeating task changes that day only (3.20.0).
-      if (task.recurrence) await editRepeatingTime(task, !!p.item.projected, { durationMinutes: state.resizeDuration });
-      else await updateTask({ ...task, durationMinutes: state.resizeDuration });
+      if (task.recurrence) await editRepeatingTime(task, !!p.item.projected, fields);
+      else await updateTask({ ...task, ...fields });
       onChangedRef.current();
       return;
     }
@@ -412,6 +452,9 @@ export default function DragProvider({ children, onChanged }: { children: React.
     // series' time, as before.
     const target = state.target;
     const otherDay = !!task && !!task.recurrence && target.kind !== 'left' && target.dayKey !== task.dueDate;
+    // D5: the breaks inside a moved block follow it, in the same gesture (one undo).
+    const from = target.kind === 'slot' ? carryFromOf(p.item) : null;
+    const carry = () => (task && from && target.kind === 'slot' ? carryBreaks(task, from, target.dayKey, target.startMin) : Promise.resolve(0));
     const write = async (fields: Partial<Task>) => {
       if (!task) return;
       if (task.recurrence && isDateKey(fields.dueDate) && fields.dueDate !== task.dueDate) {
@@ -442,6 +485,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
         return;
       }
       await write(res.fields);
+      await carry();
       onChangedRef.current();
       return;
     }
@@ -465,6 +509,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
       if (!patch) return;
       await convertDumpItem(item, patch);
     }
+    await carry();
     onChangedRef.current();
   }
 
@@ -567,15 +612,16 @@ export default function DragProvider({ children, onChanged }: { children: React.
   );
 
   const startResize = useCallback(
-    (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected = false, scope = '') => {
+    (e: PointerEvent, task: Task, startMin: number, gridNode: HTMLElement, projected = false, scope = '', opts?: ResizeOpts) => {
       if (e.button !== 0) return;
       e.stopPropagation();
       e.preventDefault();
       begin(e, {
         mode: 'resize',
-        item: { kind: 'block', task, id: task.id, title: task.title, emoji: task.emoji, duration: taskDuration(task), projected, scope },
+        item: { kind: 'block', task, id: task.id, title: task.title, emoji: task.emoji, duration: taskDuration(task), projected, scope, ...(opts?.time ? { time: opts.time } : {}) },
         startMin,
         gridNode,
+        ...(opts ? { opts } : {}),
       });
     },
     [begin],

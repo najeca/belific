@@ -48,7 +48,7 @@ export default function BrainDumpPane({
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   // 3.10.0: every row, tombstones included (a skipped day of a repeating break hosts nothing), for the
-  // cards' "During Lunch" and "3 inside".
+  // cards' "During Lunch".
   const [raw, setRaw] = useState<Task[]>([]);
   const [dumpItems, setDumpItems] = useState<BrainDumpItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -165,7 +165,6 @@ export default function BrainDumpPane({
                 color={labelColor(proj?.colorKey)}
                 listEmoji={listEmojiOf(task, lists)}
                 during={hosts.during.get(task.id)}
-                inside={hosts.inside.get(task.id)}
                 variant="row"
                 todayKey={todayKey}
                 showDay

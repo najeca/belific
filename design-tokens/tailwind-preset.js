@@ -35,6 +35,8 @@ module.exports = {
         "plain-block": "var(--ds-plain-block)",
         "break-tint": "var(--ds-break-tint)",
         "host-chip": "var(--ds-host-chip)",
+        "gap-line": "var(--ds-gap-line)",
+        "gap-hatch": "var(--ds-gap-hatch)",
         "on-host-chip": "var(--ds-on-host-chip)",
         "host-pill": "var(--ds-host-pill)",
         "on-host-pill": "var(--ds-on-host-pill)",

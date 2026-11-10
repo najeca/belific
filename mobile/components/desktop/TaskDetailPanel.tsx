@@ -14,6 +14,9 @@ import { loadLabels } from '../../lib/labels';
 import { addTask, loadLists, loadTasksRaw } from '../../lib/storage';
 import { DETAILS_LONGER, hostLinks, type HostLink } from '../../lib/hosting';
 import { breakRefusal } from '../../lib/hostActions';
+import { carryBreaks } from '../../lib/breakCarry';
+import { toMinutes } from '../../lib/timebox';
+import { taskDuration } from '../../lib/drag';
 import { DuringBreak, InsideBreak } from './HostDetails';
 import { BREAK_HINT, KIND_LABEL, TASK_HINT, breakIgnored, kindOf, kindPatch, type TaskKind } from '../../lib/taskKind';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
@@ -208,15 +211,26 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
       return;
     }
     if (timeNote === DETAILS_LONGER) setTimeNote(null);
+    // D5 (PLAN_breaks_as_gaps P3): a new time or day for a placed task takes the breaks inside it along, in the same
+    // gesture (one undo). A task with several times changes them in the Time row, not here.
+    const was = !isMultiTime(task) && task.dueDate ? toMinutes(task.startTime) : null;
+    const newDay = isDateKey(fields.dueDate) && fields.dueDate !== task.dueDate ? fields.dueDate : undefined;
+    const moves = was !== null && (('startTime' in fields && !!fields.startTime) || !!newDay);
+    const carry = () =>
+      moves && was !== null && task.dueDate
+        ? carryBreaks(task, { dayKey: task.dueDate, startMin: was, endMin: was + taskDuration(task) }, newDay ?? task.dueDate, toMinutes(fields.startTime ?? task.startTime) ?? was, 'panel')
+        : Promise.resolve(0);
     // A new Day on a repeating task moves this day only (3.2.0); the series' first row comes back
     // under a new id (series.planMoveDay), so the details follow it there.
     if (task.recurrence && movesOneDay(task, fields)) {
       const row = await moveDay(task, fields.dueDate as string, withoutDay(fields));
+      await carry();
       if (row && row.id !== task.id) openDetail(row.id);
       onSaved();
       return;
     }
     await ops.patch(fields);
+    await carry();
     onSaved();
   };
   const dayOps: TaskOps = { ...ops, patch };

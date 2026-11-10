@@ -301,7 +301,6 @@ export default function KanbanPane({
                 color={labelColor(proj?.colorKey)}
                 listEmoji={listEmojiOf(task, lists)}
                 during={hosts.during.get(task.id)}
-                inside={hosts.inside.get(task.id)}
                 variant="card"
                 todayKey={todayKey}
                 onChanged={onChanged}

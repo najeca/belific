@@ -142,9 +142,10 @@ const DragContext = createContext<DragApi | null>(null);
 
 // D5 (PLAN_breaks_as_gaps P3): where a placed block was before it moved, so its breaks can follow it and a drag is
 // never refused by the breaks that sit inside it (they move with it). A Break carries nothing.
-function carryFromOf(item: DragItem): CarryFrom | null {
+// Shifts S4: a card dropped on another day column carries what is inside the task too (`cards`).
+function carryFromOf(item: DragItem, cards = false): CarryFrom | null {
   const t = item.task;
-  if (!t || t.cutsBelow || item.kind !== 'block' || !t.dueDate) return null;
+  if (!t || t.cutsBelow || (item.kind !== 'block' && !(cards && item.kind === 'card')) || !t.dueDate) return null;
   const start = toMinutes(item.time ?? t.startTime);
   return start === null ? null : { dayKey: t.dueDate, startMin: start, endMin: start + taskDuration(t) };
 }
@@ -455,8 +456,14 @@ export default function DragProvider({ children, onChanged }: { children: React.
     const target = state.target;
     const otherDay = !!task && !!task.recurrence && target.kind !== 'left' && target.dayKey !== task.dueDate;
     // D5: the breaks inside a moved block follow it, in the same gesture (one undo).
-    const from = target.kind === 'slot' ? carryFromOf(p.item) : null;
-    const carry = () => (task && from && target.kind === 'slot' ? carryBreaks(task, from, target.dayKey, target.startMin) : Promise.resolve(0));
+    // Shifts S4: what is inside it follows too, and a card dropped on another day takes it to that day at the same times.
+    const from = target.kind === 'slot' ? carryFromOf(p.item) : target.kind === 'day' && p.item.kind === 'card' ? carryFromOf(p.item, true) : null;
+    const carry = () =>
+      task && from && target.kind === 'slot'
+        ? carryBreaks(task, from, target.dayKey, target.startMin)
+        : task && from && target.kind === 'day' && target.dayKey !== from.dayKey
+          ? carryBreaks(task, from, target.dayKey, from.startMin)
+          : Promise.resolve(0);
     const write = async (fields: Partial<Task>) => {
       if (!task) return;
       if (task.recurrence && isDateKey(fields.dueDate) && fields.dueDate !== task.dueDate) {

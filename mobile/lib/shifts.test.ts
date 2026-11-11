@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. Shifts S3: the shift's card and details, and Add inside.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { doneText, flipTodo, formCheck, insideTask, insideTodo, rowMeta, shiftSpan, shiftText, shiftsOfDay, type InsideForm } from './shifts.ts';
+import { doneText, flipTodo, formCheck, insideItemsOf, insideTask, insideTodo, rowMeta, shiftOnly, shiftSpan, shiftText, shiftsOfDay, withItems, type InsideForm } from './shifts.ts';
 import type { Task } from './types.ts';
 
 const DAY = '2026-11-12';
@@ -98,4 +98,41 @@ test('a to do tick flips one item and never completes the shift', () => {
   const next = flipTodo(todos, 's1');
   assert.deepEqual(next.map((s) => s.done), [true, false]);
   assert.deepEqual(flipTodo(next.map((s) => ({ ...s, done: true })), 's2').map((s) => s.done), [true, false]);
+});
+
+// ---- S4 ----
+
+test('S4 fix: rows only on a block of 2 hours or more; a shorter one keeps its steps ring and its inside cards', () => {
+  const steps = [{ id: 's1', title: 'One', done: false }];
+  assert.equal(shiftsOfDay([T('call', '19:00', 60, { subtasks: steps })], DAY, DAY, 30).byTask.size, 0, '1 h with steps: the ring');
+  assert.equal(shiftsOfDay([T('call', '19:00', 119, { subtasks: steps })], DAY, DAY, 30).byTask.size, 0, 'just under 2 h');
+  assert.equal(shiftsOfDay([T('study', '18:00', 120, { subtasks: steps })], DAY, DAY, 30).byTask.get('study')!.rows.length, 1, '2 h with to dos only: rows');
+  const short = shiftsOfDay([T('meet', '09:00', 90), T('note', '09:15', 15)], DAY, DAY, 30);
+  assert.equal(short.byTask.size, 0, 'a 90 minute block with one inside is not a shift on the card');
+  assert.equal(short.hidden.size, 0, 'and what is inside it keeps its card');
+});
+
+test('S4: a night shift that crosses midnight lists what is after midnight; that item is a row, not a card, the next day', () => {
+  const NEXT = '2026-11-13';
+  const tasks = [T('night', '20:00', 720, { title: 'Night' }), T('handover', '20:30', 30, { title: 'Handover' }), T('meds', '02:00', 30, { title: 'Meds', dueDate: NEXT }), T('late', '07:30', 60, { dueDate: NEXT })];
+  const info = shiftsOfDay(tasks, DAY, DAY, 30).byTask.get('night')!;
+  assert.deepEqual(info.rows.map((r) => [r.title, rowMeta(r)]), [
+    ['Handover', '8:30pm 30m'],
+    ['Meds', '2:00am (next day) 30m'],
+  ]);
+  assert.equal(shiftText(info), '1h of 12h planned, 11h free');
+  const next = shiftsOfDay(tasks, NEXT, DAY, 30);
+  assert.deepEqual([...next.hidden], ['meds'], 'Late ends after the shift: it keeps its card');
+  assert.deepEqual([...next.carried], ['meds'], 'and the next day\'s total leaves Meds out');
+});
+
+test('S4: insideItemsOf lists the separate tasks a skip or a delete may take along (both days for a night shift)', () => {
+  const NEXT = '2026-11-13';
+  const tasks = [T('night', '20:00', 720), T('handover', '20:30', 30), T('meds', '02:00', 30, { dueDate: NEXT }), T('pill', '21:00', 15, { extraTimes: ['09:00'] })];
+  assert.deepEqual(insideItemsOf(tasks, tasks[0], DAY).map((e) => e.full.id), ['handover', 'meds'], 'a task with several times is left out');
+  assert.equal(withItems('Delete', 7), 'Delete the shift and its 7 items');
+  assert.equal(withItems('Skip', 1), 'Skip the shift and its 1 item');
+  assert.equal(shiftOnly('Skip'), 'Skip the shift only');
+  const shift = nurse();
+  assert.deepEqual(insideItemsOf(shift, shift[0], DAY).map((e) => e.full.id).sort(), ['briefing', 'depts', 'lunch', 'patients', 'teams']);
 });

@@ -50,6 +50,9 @@ import { PopoverHeading, Row, popoverStyles } from './Popover';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import type { TaskOps } from './taskOps';
 import { MonthGrid, SearchField, divider } from './ui';
+import { ShiftChoice } from './ShiftBody';
+import { insideItems, withShift } from '../../lib/shiftActions';
+import type { DayHostEntry } from '../../lib/hosting';
 
 // The contents of the small dropdowns on a task card (checkpoint 8.2). Each
 // body edits one thing through `ops` and calls `done` when an option was
@@ -667,7 +670,39 @@ export function OverflowBody({
   const [confirming, setConfirming] = useState(!!armed);
   const [moving, setMoving] = useState(false);
   const [duringBreak, setDuringBreak] = useState(false);
+  // Shifts S4: skipping or deleting a task with blocks inside it asks "the shift only" or "the shift and its N items".
+  const [asking, setAsking] = useState<{ verb: 'Delete' | 'Skip'; items: DayHostEntry[]; own: () => Promise<void>; scope: 'day' | 'series' } | null>(null);
   const feats = useFeatures();
+  // Runs `own` at once when nothing is inside; otherwise asks first. Either way it is one gesture (one Ctrl+Z).
+  const withInside = async (verb: 'Delete' | 'Skip', own: () => Promise<void>, scope: 'day' | 'series') => {
+    const items = task && !task.cutsBelow ? await insideItems(task) : [];
+    if (items.length === 0) {
+      await withShift(own, [], scope);
+      notifyChanged();
+      done();
+      return;
+    }
+    setConfirming(false);
+    setAsking({ verb, items, own, scope });
+  };
+  if (asking) {
+    return (
+      <ShiftChoice
+        verb={asking.verb}
+        count={asking.items.length}
+        onPick={async (all) => {
+          await withShift(asking.own, all ? asking.items : [], asking.scope);
+          setAsking(null);
+          notifyChanged();
+          done();
+        }}
+        onCancel={() => {
+          setAsking(null);
+          done();
+        }}
+      />
+    );
+  }
   const breakRow = canDoDuringBreak(task) ? (
     <Row label={DURING_BREAK} leading={<Text>☕</Text>} onPress={() => setDuringBreak(true)} a11y={DURING_BREAK} />
   ) : null;
@@ -725,10 +760,7 @@ export function OverflowBody({
           <View style={styles.confirm}>
             <Text style={styles.muted}>Delete this repeating task?</Text>
             <Pressable
-              onPress={async () => {
-                await series.deleteSeries();
-                done();
-              }}
+              onPress={() => void withInside('Delete', () => series.deleteSeries(), 'series')}
               accessibilityRole="button"
               accessibilityLabel="Confirm delete repeating task"
             >
@@ -751,10 +783,7 @@ export function OverflowBody({
               <Row
                 label="Skip this day"
                 sub="Hides this day only"
-                onPress={async () => {
-                  await series.skipDay();
-                  done();
-                }}
+                onPress={() => void withInside('Skip', () => series.skipDay(), 'day')}
                 a11y="Skip this day"
               />
             )}
@@ -771,10 +800,7 @@ export function OverflowBody({
         <View style={styles.confirm}>
           <Text style={styles.muted}>Delete?</Text>
           <Pressable
-            onPress={async () => {
-              await ops.remove();
-              done();
-            }}
+            onPress={() => void withInside('Delete', () => ops.remove(), 'day')}
             accessibilityRole="button"
             accessibilityLabel="Confirm delete task"
           >

@@ -259,8 +259,11 @@ export default function KanbanPane({
     // P1 of PLAN_breaks_as_gaps (D1): a Break with a time is a gap, not a card; the column ends with one quiet line for them.
     // Shifts S3 (D2): a block fully inside a shift is a row of the shift's card, not a card of its own.
     const shown = items.filter((i) => !isTimedBreak(i.task));
-    const shifts = shown.length > 1 || shown.some((i) => (i.task.subtasks?.length ?? 0) > 0) ? shiftsOfDay(tasks, day.key, todayKey, cutMin, new Set(shown.map((i) => i.task.id))) : null;
+    const shifts = shown.length > 0 ? shiftsOfDay(tasks, day.key, todayKey, cutMin, new Set(shown.map((i) => i.task.id))) : null;
     const cards = shifts && shifts.hidden.size > 0 ? shown.filter((i) => !shifts.hidden.has(i.task.id)) : shown;
+    // S4: a block after midnight inside yesterday's overnight shift is a row of that shift's card (yesterday), and the shift
+    // counts there: today's total leaves it out.
+    const totalItems = items.map((i) => i.task).filter((t) => !shifts?.carried.has(t.id));
     const dayBreaks = items.filter((i) => isTimedBreak(i.task)).map((i) => i.task);
     const head = columnHeading(day.key, todayKey);
     const isTarget = dropDay === day.key;
@@ -288,10 +291,10 @@ export default function KanbanPane({
         <ShortDivider style={styles.headDivider} />
         {head.when === 'past' ? (
           <View style={styles.pastTotals}>
-            <DayTotals items={items.map((i) => i.task)} now={now} />
+            <DayTotals items={totalItems} now={now} />
           </View>
         ) : (
-          <DayAddBox dayKey={day.key} items={items.map((i) => i.task)} now={now} onChanged={onChanged} away={away} />
+          <DayAddBox dayKey={day.key} items={totalItems} now={now} onChanged={onChanged} away={away} />
         )}
         <ScrollView ref={scrollRef(`day:${day.key}`) as never} style={styles.columnList} contentContainerStyle={styles.columnListContent} showsVerticalScrollIndicator={false}>
           {cards.map((item) => {

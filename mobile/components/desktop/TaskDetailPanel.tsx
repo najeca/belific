@@ -21,7 +21,9 @@ import { DuringBreak, InsideBreak } from './HostDetails';
 import { FREE_TIME_TEXT, MAKE_NORMAL, breakIgnored, kindPatch } from '../../lib/taskKind';
 import { FIT_INSIDE, fitInsideFor, fitNote } from '../../lib/nesting';
 import { shiftsOfDay, type ShiftInfo } from '../../lib/shifts';
-import { ShiftBody } from './ShiftBody';
+import { ShiftBody, ShiftChoice } from './ShiftBody';
+import { insideItems, withShift } from '../../lib/shiftActions';
+import type { DayHostEntry } from '../../lib/hosting';
 import { useCutMin } from './cutStore';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -247,6 +249,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, onSaved, dra
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? '');
   const [confirming, setConfirming] = useState(false);
+  const [asking, setAsking] = useState<DayHostEntry[] | null>(null);
   const feats = useFeatures();
   const [tplOpen, setTplOpen] = useState(false);
   const [tplName, setTplName] = useState('');
@@ -655,12 +658,32 @@ function Panel({ task, projected, labels, lists, links, fit, shift, onSaved, dra
           </View>
         )}
         {tplNote && <Text style={styles.muted} accessibilityLabel="Template note">{tplNote}</Text>}
-        {confirming && (
+        {/* Shifts S4: a task with blocks inside it asks "the shift only" or "the shift and its N items". */}
+        {asking && (
+          <ShiftChoice
+            verb="Delete"
+            count={asking.length}
+            onPick={async (all) => {
+              await withShift(() => ops.remove(), all ? asking : [], 'day');
+              setAsking(null);
+              closeDetail();
+              notifyChanged();
+            }}
+            onCancel={() => setAsking(null)}
+          />
+        )}
+        {confirming && !asking && (
           <View style={styles.confirm}>
             <Text style={styles.muted}>Delete this task?</Text>
             <Pressable
               onPress={async () => {
-                await ops.remove();
+                const items = task.cutsBelow ? [] : await insideItems(task);
+                if (items.length > 0) {
+                  setConfirming(false);
+                  setAsking(items);
+                  return;
+                }
+                await withShift(() => ops.remove(), [], 'day');
                 closeDetail();
                 notifyChanged();
               }}

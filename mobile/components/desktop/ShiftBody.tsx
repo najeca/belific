@@ -4,7 +4,7 @@ import { Colors } from '../../lib/theme';
 import { radius } from '../../lib/tokens';
 import { formatMinutes } from '../../lib/timebox';
 import { addInside, tickRow } from '../../lib/shiftActions';
-import { ADD_INSIDE, DEFAULT_INSIDE_MIN, INSIDE_LENGTHS, allDaysOfShift, defaultStart, doneText, formCheck, rowMeta, shiftText, type InsideForm, type InsideScope, type ShiftInfo, type ShiftRow } from '../../lib/shifts';
+import { ADD_INSIDE, DEFAULT_INSIDE_MIN, INSIDE_LENGTHS, allDaysOfShift, itemsText, shiftOnly, withItems, defaultStart, doneText, formCheck, rowMeta, shiftText, type InsideForm, type InsideScope, type ShiftInfo, type ShiftRow } from '../../lib/shifts';
 import type { Task } from '../../lib/types';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, openPopover } from './Popover';
@@ -299,7 +299,27 @@ function ScopeButton({ on, text, scope, onPress }: { on: boolean; text: string; 
   );
 }
 
+// S4: deleting or skipping a shift that has things inside it asks once: the shift only, or the shift and its items.
+// Plain words, both buttons visible, no red; Cancel keeps everything.
+export function ShiftChoice({ verb, count, onPick, onCancel }: { verb: 'Delete' | 'Skip'; count: number; onPick: (withItems: boolean) => void; onCancel: () => void }) {
+  return (
+    <View style={styles.choiceBox} {...({ dataSet: { shiftChoice: verb.toLowerCase() } } as object)}>
+      <Text style={styles.note}>This shift has {itemsText(count)} inside it. Its to dos always go with it.</Text>
+      <Pressable onPress={() => onPick(false)} style={styles.addBtn} accessibilityRole="button" accessibilityLabel={shiftOnly(verb)} {...({ dataSet: { shiftChoicePick: 'only' } } as object)}>
+        <Text style={styles.addBtnText}>{shiftOnly(verb)}</Text>
+      </Pressable>
+      <Pressable onPress={() => onPick(true)} style={styles.addBtn} accessibilityRole="button" accessibilityLabel={withItems(verb, count)} {...({ dataSet: { shiftChoicePick: 'all' } } as object)}>
+        <Text style={styles.addBtnText}>{withItems(verb, count)}</Text>
+      </Pressable>
+      <Pressable onPress={onCancel} style={styles.textBtn} accessibilityRole="button" accessibilityLabel="Cancel" {...({ dataSet: { shiftChoicePick: 'cancel' } } as object)}>
+        <Text style={styles.textBtnText}>Cancel</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  choiceBox: { gap: 8, padding: 12 },
   body: { gap: 6, marginTop: 8 },
   summary: { fontSize: 14, lineHeight: 19, fontWeight: '700', color: Colors.textPrimary },
   progressRow: { gap: 4 },

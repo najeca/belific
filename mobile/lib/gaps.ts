@@ -90,19 +90,33 @@ export interface CarryFrom {
 
 export interface CarryMove {
   entry: DayHostEntry;
+  // The day the entry is on now (the next day for one after midnight inside a shift that crosses it, S4).
+  fromDay: string;
   // The new start, minutes after midnight of `dayKey`.
   startMin: number;
   dayKey: string;
 }
 
-// Pure: the breaks of `entries` (one day, as dayHostEntries builds it) wholly inside `from`, and where each goes when
-// the task starts at `toStart` on `toDay`. A break that would leave the day (before 00:00 or from 24:00) stays.
-export function carryPlan(entries: DayHostEntry[], hostTaskId: string, from: CarryFrom, toDay: string, toStart: number): CarryMove[] {
+// Pure: what follows a task that moves, and where each goes when the task starts at `toStart` on `toDay`.
+//  * The breaks (free time) wholly inside its old span (D5 of PLAN_breaks_as_gaps).
+//  * Shifts S4 (PLAN_shifts): the blocks wholly inside it too, shorter than it (what is drawn inside it, nesting.ts), so
+//    a shift and everything in it move in one gesture. A Break never carries anything (the caller checks).
+//  * A shift that crosses midnight: `next` holds the next day's entries (`nextDay`), and what is inside its overnight part
+//    moves too. Anything may land on the day after `toDay` (from 24:00); nothing goes before 00:00 of `toDay` (it stays).
+// `entries` are one day as dayHostEntries builds it.
+export function carryPlan(entries: DayHostEntry[], hostTaskId: string, from: CarryFrom, toDay: string, toStart: number, next: DayHostEntry[] = [], nextDay?: string, dayAfterTo?: string): CarryMove[] {
   const delta = toStart - from.startMin;
   if (delta === 0 && toDay === from.dayKey) return [];
-  return entries
-    .filter((e) => e.breaks && !e.cont && e.full.id !== hostTaskId && from.startMin <= e.startMin && e.endMin <= from.endMin)
-    .map((e) => ({ entry: e, startMin: e.startMin + delta, dayKey: toDay }))
-    .filter((m) => m.startMin >= 0 && m.startMin < 24 * 60);
+  const span = from.endMin - from.startMin;
+  const inside = (abs: number, e: DayHostEntry) => !e.cont && e.full.id !== hostTaskId && from.startMin <= abs && abs + (e.endMin - e.startMin) <= from.endMin && (e.breaks || e.endMin - e.startMin < span);
+  const cands: Array<{ e: DayHostEntry; abs: number; day: string }> = [
+    ...entries.filter((e) => inside(e.startMin, e)).map((e) => ({ e, abs: e.startMin, day: from.dayKey })),
+    ...(nextDay && from.endMin > 24 * 60 ? next.filter((e) => inside(e.startMin + 24 * 60, e)).map((e) => ({ e, abs: e.startMin + 24 * 60, day: nextDay })) : []),
+  ];
+  return cands.flatMap(({ e, abs, day }) => {
+    const to = abs + delta;
+    if (to < 0 || to >= 48 * 60 || (to >= 24 * 60 && !dayAfterTo)) return [];
+    return [{ entry: e, fromDay: day, startMin: to % (24 * 60), dayKey: to >= 24 * 60 ? (dayAfterTo as string) : toDay }];
+  });
 }
 

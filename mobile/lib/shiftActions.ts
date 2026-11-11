@@ -2,11 +2,13 @@
 // so one Ctrl+Z puts it back (undoStack.ts). Desktop only for now.
 import type { Task } from './types';
 import { generateId } from './data';
-import { addTask, loadTasksRaw, updateTask } from './storage';
-import { materialise } from './seriesActions';
+import { addTask, deleteTask, loadTasksRaw, updateTask } from './storage';
+import { deleteSeries, materialise, skipOccurrence } from './seriesActions';
+import { dateKey } from './kanban';
+import type { DayHostEntry } from './hosting';
 import { opsForProjected, opsForTask } from './taskOps';
 import { stack } from './undoStack';
-import { flipTodo, insideTask, insideTodo, type InsideForm, type ShiftRow } from './shifts';
+import { flipTodo, insideItemsOf, insideTask, insideTodo, type InsideForm, type ShiftRow } from './shifts';
 
 const latest = async (id: string): Promise<Task | undefined> => (await loadTasksRaw()).find((t) => t.id === id && !t.deletedAt);
 
@@ -51,4 +53,26 @@ export async function tickRow(shift: Task, projected: boolean, row: ShiftRow): P
   if (!row.subtaskId) return;
   const stored = await storedRow(shift, projected);
   if (stored) await updateTask({ ...stored, subtasks: flipTodo(stored.subtasks, row.subtaskId) });
+}
+
+// ---- S4: skipping or deleting a shift, with or without what is inside it ----
+
+// The separate tasks inside a shift on its day, as stored right now (the to dos are its checklist and go with it anyway).
+export async function insideItems(shift: Pick<Task, 'id' | 'dueDate'>): Promise<DayHostEntry[]> {
+  return insideItemsOf(await loadTasksRaw(), shift, dateKey(new Date()));
+}
+
+// One gesture (one Ctrl+Z): the shift's own action (skip a day, delete it, delete the series), then, when asked, what is
+// inside it. `scope` 'day': a repeating item skips that day, a one off item goes to the Trash. 'series' (the shift's
+// whole series is deleted): a repeating item's series goes too (into the Trash), a one off item goes to the Trash. The
+// items are read BEFORE the shift changes (afterwards nothing would be inside it).
+export async function withShift(own: () => Promise<void>, items: DayHostEntry[], scope: 'day' | 'series'): Promise<void> {
+  stack.markGesture();
+  await own();
+  for (const x of items) {
+    const repeating = !!x.full.recurrence || x.projected;
+    if (repeating && scope === 'series') await deleteSeries(x.full);
+    else if (repeating) await skipOccurrence(x.full);
+    else await deleteTask(x.full.id);
+  }
 }

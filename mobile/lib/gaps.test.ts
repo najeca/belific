@@ -86,7 +86,8 @@ test('gapTip: the name and the length', () => {
 });
 
 // D5: the breaks wholly inside a task's old span move with it, by the same amount, on the same or another day.
-test('carryPlan: Boot Camp moved 30 minutes later takes its three breaks along; Lunch (a task) and a break outside stay', () => {
+// Shifts S4 (3.39.0, changed on purpose): Lunch, a task inside Boot Camp, now moves with it too (it was left behind).
+test('carryPlan: Boot Camp moved 30 minutes later takes its three breaks and Lunch (inside it) along; a break outside stays', () => {
   const e = (id: string, s: number, en: number, breaks: boolean, cont = false) =>
     ({ id: `task:${id}`, startMin: s, endMin: en, breaks, cont, task: { id } as never, full: { id } as never, projected: false });
   const entries = [e('camp', m(9, 30), m(16, 30), false), ...breaks.map((b) => e(b.id.slice(5), b.startMin, b.endMin, true)), e('lunch', m(13), m(13, 30), false), e('evening', m(18), m(18, 20), true), e('night', 0, m(1), true, true)];
@@ -96,11 +97,38 @@ test('carryPlan: Boot Camp moved 30 minutes later takes its three breaks along; 
     ['task:short1', m(11, 30), '2026-11-09'],
     ['task:long', m(13), '2026-11-09'],
     ['task:short2', m(15, 30), '2026-11-09'],
+    ['task:lunch', m(13, 30), '2026-11-09'],
   ]);
   assert.deepEqual(carryPlan(entries, 'camp', from, '2026-11-10', m(9, 30)).map((x) => [x.entry.id, x.startMin, x.dayKey])[0], ['task:short1', m(11), '2026-11-10'], 'to another day at the same time');
   assert.equal(carryPlan(entries, 'camp', from, '2026-11-09', m(9, 30)).length, 0, 'no move, nothing to carry');
-  // A move that would push a break past midnight leaves that break.
+  // A move that would push a break past midnight leaves that break (no day after was given).
   assert.deepEqual(carryPlan(entries, 'camp', from, '2026-11-09', m(9, 30) + m(11)).map((x) => x.entry.id), ['task:short1', 'task:long']);
+  // S4: with the day after known, it goes there instead.
+  assert.deepEqual(carryPlan(entries, 'camp', from, '2026-11-09', m(9, 30) + m(11), [], undefined, '2026-11-10').map((x) => [x.entry.id, x.startMin, x.dayKey]), [
+    ['task:short1', m(22), '2026-11-09'],
+    ['task:long', m(23, 30), '2026-11-09'],
+    ['task:short2', m(2), '2026-11-10'],
+    ['task:lunch', m(0), '2026-11-10'],
+  ]);
+});
+
+test('carryPlan (S4): a night shift that crosses midnight takes what is inside it on both days', () => {
+  const e = (id: string, s: number, en: number, breaks = false, cont = false) =>
+    ({ id: `task:${id}`, startMin: s, endMin: en, breaks, cont, task: { id } as never, full: { id } as never, projected: false });
+  // Night 20:00 for 12 h (to 08:00); Handover 20:30 on its day, Meds 02:00 the next day; Same length (12 h) is not inside.
+  const day = [e('night', m(20), m(32)), e('handover', m(20, 30), m(21))];
+  const next = [e('night', 0, m(8), false, true), e('meds', m(2), m(2, 30)), e('late', m(7, 30), m(9))];
+  const from = { dayKey: '2026-11-09', startMin: m(20), endMin: m(32) };
+  const moves = carryPlan(day, 'night', from, '2026-11-09', m(21), next, '2026-11-10', '2026-11-10');
+  assert.deepEqual(moves.map((x) => [x.entry.id, x.fromDay, x.startMin, x.dayKey]), [
+    ['task:handover', '2026-11-09', m(21, 30), '2026-11-09'],
+    ['task:meds', '2026-11-10', m(3), '2026-11-10'],
+  ], 'one hour later: Late (ends after the shift) and the overnight rest itself stay');
+  const toFri = carryPlan(day, 'night', from, '2026-11-13', m(20), next, '2026-11-10', '2026-11-14');
+  assert.deepEqual(toFri.map((x) => [x.entry.id, x.startMin, x.dayKey]), [
+    ['task:handover', m(20, 30), '2026-11-13'],
+    ['task:meds', m(2), '2026-11-14'],
+  ], 'to another day: the item after midnight lands on the day after the new day');
 });
 
 test('a refused cut on a task other breaks did cut: the note goes on the piece under the refused break', () => {

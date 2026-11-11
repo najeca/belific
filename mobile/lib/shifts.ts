@@ -1,8 +1,9 @@
-// Shifts S3 (PLAN_shifts): the card and the details of a block with things inside it, and "Add inside". Pure: NO runtime
+// Shifts S3 and S4 (PLAN_shifts): the card and the details of a block with things inside it, "Add inside", and what goes
+// with a shift that is skipped, deleted or crosses midnight. Pure: NO runtime
 // imports besides siblings; see shifts.test.ts. Desktop only (the phone gets it in S5).
 //
-// A SHIFT is a placed task (a day, a time, a length) that has other blocks fully inside its time (lib/nesting.ts), or a
-// checklist (its subtasks, the "to dos"). What is inside it is worked out from the times every time a day is drawn:
+// A SHIFT is a placed task (a day, a time, a length of 2 hours or more, S4) that has other blocks fully inside its time
+// (lib/nesting.ts), or a checklist (its subtasks, the "to dos"). What is inside it is worked out from the times every time a day is drawn:
 // nothing new is stored. A timed block inside is an ordinary task; a to do is an item of the shift's checklist.
 //   * D2: a block inside a shift is a ROW of the shift's Kanban card, not a card of its own.
 //   * The summary ("5h of 10h planned, 5h free") is the one the grid's header shows (nesting.ts nestPlan, D1, D3). It
@@ -14,6 +15,7 @@ import { dayHostEntries, hostDay, type DayHostEntry } from './hosting.ts';
 import { nestDay, nestPlan, summaryText, type ShellSummary } from './nesting.ts';
 import { DEFAULT_TASK_MINUTES, formatMinutes, toMinutes, toTime } from './timebox.ts';
 import { formatTime } from './data.ts';
+import { addDays, dateKey, parseDateKey } from './kanban.ts';
 
 export interface ShiftRow {
   key: string;
@@ -27,6 +29,8 @@ export interface ShiftRow {
   projected?: boolean;
   // A task with several times a day: the time this row ticks.
   slot?: string;
+  // S4: it is after midnight, on the next day, inside the overnight part of the shift.
+  nextDay?: boolean;
   // A to do: its item in the shift's checklist.
   subtaskId?: string;
 }
@@ -45,37 +49,106 @@ export interface DayShifts {
   byTask: Map<string, ShiftInfo>;
   // The ids of tasks drawn only as rows of a shift (no card of their own, D2).
   hidden: Set<string>;
+  // S4: the ids among them that are rows of YESTERDAY's overnight shift (its card is on yesterday's column): the day
+  // total leaves them out too, as the shift counts on its own day.
+  carried: Set<string>;
 }
 
+// S4 fix: the rows and their in place ticks are for a long block, two hours or more (a shift). A shorter placed task
+// keeps the steps ring of its card, and the blocks inside it keep their own cards (the grid still draws them inside).
+export const SHIFT_MIN_MINUTES = 120;
+
 const isDone = (e: DayHostEntry): boolean => !!e.full.completed || (!!e.time && (e.full.timesDone ?? []).includes(e.time));
+const len = (e: { startMin: number; endMin: number }) => e.endMin - e.startMin;
+const nextKey = (dayKey: string) => dateKey(addDays(parseDateKey(dayKey), 1));
+
+// The plain blocks of a day (no free time, nothing inside free time), with the hosting the panes use.
+function plainOf(tasks: Task[], dayKey: string, todayKey: string): { entries: DayHostEntry[]; plain: DayHostEntry[]; hostOf: Map<string, string> } {
+  const entries = dayHostEntries(tasks, dayKey, todayKey);
+  const { hostOf } = hostDay(entries);
+  return { entries, plain: entries.filter((e) => !e.breaks && !hostOf.has(e.id)), hostOf };
+}
+
+// S4: what sits after midnight inside a shift that crosses it: the next day's blocks wholly inside the shift's overnight
+// part (yesterday's shift is `cont` there). `shell` is the shift's entry on its own day (its end past 24:00).
+function afterMidnight(shell: DayHostEntry, next: DayHostEntry[]): DayHostEntry[] {
+  if (shell.endMin <= 24 * 60) return [];
+  return next.filter((x) => !x.cont && !x.full.cutsBelow && x.full.id !== shell.full.id && x.startMin + 1440 >= shell.startMin && x.endMin + 1440 <= shell.endMin && len(x) < len(shell));
+}
+
+function taskLength(t: Pick<Task, 'durationMinutes'>): number {
+  return t.durationMinutes && t.durationMinutes > 0 ? t.durationMinutes : DEFAULT_TASK_MINUTES;
+}
+
+function unionOf(spans: Array<[number, number]>): number {
+  const sorted = [...spans].sort((a, b) => a[0] - b[0]);
+  let total = 0;
+  let cur: [number, number] | null = null;
+  for (const [a, b] of sorted) {
+    if (!cur || a > cur[1]) {
+      if (cur) total += cur[1] - cur[0];
+      cur = [a, b];
+    } else cur[1] = Math.max(cur[1], b);
+  }
+  return cur ? total + cur[1] - cur[0] : total;
+}
 
 // `visible`: only these shifts are shown (their ids); the blocks inside a shift that is not shown keep their cards.
 export function shiftsOfDay(tasks: Task[], dayKey: string, todayKey: string, cutMin: number, visible?: Set<string>): DayShifts {
-  const out: DayShifts = { byTask: new Map(), hidden: new Set() };
-  const entries = dayHostEntries(tasks, dayKey, todayKey);
+  const out: DayShifts = { byTask: new Map(), hidden: new Set(), carried: new Set() };
+  const { entries, plain, hostOf } = plainOf(tasks, dayKey, todayKey);
   if (entries.length === 0) return out;
-  const host = hostDay(entries);
-  const plain = entries.filter((e) => !e.breaks && !host.hostOf.has(e.id));
   const { shellOf, inside } = nestDay(plain);
   const plan = gapLayout(entries, cutMin, (id) => id);
-  const nest = nestPlan(entries, host.hostOf, plan.items);
+  const nest = nestPlan(entries, hostOf, plan.items);
   const byId = new Map(entries.map((e) => [e.id, e]));
   const nestedIn = new Map<string, number>();
+  let next: DayHostEntry[] | null = null;
   for (const e of plain) {
-    if (e.cont || e.time || shellOf.has(e.id) || e.full.cutsBelow) continue;
+    if (e.time || shellOf.has(e.id) || e.full.cutsBelow) continue;
+    // A shift is two hours or more (the fix in S4); its whole length counts, the overnight part too.
+    if (taskLength(e.full) < SHIFT_MIN_MINUTES) continue;
+    // Yesterday's overnight shift: its card is on yesterday's column, and what is inside its part of today is its rows there.
+    if (e.cont) {
+      for (const id of inside.get(e.id) ?? []) {
+        const x = byId.get(id);
+        if (x && !x.time) out.carried.add(x.full.id);
+      }
+      continue;
+    }
     if (visible && !visible.has(e.full.id)) continue;
     const timed = (inside.get(e.id) ?? []).flatMap((id) => {
       const x = byId.get(id);
       return x ? [x] : [];
     });
+    if (e.endMin > 24 * 60 && next === null) next = plainOf(tasks, nextKey(dayKey), todayKey).plain;
+    const late = next && e.endMin > 24 * 60 ? afterMidnight(e, next) : [];
     const todos = e.full.subtasks ?? [];
-    if (timed.length === 0 && todos.length === 0) continue;
+    if (timed.length === 0 && late.length === 0 && todos.length === 0) continue;
     if (out.byTask.has(e.full.id)) continue;
+    const timedRow = (x: DayHostEntry, nextDay: boolean): ShiftRow => ({
+      key: nextDay ? `next:${x.id}` : x.id,
+      kind: 'timed',
+      title: x.task.title,
+      done: isDone(x),
+      time: toTime(x.startMin),
+      minutes: len(x),
+      full: x.full,
+      projected: x.projected,
+      ...(x.time ? { slot: x.time } : {}),
+      ...(nextDay ? { nextDay: true } : {}),
+    });
     const rows: ShiftRow[] = [
-      ...timed.map((x): ShiftRow => ({ key: x.id, kind: 'timed', title: x.task.title, done: isDone(x), time: toTime(x.startMin), minutes: x.endMin - x.startMin, full: x.full, projected: x.projected, ...(x.time ? { slot: x.time } : {}) })),
+      ...timed.map((x) => timedRow(x, false)),
+      ...late.map((x) => timedRow(x, true)),
       ...todos.map((s): ShiftRow => ({ key: `todo:${s.id}`, kind: 'todo', title: s.title, done: s.done, subtaskId: s.id })),
     ];
-    const summary = timed.length > 0 ? nest.summaries.get(e.id) : undefined;
+    let summary = timed.length + late.length > 0 ? nest.summaries.get(e.id) : undefined;
+    if (late.length > 0) {
+      const base = summary ?? { total: len(e), planned: 0, free: len(e) };
+      const planned = Math.min(base.total, base.planned + unionOf(late.map((x) => [x.startMin, x.endMin] as [number, number])));
+      summary = { total: base.total, planned, free: base.total - planned };
+    }
     out.byTask.set(e.full.id, { task: e.full, projected: e.projected, ...(summary ? { summary } : {}), rows, done: rows.filter((r) => r.done).length, count: rows.length });
     for (const x of timed) nestedIn.set(x.full.id, (nestedIn.get(x.full.id) ?? 0) + 1);
   }
@@ -83,8 +156,32 @@ export function shiftsOfDay(tasks: Task[], dayKey: string, todayKey: string, cut
   const times = new Map<string, number>();
   for (const e of entries) times.set(e.full.id, (times.get(e.full.id) ?? 0) + 1);
   for (const [id, n] of nestedIn) if (times.get(id) === n) out.hidden.add(id);
+  for (const id of [...out.carried]) {
+    if (times.get(id) === 1) out.hidden.add(id);
+    else out.carried.delete(id);
+  }
   return out;
 }
+
+// ---- S4: what goes with a shift that is skipped, deleted or moved ----
+
+// The separate tasks inside a shift on its day (and, for a shift that crosses midnight, after midnight on the next
+// day): the blocks fully inside its time. Its to dos are its own checklist and always go with it. A task with several
+// times a day is left out (only one of its times is inside). `shift` is the day's task (a coming day's occurrence too).
+export function insideItemsOf(tasks: Task[], shift: Pick<Task, 'id' | 'dueDate'>, todayKey: string): DayHostEntry[] {
+  if (!shift.dueDate) return [];
+  const { plain } = plainOf(tasks, shift.dueDate, todayKey);
+  const e = plain.find((x) => x.full.id === shift.id && !x.cont && !x.time);
+  if (!e || e.full.cutsBelow) return [];
+  const own = plain.filter((x) => x !== e && !x.cont && !x.time && !x.full.cutsBelow && e.startMin <= x.startMin && x.endMin <= e.endMin && len(x) < len(e));
+  const late = e.endMin > 24 * 60 ? afterMidnight(e, plainOf(tasks, nextKey(shift.dueDate), todayKey).plain).filter((x) => !x.time) : [];
+  return [...own, ...late];
+}
+
+// "Delete the shift and its 5 items" / "Skip the shift and its 5 items".
+export const itemsText = (n: number): string => (n === 1 ? '1 item' : `${n} items`);
+export const withItems = (verb: 'Delete' | 'Skip', n: number): string => `${verb} the shift and its ${itemsText(n)}`;
+export const shiftOnly = (verb: 'Delete' | 'Skip'): string => `${verb} the shift only`;
 
 // "2 of 7 done"
 export const doneText = (done: number, count: number): string => `${done} of ${count} done`;
@@ -92,7 +189,7 @@ export const shiftText = (info: ShiftInfo): string | null => (info.summary ? sum
 // A row's right hand text: "8:30am 30m" for a timed one, nothing for a to do.
 export function rowMeta(r: ShiftRow): string {
   if (r.kind !== 'timed' || !r.time) return '';
-  return `${formatTime(r.time)} ${formatMinutes(r.minutes ?? 0)}`;
+  return `${formatTime(r.time)}${r.nextDay ? ' (next day)' : ''} ${formatMinutes(r.minutes ?? 0)}`;
 }
 
 // ---- Add inside ----

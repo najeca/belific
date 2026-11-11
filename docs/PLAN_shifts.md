@@ -1,6 +1,8 @@
 # Plan: shifts (blocks with smaller things inside)
 
-Planning only, 2026-11-11, on top of 3.35.0 (branch v2-redesign). No code yet, no version bump.
+Planning only, 2026-11-11, on top of 3.35.0 (branch v2-redesign). No code yet, no version bump. The five questions were
+answered the same day with the recommended defaults; they are decisions **D1 to D5** (section 13). The decisions of
+PLAN_breaks_as_gaps are written **G1 to G5** here, so the two sets never clash.
 
 Goal: a beginner, or someone over 50, can plan a long shift with smaller things inside it, with no types to understand.
 
@@ -8,10 +10,10 @@ Goal: a beginner, or someone over 50, can plan a long shift with smaller things 
 
 1. **Task and Break.** One table of tasks. A Break is a task with `cutsBelow: true` (column `cuts_below`). The "Task or Break" two-option control (`lib/taskKind.ts`, `KindChoice`) sits in the desktop details (`TaskDetailPanel.tsx:501`, row "Type") and in the phone details (`TaskDetails.tsx:482`).
 2. **Hosting** (`lib/hosting.ts`, `hostDay`) is worked out from the times, never stored. **Only a Break hosts**: a task fully inside a break (edges count) is its guest, and the shortest break wins. A break inside a longer break is hosted (3.22.0). Two plain tasks never nest. `fitRefusal` refuses a task that would stick out of a break it starts in.
-3. **Breaks as gaps, P2 to P4 (3.34.0 to 3.35.0).** On Day, Week and Timebox a break is a hatched gap under the blocks (`GapLayer`). Guests are ordinary blocks at their real size (10 px floor). Gaps move and resize in 5 minute steps. D5 carries breaks with the task under them. The scissors (button and `C`) cut a gap, with This day only / All days and one undo. `cutDay` cuts a task around a gap, and every piece must be at least `planner.cut_min` (30).
+3. **Breaks as gaps, P2 to P4 (3.34.0 to 3.35.0).** On Day, Week and Timebox a break is a hatched gap under the blocks (`GapLayer`). Guests are ordinary blocks at their real size (10 px floor). Gaps move and resize in 5 minute steps. G5 carries breaks with the task under them. The scissors (button and `C`) cut a gap, with This day only / All days and one undo. `cutDay` cuts a task around a gap, and every piece must be at least `planner.cut_min` (30).
 4. **Overlap.** Two plain blocks that overlap sit side by side in lanes (`timebox.layoutItems`, a top-priority task gets the left lane). The only exceptions are gaps, which cut, and guests, which sit in their gap.
 5. **Repeating.** A series is one stored template row. Coming days are projected, not stored (`lib/series.ts`). "This day only" stores that day's row. Skip writes a tombstone. Subtasks are copied unticked to each day.
-6. **Day totals.** Kanban, Daily Planning and Analytics sum each non-break task's length, minus the minutes gaps cut away (`gapMinutes`, D4). The Timebox "Scheduled" is the union of the drawn spans. So today a 10 h shift with 5 h of tasks on top reads **15 h** in Kanban and 10 h in the Timebox, and the five tasks sit beside the shift in narrow lanes.
+6. **Day totals.** Kanban, Daily Planning and Analytics sum each non-break task's length, minus the minutes gaps cut away (`gapMinutes`, G4). The Timebox "Scheduled" is the union of the drawn spans. So today a 10 h shift with 5 h of tasks on top reads **15 h** in Kanban and 10 h in the Timebox, and the five tasks sit beside the shift in narrow lanes.
 
 ## 1. What changes, in one table
 
@@ -20,11 +22,11 @@ Goal: a beginner, or someone over 50, can plan a long shift with smaller things 
 | Types on screen | "Task or Break" control in details | Gone. One kind of block. |
 | Making free time | Break in details, or the scissors | The scissors only, renamed "Free time" |
 | A block fully inside another block's time | Side by side in lanes (only breaks host) | Drawn **inside** it at its real size, on Day, Week and Timebox |
-| Counting a shift with things inside | Shift plus every task (15 h) | The shift once, at its own length (10 h) |
+| Counting a shift with things inside | Shift plus every task (15 h) | The shift once, at its own length (10 h), less any free time in it (D3) |
 | Shift's own summary | None | "5h of 10h planned, 5h free" plus a bar "2 of 7 done", on the block, card and details |
 | Adding something inside | Make a task, set day and time to fit | "Add inside" (details, right-click menu), or drag a task onto the shift |
 | To-dos with no time | A checklist on the task (subtasks), opened from the card | The same checklist, shown as rows in the shift's card with a tick that works in place |
-| Repeating inside items | By hand | "This day only" or "All days of Shift" when added; they move with the shift (D5 extended) |
+| Repeating inside items | By hand | "This day only" or "All days of Shift" when added; they move with the shift (G5 extended) |
 
 ## 2. One kind of block (wanted 1)
 
@@ -32,12 +34,12 @@ Goal: a beginner, or someone over 50, can plan a long shift with smaller things 
 - **Existing breaks** stay breaks: they are drawn as free time, as since 3.34.0. Their details get one plain button, **"Make it a normal block"** (`kindPatch('task')`), shown only on free time. This is the only way back, and it is visible.
 - **The scissors become "Free time".** The button shows ✂ with the text "Free time" next to it, not an icon on its own. Its tooltip is "Mark free time (C)". Plain wording:
   - hint: `Click where the free time starts, then where it ends. Esc to stop.`
-  - refused (D3, muted grey, never red): `Too short: this would leave 10 min (at least 30)`
+  - refused (G3, muted grey, never red): `Too short: this would leave 10 min (at least 30)`
   - popover on a repeating block: `This day only` / `All days of Shift`
   - new rows are titled `Free time`; old rows keep "Break"
   - gap tooltip: `Free time · 20 min`
-  - the day column's quiet line (D1): `☕ Free time · 1h 40m`
-- Nothing else makes a break. `C` stays as D2: it ticks a focused card, and otherwise toggles Free time.
+  - the day column's quiet line (G1): `☕ Free time · 1h 40m`
+- Nothing else makes a break. `C` stays as G2: it ticks a focused card, and otherwise toggles Free time.
 
 ## 3. Nesting, derived from times (wanted 2)
 
@@ -55,7 +57,7 @@ Goal: a beginner, or someone over 50, can plan a long shift with smaller things 
 - The outer block draws as today (label colour, square corners). Its top strip is the **header**: the title, the time, the summary line, and a thin progress bar with "x of y done" (section 4). On Week, where columns are narrow, the strip shows only the title and `5h/10h`. The full line is in the tooltip.
 - Inner blocks are drawn **inside** the outer rectangle. They are inset 8 px from its left edge. Each one sits at its real time and real height (the 10 px floor from 3.34.0). Inner blocks that overlap each other share lanes inside the shell (`layoutItems` run on the inner set). The header strip covers no inner block, because the strip is part of the shell's first minutes. An item starting at the shift's start is drawn over the strip, and the strip moves to the right of it.
 - The parts of the shell with nothing in them are its **free** time. They are drawn with a lighter tint of the label colour, not hatched, because hatching means free time cut by the scissors.
-- **Free time inside a shift** (a gap): the shift is cut around it as today (`cutDay`, D4). Its pieces are drawn as one shell, with the hatched gap showing through. Items inside the gap are the gap's guests, as today.
+- **Free time inside a shift** (a gap): the shift is cut around it as today (`cutDay`, G4). Its pieces are drawn as one shell, with the hatched gap showing through. Items inside the gap are the gap's guests, as today.
 - Click an inner block to open its details. Click the header or a free part of the shell to open the shift. Drag works as today (5 minute steps).
 
 ### Overlap rule after this
@@ -76,7 +78,7 @@ New pure helper in `lib/nesting.ts`:
 
 `shiftSummary(outer, inners, subtasks, gaps)` returns `{ total, planned, free, done, count }`:
 
-- `total` is the outer length minus the gaps inside it (D4: the same figure the day totals use).
+- `total` is the outer length minus the gaps inside it (**D3**; G4: the same figure the day totals use).
 - `planned` is the **union** of the inner items' spans, clipped to the shift, so two overlapping inner items do not count twice. Untimed to-dos add nothing.
 - `free` is `total − planned`.
 - `count` is the number of inner timed items plus the shift's subtasks. `done` is how many of them are ticked. A timed item with several times counts each time, as `timesCount` does.
@@ -112,7 +114,7 @@ The same summary shows on the block header, the Kanban card and the details wind
   What is it?      [ Ring patients              ]
   When?            (•) No time, just a to do
                    ( ) At a time  [11:00] for [2h ▾]
-  Repeat?          [ This day only ] [■ All days of Shift ]     (only when the shift repeats)
+  Repeat?          [ This day only ] [■ All days of Shift ]     (only when the shift repeats; D4)
                                         [ Cancel ]  [ Add ]
 ```
 
@@ -125,7 +127,7 @@ The same summary shows on the block header, the Kanban card and the details wind
   - an inner block dragged out of the shift is no longer inside it.
 
   This is the existing drag. Only the target changes from "a break" to "any longer block".
-- Lunch and phone calls are ordinary inside items. Lunch counts as **planned**: it is a planned thing. To make lunch count as free, cut it as free time with the scissors (Question 1).
+- Lunch and phone calls are ordinary inside items. Lunch counts as **planned**: it is a planned thing. To make lunch count as free, cut it as free time with the scissors (**D1**).
 
 ## 6. Data model and older builds (wanted 5)
 
@@ -150,12 +152,12 @@ Older builds:
 
 - The shift repeats as any series (e.g. Mon, Tue, Thu, Fri). Its summary is worked out per day, so a projected day shows its own inside items.
 - **Untimed to-dos.** All days adds the to-do to the series template, so every coming day gets it unticked (`copyForNextOccurrence`). This day only stores that day's row with the extra subtask (the existing one-day change, `series.ts` "This day only"), and the template is unchanged.
-- **Timed items.** All days creates the item as its own series. It starts on that day and copies the shift's `recurrence`, `recurrenceDays` and `recurrenceMonthDay`, exactly as the scissors do for free time (`bladeTask`). This day only creates a one-off task.
-- **D5, extended to inside items.** When the shift moves on one day, or its series time changes, everything wholly inside its old span moves by the same delta in the same gesture: free time and inner items alike. This uses `carryPlan` and `carryBreaks`, widened from breaks to nested entries, so one Ctrl+Z undoes it all.
+- **Timed items.** All days (focused, D4) creates the item as its own series. It starts on that day and copies the shift's `recurrence`, `recurrenceDays` and `recurrenceMonthDay`, exactly as the scissors do for free time (`bladeTask`). This day only creates a one-off task.
+- **G5, extended to inside items.** When the shift moves on one day, or its series time changes, everything wholly inside its old span moves by the same delta in the same gesture: free time and inner items alike. This uses `carryPlan` and `carryBreaks`, widened from breaks to nested entries, so one Ctrl+Z undoes it all.
 - **Skip this day** on a shift asks once: `Also skip its 4 items on this day?` with **Yes** focused. Yes writes a skip tombstone for each inner item's series on that day.
 - **Delete repeating task** on a shift asks: `Also delete its 4 inside items?`.
 - Nothing links the rows except their times, so these offers are worked out from the day as drawn.
-- **Free time and nesting together.** Gaps are settled first (`hostDay`), then nesting runs on what is left. A gap inside a shift cuts it, and the shift's `total` drops by the gap. A thing inside the gap belongs to the gap, not to the shift, and adds nothing to `planned`.
+- **Free time and nesting together.** Gaps are settled first (`hostDay`), then nesting runs on what is left. A gap inside a shift cuts it, and the shift's `total` drops by the gap (D3). A thing inside the gap belongs to the gap, not to the shift, and adds nothing to `planned`.
 - **Two non-nested blocks that overlap** stay side by side in lanes, and both count, as today (section 3 table).
 
 ## 8. Wording and look (wanted 7)
@@ -169,7 +171,7 @@ Older builds:
   - the Add inside form
   - the Free time hint, refusal and popover
 
-  Week block text stays at its current size, because seven columns do not fit 14 px (Question 5). The tooltip carries the full text at 14 px.
+  Week block text stays at its current size, because seven columns do not fit 14 px (**D5**). The tooltip carries the full text at 14 px.
 - **No red** on any of these surfaces. Refusals and notes are muted grey (`textMuted`), and the progress fill is the label colour. Tick circles stay sage when done.
 - Touch targets stay at least 44 pt on the phone, and the tick rows are 44 pt tall there.
 
@@ -236,7 +238,7 @@ The Timebox draws the same as this column. On Week the header strip reads `Shift
 └─────────────────────────────────────────┘
 ```
 
-- Inner timed items are rows of the shift's card, **not separate cards** in the column (Question 2).
+- Inner timed items are rows of the shift's card, **not separate cards** in the column (**D2**).
 - Each row's tick works in place: a timed row ticks that task, and a to-do row ticks the subtask.
 - A shift with more than 6 rows shows 6 and `Show 3 more`.
 - The details window shows the same header, bar, list and button, at full width.
@@ -263,18 +265,31 @@ Each phase is one version, with targeted real checks in quiet mode while buildin
 | S1 Rule and counting | 3.36.0 | `lib/nesting.ts` (`nestDay`, `shiftSummary`, `nestedMinutes`); totals, planned, Daily Planning, Analytics use it | New `nesting.test.ts`; `taskTotals`, `analytics`, `planningDraft` units | ¾ day |
 | S2 Drawing and one kind | 3.37.0 | Shell, header strip, inset inner lanes on Day, Week and Timebox; "Fit inside" note; drop target is any longer block; Task or Break control removed; "Make it a normal block"; Free time wording | `timebox.layoutItems` units; p27, p28, p42, p47 to p51 wording and selectors; p14, p16, p31, p48 (`data-kind-choice`); one new real check of the example day | 2 days |
 | S3 Card, details, Add inside | 3.38.0 | Summary and bar on the card and in details; inner rows with ticks; Add inside form and menu item; Set a time / No time | `subtasks`, `hostActions` units; a new real check: add both kinds, tick in place, totals | 1½ days |
-| S4 Repeating and carry | 3.39.0 | All days for inner items; D5 carry widened; skip and delete offers | `seriesMove`, `breakCarry` units; p50 extended | 1 day |
+| S4 Repeating and carry | 3.39.0 | All days for inner items; G5 carry widened; skip and delete offers | `seriesMove`, `breakCarry` units; p50 extended | 1 day |
 | S5 Phone | 3.40.0 | Merges breaks P5: gaps and shells on the phone, control removed, Add inside, card rows; iOS markers reviewed | phone-p6, phone-p13, phone-p14, `phoneDay.test`; full regression | 2 days |
 | S6 Outlook on Timebox (later) | — | Section 10 | `icsFeed`, a Timebox real check | ½ day |
 
 That is about 7 days for S1 to S5. S1 is safe alone: totals become right before anything looks different. S2 and S3 belong together for a beta.
+
+### Model and what each phase ships on its own
+
+| Phase | Model | Why that model | Ships on its own |
+|---|---|---|---|
+| S1 Rule and counting | **Opus** | The nesting rule meets hosting, cuts, several times a day and overnight rests. Getting the totals exactly right everywhere decides every later phase. | Day totals stop double counting: the nurse's day reads 10h in Kanban, Daily Planning, Analytics and the Timebox. Nothing looks different yet. |
+| S2 Drawing and one kind | **Opus** | Lane layout inside a shell, the header strip, drop targets and the many real checks that pin the gap layout | The shift draws with its items inside it on Day, Week and Timebox, with the summary in its header. The Task or Break control is gone and Free time has its plain words. Items are still added by setting their time or by dragging. |
+| S3 Card, details, Add inside | **Sonnet** | UI built on the S1 helpers and the existing subtasks, menus and forms. The rules are already settled. | The shift's card and details show "planned of total, free" and "x of y done", with inside rows that tick in place (D2). Add inside works from details, the right-click menu and the card, with no time or at a time. |
+| S4 Repeating and carry | **Opus** | Series, projected days, tombstones and one-gesture undo across several rows are where the subtle bugs live. | Inside items repeat with a repeating shift (D4) and move with it in one undo. Skip and delete offer to take the items along. |
+| S5 Phone | **Sonnet** | A port of patterns already built and tested on the desktop, plus the full regression | The phone draws free time and shells, has no Task or Break control, and has Add inside and the card rows. The two apps now agree. |
+
+S6 (Outlook on the Timebox, later) is a **Sonnet** phase. On its own it shows read-only Outlook meetings on the Timebox,
+inside a shift when they fit.
 
 ## 12. Risks
 
 | Risk | What breaks | Plan |
 |---|---|---|
 | **Sync** | Nothing new is synced, but two devices on different builds total differently (old: 15 h, new: 10 h) | A CHANGELOG line. Older builds are explained in section 6. Subtasks already merge per row as today. |
-| **Repeating days** | Inner items are their own series, linked only by time. Moving the shift on one day in an old build leaves them behind. Skip or delete of the shift in an old build leaves them standing. | D5 carry in this build; skip and delete offers; a moved shift's items un-nest visibly rather than silently. No stored link, by choice. |
+| **Repeating days** | Inner items are their own series, linked only by time. Moving the shift on one day in an old build leaves them behind. Skip or delete of the shift in an old build leaves them standing. | G5 carry in this build; skip and delete offers; a moved shift's items un-nest visibly rather than silently. No stored link, by choice. |
 | **Projected days** | Ticking a to-do or inner item on a coming day must store that day's row (series rule) | S3 checks it with a real tick on a projected day |
 | **Night shifts** | `cont` (yesterday's overnight rest) never hosts today, so items after midnight would not nest | S1 lets `cont` host, with units for 20:00–08:00. The shell then shows on both days. |
 | **The phone** | Still draws chips and has the control until S5. A shift made on the desktop shows lanes side by side there. | S5 merges with breaks P5. Until then, say so in the beta notes. |
@@ -284,13 +299,20 @@ That is about 7 days for S1 to S5. S1 is safe alone: totals become right before 
 | **Totals change** | Day totals drop for anyone with overlapping plain tasks | A CHANGELOG line, as for P1 of breaks |
 | **Old breaks with no control** | Someone used Break as "busy" | "Make it a normal block" on free time details |
 
-## 13. Questions (recommended default first)
+## 13. Decisions (2026-11-11)
 
-1. **Lunch: planned or free?** *Default: planned* (it is an ordinary inside item, as asked). Use Free time to make it free.
-2. **Inner timed items on Kanban: only as rows in the shift's card, or also their own cards?** *Default: only rows*, so the column has one card per shift and the day total cannot look doubled.
-3. **Free time inside a shift: does it lower the shift's total?** *Default: yes*: 10 h with a 30 min gap reads "of 9h 30m", matching D4 and the day total.
-4. **Add inside on a repeating shift: which choice has the focus?** *Default: All days of Shift*, matching the scissors. This day only is one press away.
-5. **Week view text: keep the current size for blocks in seven narrow columns?** *Default: yes*. Everything else this plan touches is at least 14 px, and the Week tooltip is 14 px.
+All five questions were answered with the recommended default. The plan refers to them as D1 to D5.
+
+1. **D1, lunch counts as planned.** Lunch and phone calls are ordinary inside items and count toward "planned". To make
+   time count as free, mark it with the ✂ Free time tool.
+2. **D2, inside items on Kanban are rows of the shift's card only.** They are not their own cards in the day column, so
+   the column has one card per shift and the day total cannot look doubled.
+3. **D3, free time inside a shift lowers its total.** 10 h with a 30 min gap reads "of 9h 30m", matching G4 and the day
+   total.
+4. **D4, All days has the focus** in Add inside on a repeating shift, as in the scissors popover. This day only is one press
+   away.
+5. **D5, Week block text keeps its current size** in seven narrow columns. Everything else this plan adds or touches is at
+   least 14 px, and the Week tooltip is 14 px.
 
 ## 14. Done when
 

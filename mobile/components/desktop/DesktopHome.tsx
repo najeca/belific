@@ -29,6 +29,8 @@ import TimerWidget from './TimerWidget';
 import MiddlePan from './MiddlePan';
 import TaskDetailPanel from './TaskDetailPanel';
 import { AddInsideHost } from './ShiftBody';
+import PlanButton from './PlanButton';
+import { refreshFreeTimeLine } from './freeTimeStore';
 import ShortcutHelp from './ShortcutHelp';
 import { useHomeShortcuts } from './useHomeShortcuts';
 import { runRedo, runUndo, useUndoRecording } from './useUndoRedo';
@@ -230,6 +232,7 @@ export default function DesktopHome() {
   useEffect(() => {
     refreshFeatures();
     refreshCutMin();
+    refreshFreeTimeLine();
     refreshDefaultReminders();
     refreshVibrant();
     refreshTheme();
@@ -244,6 +247,8 @@ export default function DesktopHome() {
   // only today), remembered in user_settings with a local fallback.
   const [paneState, updatePanes] = usePaneState();
   const windowWidth = useWindowWidth();
+  // The centre pane's top row, measured: Analytics moves into the Plan menu when the row is too narrow for it (planEntry.ts).
+  const [topRowW, setTopRowW] = useState(0);
   // Opened over the centre for the moment on a narrow window; never remembered.
   const [overlayOpen, setOverlayOpen] = useState({ sidebar: false, timebox: false });
   const layout = responsiveLayout(paneState, windowWidth, overlayOpen);
@@ -395,9 +400,8 @@ export default function DesktopHome() {
     if (viewRef.current !== 'home') setView('home');
     fn();
   };
+  // F1 of PLAN_daily_flow: Plan my day, Wrap up and Analytics are the Plan button's now, not the avatar menu's.
   const profileActions = {
-    planning: features.planning ? onHome(() => openOverlay({ kind: 'flow', mode: 'planning' })) : undefined,
-    shutdown: features.planning ? onHome(() => openOverlay({ kind: 'flow', mode: 'shutdown' })) : undefined,
     capture: onHome(() => openOverlay({ kind: 'capture', mode: 'list' })),
     search: onHome(() => openOverlay({ kind: 'search' })),
     shortcuts: onHome(() => openOverlay({ kind: 'help' })),
@@ -407,11 +411,12 @@ export default function DesktopHome() {
       onOpenSettings={() => showView('settings')}
       onOpenProgress={() => showView('progress')}
       onOpenSignIn={() => showView('signin')}
-      onOpenAnalytics={() => showView('analytics')}
       onOpenTrash={() => showView('trash')}
       actions={profileActions}
     />
   );
+  // One Plan button at a time, beside the avatar: here on the home screen, in the page strip otherwise.
+  const plan = <PlanButton windowWidth={windowWidth} rowWidth={view === 'home' ? topRowW : 0} onOpen={(flow) => onHome(() => openOverlay({ kind: 'flow', mode: flow }))()} onAnalytics={() => showView('analytics')} />;
 
   return (
     <DragProvider onChanged={onChanged}>
@@ -422,7 +427,10 @@ export default function DesktopHome() {
             <Ionicons name="arrow-back" size={18} color={Colors.onHostPill} />
             <Text style={styles.backText}>Back</Text>
           </Pressable>
-          <View style={styles.stripRight}>{profile}</View>
+          <View style={styles.stripRight}>
+            {plan}
+            {profile}
+          </View>
         </View>
       )}
       <View ref={panes} style={[styles.body, view !== 'home' && styles.hidden]} accessibilityElementsHidden={view !== 'home'}>
@@ -438,7 +446,7 @@ export default function DesktopHome() {
         </View>
         <View style={styles.centre} {...({ dataSet: { pane: 'center' } } as object)}>
           <PaneBand />
-          <View style={styles.topRow} accessibilityLabel="Centre controls">
+          <View style={styles.topRow} accessibilityLabel="Centre controls" onLayout={(e) => setTopRowW(Math.round(e.nativeEvent.layout.width))}>
             {layout.sidebar === 'hidden' && (
               <Pressable onPress={toggleSidebar} style={pressStyle(({ hovered }) => [styles.edgeBtn, hovered && styles.edgeHover])} accessibilityRole="button" accessibilityLabel="Show sidebar">
                 <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
@@ -482,6 +490,7 @@ export default function DesktopHome() {
             <View style={{ flex: 1 }} />
             {/* One profile menu at a time: here on the home screen, in the page
                 strip otherwise (two share a popover id and would close each other). */}
+            {view === 'home' && plan}
             {view === 'home' && profile}
             {layout.timeboxAvailable && layout.timebox === 'hidden' && (
               <Pressable onPress={toggleTimebox} style={pressStyle(({ hovered }) => [styles.edgeBtn, hovered && styles.edgeHover])} accessibilityRole="button" accessibilityLabel="Show Timebox">

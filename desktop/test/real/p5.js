@@ -98,9 +98,9 @@ async function run() {
 
   // ======== 1. Cancel changes nothing ========
   const before = raw();
-  // 2.26.0: Plan my day is in the profile menu.
-  await I.click(I.byLabel('Profile, not signed in'));
-  await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Plan my day"]')`, 600);
+  // 2.26.0: Plan my day was in the profile menu; 3.40.0 (F1 of PLAN_daily_flow): it is in the Plan button's menu.
+  await I.click(`document.querySelector('[data-plan-menu]')`, 500);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Plan my day from the menu"]')`, 600);
   check('the Daily Planning overlay opens, step 1 of 4', (await flowOpen()) && (await I.body()).includes('Step 1 of 4') && (await I.body()).includes('Review your work'));
   // 3.25.0 (changed on purpose; 2.27.0 listed a missed day of a repeating task): the repeating task's past days are never listed.
   check('step 1 lists the missed one off tasks and no day of a repeating task', (await I.exists(inFlow('Flow task Missed one'))) && (await I.exists(inFlow('Flow task Missed placed'))) && !(await I.exists(`document.querySelector('[data-flow] [data-missed-row="rep"]')`)) && !(await I.exists(inFlow('Do Repeating daily today'))) && !(await I.exists(inFlow('Move Repeating daily to today'))));
@@ -155,9 +155,10 @@ async function run() {
   check('a second Planning with no changes writes nothing at all', raw() === afterFirst);
 
   // ======== 4. Shutdown: only the chosen tasks go to tomorrow ========
-  await I.click(I.byLabel('Profile, not signed in'));
-  await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Shut down my day"]')`, 600);
-  check('Daily Shutdown opens, step 1 of 2', (await flowOpen()) && (await I.body()).includes('Step 1 of 2'));
+  // 3.40.0: Shut down my day is "Wrap up", in the Plan button's menu.
+  await I.click(`document.querySelector('[data-plan-menu]')`, 500);
+  await I.click(`document.querySelector('[data-popover] [aria-label="Wrap up from the menu"]')`, 600);
+  check('Wrap up opens, step 1 of 2', (await flowOpen()) && (await I.body()).includes('Step 1 of 2') && (await I.body()).includes('Wrap up'));
   check('what was done today is listed (the task ticked in Planning)', await I.exists(inFlow('Flow task Missed one')));
   // keep one today
   await I.click(inFlow('Move Brain one to tomorrow'));

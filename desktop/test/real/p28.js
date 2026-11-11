@@ -51,6 +51,8 @@ async function run() {
     at('exact', 'Exact fit', '19:00', 90),
     at('plus1', 'Plus one', '21:00', 21),
   ];
+  // 3.40.0 (F1 of PLAN_daily_flow): the Free time line is a setting, off by default; this check is about the line.
+  fs.writeFileSync(path.join(dataDir, 'belific_user_settings.kv'), JSON.stringify([{ key: 'board.free_time_line', value: 'true', updatedAt: '2026-09-01T07:00:00.000Z' }]));
   fs.writeFileSync(path.join(dataDir, 'belific_tasks.kv'), JSON.stringify(seed));
   fs.writeFileSync(path.join(dataDir, 'belific_projects.kv'), JSON.stringify([{ key: 'work', name: 'Work', colorKey: 'sky', createdAt: stamp, updatedAt: stamp }]));
   fs.writeFileSync(path.join(dataDir, 'belific_desktop_panes.kv'), JSON.stringify({ leftCollapsed: false, rightCollapsed: false, center: 'kanban', calendar: 'day' }));

@@ -164,7 +164,7 @@ async function run() {
     check(`${name}: a card is flat: 12px corners, a 2px outline, no shadow, padding 12 x 14 (or 16 x 14 under a band)`, cardShape.radius === '12px' && cardShape.outline === '2px' && cardShape.shadow === 'none' && /^(12|16)px 14px$/.test(cardShape.pad), JSON.stringify(cardShape));
     check(`${name}: the day header is a heavy (800) weekday with a small square Today tag`, cardShape.weekdayWeight === '800' && cardShape.tagRadius === 0 && cardShape.tagBg === true, JSON.stringify(cardShape));
     check(`${name}: Add a task is a dashed 10px row (2 px dashed outline)`, cardShape.addRadius === '10px' && cardShape.addBorder === '2px', JSON.stringify([cardShape.addRadius, cardShape.addBorder]));
-    check(`${name}: a label is a dot and its name, not a filled chip`, cardShape.labelChipBg === 'rgba(0, 0, 0, 0)' && cardShape.dotRound === true, JSON.stringify([cardShape.labelChipBg, cardShape.dotRound]));
+    check(`${name}: a label is a plain dot (3.40.0: the card's name is the list's), not a filled chip`, cardShape.labelChipBg === 'rgba(0, 0, 0, 0)' && cardShape.dotRound === true, JSON.stringify([cardShape.labelChipBg, cardShape.dotRound]));
     // The list picker (a popover: lists with their emoji, + New list at the bottom).
     await I.click(`document.querySelector('[aria-label^="List:"]')`, 600);
     await I.shot(`p22-${name}-3a-list-picker`);

@@ -83,6 +83,15 @@ async function run() {
     await I.click(I.byLabel(await profileIcon()));
     await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="${label}"]')`, 600);
   };
+  // 3.40.0 (F1 of PLAN_daily_flow): Plan my day, Wrap up and Analytics are the Plan button's, not the profile menu's.
+  const planHas = async (label) => {
+    if (!(await I.exists(`document.querySelector('[data-plan-menu]')`))) return false;
+    await I.click(`document.querySelector('[data-plan-menu]')`, 500);
+    const has = await I.exists(`document.querySelector('[data-popover] [aria-label="${label} from the menu"]')`);
+    await I.key('Escape');
+    return has;
+  };
+  const analyticsButton = () => I.exists(`document.querySelector('[data-analytics-button]')`);
   const menuHas = async (label) => {
     await I.click(I.byLabel(await profileIcon()));
     const has = await I.exists(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="${label}"]')`);
@@ -126,10 +135,10 @@ async function run() {
   await I.click(I.byLabel('📊 Analytics'));
   await C.waitFor(() => setting('feature.analytics'), 6000).catch(() => {});
   check('a toggle is one user_settings row ("off")', setting('feature.analytics')?.value === 'off', JSON.stringify(setting('feature.analytics')));
-  check('Analytics off: the profile menu no longer lists it', (await menuHas('Analytics')) === false && (await menuHas('Trash')) === true);
+  check('Analytics off: the Analytics button is gone, the profile menu still has Trash', (await analyticsButton()) === false && (await menuHas('Trash')) === true);
   await I.click(I.byLabel('📊 Analytics'));
   await C.waitFor(() => setting('feature.analytics')?.value === 'on', 6000).catch(() => {});
-  check('Analytics on again: the row is back', (await menuHas('Analytics')) === true);
+  check('Analytics on again: the Analytics button is back', (await analyticsButton()) === true);
 
   // 2.26.0: priority is gone from the interface, its stored value is kept.
   await back();
@@ -171,12 +180,12 @@ async function run() {
   check('reminders on again: the Reminder row is back in the details', await reminderRow());
 
   // Daily planning off.
-  check('planning is on: the profile menu has Plan my day and Shut down my day', (await menuHas('Plan my day')) && (await menuHas('Shut down my day')));
+  check('planning is on: the Plan button\'s menu has Plan my day and Wrap up', (await planHas('Plan my day')) && (await planHas('Wrap up')));
   await openSettings();
   await I.click(I.byLabel('🌅 Daily planning'));
   await C.waitFor(() => setting('feature.planning')?.value === 'off', 6000).catch(() => {});
   await back();
-  check('Planning off: the profile menu rows are gone', !(await menuHas('Plan my day')) && !(await menuHas('Shut down my day')));
+  check('Planning off: the Plan button is gone', !(await I.exists(`document.querySelector('[data-plan-button]')`)));
   await I.js('document.activeElement && document.activeElement.blur()');
   await I.key('P', ['control', 'shift']);
   check('Planning off: Ctrl+Shift+P opens nothing', !(await I.exists(I.byLabel('Close daily planning'))) && !(await I.body()).includes('Good morning'));
@@ -184,7 +193,7 @@ async function run() {
   await I.click(I.byLabel('🌅 Daily planning'));
   await C.waitFor(() => setting('feature.planning')?.value === 'on', 6000).catch(() => {});
   await back();
-  check('Planning on: the rows are back', await menuHas('Plan my day'));
+  check('Planning on: the Plan button is back', await I.exists(`document.querySelector('[data-plan-button]')`));
 
   // ======== 2. Labels is an overlay, with emoji ========
   await openSettings();

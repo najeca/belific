@@ -317,10 +317,10 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
   }
 
   return (
-    <View style={styles.overlay} accessibilityLabel={mode === 'planning' ? 'Daily Planning' : 'Daily Shutdown'} {...({ role: 'dialog', 'aria-modal': true, dataSet: { flow: mode } } as object)}>
+    <View style={styles.overlay} accessibilityLabel={mode === 'planning' ? 'Daily Planning' : 'Wrap up'} {...({ role: 'dialog', 'aria-modal': true, dataSet: { flow: mode } } as object)}>
       <View style={styles.rail}>
         <Text style={styles.badge}>
-          {mode === 'planning' ? 'Daily Planning' : 'Daily Shutdown'} · Step {step + 1} of {steps.length}
+          {mode === 'planning' ? 'Daily Planning' : 'Wrap up'} · Step {step + 1} of {steps.length}
         </Text>
         <Text style={styles.title} accessibilityRole="header">
           {s.title}

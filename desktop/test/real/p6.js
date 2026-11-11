@@ -119,9 +119,10 @@ async function run() {
   const text = (label) => I.textOf(I.byLabel(label));
 
   // ======== 1. Analytics: cards ========
-  await openFromMenu('Analytics');
+  // 3.40.0 (F1 of PLAN_daily_flow): Analytics is a text button beside the Plan button.
+  await I.click(`document.querySelector('[data-analytics-button]')`, 800);
   await I.waitBody('Worked out from the tasks on this computer', 8000);
-  check('Analytics opens from the profile menu, on the last 7 days', (await I.body()).includes('Analytics') && (await I.exists(I.byLabel('Range Last 7 days'))));
+  check('Analytics opens from its button in the top bar, on the last 7 days', (await I.body()).includes('Analytics') && (await I.exists(I.byLabel('Range Last 7 days'))));
   await C.waitFor(async () => (await text('Completed card')).includes('tasks completed'), 8000);
   const completedCard = await text('Completed card');
   check('Completed: 4 tasks, 3 more than the 7 days before', /\n4\n/.test(completedCard) && completedCard.includes('4 tasks completed, 3 more than the 7 days before'), completedCard);

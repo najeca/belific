@@ -124,7 +124,7 @@ async function run() {
   const screens = [
     ['settings', async () => fromMenu('Settings'), back],
     ['progress', async () => fromMenu('Progress'), back],
-    ['analytics', async () => fromMenu('Analytics'), back],
+    ['analytics', async () => I.click(`document.querySelector('[data-analytics-button]')`, 800), back],
     ['trash', async () => fromMenu('Trash'), back],
     ['quests', async () => I.click(I.byLabel('Quests'), 800), back],
     ['planning', async () => { await I.blur(); await I.key('P', ['control', 'shift']); await C.sleep(900); }, esc],

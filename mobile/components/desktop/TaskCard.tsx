@@ -54,6 +54,7 @@ export default function TaskCard({
   onOpen,
   showDay,
   listEmoji,
+  listName,
   during,
   inside,
 }: {
@@ -78,6 +79,9 @@ export default function TaskCard({
   // The emoji of the task's list (2.27.1), first on the meta line; none when the
   // task has no list or its list has no emoji.
   listEmoji?: string;
+  // F1 of PLAN_daily_flow (3.40.0): the list's name. A card on the board shows the list (emoji and name) on its first
+  // meta line instead of the label name; the dot and the band keep the label's colour (the name is in the dot's tooltip).
+  listName?: string;
   // 3.10.0: a hosted task's "During Lunch" (lib/hosting.ts hostIndex). A break's "3 inside" pill went with 3.34.0: a
   // break with a time is no card (3.33.0) and is drawn as a gap with its tasks as blocks in it.
   during?: string;
@@ -326,7 +330,23 @@ export default function TaskCard({
               // 3.23.0: two lines. Line 1: the list emoji, the label dot and the label name (an ellipsis only when the name
               // truly cannot fit the card). Line 2: the date and time, the host captions, the steps and the must do mark.
               <View style={styles.meta} accessible={false} {...({ dataSet: { cardMeta: '1' } } as object)}>
-                {listEmoji || label ? (
+                {variant === 'card' && listName ? (
+                  <View style={[styles.metaLine, { flexWrap: 'nowrap' }]} {...({ dataSet: { cardMetaLine: '1' } } as object)}>
+                    {label ? (
+                      <View ref={tipRef(`Label: ${label.name}`) as never} style={styles.dotBox} accessibilityLabel={`Label: ${label.name}`} {...({ dataSet: { cardLabel: label.key } } as object)}>
+                        <View style={[styles.dot, { backgroundColor: color?.edge ?? Colors.textSecondary }]} />
+                      </View>
+                    ) : null}
+                    {listEmoji ? (
+                      <Text style={styles.listChipEmoji} accessibilityLabel="List emoji" {...({ dataSet: { cardListEmoji: '1' } } as object)}>
+                        {listEmoji}
+                      </Text>
+                    ) : null}
+                    <Text style={styles.listChipText} numberOfLines={1} accessibilityLabel={`List: ${listName}`} {...({ dataSet: { cardListName: '1' } } as object)}>
+                      {listName}
+                    </Text>
+                  </View>
+                ) : listEmoji || label ? (
                   <View style={[styles.metaLine, { flexWrap: 'nowrap' }]} {...({ dataSet: { cardMetaLine: '1' } } as object)}>
                     {listEmoji ? (
                       <Text style={styles.listEmoji} accessibilityLabel="List emoji" {...({ dataSet: { cardListEmoji: '1' } } as object)}>
@@ -565,6 +585,9 @@ const styles = StyleSheet.create({
   labelChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 20, flexShrink: 1, minWidth: 0 },
   labelChipText: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary, flexShrink: 1 },
   dot: { width: 9, height: 9, borderRadius: 5 },
+  dotBox: { width: 9, height: 20, justifyContent: 'center', flexShrink: 0 },
+  listChipEmoji: { fontSize: 14, lineHeight: 20 },
+  listChipText: { fontSize: 14, lineHeight: 20, fontWeight: '500', color: Colors.textSecondary, flexShrink: 1, minWidth: 0 },
   ringBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingRight: 2 },
   counter: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
   counterDone: { color: Colors.accentText, fontWeight: '700' },

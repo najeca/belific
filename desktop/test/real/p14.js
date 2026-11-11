@@ -57,6 +57,8 @@ async function run() {
     T('night', 'Night host', { dueDate: d2, startTime: '22:00', durationMinutes: 360, projectKey: 'pb' }),
     T('nbrk', 'Night break', { dueDate: d2, startTime: '23:00', durationMinutes: 20, cutsBelow: true }),
   ];
+  // 3.40.0 (F1 of PLAN_daily_flow): the Free time line is a setting, off by default; this check is about the line.
+  fs.writeFileSync(path.join(dataDir, 'belific_user_settings.kv'), JSON.stringify([{ key: 'board.free_time_line', value: 'true', updatedAt: '2026-09-01T07:00:00.000Z' }]));
   fs.writeFileSync(path.join(dataDir, 'belific_tasks.kv'), JSON.stringify(seed));
   fs.writeFileSync(path.join(dataDir, 'belific_projects.kv'), JSON.stringify([{ key: 'pb', name: 'Blue', colorKey: 'sky', createdAt: stamp, updatedAt: stamp }]));
 

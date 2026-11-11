@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 3.40.0 — 2026-11-11 (Daily flow, F1: the Plan button, the Free time line setting, the list on cards; PLAN_daily_flow)
+
+**Desktop. No schema change, no migration, no data change: the one new setting is a user_settings row. The phone is unchanged.**
+- **A Plan button in the top bar** (`components/desktop/PlanButton.tsx`, `lib/planEntry.ts`), next to the avatar, on the home screen and in the page strip. It opens **Plan my day** from 04:00 to 13:59 and **Wrap up** from 14:00 to 03:59 (it changes its words by itself); the small chevron button beside it always lists both, so the other is one press away. Both parts are always visible, outlined, 14 px. Plan week is not built yet and is not listed. It follows the Daily planning feature (Settings, Power features): off, no Plan button.
+- **Wrap up** is the old Shut down my day: its screen is titled "Wrap up · Step 1 of 2" (it was "Daily Shutdown"); the steps are unchanged for now (F3).
+- **An Analytics text button** (plain, underlined, 14 px) beside the Plan button. It moves into the Plan menu when the window is under 1100 px, and also when the centre pane's top row is under 880 px wide (all three panes open on a 1440 px window squeeze it to about 770 px, which would have clipped the avatar). It follows the Analytics feature.
+- **The avatar menu** no longer has Plan my day, Shut down my day or Analytics. It keeps Quick capture, Search, Settings, Keyboard shortcuts, Progress, Trash, Sync and Sign in or out. The Daily planning feature's hint now reads "Plan my day and Wrap up, the Plan button and Ctrl+Shift+P."
+- **The Free time line is a setting, off by default** (Settings, Planning: "Show free time at the foot of each day"; `freeTimeStore.ts`; the synced user setting `board.free_time_line`). The line now reads "☕ Free time · 1h 40m". The gaps on the Calendar and the Timebox stay the only sign of a break otherwise.
+- **A card on the Tasks board shows its list** (the emoji and the name, 14 px; a task in Brain Dump shows "🧠 Brain Dump") on its first line, after a small dot in the label's colour. The band keeps the label's colour; the label's name is the dot's tooltip and screen reader name, and is in the details. The left pane's rows are unchanged.
+- **Also:** the Timebox's "Free time" button moved to its title row (the date row was too narrow for its words, and clipped them since 3.37.0).
+- **Tests changed on purpose:** planEntry.test.ts (new: which flow when, the words, Analytics's breakpoints, the setting's parser), easConfig.test.ts (version); real: new p56 (the Plan button, its menu and both flows, the avatar menu, Analytics from its button and from the menu at 1000 and 1440 px, the Free time line setting and the card's list), p11 (the card's list rewritten), p14 p27 p28 p48 (they seed the Free time line setting on), p22 (wording); the pointer only checks p5, p6, p7 and p23 now open Plan my day, Wrap up and Analytics from the Plan button (not run in quiet mode).
+
 ## 3.39.0 — 2026-11-11 (Shifts, S4: repeating and carry; rows only on long blocks; PLAN_shifts)
 
 **Desktop. No schema change, no migration, no data change: what goes with a shift is still worked out from the times. The phone is unchanged until S5.**

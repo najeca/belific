@@ -43,6 +43,8 @@ async function run() {
     T('a', 'Deep work', { startTime: '14:00', durationMinutes: 60 }),
     T('b', 'Email', { startTime: '14:15', durationMinutes: 15 }),
   ];
+  // 3.40.0 (F1 of PLAN_daily_flow): the Free time line is a setting, off by default; this check is about the line.
+  fs.writeFileSync(path.join(dataDir, 'belific_user_settings.kv'), JSON.stringify([{ key: 'board.free_time_line', value: 'true', updatedAt: '2026-09-01T07:00:00.000Z' }]));
   fs.writeFileSync(path.join(dataDir, 'belific_tasks.kv'), JSON.stringify(seed));
   const read = readKv(dataDir);
   const byId = (id) => (read('belific_tasks') || []).find((t) => t.id === id);

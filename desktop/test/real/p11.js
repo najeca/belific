@@ -221,19 +221,20 @@ async function run() {
   await C.waitFor(() => byId('t2').durationMinutes === 45, 4000).catch(() => {});
   check('2: Finish stores it (45 minutes)', byId('t2').durationMinutes === 45);
 
-  // ======== 3. The list's emoji on the card ========
-  // 3.23.1 (changed on purpose): the meta is two lines; the list emoji and the label chip are on line 1, in that order.
-  const metaOf = (expr) => I.js(`(() => { const m0 = (${expr}).querySelector('[data-card-meta]'); if (!m0) return null; const m = m0.querySelector('[data-card-meta-line="1"]') || m0; return { first: m.firstElementChild && m.firstElementChild.dataset.cardListEmoji ? m.firstElementChild.textContent : null, emoji: (m.querySelector('[data-card-list-emoji]') || {}).textContent || null, chip: (m.querySelector('[data-card-label]') || {}).textContent || null, order: [...m.children].map((c) => c.dataset.cardListEmoji ? 'list' : c.dataset.cardLabel ? 'label' : 'other') }; })()`);
+  // ======== 3. The list on the card ========
+  // 3.40.0 (F1 of PLAN_daily_flow, changed on purpose): a card on the board shows the LIST (emoji and name) on line 1, after
+  // a small dot in the label's colour; the label's name is the dot's tooltip. (3.23.1: the list emoji and the label chip.)
+  const metaOf = (expr) => I.js(`(() => { const m0 = (${expr}).querySelector('[data-card-meta]'); if (!m0) return null; const m = m0.querySelector('[data-card-meta-line="1"]') || m0; const dot = m.querySelector('[data-card-label] > div'); const lab = m.querySelector('[data-card-label]'); return { first: m.querySelector('[data-card-list-emoji]') ? m.querySelector('[data-card-list-emoji]').textContent : null, emoji: (m.querySelector('[data-card-list-emoji]') || {}).textContent || null, list: (m.querySelector('[data-card-list-name]') || {}).textContent || null, labelText: lab ? lab.textContent : null, dotBg: dot ? getComputedStyle(dot).backgroundColor : null, tip: lab ? lab.getAttribute('aria-label') : null, chip: lab ? lab.textContent : null, size: m.querySelector('[data-card-list-name]') ? parseFloat(getComputedStyle(m.querySelector('[data-card-list-name]')).fontSize) : null }; })()`);
   const m1 = await metaOf(card(today, 'Modal task'));
-  check('3: a card in a list with an emoji shows it first on the meta line, before the label chip', !!m1 && m1.first === '🎲' && m1.order.indexOf('list') === 0 && m1.order.indexOf('label') === 1, JSON.stringify(m1));
-  check('3: the label is a coloured chip with its emoji and name', !!m1 && m1.chip === '💼 Work' && (await I.js(`getComputedStyle(${card(today, 'Modal task')}.querySelector('[data-card-label] div')).backgroundColor`)) === 'rgb(111, 143, 126)', JSON.stringify(m1));
+  check('3: a card shows its list: the emoji and the name', !!m1 && m1.emoji === '🎲' && m1.list === 'Games', JSON.stringify(m1));
+  check('3: the label is only a dot in its colour (no name on the card); its name is the dot's tooltip', !!m1 && m1.labelText === '' && m1.dotBg === 'rgb(111, 143, 126)' && m1.tip === 'Label: Work', JSON.stringify(m1));
   const m4 = await metaOf(card(today, 'No emoji list'));
-  check('3: a list with no emoji shows nothing (not the default list emoji)', !!m4 && m4.emoji === null && m4.chip === 'Home', JSON.stringify(m4));
-  // Changed on purpose in 3.14.1: a task in Brain Dump shows its brain.
-  check('3: a task with no list shows the Brain Dump brain', (await I.js(`((${card(today, 'Plain task')}).querySelector('[data-card-list-emoji]') || {}).textContent || ''`)).replace(/️/g, '') === '🧠');
-  const emojiSize = await I.js(`parseFloat(getComputedStyle(${card(today, 'Modal task')}.querySelector('[data-card-list-emoji]')).fontSize)`);
-  // 3.32.0 (on purpose): the card's meta line is 13 px.
-  check('3: it is small', emojiSize <= 13, String(emojiSize));
+  check('3: a list with no emoji shows its name alone (not the default list emoji)', !!m4 && m4.emoji === null && m4.list === 'Plain list' && m4.tip === 'Label: Home', JSON.stringify(m4));
+  // Changed on purpose in 3.14.1: a task in Brain Dump shows its brain, and now its name.
+  const m5 = await metaOf(card(today, 'Plain task'));
+  check('3: a task with no list shows the Brain Dump brain and "Brain Dump"', !!m5 && (m5.emoji || '').replace(/️/g, '') === '🧠' && m5.list === 'Brain Dump', JSON.stringify(m5));
+  // 3.40.0: the list name is 14 px (the card's other meta text is 13).
+  check('3: the list name is at least 14 px', !!m1 && m1.size >= 14, String(m1 && m1.size));
   // The left pane: the Games list.
   await I.click(`document.querySelector('[aria-label^="List: "][aria-label$="Change list"]')`, 400);
   await I.click(I.byLabel('Show list Games'), 600);

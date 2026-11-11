@@ -493,6 +493,9 @@ export default function TimeboxPane({
       <PaneBand />
       <View style={styles.headRow}>
         <IconHeading icon="time-outline" size={22} style={styles.paneTitle}>Timebox</IconHeading>
+        <View style={{ flex: 1 }} />
+        {/* F1 (3.40.0): the Free time button has its words, so it sits on the title row (the date row is too narrow for it). */}
+        <BladeButton size={32} />
         {onHide && (
           <Pressable onPress={onHide} style={styles.hideBtn} accessibilityRole="button" accessibilityLabel="Hide Timebox">
             <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
@@ -529,7 +532,6 @@ export default function TimeboxPane({
         >
           <Text style={styles.todayText}>Today</Text>
         </Pressable>
-        <BladeButton size={32} />
       </View>
 
       {pickerOpen && (

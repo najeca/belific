@@ -40,6 +40,8 @@ async function run() {
   const T = (id, title, extra = {}) => ({ id, title, completed: false, createdAt: stamp, updatedAt: stamp, dueDate: TODAY, ...extra });
   const B = (id, title, start, len) => T(id, title, { startTime: start, durationMinutes: len, cutsBelow: true });
   const at = (id, title, start, len, extra = {}) => T(id, title, { startTime: start, durationMinutes: len, ...extra });
+  // 3.40.0 (F1 of PLAN_daily_flow): the Free time line is a setting, off by default; this check is about the line.
+  fs.writeFileSync(path.join(dataDir, 'belific_user_settings.kv'), JSON.stringify([{ key: 'board.free_time_line', value: 'true', updatedAt: '2026-09-01T07:00:00.000Z' }]));
   fs.writeFileSync(
     path.join(dataDir, 'belific_tasks.kv'),
     JSON.stringify([

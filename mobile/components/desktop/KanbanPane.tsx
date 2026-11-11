@@ -16,7 +16,7 @@ import usePaneScroll from './usePaneScroll';
 import { taskDuration } from '../../lib/drag';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
 import { hostIndex } from '../../lib/hosting';
-import { listEmojiOf } from '../../lib/lists';
+import { listEmojiOf, listNameOf } from '../../lib/lists';
 import { AWAY_ADD_WARNING } from '../../lib/awayDays';
 import DayMenu from './DayMenu';
 import { useAwayDays } from './awayStore';
@@ -29,6 +29,7 @@ import { useTick } from './timerUi';
 import { openDetail, openNewTask, useGoToday, useReveal } from './uiStore';
 import OnlyTodayButton from './OnlyTodayButton';
 import { ShiftBody } from './ShiftBody';
+import { useFreeTimeLine } from './freeTimeStore';
 import { shiftsOfDay } from '../../lib/shifts';
 import { setAtToday } from './todayStore';
 import { loadLabels } from '../../lib/labels';
@@ -222,6 +223,8 @@ export default function KanbanPane({
   const columns = useMemo(() => bucketTasks(shownTasks, days, todayKey, { projected }), [shownTasks, days, todayKey, projected]);
   const now = useTick(30000);
   const cutMin = useCutMin();
+  // F1 of PLAN_daily_flow: the "Free time" line at the foot of a day is a setting, off by default (Settings, Planning).
+  const freeTimeLine = useFreeTimeLine();
   const awayDays = useAwayDays(refreshKey);
 
   const firstShown = onlyToday ? todayKey : leftDay(strip, scrollLeft, STEP);
@@ -309,6 +312,7 @@ export default function KanbanPane({
                 label={proj}
                 color={labelColor(proj?.colorKey)}
                 listEmoji={listEmojiOf(task, lists)}
+                listName={listNameOf(task, lists)}
                 during={hosts.during.get(task.id)}
                 inside={shifts?.byTask.has(task.id) ? <ShiftBody info={shifts.byTask.get(task.id)!} anchor={() => document.querySelector<HTMLElement>(`[data-task-card="${task.id.replace(/"/g, '')}"]`)} compact /> : undefined}
                 variant="card"
@@ -328,7 +332,7 @@ export default function KanbanPane({
               />
             );
           })}
-          {dayBreaks.length > 0 && <BreakLine dayKey={day.key} breaks={dayBreaks} />}
+          {freeTimeLine && dayBreaks.length > 0 && <BreakLine dayKey={day.key} breaks={dayBreaks} />}
           {isTarget && drag && (
             <View style={styles.placeholder} pointerEvents="none" accessibilityLabel="Drop here" {...({ dataSet: { dropPlaceholder: day.key } } as object)}>
               <Text style={styles.placeholderText} numberOfLines={1}>

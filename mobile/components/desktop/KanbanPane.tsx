@@ -28,6 +28,8 @@ import { isTimedBreak } from '../../lib/breakLine';
 import { useTick } from './timerUi';
 import { openDetail, openNewTask, useGoToday, useReveal } from './uiStore';
 import OnlyTodayButton from './OnlyTodayButton';
+import { ShiftBody } from './ShiftBody';
+import { shiftsOfDay } from '../../lib/shifts';
 import { setAtToday } from './todayStore';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
@@ -219,6 +221,7 @@ export default function KanbanPane({
   const projected = useMemo(() => filterTasks(projectOccurrences(tasks, days.map((d) => d.key), todayKey), filter), [tasks, days, todayKey, filter]);
   const columns = useMemo(() => bucketTasks(shownTasks, days, todayKey, { projected }), [shownTasks, days, todayKey, projected]);
   const now = useTick(30000);
+  const cutMin = useCutMin();
   const awayDays = useAwayDays(refreshKey);
 
   const firstShown = onlyToday ? todayKey : leftDay(strip, scrollLeft, STEP);
@@ -254,7 +257,10 @@ export default function KanbanPane({
   const renderColumn = (day: ColumnDay, left: number | null) => {
     const items = columns.days[day.key] ?? [];
     // P1 of PLAN_breaks_as_gaps (D1): a Break with a time is a gap, not a card; the column ends with one quiet line for them.
-    const cards = items.filter((i) => !isTimedBreak(i.task));
+    // Shifts S3 (D2): a block fully inside a shift is a row of the shift's card, not a card of its own.
+    const shown = items.filter((i) => !isTimedBreak(i.task));
+    const shifts = shown.length > 1 || shown.some((i) => (i.task.subtasks?.length ?? 0) > 0) ? shiftsOfDay(tasks, day.key, todayKey, cutMin, new Set(shown.map((i) => i.task.id))) : null;
+    const cards = shifts && shifts.hidden.size > 0 ? shown.filter((i) => !shifts.hidden.has(i.task.id)) : shown;
     const dayBreaks = items.filter((i) => isTimedBreak(i.task)).map((i) => i.task);
     const head = columnHeading(day.key, todayKey);
     const isTarget = dropDay === day.key;
@@ -301,6 +307,7 @@ export default function KanbanPane({
                 color={labelColor(proj?.colorKey)}
                 listEmoji={listEmojiOf(task, lists)}
                 during={hosts.during.get(task.id)}
+                inside={shifts?.byTask.has(task.id) ? <ShiftBody info={shifts.byTask.get(task.id)!} anchor={() => document.querySelector<HTMLElement>(`[data-task-card="${task.id.replace(/"/g, '')}"]`)} compact /> : undefined}
                 variant="card"
                 todayKey={todayKey}
                 onChanged={onChanged}

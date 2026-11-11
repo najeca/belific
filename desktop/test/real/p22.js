@@ -116,6 +116,11 @@ async function run() {
     const blocks = ['w1', 'w2', 'w3', 'brk', 'plain'];
     for (const id of blocks) {
       const ratios = await contrastIn(`document.querySelector('[data-cal-block$=":${id}"]')`);
+      // 3.34.0 (breaks as gaps): a break is a hatched gap with no text, so it has nothing to read (it was a tinted block).
+      if (id === 'brk') {
+        check(`${name}: the break is a gap with no text (nothing to read; a block until 3.33.0)`, !!ratios && ratios.length === 0, JSON.stringify(ratios));
+        continue;
+      }
       check(`${name}: block ${id} text is readable on its own colour (every line at least 4.5:1)`, !!ratios && ratios.length > 0 && ratios.every((r) => r >= 4.5), JSON.stringify(ratios) + (await I.js('JSON.stringify(window.__why)')));
     }
     // Tasks.

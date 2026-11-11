@@ -75,6 +75,9 @@ const MARKERS = [
   // 3.35.0 (PLAN_breaks_as_gaps P4): the scissors are desktop only (lib/blade.ts, BladeLayer.tsx; the phone has no hover).
   'bladeCheck',
   'Click where the free time starts, then where it ends',
+  // 3.38.0 (PLAN_shifts S3): the shift's card rows and Add inside are desktop only (lib/shifts.ts, ShiftBody.tsx); the phone gets them in S5.
+  'shiftsOfDay',
+  'No time, just a to do',
   // 2.32.0 (Part B, P5): several reminders per task and the desktop's default list are desktop only
   // (lib/reminder.ts, reminderStore, Settings, Notifications). The phone notifies nothing until the
   // iPhone catch-up release; the synced field `reminders` is shared sync code and is NOT a marker.

@@ -20,6 +20,9 @@ import { taskDuration } from '../../lib/drag';
 import { DuringBreak, InsideBreak } from './HostDetails';
 import { FREE_TIME_TEXT, MAKE_NORMAL, breakIgnored, kindPatch } from '../../lib/taskKind';
 import { FIT_INSIDE, fitInsideFor, fitNote } from '../../lib/nesting';
+import { shiftsOfDay, type ShiftInfo } from '../../lib/shifts';
+import { ShiftBody } from './ShiftBody';
+import { useCutMin } from './cutStore';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
@@ -76,6 +79,9 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
   // 3.10.0: the task's day, as the Timebox draws it: the tasks inside this break, or the break it is during.
   const [links, setLinks] = useState<HostLink[]>([]);
   const [fit, setFit] = useState<ReturnType<typeof fitInsideFor>>(null);
+  // Shifts S3: what is inside this task on its day (the same summary, progress and rows as its Kanban card).
+  const [shift, setShift] = useState<ShiftInfo | null>(null);
+  const cutMin = useCutMin();
 
   useEffect(() => {
     const blank = id && isDraftId(id) ? blankDraft(id, where ?? {}) : null;
@@ -126,11 +132,12 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     setProjected(proj);
     setLinks(found && found.dueDate ? hostLinks(tasks, found.dueDate, dateKey(new Date())) : []);
     setFit(found ? fitInsideFor(tasks, found, dateKey(new Date())) : null);
+    setShift(found && found.dueDate && !found.cutsBelow ? shiftsOfDay(tasks, found.dueDate, dateKey(new Date()), cutMin).byTask.get(found.id) ?? null : null);
     setLabels(l);
     setLists(ls);
     // The task was deleted (here, or on the other device): nothing to show. A new card is not stored yet.
     if (!found && !isDraftId(id)) closeDetail();
-  }, [id]);
+  }, [id, cutMin]);
   useEffect(() => {
     if (!id) {
       setTask(null);
@@ -170,7 +177,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     <View style={styles.layer} {...({ dataSet: { detailLayer: '1' } } as object)}>
       <Pressable style={styles.scrim} onPress={closeDetail} accessibilityLabel="Close the task details" {...({ tabIndex: -1 } as object)} />
       <View style={styles.centre} pointerEvents="box-none">
-        <Panel key={shown.id} task={shown} projected={projected} labels={labels} lists={lists} links={links} fit={fit} draftPatch={task ? undefined : patchDraft} onSaved={() => { if (task) { notifyChanged(); reload(); } }} />
+        <Panel key={shown.id} task={shown} projected={projected} labels={labels} lists={lists} links={links} fit={fit} shift={shift} draftPatch={task ? undefined : patchDraft} onSaved={() => { if (task) { notifyChanged(); reload(); } }} />
       </View>
     </View>
   );
@@ -188,7 +195,7 @@ function blankDraft(id: string, where: NewTaskWhere): Task {
   return t;
 }
 
-function Panel({ task, projected, labels, lists, links, fit, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; fit?: ReturnType<typeof fitInsideFor>; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
+function Panel({ task, projected, labels, lists, links, fit, shift, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; fit?: ReturnType<typeof fitInsideFor>; shift?: ShiftInfo | null; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
   const drafting = !!draftPatch;
   const dark = useResolvedTheme() === 'dark';
   const draftOps: TaskOps = {
@@ -391,6 +398,12 @@ function Panel({ task, projected, labels, lists, links, fit, onSaved, draftPatch
           </Text>
         ) : null}
         <StreakLine task={task} />
+        {/* Shifts S3: the summary, progress, rows and "Add inside" (a placed task; a Break is free time). */}
+        {!drafting && !task.cutsBelow && task.dueDate && task.startTime ? (
+          <View style={styles.shiftBox} {...({ dataSet: { detailShift: task.id } } as object)}>
+            {shift ? <ShiftBody info={shift} anchor={() => document.querySelector<HTMLElement>('[data-detail-panel]')} /> : <ShiftBody info={{ task, projected, rows: [], done: 0, count: 0 }} anchor={() => document.querySelector<HTMLElement>('[data-detail-panel]')} />}
+          </View>
+        ) : null}
         <InsideBreak links={links.filter((l) => l.brk.full.id === task.id)} labels={labels} />
         <DuringBreak links={links.filter((l) => l.guest.full.id === task.id)} labels={labels} />
         <DetailRow icon="calendar-outline" label="Task date">
@@ -894,6 +907,7 @@ const styles = StyleSheet.create({
   // 3.32.0: Task | Break: two square buttons side by side, the chosen one primary.
   // Shifts S2: plain words and a visible button, at least 14 px, no red.
   plainCol: { gap: 6, alignItems: 'flex-start' },
+  shiftBox: { paddingVertical: 4 },
   plainText: { fontSize: 14, lineHeight: 19, color: Colors.textSecondary },
   plainBtn: { height: 36, paddingHorizontal: 14, justifyContent: 'center', borderRadius: radius.square, borderWidth: 2, borderColor: Colors.borderStrong },
   plainBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },

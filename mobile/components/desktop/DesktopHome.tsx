@@ -28,6 +28,7 @@ import AccountChoiceModal from './AccountChoiceModal';
 import TimerWidget from './TimerWidget';
 import MiddlePan from './MiddlePan';
 import TaskDetailPanel from './TaskDetailPanel';
+import { AddInsideHost } from './ShiftBody';
 import ShortcutHelp from './ShortcutHelp';
 import { useHomeShortcuts } from './useHomeShortcuts';
 import { runRedo, runUndo, useUndoRecording } from './useUndoRedo';
@@ -523,6 +524,8 @@ export default function DesktopHome() {
       {view === 'trash' && <TrashPage refreshKey={refreshKey} />}
       {view === 'signin' && <SignInPage onDone={goBack} />}
       {view === 'home' && <TaskDetailPanel refreshKey={refreshKey} />}
+      {/* Shifts S3: the one "Add inside" form (the card's, the details' and a block's menu open it). */}
+      {view === 'home' && <AddInsideHost />}
       {view === 'home' && overlay?.kind === 'help' && <ShortcutHelp />}
       {view === 'home' && overlay?.kind === 'capture' && <QuickCapture key={overlay.mode} mode={overlay.mode} />}
       {view === 'home' && overlay?.kind === 'search' && <SearchPalette />}

@@ -55,6 +55,7 @@ export default function TaskCard({
   showDay,
   listEmoji,
   during,
+  inside,
 }: {
   task: Task;
   ops: TaskOps;
@@ -80,6 +81,9 @@ export default function TaskCard({
   // 3.10.0: a hosted task's "During Lunch" (lib/hosting.ts hostIndex). A break's "3 inside" pill went with 3.34.0: a
   // break with a time is no card (3.33.0) and is drawn as a gap with its tasks as blocks in it.
   during?: string;
+  // Shifts S3 (PLAN_shifts): what is inside this task, drawn under its meta lines (ShiftBody.tsx). Its to dos are rows
+  // there, so the steps ring is not drawn.
+  inside?: React.ReactNode;
 }) {
   // Ctrl+Delete opens the ⋮ menu already asking "Delete? Yes / No".
   const tint = useTint();
@@ -116,7 +120,7 @@ export default function TaskCard({
 
   const id = task.id;
   const placed = !!task.dueDate && !!task.startTime;
-  const steps = counter(task.subtasks);
+  const steps = inside ? { done: 0, total: 0 } : counter(task.subtasks);
   const mustDo = isMustDo(task);
   // A projected day moves that day only (3.2.0, taskOps), like a stored one.
   const canMoveToday = !task.completed && task.dueDate !== todayKey;
@@ -406,6 +410,8 @@ export default function TaskCard({
                 ) : null}
               </View>
             )}
+
+            {inside}
 
             {/* At most three icons, over the top right corner in the card's own colour. */}
             <View style={[styles.icons, { backgroundColor: (color ? tint(color) : variant === 'row' ? Colors.surfaceRaised : CARD_PLAIN) }, color && { top: 8 + band.card }, !iconsShown && styles.quiet]} {...({ dataSet: { cardControls: '1' } } as object)}>

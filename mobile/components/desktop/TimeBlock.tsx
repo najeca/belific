@@ -30,6 +30,7 @@ import { isMustDo } from '../../lib/mustDo';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText, VIBRANT_WHITE } from './vibrantStore';
 import { HostMenu, type HostBreak, type HostedGuest } from './HostChips';
+import { ShiftMenu } from './ShiftBody';
 
 // One placed task on a time grid (2.26.0): the Timebox pane and the Calendar's
 // day and week views draw the same block, so they behave the same. A press
@@ -165,6 +166,8 @@ export default function TimeBlock({
   const gapTip = inGap ? `in ${inGap.brk.title}` : shell ? shell.text : '';
   const tipped = !!fullText || blockPlan(height).tier !== 3 || !!gapTip;
   const menuId = `gapblock:${scope}${task.id}${blockSuffix ?? ''}`;
+  // Shifts S3: any other block has a menu on a right click too: Open, Add inside (components/desktop/ShiftBody.tsx).
+  const shiftMenuId = `shiftblock:${scope}${task.id}${blockSuffix ?? ''}`;
   const liveGap = useRef(inGap);
   liveGap.current = inGap;
   useEffect(() => {
@@ -187,12 +190,12 @@ export default function TimeBlock({
       elRef.current = el;
       if (tipped) tipRef(blockTip(live.current.task, piece, note, gapTip))(el);
       if (!el) return;
-      // 3.34.0: a block in a gap has a menu on a right click.
+      // 3.34.0: a block in a gap has a menu on a right click (Open, Move out of break, Remove time); 3.38.0 (shifts S3):
+      // any other block has one with Open and Add inside.
       const onMenu = (e: MouseEvent) => {
-        if (!liveGap.current) return;
         e.preventDefault();
         e.stopPropagation();
-        openPopover(menuId, () => elRef.current);
+        openPopover(liveGap.current ? menuId : shiftMenuId, () => elRef.current);
       };
       el.addEventListener('contextmenu', onMenu);
       const onKey = (e: KeyboardEvent) => {
@@ -460,6 +463,7 @@ export default function TimeBlock({
         {lastPiece && <View ref={handleRef as never} style={[styles.handle, tiny && styles.handleTiny]} accessibilityLabel={`Resize ${task.title}`} />}
       </View>
       {inGap && <HostMenu id={menuId} anchor={() => elRef.current} g={inGap.guest} brk={inGap.brk} />}
+      {!inGap && <ShiftMenu id={shiftMenuId} anchor={() => elRef.current} task={fullTask ?? task} projected={projected} />}
     </View>
   );
 }

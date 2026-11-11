@@ -15,6 +15,7 @@ import { isSeriesRow } from './rollover.ts';
 import { tasksInList } from './lists.ts';
 import { totalsOf } from './taskTotals.ts';
 import { formatMinutes } from './timebox.ts';
+import { earlierItems } from './wrapUp.ts';
 import type { WrapItem } from './wrapUp.ts';
 
 const item = (task: Task, projected: boolean): WrapItem => ({ key: task.id, task, projected, series: projected || isSeriesRow(task), done: !!task.completed });
@@ -69,3 +70,19 @@ export function plannedText(raw: Task[], todayKey: string, cutMin: number, nowMs
   const est = totalsOf(all, nowMs, cutMin).estimate;
   return est > 0 ? `Planned ${formatMinutes(est)}` : 'Nothing has a length yet.';
 }
+
+// ---- F5: Plan week ----
+
+// A day's planned total for its column: a shift counts at its own length, once (S1); "—" when nothing has a length.
+export function dayTotalText(raw: Task[], dayKey: string, todayKey: string, cutMin: number, nowMs: number): string {
+  const all = [...raw.filter((t) => !t.deletedAt && t.dueDate === dayKey), ...projectOccurrences(raw, [dayKey], todayKey)];
+  const est = totalsOf(all, nowMs, cutMin).estimate;
+  return est > 0 ? formatMinutes(est) : '—';
+}
+
+// "4 from last week": the tasks of earlier days that wait in Earlier (a shift is one). Never "missed", nothing at zero.
+export const lastWeekLine = (n: number): string => `${n} from last week`;
+export const lastWeekCount = (raw: Task[], todayKey: string): number => earlierItems(raw, todayKey).length;
+
+// A day takes a task only from today on (the same rule as a drop on a day column).
+export const dayOpen = (dayKey: string, todayKey: string): boolean => dayKey >= todayKey;

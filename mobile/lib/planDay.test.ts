@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. F4 of PLAN_daily_flow: Plan my day on one screen.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addRows, earlierLine, insideText, plannedText, repeatingNotToday } from './planDay.ts';
+import { addRows, dayOpen, dayTotalText, earlierLine, insideText, lastWeekCount, lastWeekLine, plannedText, repeatingNotToday } from './planDay.ts';
 import { dayItems } from './wrapUp.ts';
 import type { Task } from './types.ts';
 
@@ -39,4 +39,31 @@ test('On today: a shift is one item with what is inside it folded under it; the 
   assert.equal(insideText(items[0]), '1 inside · 1 to do');
   assert.equal(plannedText(tasks, TODAY, 30, Date.parse('2026-11-18T07:00:00Z')), 'Planned 10h 30m');
   assert.equal(earlierLine(3), '3 from earlier days');
+});
+
+// F5 of PLAN_daily_flow: Plan week.
+test('F5: the total of a day counts a shift once at its own length; a dash when nothing has a length; past days are closed', () => {
+  const tasks = [
+    T('shift', { dueDate: TODAY, startTime: '08:00', durationMinutes: 600 }),
+    T('brief', { dueDate: TODAY, startTime: '08:30', durationMinutes: 30 }),
+    T('read', { dueDate: TODAY, durationMinutes: 60 }),
+    T('bare', { dueDate: '2026-11-19' }),
+  ];
+  const now = Date.parse('2026-11-18T07:00:00Z');
+  assert.equal(dayTotalText(tasks, TODAY, TODAY, 30, now), '11h');
+  assert.equal(dayTotalText(tasks, '2026-11-20', TODAY, 30, now), '—');
+  assert.equal(dayOpen('2026-11-17', TODAY), false);
+  assert.equal(dayOpen(TODAY, TODAY), true);
+  assert.equal(dayOpen('2026-11-19', TODAY), true);
+});
+
+test('F5: "N from last week" counts what waits in Earlier, a shift once, and says it plainly', () => {
+  const tasks = [
+    T('a', { dueDate: '2026-11-10' }),
+    T('s', { dueDate: '2026-11-11', startTime: '08:00', durationMinutes: 600 }),
+    T('i', { dueDate: '2026-11-11', startTime: '09:00', durationMinutes: 30 }),
+    T('done', { dueDate: '2026-11-12', completed: true }),
+  ];
+  assert.equal(lastWeekCount(tasks, TODAY), 2);
+  assert.equal(lastWeekLine(2), '2 from last week');
 });

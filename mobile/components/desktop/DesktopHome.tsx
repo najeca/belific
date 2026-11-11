@@ -19,6 +19,7 @@ import QuestsPage from './QuestsPage';
 import AnalyticsPage from './AnalyticsPage';
 import TrashPage from './TrashPage';
 import PlanMyDay from './PlanMyDay';
+import PlanWeek from './PlanWeek';
 import WrapUp from './WrapUp';
 import SignInPage from './SignInPage';
 import { DAY_START_EVENT } from './useDayStart';
@@ -427,6 +428,8 @@ export default function DesktopHome() {
   // One Plan button at a time, beside the avatar: here on the home screen, in the page strip otherwise.
   // F4 of PLAN_daily_flow: Plan my day takes the place of the left pane and the centre; the Timebox stays, on today.
   const planning = view === 'home' && overlay?.kind === 'flow' && overlay.mode === 'planning';
+  // F5: Plan week takes their place too, with all the width (no Timebox: tasks keep the time they have).
+  const weekPlan = view === 'home' && overlay?.kind === 'flow' && overlay.mode === 'week';
   const plan = <PlanButton windowWidth={windowWidth} rowWidth={view === 'home' ? topRowW : 0} onOpen={(flow) => onHome(() => openOverlay({ kind: 'flow', mode: flow }))()} onAnalytics={() => showView('analytics')} />;
 
   return (
@@ -448,7 +451,7 @@ export default function DesktopHome() {
         {/* The sidebar and the Timebox stay mounted while hidden (display none),
             so the list, the day and the scroll are there when they come back. */}
         <View
-          style={[layout.sidebar === 'docked' ? { width: SIDEBAR_WIDTH } : layout.sidebar === 'overlay' ? styles.sidebarOverlay : styles.hidden, planning && styles.hidden]}
+          style={[layout.sidebar === 'docked' ? { width: SIDEBAR_WIDTH } : layout.sidebar === 'overlay' ? styles.sidebarOverlay : styles.hidden, (planning || weekPlan) && styles.hidden]}
           {...({ dataSet: { pane: 'left' } } as object)}
         >
           <Sidebar onHide={toggleSidebar} overlay={layout.sidebar === 'overlay'}>
@@ -456,7 +459,8 @@ export default function DesktopHome() {
           </Sidebar>
         </View>
         {planning && <PlanMyDay refreshKey={refreshKey} />}
-        <View style={[styles.centre, planning && styles.hidden]} {...({ dataSet: { pane: 'center' } } as object)}>
+        {weekPlan && <PlanWeek refreshKey={refreshKey} />}
+        <View style={[styles.centre, (planning || weekPlan) && styles.hidden]} {...({ dataSet: { pane: 'center' } } as object)}>
           <PaneBand />
           <View style={styles.topRow} accessibilityLabel="Centre controls" onLayout={(e) => setTopRowW(Math.round(e.nativeEvent.layout.width))}>
             {layout.sidebar === 'hidden' && (
@@ -529,12 +533,12 @@ export default function DesktopHome() {
           )}
         </View>
         <View
-          style={[planning || layout.timebox === 'docked' ? { width: TIMEBOX_WIDTH } : layout.timebox === 'overlay' ? styles.timeboxOverlay : styles.hidden]}
+          style={[weekPlan ? styles.hidden : planning || layout.timebox === 'docked' ? { width: TIMEBOX_WIDTH } : layout.timebox === 'overlay' ? styles.timeboxOverlay : styles.hidden]}
           {...({ dataSet: { pane: 'right' } } as object)}
         >
           <TimeboxPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} onlyToday={paneState.onlyToday || planning} onHide={toggleTimebox} />
         </View>
-        {!planning && (layout.sidebar === 'overlay' || layout.timebox === 'overlay') && (
+        {!planning && !weekPlan && (layout.sidebar === 'overlay' || layout.timebox === 'overlay') && (
           <Pressable style={styles.scrim} onPress={() => setOverlayOpen({ sidebar: false, timebox: false })} accessibilityLabel="Close the panel" />
         )}
       </View>

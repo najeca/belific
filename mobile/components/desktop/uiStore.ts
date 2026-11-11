@@ -14,10 +14,10 @@ export type Overlay =
   | { kind: 'help' }
   | { kind: 'search' }
   | { kind: 'capture'; mode: 'list' | 'today' }
-  | { kind: 'flow'; mode: 'planning' | 'shutdown' }
+  | { kind: 'flow'; mode: 'planning' | 'shutdown' | 'week' }
   | { kind: 'labels' }
   // F4: `back` 'planning': opened from Plan my day's folded line; closing it goes back there.
-  | { kind: 'missed'; back?: 'planning' }
+  | { kind: 'missed'; back?: 'planning' | 'week' }
   | null;
 
 export interface TimerConfirm {

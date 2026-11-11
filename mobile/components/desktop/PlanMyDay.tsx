@@ -112,7 +112,7 @@ export default function PlanMyDay({ refreshKey }: { refreshKey: number }) {
   );
 }
 
-function metaOf(item: WrapItem, todayKey: string): string {
+export function metaOf(item: WrapItem, todayKey: string): string {
   const t = item.task;
   return [
     t.dueDate && t.dueDate !== todayKey ? `next: ${formatShortDate(t.dueDate)}` : '',
@@ -126,7 +126,7 @@ function metaOf(item: WrapItem, todayKey: string): string {
 }
 
 // The row is a drag source (onto the Timebox); its buttons stay clicks.
-function useRowDrag(item: WrapItem, kind: 'card' | 'row') {
+export function useRowDrag(item: WrapItem, kind: 'card' | 'row') {
   const { sourceRef } = useDrag();
   return sourceRef(`plan:${item.key}`, () => ({ kind, task: item.task, id: item.task.id, title: item.task.title, emoji: item.task.emoji, duration: taskDuration(item.task), projected: item.projected }));
 }

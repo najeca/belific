@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { radius } from '../../lib/tokens';
-import { PLAN_LABEL, analyticsInMenu, otherFlow, planFlowFor, type PlanFlow } from '../../lib/planEntry';
+import { PLAN_ICON, PLAN_LABEL, analyticsInMenu, menuFlows, planFlowAt, type PlanFlow } from '../../lib/planEntry';
 import Popover, { Row, closePopover, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { useFeature } from './featureStore';
 import { useTick } from './timerUi';
@@ -13,7 +13,7 @@ import { pressStyle } from './pressStyle';
 // of day (Plan my day in the morning, Wrap up from the afternoon); the small button beside it (the chevron) always lists
 // both, so the other one is one press away. A plain "Analytics" text button sits beside it; on a narrow window (under
 // 1100 px) it moves into that menu. Both parts are always visible (never hover only), 14 px, outlined, no red.
-// Plan week is not built yet, so it is not listed. Off when the Daily planning feature is off (Settings, Power features).
+// F5: on Sunday evening and Monday morning the button opens Plan week; the menu always lists all three. Off when the Daily planning feature is off (Settings, Power features).
 const MENU_ID = 'plan-menu';
 
 export default function PlanButton({ windowWidth, rowWidth = 0, onOpen, onAnalytics }: { windowWidth: number; rowWidth?: number; onOpen: (flow: PlanFlow) => void; onAnalytics: () => void }) {
@@ -21,7 +21,7 @@ export default function PlanButton({ windowWidth, rowWidth = 0, onOpen, onAnalyt
   const analytics = useFeature('analytics');
   // The button changes its words at 14:00 and at 04:00 by itself.
   useTick(60000);
-  const flow = planFlowFor(new Date().getHours());
+  const flow = planFlowAt(new Date());
   const open = useIsOpen(MENU_ID);
   const { ref, get } = usePopoverAnchor();
   const narrow = analyticsInMenu(windowWidth, rowWidth);
@@ -49,7 +49,7 @@ export default function PlanButton({ windowWidth, rowWidth = 0, onOpen, onAnalyt
             accessibilityLabel={PLAN_LABEL[flow]}
             {...({ dataSet: { planButton: flow } } as object)}
           >
-            <Ionicons name={flow === 'planning' ? 'sunny-outline' : 'moon-outline'} size={17} color={Colors.textPrimary} />
+            <Ionicons name={PLAN_ICON[flow]} size={17} color={Colors.textPrimary} />
             <Text style={styles.mainText}>{PLAN_LABEL[flow]}</Text>
           </Pressable>
           <Pressable
@@ -68,8 +68,8 @@ export default function PlanButton({ windowWidth, rowWidth = 0, onOpen, onAnalyt
       {planning && (
         <Popover id={MENU_ID} anchor={get} width={240} label="Plan menu">
           <View style={styles.menu}>
-            {[flow, otherFlow(flow)].map((f) => (
-              <Row key={f} icon={f === 'planning' ? 'sunny-outline' : 'moon-outline'} label={PLAN_LABEL[f]} onPress={run(() => onOpen(f))} a11y={`${PLAN_LABEL[f]} from the menu`} />
+            {menuFlows(flow).map((f) => (
+              <Row key={f} icon={PLAN_ICON[f]} label={PLAN_LABEL[f]} onPress={run(() => onOpen(f))} a11y={`${PLAN_LABEL[f]} from the menu`} />
             ))}
             {analyticsInside && <Row icon="bar-chart-outline" label="Analytics" onPress={run(onAnalytics)} a11y="Analytics from the menu" />}
           </View>

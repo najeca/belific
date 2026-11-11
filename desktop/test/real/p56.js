@@ -63,8 +63,10 @@ async function run() {
   await C.sleep(700);
 
   const hour = new Date().getHours();
-  const flow = hour >= 4 && hour < 14 ? 'planning' : 'shutdown';
-  const word = flow === 'planning' ? 'Plan my day' : 'Wrap up';
+  const dow = new Date().getDay();
+  // 3.44.0 (F5): Plan week comes first on Sunday from 16:00 and on Monday from 04:00 until 13:59 (p60 tests the clock).
+  const flow = (dow === 0 && hour >= 16) || (dow === 1 && hour >= 4 && hour < 14) ? 'week' : hour >= 4 && hour < 14 ? 'planning' : 'shutdown';
+  const word = flow === 'week' ? 'Plan week' : flow === 'planning' ? 'Plan my day' : 'Wrap up';
   const other = flow === 'planning' ? 'Wrap up' : 'Plan my day';
   const profileIcon = async () => ((await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in');
   const profileHas = async (label) => {
@@ -81,7 +83,7 @@ async function run() {
   await I.shot('p56-plan-button');
   await I.click(`document.querySelector('[data-plan-menu]')`, 600);
   const menu = await I.textOf(`document.querySelector('[data-popover="plan-menu"]')`);
-  check('the menu lists both, Plan my day and Wrap up, and no Analytics (the window is wide)', menu.includes('Plan my day') && menu.includes('Wrap up') && !menu.includes('Analytics'), menu);
+  check('the menu lists both, Plan my day and Wrap up, and no Analytics (the window is wide)', menu.includes('Plan my day') && menu.includes('Wrap up') && menu.includes('Plan week') && !menu.includes('Analytics'), menu);
   await I.click(`document.querySelector('[data-popover] [aria-label="${other} from the menu"]')`, 900);
   // 3.42.0 (F3, changed on purpose): Wrap up is one screen, with no steps.
   // 3.43.0 (F4): Plan my day is one screen too.
@@ -93,7 +95,7 @@ async function run() {
   await I.key('Escape', [], 700);
   await I.click(`document.querySelector('[data-plan-button]')`, 900);
   const own = await I.body();
-  check(`a press on the button opens ${word}`, (await I.exists(`document.querySelector('[data-flow="${flow}"]')`)) && (flow === 'planning' ? own.includes('Plan my day') && !own.includes('Step 1 of') : own.includes('Wrap up')), own.slice(0, 100));
+  check(`a press on the button opens ${word}`, (await I.exists(`document.querySelector('[data-flow="${flow}"]')`)) && (flow === 'planning' ? own.includes('Plan my day') && !own.includes('Step 1 of') : flow === 'week' ? own.includes('Plan week') : own.includes('Wrap up')), own.slice(0, 100));
   await I.key('Escape', [], 700);
 
   // ---- the avatar menu ----

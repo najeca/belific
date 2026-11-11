@@ -8,6 +8,18 @@ to know the current version and recent history.
 
 ---
 
+## 3.44.0 — 2026-11-11 (Daily flow, F5: Plan week on one screen, the Plan button offers it on Sunday evening and Monday morning; PLAN_daily_flow)
+
+**Desktop. No schema change, no migration, no data change: placing a task writes its Day (and keeps its time) like any move. The phone is unchanged.**
+- **Plan week is one screen** (`components/desktop/PlanWeek.tsx`; rules `lib/planDay.ts`), in place of the left pane and the centre, the way Plan my day is; one main button, **Done**, which only closes (no draft, no Cancel, no steps). It has all the width: the Timebox is hidden while it is open, because a task keeps the time it already has and one from a list stays untimed.
+  - **Left, "This week's lists":** one picker, Brain Dump first, then each list by name, with the tasks that have no Day and are not done. Below it one folded line, **"4 from last week"** (what waits in Earlier; a shift counts once; never "missed", nothing at zero), which opens the Earlier panel with the same three buttons as Wrap up (Tomorrow, Back to its list, Let go); closing Earlier comes back to Plan week.
+  - **Right, the seven days:** Monday to Sunday of this week, or of next week from Sunday 16:00. Each day shows its planned total (**a shift counts at its own length, once**: a block inside it adds nothing; a dash when nothing has a length) and its tasks (a shift is one line; its inside blocks are not listed; repeating days show with ↻).
+  - **Placing:** click a task (it is outlined, with "Choose a day"; every open day then shows a visible **Put here** button) and then a day, or drag the task onto a day. Both save at once and keep any time the task has. A task already on a day can be dragged to another day (a repeating day moves that day only; a shift takes what is inside it, S4). A day before today does not take a drop (the usual rule).
+  - **Saves as you go (D1):** a clicked placing folds its row ("Put on a day") with its own **Undo**; a drop is one gesture; Ctrl+Z and Ctrl+Y work on the screen. Today or another day being an away day is marked on its column.
+  - Words 14 px or more, buttons always visible, nothing red.
+- **The Plan button** (`lib/planEntry.ts` `planFlowAt`, `menuFlows`): **Plan week** on Sunday from 16:00 and on Monday from 04:00 until 13:59 (Monday afternoon goes back to Wrap up); Plan my day 04:00 to 13:59 and Wrap up otherwise, as before. **The chevron menu always lists Plan my day, Wrap up and Plan week**, the one the button opens first.
+- **Tests changed on purpose:** planEntry.test.ts (`otherFlow` became `menuFlows`; +2: the clock, the week planned), planDay.test.ts (+2: a day's total, the leftover line), easConfig.test.ts (version); real: new p60 (33 checks, on a FIXED CLOCK injected into the page before it loads: the button on Monday 09:00, Sunday 17:00, Sunday 15:00, Monday 14:30 and Tuesday 09:00 and its menu; Plan week on one screen; the seven days; a shift counted once in a day total; click a day; drag to a day; a timed task keeps its time; the leftover line, Earlier and back; Undo and Ctrl+Z; Done), p56 (the button is "Plan week" on Sunday evening and Monday morning; the menu has all three).
+
 ## 3.43.0 — 2026-11-11 (Daily flow, F4: Plan my day on one screen, the morning note; PLAN_daily_flow)
 
 **Desktop. No schema change, no migration, no data change: every button writes existing fields and the usual tombstones. The phone is unchanged.**

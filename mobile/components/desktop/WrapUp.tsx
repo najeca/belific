@@ -39,12 +39,20 @@ export interface ShownRow {
 
 // The rows as they are now, plus the ones decided here (folded, in the place they had).
 // `keys`: this list handles Ctrl+Z and Ctrl+Y (one list per screen does, or a press would undo twice).
-export function useWrapRows(list: (raw: Task[]) => WrapItem[], refreshKey: number, keys = true) {
+// `scope`: a change of it (another list picked) forgets the folded rows of the one before.
+export function useWrapRows(list: (raw: Task[]) => WrapItem[], refreshKey: number, keys = true, scope = '') {
   const [raw, setRaw] = useState<Task[] | null>(null);
   const [decided, setDecided] = useState<Map<string, Decision>>(new Map());
   const order = useRef<string[]>([]);
   const kidOrder = useRef(new Map<string, string[]>());
   const cache = useRef(new Map<string, WrapItem>());
+  const seenScope = useRef(scope);
+  if (seenScope.current !== scope) {
+    seenScope.current = scope;
+    order.current = [];
+    kidOrder.current = new Map();
+    cache.current = new Map();
+  }
   const reload = useCallback(() => {
     loadTasksRaw().then(setRaw);
   }, []);

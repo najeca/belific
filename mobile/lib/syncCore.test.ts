@@ -168,13 +168,21 @@ test('task mapper: new columns only once the server has them; bad values become 
   assert.deepEqual(withCols.recurrence_days, ['Mon', 'Thu']);
   assert.equal(withCols.recurrence_month_day, 31);
   assert.equal(taskToRemote({ ...base, deletedAt: T2 }, { serverUpdatedAt: true, taskPipeline: true }).deleted_at, T2);
-  assert.equal(sanitizeDuration(0), null);
   assert.equal(sanitizeDuration(2000), null);
   assert.equal(sanitizeDuration(7.5), null);
+  assert.equal(sanitizeDuration(-1), null);
   assert.equal(sanitizeTime('24:00'), null);
   assert.equal(sanitizeTime('9:00'), null);
   assert.equal(sanitizeDays([]), null);
   assert.deepEqual(sanitizeDays(['Sun', 'nope', 'Mon']), ['Mon', 'Sun']);
+});
+
+test('F6 (D4): a quick reminder keeps its 0 both ways (up as 0, down as 0), not NULL and not 30', () => {
+  assert.equal(sanitizeDuration(0), 0);
+  const up = taskToRemote({ ...base, dueDate: '2026-11-12', startTime: '11:15', durationMinutes: 0 }, { serverUpdatedAt: true, taskPipeline: true });
+  assert.equal(up.duration_minutes, 0);
+  const down = taskFromRemote({ ...up, updated_at: T1 } as never);
+  assert.equal(down?.durationMinutes, 0);
 });
 
 test('task mapper: nulls and missing columns load exactly as before', () => {

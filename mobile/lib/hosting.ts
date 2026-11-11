@@ -21,6 +21,7 @@
 //    gives A the break and B and C its chips.
 import type { Task } from './types.ts';
 import { tasksForTimebox } from './timeboxTasks.ts';
+import { isQuickReminder } from './quickReminder.ts';
 import { DEFAULT_CUT_MIN, cutDay } from './cuts.ts';
 import { DEFAULT_TASK_MINUTES, continuationOf, taskToItem, toMinutes, toTime } from './timebox.ts';
 import { isMultiTime, moveTimeFields, removeTimeFields, timeViews, timesOf } from './times.ts';
@@ -96,7 +97,9 @@ export interface DayHostEntry extends HostEntry {
 export function dayHostEntries(tasks: Task[], dayKey: string, todayKey: string): DayHostEntry[] {
   const out: DayHostEntry[] = [];
   const { own, spill } = tasksForTimebox(tasks, dayKey, todayKey);
+  // F6: a quick reminder is a bubble, never a block: it never hosts, nests or is cut.
   for (const { task: t, projected } of own) {
+    if (isQuickReminder(t)) continue;
     for (const v of timeViews(t)) {
       const item = taskToItem(v.task);
       if (!item) continue;
@@ -104,6 +107,7 @@ export function dayHostEntries(tasks: Task[], dayKey: string, todayKey: string):
     }
   }
   for (const { task: t, projected } of spill) {
+    if (isQuickReminder(t)) continue;
     for (const v of timeViews(t)) {
       const rest = continuationOf(v.task);
       if (!rest) continue;

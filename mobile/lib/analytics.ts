@@ -13,6 +13,7 @@ import { toCsv } from './csv.ts';
 import { estimateOf } from './taskTotals.ts';
 import { gapMinutes } from './hosting.ts';
 import { nestedMinutes } from './nesting.ts';
+import { isQuickReminder } from './quickReminder.ts';
 import { DEFAULT_CUT_MIN } from './cuts.ts';
 import { isBreak } from './taskKind.ts';
 import { effectiveListKey } from './lists.ts';
@@ -99,7 +100,8 @@ export function completedDay(t: Pick<Task, 'completed' | 'completedAt' | 'delete
 export function completedIn(tasks: Task[], r: DateRange): Task[] {
   return tasks.filter((t) => {
     const d = completedDay(t);
-    return !isBreak(t) && d !== null && d >= r.start && d <= r.end;
+    // F6: a ticked quick reminder is not a completed task in any figure.
+    return !isBreak(t) && !isQuickReminder(t) && d !== null && d >= r.start && d <= r.end;
   });
 }
 

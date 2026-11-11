@@ -49,6 +49,8 @@ import {
 import { openingMinutes } from '../../lib/dayStart';
 import { formatDuration } from '../../lib/duration';
 import { tasksForTimebox, type DayTask } from '../../lib/timeboxTasks';
+import { isQuickReminder, splitReminders } from '../../lib/quickReminder';
+import ReminderBubbles from './ReminderBubbles';
 import { movedCaption, movedCaptionLong, projectOccurrences } from '../../lib/series';
 import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
 import { calendarTitle, minutesOfDay, monthGrid, nowLineTop, splitAllDay, stepAnchor, visibleDayKeys } from '../../lib/calendarView';
@@ -136,6 +138,8 @@ interface DayData {
   bladeBreaks: CutEntry[];
   breaks: DayBreak[];
   snap: HostSnapshot;
+  // F6: the day's quick reminders, drawn as bubbles (never blocks).
+  reminders: DayTask[];
 }
 
 export default function CalendarPane({
@@ -245,7 +249,8 @@ export default function CalendarPane({
         items.push({ id: `event:${e.id}`, startMin: s, endMin: en });
       }
       const { own, spill } = tasksForTimebox(tasks, dayKey, todayKey);
-      const visibleOwn = own.filter((d) => taskVisible(d.task, filter));
+      // F6: quick reminders are bubbles (ReminderBubbles): the layout, gaps, shells and totals never see them.
+      const { reminders, rest: visibleOwn } = splitReminders(own.filter((d) => taskVisible(d.task, filter)));
       const { allDay, timed } = splitAllDay(visibleOwn);
       // The timed tasks and yesterday's overnight rest; a task with "Cut tasks underneath" cuts the
       // others they overlap into pieces (lib/cuts.ts, derived each time, nothing stored).
@@ -262,7 +267,7 @@ export default function CalendarPane({
         }
       }
       for (const { task: t, projected } of spill) {
-        if (!taskVisible(t, filter)) continue;
+        if (!taskVisible(t, filter) || isQuickReminder(t)) continue;
         for (const v of timeViews(t)) {
           const rest = continuationOf(v.task);
           if (!rest) continue;
@@ -339,7 +344,7 @@ export default function CalendarPane({
       }
       // 2.29.0: top priority first in the all day row (a stable sort; nothing stored).
       allDay.sort((a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)));
-      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.hostNotes, badges: plan.hostBadges, ...layoutNested(items), shellOf, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries) };
+      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.hostNotes, badges: plan.hostBadges, ...layoutNested(items), shellOf, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries), reminders };
     });
   }, [effView, keys, tasks, events, categories, filter, todayKey, imported, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
@@ -901,6 +906,15 @@ export default function CalendarPane({
                   )}
                 </View>
               ))}
+              {/* F6: the quick reminders' bubbles, in a layer above the sticky hours so a bubble on a day's left edge is
+                  whole (a day column is its own layer, under the hours). */}
+              {days.map((d) =>
+                d.reminders.length > 0 ? (
+                  <View key={`rem:${d.key}`} pointerEvents="box-none" style={[styles.reminderLayer, { left: GUTTER + colLeft(d.key), width: colW }]}>
+                    <ReminderBubbles dayKey={d.key} reminders={d.reminders} spans={d.blocks.map((b) => [b.startMin, b.endMin] as [number, number])} labelWidth={colW - 24} />
+                  </View>
+                ) : null,
+              )}
             </div>
             <div style={{ height: Math.max(0, viewH - 120) }} />
           </div>
@@ -952,6 +966,7 @@ const styles = StyleSheet.create({
   gridRow: { flexDirection: 'row' },
   hourLabel: { position: 'absolute', right: 6, fontSize: 10, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   dayCol: { position: 'absolute', top: 0, bottom: 0, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: Colors.border },
+  reminderLayer: { position: 'absolute', top: 0, bottom: 0, zIndex: 5 },
   hourLine: { position: 'absolute', height: StyleSheet.hairlineWidth, backgroundColor: Colors.border },
   halfLine: { position: 'absolute', height: StyleSheet.hairlineWidth, backgroundColor: Colors.border, opacity: 0.45 },
   blockWrap: { position: 'absolute', padding: 1 },

@@ -22,6 +22,7 @@ import { wholeTaskTimesDone } from './times.ts';
 import { formatMinutes, toMinutes } from './timebox.ts';
 import { missedItems, ownDayCompletedAt } from './missed.ts';
 import { totalsOf } from './taskTotals.ts';
+import { isQuickReminder } from './quickReminder.ts';
 
 export interface WrapItem {
   // The task's id; a shift's to do: `todo:<shift id>:<item id>`.
@@ -157,7 +158,8 @@ const tasksWord = (n: number): string => (n === 1 ? '1 task' : `${n} tasks`);
 
 // "Tomorrow so far: 4 tasks, 3h 30m" (a shift counts once, as one task).
 export function tomorrowText(raw: Task[], tomorrowKey: string, todayKey: string, cutMin: number, nowMs: number): string {
-  const items = dayItems(raw, tomorrowKey, todayKey, cutMin);
+  // F6: a quick reminder is not a task in the count.
+  const items = dayItems(raw, tomorrowKey, todayKey, cutMin).filter((i) => !isQuickReminder(i.task));
   if (items.length === 0) return 'Tomorrow so far: nothing planned yet.';
   const all = [...raw.filter((t) => !t.deletedAt && t.dueDate === tomorrowKey), ...projectOccurrences(raw, [tomorrowKey], todayKey)];
   const est = totalsOf(all, nowMs, cutMin).estimate;

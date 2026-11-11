@@ -101,6 +101,8 @@ function leadText(min) {
 const WRAP_BODY = 'Time to wrap up the day, if you like.';
 // F4: the morning note (off by default); a click opens Plan my day.
 const PLAN_BODY = 'Time to plan your day, if you like.';
+// F6: a quick reminder's note (its title is the reminder's text).
+const REMINDER_BODY = 'Reminder';
 
 function dailyBody(count) {
   return count === 1 ? '1 task planned for today' : `${count} tasks planned for today`;
@@ -125,6 +127,12 @@ function plan({ payload, settings, now, zone = localZone }) {
       if (!t || !isStr(t.id) || !isStr(t.title) || !isNum(t.start)) continue;
       if (t.completed === true) continue;
       if (t.start <= now) continue;
+      // F6: a quick reminder (`quick`) notifies once, at its time (no leads, not the defaults); its body says "Reminder".
+      // It follows "Remind me on this device" like any task.
+      if (t.quick === true) {
+        if (t.start <= horizon) out.push({ key: `task:${clip(t.id, 120)}`, at: t.start, kind: 'task', title: clip(t.title, 200), body: REMINDER_BODY });
+        continue;
+      }
       for (const lead of leadsFor(t, settings.defaultReminders ?? [0])) {
         const at = t.start - lead * 60000;
         // A lead that has passed is skipped on its own; the later ones stay.

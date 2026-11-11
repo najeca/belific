@@ -43,6 +43,8 @@ import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { openingMinutes } from '../../lib/dayStart';
 import { tasksForTimebox } from '../../lib/timeboxTasks';
+import { isQuickReminder, splitReminders } from '../../lib/quickReminder';
+import ReminderBubbles from './ReminderBubbles';
 import { useDayStart } from './useDayStart';
 import { followToday } from '../../lib/dayStrip';
 import { domNode, useDrag } from './DragProvider';
@@ -244,7 +246,7 @@ export default function TimeboxPane({
   // "Vibrant task colours" (Settings): saturated cards with bold white text; off = as before.
   const vibrant = useVibrant();
   const tint = useTint();
-  const { sources, items, shellOf, scheduled, notes, badges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap } = useMemo(() => {
+  const { sources, items, shellOf, scheduled, notes, badges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap, reminders } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: NestedItem[] = [];
     for (const e of getWeeklyEventsForDate(day)) {
@@ -267,7 +269,11 @@ export default function TimeboxPane({
     // the rest of yesterday's overnight tasks (decision 024); see
     // lib/timeboxTasks.ts. The filter hides tasks (not events) from the Timebox too.
     projectedIds.current.clear();
-    const { own, spill } = tasksForTimebox(tasks, key, todayKey);
+    const dayTasks = tasksForTimebox(tasks, key, todayKey);
+    // F6: quick reminders are bubbles (ReminderBubbles), never blocks: the layout, the gaps, the shells and the total
+    // never see them.
+    const { reminders, rest: own } = splitReminders(dayTasks.own.filter((d) => taskVisible(d.task, filter)));
+    const spill = dayTasks.spill.filter((d) => !isQuickReminder(d.task));
     // A task with "Cut tasks underneath" cuts the others it overlaps into pieces (lib/cuts.ts).
     const entries: Array<CutEntry & HostEntry> = [];
     const high = new Map<string, boolean>();
@@ -354,7 +360,7 @@ export default function TimeboxPane({
       return [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, task: full, repeats: !!full.recurrence }];
     });
     const bladeBreaks = entries.filter((e) => e.breaks && !host.hostOf.has(e.id));
-    return { sources: map, items: list, shellOf, scheduled, notes: plan.hostNotes, badges: plan.hostBadges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries) };
+    return { sources: map, items: list, shellOf, scheduled, notes: plan.hostNotes, badges: plan.hostBadges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries), reminders };
   }, [day, key, todayKey, events, categories, tasks, filter, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
   useEffect(() => {
@@ -599,6 +605,7 @@ export default function TimeboxPane({
             ))}
             <GapEdges gaps={gaps} gridNode={() => gridNode.current} />
             <BladeLayer dayKey={key} hosts={bladeHosts} breaks={bladeBreaks} cutMin={cutMin} gridNode={() => gridNode.current} />
+            <ReminderBubbles dayKey={key} reminders={reminders} spans={layout.blocks.map((b) => [b.startMin, b.endMin] as [number, number])} />
             {key === dateKey(new Date(nowTick)) && (
               <View
                 pointerEvents="none"

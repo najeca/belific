@@ -597,3 +597,23 @@ test('F4: the plan my day note is off by default; on, one a day at its time, no 
   assert.equal(sanitize({ planTime: 'early' }).planTime, '08:00');
   assert.equal(sanitize({ planReminder: true, planTime: '07:30' }).planTime, '07:30');
 });
+
+// ----- F6 of PLAN_daily_flow: quick reminders -----
+
+test('F6: a quick reminder notifies once at its time with "Reminder", whatever its leads or the defaults; ticked, nothing', () => {
+  const r = rig({ settings: { ...S, defaultReminders: [0, 10] } });
+  const t0 = r.now;
+  r.sched.update({ placed: [placed('q', t0 + 30 * M, { quick: true, reminders: [5, 15] }), placed('n', t0 + 30 * M)] });
+  assert.deepEqual(keysOf(r).sort(), ['task:n', 'task:n@10', 'task:q']);
+  r.advance(30 * M);
+  assert.deepEqual(r.shown.filter((n) => n.key === 'task:q'), [{ kind: 'task', key: 'task:q', title: 'Task q', body: 'Reminder' }]);
+  const done = rig();
+  done.sched.update({ placed: [placed('q', done.now + 30 * M, { quick: true, completed: true })] });
+  assert.equal(done.sched.pending().length, 0);
+});
+
+test('F6: "Remind me on this device" off: no quick reminder on this computer either', () => {
+  const r = rig({ settings: { ...S, notifyTasks: false } });
+  r.sched.update({ placed: [placed('q', r.now + 30 * M, { quick: true })] });
+  assert.equal(r.sched.pending().length, 0);
+});

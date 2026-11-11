@@ -398,9 +398,10 @@ export function mergeCompletions(input: {
 const WEEK_DAYS: WeekDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const RULES: RecurrenceRule[] = ['daily', 'weekly', 'biweekly', 'triweekly', 'monthly', 'annual'];
 
-// Bad values become null instead of failing a whole upload batch.
+// Bad values become null instead of failing a whole upload batch. F6 (PLAN_daily_flow D4): 0 is a quick reminder (a
+// time with no length), so it goes up as 0; tasks.duration_minutes has no check constraint.
 export function sanitizeDuration(v: unknown): number | null {
-  return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 1440 ? v : null;
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 1440 ? v : null;
 }
 export function sanitizeTime(v: unknown): string | null {
   return typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : null;

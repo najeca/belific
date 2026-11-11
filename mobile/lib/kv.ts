@@ -45,7 +45,8 @@ export interface DesktopSettings {
 export interface NotifyPayload {
   events: Array<{ id: string; title: string; icon: string; start: number }>;
   // `slot`: the time ('HH:mm') of every time of a task after its first (Part C), so each has its own timers.
-  placed: Array<{ id: string; title: string; start: number; completed: boolean; slot?: string; reminderMinutes?: number; reminders?: number[] }>;
+  // `quick`: a quick reminder (F6): one notification at its time, whatever the task reminder settings say.
+  placed: Array<{ id: string; title: string; start: number; completed: boolean; slot?: string; reminderMinutes?: number; reminders?: number[]; quick?: boolean }>;
   planned: Array<{ dueDate: string; completed: boolean; startTime?: string; reminderMinutes?: number; reminders?: number[] }>;
 }
 

@@ -13,6 +13,7 @@ import { gapMinutes } from './hosting.ts';
 import { DEFAULT_CUT_MIN } from './cuts.ts';
 import { isBreak } from './taskKind.ts';
 import { nestedMinutes } from './nesting.ts';
+import { isQuickReminder } from './quickReminder.ts';
 
 export interface Totals {
   count: number;
@@ -46,10 +47,11 @@ type TotalsInput = Pick<Task, 'durationMinutes' | 'actualMinutes' | 'timerStarte
 // a task inside a break is not cut and counts in full. The actual time is never changed.
 // Shifts S1: a block inside a longer block counts nothing on top of it (nesting.ts nestedMinutes), so a 10 hour shift
 // with 5 hours of things inside reads 10h, not 15h.
+// F6: a quick reminder (a time with no length) is not counted at all.
 export function totalsOf(tasks: TotalsInput[], nowMs: number, cutMin: number = DEFAULT_CUT_MIN): Totals {
   const t: Totals = { count: 0, done: 0, estimate: 0, actual: 0 };
   for (const task of tasks) {
-    if (task.deletedAt || isBreak(task)) continue;
+    if (task.deletedAt || isBreak(task) || isQuickReminder(task)) continue;
     t.count += 1;
     if (task.completed) t.done += 1;
     t.estimate += estimateOf(task) * timesCount(task);

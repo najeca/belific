@@ -33,6 +33,8 @@ export async function createTaskIn(
   if (where.dueDate && where.startTime && /^\d\d:\d\d$/.test(where.startTime)) task.startTime = where.startTime;
   if (where.projectKey) task.projectKey = where.projectKey;
   if (where.durationMinutes && where.durationMinutes > 0) task.durationMinutes = Math.round(where.durationMinutes);
+  // F6: 0 with a Day and a time is a quick reminder (lib/quickReminder.ts); without a time it means nothing.
+  else if (where.durationMinutes === 0 && task.startTime) task.durationMinutes = 0;
   await addTask(task);
   return task;
 }

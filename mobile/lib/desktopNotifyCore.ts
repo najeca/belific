@@ -2,6 +2,7 @@ import type { NotifyPayload } from './kv';
 import { projectOccurrences } from './series.ts';
 import { normalizeReminders } from './reminder.ts';
 import { doneTimesOf, timesOf } from './times.ts';
+import { isQuickReminder } from './quickReminder.ts';
 import type { Task } from './types';
 
 // Pure part of the desktop notification payload (checkpoint 7), kept apart
@@ -37,6 +38,8 @@ interface TaskLike {
   completedAt?: string;
   // Tombstones are passed in too: a skipped day blocks its projection.
   deletedAt?: string;
+  // F6: 0 with a Day and a time is a quick reminder.
+  durationMinutes?: number;
 }
 
 function reminderPart(t: TaskLike): { reminderMinutes?: number; reminders?: number[] } {
@@ -76,7 +79,9 @@ export function buildNotifyPayload(events: EventLike[], tasks: TaskLike[], now: 
         if (done.has(time)) return;
         const start = localMs(t.dueDate as string, time);
         if (start === null || start <= now || start > horizon) return;
-        payload.placed.push({ id: t.id, title: t.title, start, completed: false, ...(i > 0 ? { slot: time } : {}), ...reminderPart(t) });
+        // A quick reminder (F6) notifies once, at its time: its own leads and the defaults do not apply.
+        if (isQuickReminder(t)) payload.placed.push({ id: t.id, title: t.title, start, completed: false, quick: true });
+        else payload.placed.push({ id: t.id, title: t.title, start, completed: false, ...(i > 0 ? { slot: time } : {}), ...reminderPart(t) });
       });
       return;
     } else if (windowDays.has(t.dueDate)) {

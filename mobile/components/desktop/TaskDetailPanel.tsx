@@ -17,6 +17,7 @@ import { breakRefusal } from '../../lib/hostActions';
 import { carryBreaks } from '../../lib/breakCarry';
 import { toMinutes } from '../../lib/timebox';
 import { taskDuration } from '../../lib/drag';
+import { isQuickReminder, REMINDER_NOTE } from '../../lib/quickReminder';
 import { DuringBreak, InsideBreak } from './HostDetails';
 import { FREE_TIME_TEXT, MAKE_NORMAL, breakIgnored, kindPatch } from '../../lib/taskKind';
 import { FIT_INSIDE, fitInsideFor, fitNote } from '../../lib/nesting';
@@ -497,7 +498,13 @@ function Panel({ task, projected, labels, lists, links, fit, shift, onSaved, dra
         </DetailRow>
 
         <DetailRow icon="hourglass-outline" label="Estimated time">
-          <DurationSelect id={`${task.id}:estimate`} label="Estimated time" value={task.durationMinutes} onChange={(m) => patch({ durationMinutes: m })} />
+          <DurationSelect id={`${task.id}:estimate`} label="Estimated time" value={isQuickReminder(task) ? undefined : task.durationMinutes} onChange={(m) => patch({ durationMinutes: m })} />
+          {/* F6: a quick reminder has no length on purpose; choosing one makes it an ordinary block. */}
+          {isQuickReminder(task) && (
+            <Text style={styles.reminderNote} {...({ dataSet: { reminderNote: '1' } } as object)}>
+              {REMINDER_NOTE}
+            </Text>
+          )}
         </DetailRow>
 
         <DetailRow icon="pricetag-outline" label="Label">
@@ -993,6 +1000,7 @@ const styles = StyleSheet.create({
   // A hint: 11px, grey (the study's hint size).
   hintText: { fontSize: 12, color: Colors.textSecondary },
   quietSub: { fontSize: 13, color: Colors.textSecondary },
+  reminderNote: { fontSize: 14, color: Colors.textSecondary },
   openBg: { backgroundColor: Colors.background },
   labelBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
   labelDot: { width: 8, height: 8, borderRadius: 4 },

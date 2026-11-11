@@ -4,7 +4,7 @@
 //   - "Deep work" 9:00 for 4 h with a one off "Coffee" break 10:00 for 20 min inside it;
 //   - a repeating "Camp" 14:00 for 3 h with a repeating "Short break" 15:00 for 20 min (both shown, not stored).
 // Checks: the gap's bottom edge resizes it in 5 minute steps; its top edge moves its start and keeps its end; a drag
-// on its body moves it (30 minute steps, as a block); one Ctrl+Z undoes the last; a repeating break resized on one day
+// on its body moves it (5 minute steps since 3.35.0, as its edges); one Ctrl+Z undoes the last; a repeating break resized on one day
 // changes that day only; D5: Deep work dragged an hour later takes Coffee along, and one Ctrl+Z puts both back.
 // The pointer is driven with PointerEvents dispatched in the page (the app's own drag code reads them), so nothing
 // moves the real mouse and it runs quiet. Real app, isolated data folder, in process fake Supabase.
@@ -103,7 +103,7 @@ async function run() {
   // ---- the body: a move, then one Ctrl+Z ----
   await drag(gap('coffee'), m(10, 10), m(11, 10));
   await settle();
-  check('a drag on the gap moves it (30 minute steps): 11:00, still 45 minutes', byId('coffee')?.startTime === '11:00' && byId('coffee')?.durationMinutes === 45, JSON.stringify(byId('coffee')));
+  check('a drag on the gap moves it by exactly an hour (5 minute steps): 10:50, still 45 minutes', byId('coffee')?.startTime === '10:50' && byId('coffee')?.durationMinutes === 45, JSON.stringify(byId('coffee')));
   await I.shot('p50-moved');
   await I.blur();
   await I.key('Z', ['control'], 1500);
@@ -119,8 +119,8 @@ async function run() {
   check('and the series keeps 20 minutes (the other days)', byId('rb')?.durationMinutes === 20, JSON.stringify(byId('rb')));
 
   // ---- D5: the task under a gap takes it along, one undo for both ----
-  // The last piece (10:35 to 13:00): a cut task takes a drag on its last piece (one drag source per task).
-  await drag(`document.querySelector('[data-cal-block="cal${today}:deep~2"]')`, m(11), m(12));
+  // 3.35.0: any piece takes the drag; here the FIRST piece (9:00 to 9:50), which until 3.34.0 could not be dragged.
+  await drag(`document.querySelector('[data-cal-block="cal${today}:deep"]')`, m(9, 20), m(10, 20));
   await settle();
   check('D5: Deep work dragged an hour later starts 10:00', byId('deep')?.startTime === '10:00', JSON.stringify(byId('deep')));
   check('D5: and Coffee went with it (10:50, 45 minutes)', byId('coffee')?.startTime === '10:50' && byId('coffee')?.durationMinutes === 45, JSON.stringify(byId('coffee')));

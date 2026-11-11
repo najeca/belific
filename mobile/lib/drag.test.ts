@@ -75,6 +75,12 @@ test('a moved block keeps its grab offset and rounds to the nearest 30', () => {
   assert.equal(movedBlockStart(at(23, 40), 0, 8 * 60), at(23, 30));
 });
 
+test('3.35.0: a gap moves in 5 minute steps', () => {
+  assert.equal(movedBlockStart(at(11, 37), 10, 20, 5), at(11, 25));
+  assert.equal(movedBlockStart(at(11, 38), 10, 20, 5), at(11, 30));
+  assert.equal(movedBlockStart(at(23, 59), 0, 20, 5), at(23, 55));
+});
+
 test('resize changes duration in 30 minute steps with a 30 minute minimum', () => {
   assert.equal(resizedDuration(at(10), at(11, 20)), 90);
   assert.equal(resizedDuration(at(10), at(11, 10)), 60);

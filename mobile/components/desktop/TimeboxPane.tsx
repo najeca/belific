@@ -31,6 +31,8 @@ import { hostDay, hostSnapshot, scheduledSpans, type HostEntry } from '../../lib
 import { setDayBreaks, watchDay, type DayBreak } from './breakStore';
 import type { HostBreak, HostedGuest } from './HostChips';
 import { GapEdges, GapLayer, type DrawnGap } from './GapLayer';
+import BladeLayer, { BladeButton, BladeHint } from './BladeLayer';
+import type { BladeHost } from '../../lib/blade';
 import { useCutMin } from './cutStore';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
@@ -235,7 +237,7 @@ export default function TimeboxPane({
   // "Vibrant task colours" (Settings): saturated cards with bold white text; off = as before.
   const vibrant = useVibrant();
   const tint = useTint();
-  const { sources, items, scheduled, notes, badges, gaps, inGap, breaks, snap } = useMemo(() => {
+  const { sources, items, scheduled, notes, badges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap } = useMemo(() => {
     const map = new Map<string, Source>();
     const list: TimeboxItem[] = [];
     for (const e of getWeeklyEventsForDate(day)) {
@@ -324,7 +326,15 @@ export default function TimeboxPane({
     // P1 of PLAN_breaks_as_gaps: the Scheduled total counts work, not gaps. A Break's span is left out; a task inside a
     // break (hosted, so not in `list`) counts at its real length. Events and the pieces of cut tasks count as before.
     const scheduled = scheduledSpans(list, entries);
-    return { sources: map, items: list, scheduled, notes: plan.hostNotes, badges: plan.hostBadges, gaps, inGap, breaks, snap: hostSnapshot(entries) };
+    // 3.35.0: what the scissors cut into (the timed tasks not inside a break) and the day's breaks (lib/blade.ts).
+    const bladeHosts: BladeHost[] = entries.flatMap((e) => {
+      const s = map.get(e.id);
+      if (e.breaks || e.cont || host.hostOf.has(e.id) || !s || s.kind !== 'task') return [];
+      const full = s.full ?? s.task;
+      return [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, task: full, repeats: !!full.recurrence }];
+    });
+    const bladeBreaks = entries.filter((e) => e.breaks && !host.hostOf.has(e.id));
+    return { sources: map, items: list, scheduled, notes: plan.hostNotes, badges: plan.hostBadges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries) };
   }, [day, key, todayKey, events, categories, tasks, filter, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
   useEffect(() => {
@@ -390,6 +400,7 @@ export default function TimeboxPane({
         >
           <Text style={styles.todayText}>Today</Text>
         </Pressable>
+        <BladeButton size={32} />
       </View>
 
       {pickerOpen && (
@@ -420,6 +431,7 @@ export default function TimeboxPane({
         )}
       </Text>
       <ShortDivider width={70} style={{ marginTop: 10 }} />
+      <BladeHint />
 
       <ScrollView
         ref={setScrollRef as never}
@@ -553,6 +565,7 @@ export default function TimeboxPane({
               );
             })}
             <GapEdges gaps={gaps} gridNode={() => gridNode.current} />
+            <BladeLayer dayKey={key} hosts={bladeHosts} breaks={bladeBreaks} cutMin={cutMin} gridNode={() => gridNode.current} />
             {key === dateKey(new Date(nowTick)) && (
               <View
                 pointerEvents="none"

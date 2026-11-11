@@ -130,7 +130,8 @@ export default function TimeBlock({
   const live = useRef({ task, projected, full: fullTask, time });
   live.current = { task, projected, full: fullTask, time };
 
-  const dragRef = sourceRef(`block:${scope}${task.id}${blockSuffix ?? ''}`, (e) => {
+  // 3.35.0: every piece of a cut task is its own drag source (one key per piece); each moves the whole task.
+  const dragRef = sourceRef(`block:${scope}${task.id}${blockSuffix ?? ''}${piece ? `#${piece.index}` : ''}`, (e) => {
     const grid = gridNode();
     const start = toMinutes(live.current.task.startTime);
     if (!grid || start === null) return null;

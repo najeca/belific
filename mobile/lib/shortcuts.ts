@@ -29,6 +29,7 @@ export type ShortcutId =
   | 'toggleLeftPane'
   | 'toggleRightPane'
   | 'undo'
+  | 'blade'
   | 'redo'
   | 'redoAlt'
   // Navigation
@@ -134,7 +135,14 @@ export const UNDO_SHORTCUTS: ShortcutDef[] = [
   { id: 'redoAlt', keys: 'Ctrl+Shift+Z', label: 'Redo', group: 'General', scope: 'home' },
 ];
 
-export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS, ...PHASE5_SHORTCUTS, ...UNDO_SHORTCUTS, ...BLOCK_SHORTCUTS];
+// 3.35.0 (PLAN_breaks_as_gaps P4, D2): the scissors. The one home key that shares a key with a card key, on purpose:
+// C toggles the scissors only when no card has the keyboard; a focused card keeps C = complete (its own handler runs
+// first, and the home handler leaves C alone while a card has focus).
+export const BLADE_SHORTCUTS: ShortcutDef[] = [
+  { id: 'blade', keys: 'C', label: 'Scissors: cut a break into a task (when no card has the keyboard)', group: 'General', scope: 'home' },
+];
+
+export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS, ...PHASE5_SHORTCUTS, ...UNDO_SHORTCUTS, ...BLOCK_SHORTCUTS, ...BLADE_SHORTCUTS];
 
 // ---- matching ----
 

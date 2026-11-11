@@ -72,6 +72,9 @@ const MARKERS = [
   // words below stay markers, so the switch itself cannot reach the phone.
   'Splits the tasks it overlaps, so you still see them before and after it.',
   'Smallest piece when a break splits a task',
+  // 3.35.0 (PLAN_breaks_as_gaps P4): the scissors are desktop only (lib/blade.ts, BladeLayer.tsx; the phone has no hover).
+  'bladeCheck',
+  'Click the start of a break, then its end',
   // 2.32.0 (Part B, P5): several reminders per task and the desktop's default list are desktop only
   // (lib/reminder.ts, reminderStore, Settings, Notifications). The phone notifies nothing until the
   // iPhone catch-up release; the synced field `reminders` is shared sync code and is NOT a marker.

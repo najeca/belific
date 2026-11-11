@@ -31,6 +31,7 @@ import TaskDetailPanel from './TaskDetailPanel';
 import ShortcutHelp from './ShortcutHelp';
 import { useHomeShortcuts } from './useHomeShortcuts';
 import { runRedo, runUndo, useUndoRecording } from './useUndoRedo';
+import { useBladeKeys } from './BladeLayer';
 import CalendarPane from './CalendarPane';
 import Sidebar from './Sidebar';
 import QuickCapture from './QuickCapture';
@@ -44,7 +45,7 @@ import { refreshTheme } from './themeStore';
 import { PaneBand, outlinedBtn, outlinedBtnOn, outlinedBtnText, paneSlab, segBtn, segBtnHover, segBtnOn, segLabel, segLabelOn, segTrack } from './ui';
 import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
-import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
+import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, toggleBlade, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
 import { dateKey as todayDateKey } from '../../lib/kanban';
 import { SIDEBAR_DOCK_MIN, SIDEBAR_WIDTH, TIMEBOX_WIDTH, responsiveLayout, showCalendar, sidebarToggle, timeboxToggle, toggleCenter, toggleOnlyToday, type CalendarView } from '../../lib/paneState';
 import { kv } from '../../lib/kv';
@@ -283,8 +284,14 @@ export default function DesktopHome() {
   // The keyboard shortcuts of the home screen (lib/shortcuts.ts). Only while the
   // panes are the page showing; the registry keeps them out of every field.
   useUndoRecording();
+  useBladeKeys();
   useHomeShortcuts(view === 'home', {
     help: () => openOverlay({ kind: 'help' }),
+    // 3.35.0 (D2): C turns the scissors on and off, unless a card has the keyboard (C then completes it).
+    blade: () => {
+      if ((document.activeElement as HTMLElement | null)?.closest?.('[data-card-focus], [data-task-card]')) return false;
+      toggleBlade();
+    },
     undo: () => void runUndo(),
     redo: () => void runRedo(),
     redoAlt: () => void runRedo(),

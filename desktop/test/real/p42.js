@@ -1,10 +1,12 @@
 'use strict';
-// @real-input: pointer (hover, drag)
-// Real check for 3.22.0 (step 3): dragging a Split task into another Split task. Real mouse input into the real app on an
-// isolated data folder (in process fake Supabase). A Split task held over a break for about a second outlines it with
-// "Drop inside" and the drop hosts it there (a chip, its own Break ignored); dropped without the pause it is placed as
-// before; one longer than the break shows "Longer than the break (1 h 30 min)" and is not highlighted; leaving the
-// break cancels the pause. Light and dark. BELIFIC_SHOTS: a folder for screenshots.
+// @real-input: quiet
+// Real check for 3.22.0 (step 3): dragging a Split task into another Split task. Real app on an isolated data folder
+// (in process fake Supabase). A Split task held over a break for about a second outlines it with "Drop inside" and the
+// drop hosts it there; dropped without the pause it is placed as before; one longer than the break shows "Longer than
+// the break (1 h 30 min)" and is not highlighted; leaving the break cancels the pause. Light and dark, and the Calendar.
+// 3.35.0 (PLAN_breaks_as_gaps): rewritten for gaps. Every break is a gap (it was a block with chips); a hosted break is a
+// second gap inside the first (it was a chip); gaps move in 5 minute steps. Drags are events dispatched in the page, so
+// it runs quiet. BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
 const { app } = require('electron');
@@ -53,126 +55,108 @@ async function run() {
   win.show();
   win.focus();
   win.webContents.focus();
+  // The pause (1 s) is timed by the page: an inactive window's timers must not be slowed down.
+  win.webContents.setBackgroundThrottling(false);
   const I = makeInput(win, process.env.BELIFIC_SHOTS || '');
-  await I.waitBody('Lunch', 20000);
+  // A break with a time has no card and its gap no text (3.33.0, 3.34.0): wait for a plain task.
+  await I.waitBody('Free task', 20000);
   await I.click(I.byLabel('Show Tasks'), 800).catch(() => {});
   await C.sleep(1200);
 
   const V = (sel) => `[...document.querySelectorAll('${sel}')].find((e) => e.getBoundingClientRect().width > 0)`;
-  const block = (id) => V(`[data-block-id="${id.replace(/^task:/, '')}"]`);
-  const chip = (blockId) => V(`[data-host-chip="${blockId}"]`);
-  const rectOf = (expr) => I.js(`(() => { const e = ${expr}; if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top), left: r.left, top: r.top, w: r.width, h: r.height, bottom: r.bottom }; })()`);
+  // 3.35.0: a break is a gap (data-gap, with the old data-block-id); a break inside a longer one is a second gap in it.
+  const TB = '[data-timebox-grid]';
+  const gapOf = (id, root = TB) => V(`${root} [data-gap="${id}"]`);
+  const rectOf = (expr) => I.js(`(() => { const e = ${expr}; if (!e) return null; const r = e.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, w: r.width, h: r.height }; })()`);
   const scrollLunch = async () => {
-    await I.js(`(() => { const b = ${block('task:lunch')}; if (b) b.scrollIntoView({ block: 'center' }); })()`);
+    await I.js(`(() => { const b = ${gapOf('lunch')}; if (b) b.scrollIntoView({ block: 'center' }); })()`);
     await C.sleep(500);
   };
   const state = () =>
     I.js(`(() => { const d = document.querySelector('[data-drop-inside]'); const l = document.querySelector('[data-lifted-card]'); return { outline: d ? { label: d.innerText.trim(), id: d.getAttribute('data-drop-inside') } : null, lifted: l ? l.innerText.replace(/\\s+/g, ' ').trim() : '' }; })()`);
-  const mouse = (type, x, y, mods) => win.webContents.sendInputEvent({ type, x, y, ...(type === 'mouseMove' ? {} : { button: 'left', clickCount: 1 }), ...(mods ? { modifiers: mods } : {}) });
-  // Presses the block's top, drags to (x, y) and holds `hold` ms; the button stays down when release is false.
-  const dragTo = async (fromExpr, to, { hold = 400, release = true, grabDy = 8, grabLeft } = {}) => {
-    const r = await rectOf(fromExpr);
-    if (!r) throw new Error('no element to drag: ' + fromExpr.slice(0, 90));
-    const from = { x: grabLeft ? Math.round(r.left + grabLeft) : r.x, y: Math.round(r.top + grabDy) };
-    mouse('mouseMove', from.x, from.y);
-    await C.sleep(80);
-    mouse('mouseDown', from.x, from.y);
-    for (let i = 1; i <= 12; i++) {
-      mouse('mouseMove', Math.round(from.x + ((to.x - from.x) * i) / 12), Math.round(from.y + ((to.y - from.y) * i) / 12), ['leftButtonDown']);
-      await C.sleep(22);
-    }
-    await C.sleep(hold);
-    if (release) {
-      mouse('mouseUp', to.x, to.y);
-      await C.sleep(900);
-    }
-  };
-  const lunchPoint = async (dy) => {
-    const r = await rectOf(block('task:lunch'));
-    if (!r) throw new Error('no Lunch block');
-    return { x: r.x, y: Math.round(r.top + dy) };
-  };
+  const minOf = (id) => Number(byId(id).startTime.slice(0, 2)) * 60 + Number(byId(id).startTime.slice(3));
+  const LUNCH = 12 * 60;
+  // With the button still down (I.drag with release false): the pointer to `min` on the grid, then held `ms`.
+  const moveTo = (gridSel, min, ms) =>
+    I.js(`(async () => {
+      const grid = [...document.querySelectorAll(${JSON.stringify(gridSel)})].find((e) => e.getBoundingClientRect().width > 0);
+      const o = { ...window.__belificDragAt, clientY: grid.getBoundingClientRect().top + (${min} / 60) * 56 };
+      window.dispatchEvent(new PointerEvent('pointermove', o));
+      window.__belificDragAt = o;
+      await new Promise((r) => setTimeout(r, ${ms}));
+      return true;
+    })()`);
+  const inside = (a, b) => !!a && !!b && a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
 
-  async function passDwell(mode, sourceBlock, id) {
+  async function passDwell(mode, id) {
     await scrollLunch();
-    // ---- held for 1.3 s near the bottom of Lunch ----
-    const to = await lunchPoint(78);
-    await dragTo(sourceBlock, to, { hold: 1400, release: false });
+    // ---- held for 1.4 s near the bottom of Lunch ----
+    // Grabbed 25 minutes into it, so the press and the drop are always far enough apart to be a drag.
+    await I.drag(gapOf(id), TB, minOf(id) + 25, LUNCH + 83, { holdMs: 1400, release: false });
     const s = await state();
     check(`${mode}: held over Lunch for a moment, the break is outlined "Drop inside"`, !!s.outline && s.outline.label === 'Drop inside' && s.outline.id === 'task:lunch', JSON.stringify(s));
     check(`${mode}: and the lifted card says so`, /Drop inside Lunch/.test(s.lifted), s.lifted);
-    const o = await I.js(`(() => { const d = document.querySelector('[data-drop-inside]'); const b = ${block('task:lunch')}; if (!d || !b) return null; const a = d.getBoundingClientRect(); const c = b.getBoundingClientRect(); return { dl: Math.round(a.left - c.left), dt: Math.round(a.top - c.top), dw: Math.round(a.width - c.width), dh: Math.round(a.height - c.height) }; })()`);
-    check(`${mode}: the outline sits on Lunch's block`, !!o && Math.abs(o.dl) <= 4 && Math.abs(o.dt) <= 4 && Math.abs(o.dw - 4) <= 3 && Math.abs(o.dh - 4) <= 3, JSON.stringify(o));
+    const o = await I.js(`(() => { const d = document.querySelector('[data-drop-inside]'); const b = ${gapOf('lunch')}; if (!d || !b) return null; const a = d.getBoundingClientRect(); const c = b.getBoundingClientRect(); return { dl: Math.round(a.left - c.left), dt: Math.round(a.top - c.top), dw: Math.round(a.width - c.width), dh: Math.round(a.height - c.height) }; })()`);
+    check(`${mode}: the outline sits on Lunch's gap`, !!o && Math.abs(o.dl) <= 4 && Math.abs(o.dt) <= 4 && Math.abs(o.dw - 4) <= 3 && Math.abs(o.dh - 4) <= 3, JSON.stringify(o));
     await I.shot(`p42-drop-inside-${mode}`);
-    mouse('mouseUp', to.x, to.y);
+    await I.dragRelease();
     await C.sleep(1000);
-    check(`${mode}: the drop hosts it inside Lunch (it starts at the break's start, 12:00)`, byId(id).startTime === '12:00' && byId(id).dueDate === TODAY, JSON.stringify(byId(id)));
+    const t = byId(id);
+    // 5 minute steps: the dropped slot (13:00 to 13:30) fits, so it stays there, inside Lunch.
+    check(`${mode}: the drop hosts it inside Lunch (13:00, it fits from the dropped slot)`, t.startTime === '13:00' && t.dueDate === TODAY, JSON.stringify(t));
     await scrollLunch();
-    check(`${mode}: it is a chip in Lunch, its own Break ignored`, (await I.exists(chip(`task:${id}`))) && (await I.exists(`document.querySelector('[data-host-chip="task:${id}"][data-split-ignored]')`)));
-    check(`${mode}: and Lunch counts it inside`, (await I.js(`(${block('task:lunch')} || {}).getAttribute?.('data-host-count')`)) === '1');
+    check(`${mode}: it is a gap inside Lunch's gap (its own Break ignored there)`, inside(await rectOf(gapOf(id)), await rectOf(gapOf('lunch'))), JSON.stringify([await rectOf(gapOf(id)), await rectOf(gapOf('lunch'))]));
     await I.shot(`p42-hosted-${mode}`);
   }
 
-  // ---- A: dropped without the pause: placed as before (side by side, Split cut) ----
+  // ---- A: dropped without the pause: placed as before (two breaks side by side) ----
   await scrollLunch();
-  const toA = await lunchPoint(78);
-  await dragTo(block('task:focus'), toA, { hold: 400, release: false });
+  await I.drag(gapOf('focus'), TB, minOf('focus') + 5, LUNCH + 83, { holdMs: 400, release: false });
   const sa = await state();
   check('A: before the pause there is no outline and no "Drop inside"', sa.outline === null && !/Drop inside/.test(sa.lifted), JSON.stringify(sa));
-  mouse('mouseUp', toA.x, toA.y);
+  await I.dragRelease();
   await C.sleep(900);
   const placed = byId('focus');
-  check('A: dropped without the pause it is placed at the slot, not moved to the break\'s start', !!placed.startTime && placed.startTime !== '12:00' && placed.startTime !== '09:00', JSON.stringify(placed));
+  check('A: dropped without the pause it is placed at the slot (5 minute steps), not moved to the break\'s start', placed.startTime === '13:20', JSON.stringify(placed));
   await scrollLunch();
-  check('A: and it is not hosted (it partly overlaps Lunch: two breaks side by side)', !(await I.exists(chip('task:focus'))));
+  check('A: and it is not hosted (it runs past Lunch: two gaps side by side)', !inside(await rectOf(gapOf('focus')), await rectOf(gapOf('lunch'))));
 
   // ---- B: with the pause: hosted ----
-  await passDwell('light', block('task:focus'), 'focus');
+  await passDwell('light', 'focus');
 
   // ---- C: longer than the break: the note, no outline, placed as usual ----
   await scrollLunch();
-  const toC = await lunchPoint(40);
   const deepBefore = byId('deep').startTime;
-  await dragTo(block('task:deep'), toC, { hold: 1400, release: false });
+  await I.drag(gapOf('deep'), TB, minOf('deep') + 5, LUNCH + 43, { holdMs: 1400, release: false });
   const sc = await state();
   check('C: longer than the break: the note says so, with the break\'s length', /Longer than the break \(1 h 30 min\)/.test(sc.lifted), JSON.stringify(sc));
   check('C: and the break is not outlined', sc.outline === null, JSON.stringify(sc));
   await I.shot('p42-longer-light');
-  mouse('mouseUp', toC.x, toC.y);
+  await I.dragRelease();
   await C.sleep(900);
   check('C: nothing is refused: it is placed where it was dropped (side by side)', byId('deep').startTime !== deepBefore, `${deepBefore} -> ${byId('deep').startTime}`);
 
   // ---- D: leaving the break cancels the pause ----
   await scrollLunch();
-  const toD1 = await lunchPoint(30);
-  await dragTo(block('task:deep'), toD1, { hold: 700, release: false });
-  const outPt = { x: toD1.x, y: toD1.y - 200 };
-  for (let i = 1; i <= 8; i++) {
-    mouse('mouseMove', toD1.x, Math.round(toD1.y + ((outPt.y - toD1.y) * i) / 8), ['leftButtonDown']);
-    await C.sleep(20);
-  }
-  await C.sleep(800);
+  await I.drag(gapOf('free') || V('[data-block-id="free"]'), TB, minOf('free') + 5, LUNCH + 32, { holdMs: 700, release: false });
+  await moveTo(TB, LUNCH - 150, 800);
   const d1 = await state();
-  const r2 = await lunchPoint(30);
-  for (let i = 1; i <= 6; i++) {
-    mouse('mouseMove', r2.x, Math.round(outPt.y + ((r2.y - outPt.y) * i) / 6), ['leftButtonDown']);
-    await C.sleep(20);
-  }
-  await C.sleep(500);
+  await moveTo(TB, LUNCH + 32, 500);
   const d2 = await state();
   check('D: 0.7 s over the break, away for 0.8 s, back for 0.5 s: no pause completes, nothing is outlined', d1.outline === null && d2.outline === null, JSON.stringify([d1, d2]));
-  mouse('mouseUp', r2.x, r2.y);
+  await I.dragRelease();
   await C.sleep(800);
 
   // ---- the details say the Split is ignored ----
-  await I.click(chip('task:focus'), 900).catch(() => {});
+  await scrollLunch();
+  await I.click(gapOf('focus'), 900).catch(() => {});
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 6000).catch(() => {});
   const note = await I.js(`(() => { const n = document.querySelector('[data-detail-panel] [data-split-ignored]'); return n ? n.innerText.trim() : null; })()`);
   check('the details of a hosted Split task say its Break is ignored', note === 'Its Break is ignored while it is inside Lunch.', String(note));
   await I.shot('p42-details-light');
   await I.key('Escape', [], 600);
 
-  // ---- Dark: the same pause with the other task ----
+  // ---- Dark: the same pause again ----
   const icon = (await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in';
   await I.click(I.byLabel(icon));
   await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 700);
@@ -181,35 +165,31 @@ async function run() {
   await I.click(I.byLabel('Back'), 900);
   await I.click(I.byLabel('Show Tasks'), 800).catch(() => {});
   await C.sleep(900);
-  // Put the Split task "Free task" (a normal one) aside and use Deep work shortened: its length is changed in the data
-  // is not possible from here, so the dark pass uses Focus again: drag its chip out, then back in with the pause.
+  // Focus dragged out of Lunch first (a normal move), then back in with the pause.
   await scrollLunch();
-  const out = await rectOf(block('task:lunch'));
-  await dragTo(chip('task:focus'), { x: out.x, y: Math.round(out.top - 110) }, { hold: 300, grabLeft: 45, grabDy: 7 });
-  check('dark: a chip dragged out is a normal move (no longer hosted)', byId('focus').startTime !== '12:00' || (await I.exists(block('task:focus'))), JSON.stringify(byId('focus')));
-  await C.sleep(600);
-  await passDwell('dark', block('task:focus'), 'focus');
+  await I.drag(gapOf('focus'), TB, minOf('focus') + 5, LUNCH - 115, { holdMs: 300 });
+  await C.sleep(900);
+  check('dark: a gap dragged out of Lunch is a normal move (no longer inside it)', byId('focus').startTime === '10:00', JSON.stringify(byId('focus')));
+  await passDwell('dark', 'focus');
 
-  // ---- The Calendar draws the same pause (its blocks are found by data-cal-block) ----
+  // ---- The Calendar draws the same pause ----
   await I.click(I.byLabel('Show the Calendar'), 1200).catch(() => I.click(I.byLabel('Show Calendar'), 1200));
   await C.sleep(900);
-  const cal = (id) => V(`[data-cal-block$=":${id}"]`);
-  const scrollCal = async () => {
-    await I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); if (s) s.scrollTop = 6.4 * 56; })()`);
-    await C.sleep(500);
-  };
-  await scrollCal();
-  const lr = await rectOf(cal('lunch'));
-  if (lr && (await rectOf(cal('quick')))) {
-    await dragTo(cal('quick'), { x: lr.x, y: Math.round(lr.top + 20) }, { hold: 1400, release: false });
+  await I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); if (s) s.scrollTop = 6.4 * 56; })()`);
+  await C.sleep(500);
+  const COL = `[data-cal-col="${TODAY}"]`;
+  if ((await rectOf(gapOf('lunch', COL))) && (await rectOf(gapOf('quick', COL)))) {
+    await I.drag(gapOf('quick', COL), '[data-calendar-grid]', minOf('quick') + 5, LUNCH + 21, { holdMs: 1400, release: false });
     const se = await state();
     check('E: in the Calendar too, held over Lunch the break is outlined "Drop inside"', !!se.outline && se.outline.label === 'Drop inside', JSON.stringify(se));
     await I.shot('p42-calendar-drop-inside');
-    mouse('mouseUp', lr.x, Math.round(lr.top + 20));
+    await I.dragRelease();
     await C.sleep(1000);
-    check('E: and the drop hosts it (the break start)', byId('quick').startTime === '12:00', JSON.stringify(byId('quick')));
+    const q = byId('quick');
+    // 5 minute steps: it fits from the dropped slot (12:15), so it stays there, inside Lunch.
+    check('E: and the drop hosts it inside Lunch', q.startTime === '12:15', JSON.stringify(q));
   } else {
-    check('E: the Calendar shows Lunch and the quick call', false, JSON.stringify([lr]));
+    check('E: the Calendar shows Lunch and the quick call', false);
   }
 
   const failed = summary();

@@ -109,7 +109,8 @@ test('phase 5 keys: planning, today, Brain Dump, the days either side, the time 
 });
 
 test('a task key is ignored by the home handler and the other way round', () => {
-  assert.equal(shortcutFor(press('c'), home), null);
+  // 3.35.0 (D2): C is the scissors at home now (a focused card still takes it first); O stays a card key only.
+  assert.equal(shortcutFor(press('o'), home), null);
   assert.equal(shortcutFor(press('c'), card), 'complete');
   assert.equal(shortcutFor(press('q'), card), null);
   assert.equal(shortcutFor(press('q'), home), 'quickCapture');
@@ -167,6 +168,12 @@ test('arrow keys move between tasks only on a card', () => {
   assert.equal(shortcutFor(press('ArrowDown', { shift: true }), card), null);
 });
 
+test('D2: C is the scissors at home and complete on a focused card', () => {
+  assert.equal(shortcutFor({ key: 'c' }, { typing: false, scope: 'home' }), 'blade');
+  assert.equal(shortcutFor({ key: 'c' }, { typing: false, scope: 'card' }), 'complete');
+  assert.equal(shortcutFor({ key: 'c' }, { typing: true, scope: 'home' }), null, 'never while typing');
+});
+
 test('no two shortcuts share a key, and the table is complete', () => {
   // A home key works anywhere on the home screen, so it is unique across every
   // scope. A card key and a time block key (2.26.0) act on different elements
@@ -184,7 +191,9 @@ test('no two shortcuts share a key, and the table is complete', () => {
     const seen = new Map<string, string>();
     for (const def of SHORTCUTS.filter((d) => d.scope === scope)) {
       const sig = sigOf(def.keys);
-      assert.ok(!seen.has(sig) && !home.has(sig), `${def.id} clashes with ${seen.get(sig) ?? home.get(sig)}`);
+      // D2 (3.35.0): the scissors' C defers to a focused card's C (complete); the one allowed pair.
+      const allowed = def.id === 'complete' && home.get(sig) === 'blade';
+      assert.ok(!seen.has(sig) && (!home.has(sig) || allowed), `${def.id} clashes with ${seen.get(sig) ?? home.get(sig)}`);
       seen.set(sig, def.id);
     }
   }

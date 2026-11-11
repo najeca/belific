@@ -13,6 +13,8 @@ import { hostDay, hostSnapshot, type HostEntry, type HostSnapshot } from '../../
 import { setDayBreaks, watchDay, type DayBreak } from './breakStore';
 import type { HostBreak, HostedGuest } from './HostChips';
 import { GapEdges, GapLayer, type DrawnGap } from './GapLayer';
+import BladeLayer, { BladeButton, BladeHint } from './BladeLayer';
+import type { BladeHost } from '../../lib/blade';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText } from './vibrantStore';
 import { taskDuration } from '../../lib/drag';
@@ -119,6 +121,9 @@ interface DayData {
   // 3.34.0: the day's breaks as gaps under the blocks, and the blocks that sit in a gap (lib/gaps.ts).
   gaps: DrawnGap[];
   inGap: Map<string, { guest: HostedGuest; brk: HostBreak }>;
+  // 3.35.0: what the scissors cut into (the timed tasks not inside a break) and the day's breaks (lib/blade.ts).
+  bladeHosts: BladeHost[];
+  bladeBreaks: CutEntry[];
   breaks: DayBreak[];
   snap: HostSnapshot;
 }
@@ -293,6 +298,13 @@ export default function CalendarPane({
         }
         items.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id), ...(it.minPx !== undefined ? { minPx: it.minPx } : {}) });
       }
+      const bladeHosts: BladeHost[] = entries.flatMap((e) => {
+        const s = sources.get(e.id);
+        if (e.breaks || e.cont || host.hostOf.has(e.id) || !s || s.kind !== 'task') return [];
+        const full = s.full ?? s.task;
+        return [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, task: full, repeats: !!full.recurrence }];
+      });
+      const bladeBreaks = entries.filter((e) => e.breaks && !host.hostOf.has(e.id));
       const importedAllDay: ImportedSeg[] = [];
       for (const seg of segmentsForDay(imported, dayKey) as ImportedSeg[]) {
         if (seg.allDayRow) {
@@ -305,7 +317,7 @@ export default function CalendarPane({
       }
       // 2.29.0: top priority first in the all day row (a stable sort; nothing stored).
       allDay.sort((a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)));
-      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.hostNotes, badges: plan.hostBadges, blocks: layoutItems(items).blocks, gaps, inGap, breaks, snap: hostSnapshot(entries) };
+      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.hostNotes, badges: plan.hostBadges, blocks: layoutItems(items).blocks, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries) };
     });
   }, [effView, keys, tasks, events, categories, filter, todayKey, imported, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
@@ -517,6 +529,7 @@ export default function CalendarPane({
             {totalsText}
           </Text>
         ) : null}
+        {effView !== 'month' && <BladeButton />}
         <FilterButton filter={filter} labels={labels} onChange={onFilterChange} />
         <View style={styles.seg} accessibilityRole="radiogroup">
           {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
@@ -536,6 +549,7 @@ export default function CalendarPane({
         <OnlyTodayButton on={onlyToday} onPress={onToggleOnlyToday} />
       </View>
       {onlyToday && <Text style={styles.note}>📅 Showing only today (Shift+F to show everything).</Text>}
+      {effView !== 'month' && <BladeHint />}
       {icsFailing > 0 && (
         <Text style={styles.note} accessibilityLabel="Imported calendar error">
           📅 {icsFailing === 1 ? 'An imported calendar' : `${icsFailing} imported calendars`} could not be refreshed. Settings, Calendars says why; the events shown are from the last refresh.
@@ -841,6 +855,7 @@ export default function CalendarPane({
                     );
                   })}
                   <GapEdges gaps={d.gaps} scope={scopeOf(d.key)} gridNode={() => gridEl.current} />
+                  <BladeLayer dayKey={d.key} hosts={d.bladeHosts} breaks={d.bladeBreaks} cutMin={cutMin} gridNode={() => gridEl.current} />
                   {d.key === todayKey && (
                     <View pointerEvents="none" style={[styles.nowLine, { top: nowTop }]} accessibilityLabel="Current time" {...({ dataSet: { nowLine: '1' } } as object)}>
                       <View style={styles.nowDot} />

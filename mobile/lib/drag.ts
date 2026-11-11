@@ -77,8 +77,8 @@ export function yToMinutes(y: number, gridTop: number): number {
 // Keeps a block's start on the day: 00:00 to 23:30, on a 30 minute boundary.
 // The length does not matter: a block dropped near the bottom of the day may
 // run past midnight (its rest shows on the next day, decision 024).
-export function clampStart(startMin: number, _duration: number): number {
-  const latest = GRID_END_MIN - SNAP_MINUTES;
+export function clampStart(startMin: number, _duration: number, snap: number = SNAP_MINUTES): number {
+  const latest = GRID_END_MIN - snap;
   return Math.max(GRID_START_MIN, Math.min(startMin, latest));
 }
 
@@ -89,10 +89,10 @@ export function slotUnderPointer(rawMin: number, duration: number): number {
 }
 
 // A moved block keeps the point it was grabbed by: its new start is the
-// pointer minus that offset, rounded to the nearest 30 minutes and clamped.
-export function movedBlockStart(rawPointerMin: number, grabOffsetMin: number, duration: number): number {
+// pointer minus that offset, rounded to the nearest 30 minutes (`snap`: a gap moves in 5, 3.35.0) and clamped.
+export function movedBlockStart(rawPointerMin: number, grabOffsetMin: number, duration: number, snap: number = SNAP_MINUTES): number {
   const raw = rawPointerMin - grabOffsetMin;
-  return clampStart(Math.round(raw / SNAP_MINUTES) * SNAP_MINUTES, duration);
+  return clampStart(Math.round(raw / snap) * snap, duration, snap);
 }
 
 // Dragging a block's bottom edge: the duration changes in 30 minute steps,
@@ -117,7 +117,7 @@ export function resolveDrop(
   x: number,
   y: number,
   zones: Zone[],
-  source: { kind: DragSourceKind; duration: number; grabOffsetMin?: number },
+  source: { kind: DragSourceKind; duration: number; grabOffsetMin?: number; snap?: number },
 ): DropTarget | null {
   for (const zone of zones) {
     if (!inside(x, y, zone.rect)) continue;
@@ -130,7 +130,7 @@ export function resolveDrop(
     const raw = yToMinutes(y, zone.gridTop);
     const startMin =
       source.kind === 'block' && source.grabOffsetMin !== undefined
-        ? movedBlockStart(raw, source.grabOffsetMin, source.duration)
+        ? movedBlockStart(raw, source.grabOffsetMin, source.duration, source.snap)
         : slotUnderPointer(raw, source.duration);
     return { kind: 'slot', dayKey: zone.dayKey, startMin };
   }

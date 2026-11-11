@@ -14,7 +14,7 @@ import { tipRef } from './tip';
 //  * GapLayer, UNDER the blocks: each break at its real times, full column width, light 45 degree hatching and a
 //    1 px dashed outline; no fill, no ☕, no text. The tasks in it are ordinary blocks drawn over it, so only its
 //    free part shows. Hover: "Short break · 20 min". A press opens the break's details; a drag on its body moves
-//    it (as a block moves: 30 minute steps, this day only on a repeating break).
+//    it (5 minute steps since 3.35.0, the same as its edges; this day only on a repeating break).
 //  * GapEdges, ABOVE the blocks: a thin strip at the top and bottom edge of each gap that resizes it (5 minute
 //    steps), and, for a cut that was refused, the gap's outline over the task drawn whole (no pointer events).
 // The rest of yesterday's overnight break is drawn but not moved or resized here (it is edited on its own day).
@@ -67,6 +67,7 @@ function Gap({ g, scope, gridNode, dimmed }: { g: DrawnGap; scope: string; gridN
       projected: cur.projected,
       scope,
       grabOffsetMin: Math.max(0, yToMinutes(e.clientY, grid.getBoundingClientRect().top) - start),
+      snap: GAP_SNAP_MIN,
     };
   });
   const len = Math.min(1440, g.endMin) - g.startMin;

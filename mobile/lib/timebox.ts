@@ -156,14 +156,17 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
 
   for (const item of visible) {
     if (cluster.length > 0 && item.startMin >= clusterEnd) closeCluster();
+    // 3.35.0: a block in a gap (`minPx`) takes the lane for as long as it is drawn, so two 5 minute tasks in a row
+    // (each drawn 10 px, about 11 minutes) sit side by side instead of on top of each other.
+    const laneEnd = item.minPx !== undefined ? Math.max(item.endMin, item.startMin + (item.minPx / PX_PER_HOUR) * 60) : item.endMin;
     let col = columnEnds.findIndex((end) => end <= item.startMin);
     if (col === -1) {
       col = columnEnds.length;
-      columnEnds.push(item.endMin);
+      columnEnds.push(laneEnd);
     } else {
-      columnEnds[col] = item.endMin;
+      columnEnds[col] = laneEnd;
     }
-    clusterEnd = Math.max(clusterEnd, item.endMin);
+    clusterEnd = Math.max(clusterEnd, laneEnd);
     cluster.push({
       id: item.id,
       top: ((item.startMin - GRID_START_MIN) / 60) * PX_PER_HOUR,

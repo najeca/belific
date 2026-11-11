@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { kv } from '../../lib/kv';
 import { generateId } from '../../lib/data';
+import type { BladeState } from '../../lib/blade';
 
 // Small shared UI state for the desktop home screen (build plan phases 2 and
 // 3): which overlay is open, which task's details panel is open, which list the
@@ -47,6 +48,8 @@ interface State {
   goToday: number;
   undo: UndoOffer | null;
   notice: Notice | null;
+  // 3.35.0 (PLAN_breaks_as_gaps P4): the scissors on the Calendar and the Timebox (lib/blade.ts).
+  blade: BladeState;
 }
 
 // A short plain message at the bottom of the screen (2.34.1: why a timer could not start).
@@ -66,7 +69,7 @@ export interface UndoOffer {
   actionLabel?: string;
 }
 
-let state: State = { overlay: null, detailId: null, detailFocus: null, detailDraft: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0, undo: null, notice: null };
+let state: State = { overlay: null, detailId: null, detailFocus: null, detailDraft: null, selectedList: null, reveal: null, timerConfirm: null, goToday: 0, undo: null, notice: null, blade: { mode: 'off' } };
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const subscribe = (l: () => void) => {
@@ -222,4 +225,15 @@ export function setChangeNotifier(fn: (() => void) | null): void {
 }
 export function notifyChanged(): void {
   changed?.();
+}
+
+// ---- 3.35.0: the scissors (lib/blade.ts; BladeLayer.tsx draws and drives them) ----
+export const useBlade = () => use((s) => s.blade);
+export const getBlade = (): BladeState => state.blade;
+export function setBlade(b: BladeState): void {
+  set({ blade: b });
+}
+// The button and C: on (armed) or off.
+export function toggleBlade(): void {
+  set({ blade: state.blade.mode === 'off' ? { mode: 'armed' } : { mode: 'off' } });
 }

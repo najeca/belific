@@ -18,7 +18,7 @@ import { carryBreaks } from '../../lib/breakCarry';
 import { toMinutes } from '../../lib/timebox';
 import { taskDuration } from '../../lib/drag';
 import { DuringBreak, InsideBreak } from './HostDetails';
-import { BREAK_HINT, KIND_LABEL, TASK_HINT, breakIgnored, kindOf, kindPatch, type TaskKind } from '../../lib/taskKind';
+import { BREAK_HINT, KIND_LABEL, TASK_HINT_DESKTOP, breakIgnored, kindOf, kindPatch, type TaskKind } from '../../lib/taskKind';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
@@ -501,7 +501,7 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
         <DetailRow icon={kindOf(task) === 'break' ? 'cafe-outline' : 'checkmark-circle-outline'} label={KIND_LABEL} shown="Type" tip={KIND_LABEL}>
           <KindChoice value={kindOf(task)} onChange={(k) => patch(kindPatch(k))} />
           <Text style={styles.hintText} {...({ dataSet: { kindHint: kindOf(task) } } as object)}>
-            {kindOf(task) === 'break' ? BREAK_HINT : TASK_HINT}
+            {kindOf(task) === 'break' ? BREAK_HINT : TASK_HINT_DESKTOP}
           </Text>
           {task.cutsBelow && links.some((l) => l.guest.full.id === task.id) ? (
             <Text style={styles.quietSub} {...({ dataSet: { splitIgnored: '1' } } as object)}>

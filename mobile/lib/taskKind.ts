@@ -10,6 +10,8 @@ export type TaskKind = 'task' | 'break';
 export const KIND_LABEL = 'Task or Break';
 export const TASK_HINT = 'A normal task. If you place it inside a break it shows as a chip in that break.';
 export const BREAK_HINT = 'Cuts the tasks it overlaps into pieces and can hold other tasks inside it.';
+// 3.35.0: the desktop's words since a break is drawn as a gap (PLAN_breaks_as_gaps P2). The phone keeps TASK_HINT until P5.
+export const TASK_HINT_DESKTOP = "A normal task. If you place it inside a break it shows as a block in that break's gap.";
 // The small tag on a Break's card, and the cup before a Break's title on its Calendar and Timebox block.
 export const BREAK_TAG = 'Break';
 export const BREAK_CUP = '☕';

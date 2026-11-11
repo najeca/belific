@@ -63,7 +63,38 @@ function makeInput(win, shotsDir) {
     fs.mkdirSync(shotsDir, { recursive: true });
     fs.writeFileSync(path.join(shotsDir, `${name}.png`), (await win.webContents.capturePage()).toPNG());
   };
-  return { js, body, waitBody, visible, byLabel, click, hover, key, enter, type, exists, activeLabel, blur, dialog, textOf, shot };
+  // 3.35.0: a drag driven by PointerEvents dispatched in the page (the app's own drag code reads them), so the real
+  // mouse never moves and a check can run quiet. Pressed on `expr` at the time `fromMin` of the visible grid
+  // `gridSel` (56 px an hour), moved to `toMin` (in the column under `toXExpr`, else straight down), held `holdMs`,
+  // then released unless `release` is false (`dragRelease` does it later). Returns the lifted card's text.
+  const drag = (expr, gridSel, fromMin, toMin, { toXExpr = null, holdMs = 250, release = true, steps = 8 } = {}) =>
+    js(`(async () => {
+      const el = ${expr};
+      const grid = [...document.querySelectorAll(${JSON.stringify(gridSel)})].find((e) => e.getBoundingClientRect().width > 0);
+      if (!el || !grid) return null;
+      const r = el.getBoundingClientRect();
+      const x0 = r.left + r.width / 2;
+      const tx = ${toXExpr ? `(${toXExpr})` : 'null'};
+      const x1 = tx ? tx.getBoundingClientRect().left + tx.getBoundingClientRect().width / 2 : x0;
+      const top = grid.getBoundingClientRect().top;
+      const yOf = (m) => top + (m / 60) * 56;
+      const o = (x, y) => ({ bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0, buttons: 1, pointerId: 7, pointerType: 'mouse', isPrimary: true });
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      el.dispatchEvent(new PointerEvent('pointerdown', o(x0, yOf(${fromMin}))));
+      for (let i = 1; i <= ${steps}; i++) {
+        window.dispatchEvent(new PointerEvent('pointermove', o(x0 + ((x1 - x0) * i) / ${steps}, yOf(${fromMin} + ((${toMin} - ${fromMin}) * i) / ${steps}))));
+        await wait(40);
+      }
+      await wait(${holdMs});
+      window.dispatchEvent(new PointerEvent('pointermove', o(x1, yOf(${toMin}))));
+      await wait(60);
+      const hint = (document.querySelector('[data-lifted-card]') || {}).innerText || '';
+      window.__belificDragAt = o(x1, yOf(${toMin}));
+      if (${release ? 'true' : 'false'}) window.dispatchEvent(new PointerEvent('pointerup', window.__belificDragAt));
+      return hint;
+    })()`);
+  const dragRelease = () => js(`(() => { if (window.__belificDragAt) window.dispatchEvent(new PointerEvent('pointerup', window.__belificDragAt)); return true; })()`);
+  return { js, body, waitBody, visible, byLabel, click, hover, key, enter, type, exists, activeLabel, blur, dialog, textOf, shot, drag, dragRelease };
 }
 
 // Local date keys, shifted by whole days (calendar arithmetic).

@@ -88,7 +88,7 @@ async function run() {
   await openCard('Plan the week');
   check(`${mode} 1: Task | Break, Task chosen`, (await choice()) === 'task' && (await I.js(`${panel}.querySelector('[data-kind="task"]').getAttribute('aria-checked')`)) === 'true');
   check(`${mode} 1: an icon on each option`, await I.js(`[...${panel}.querySelectorAll('[data-kind]')].every((o) => !!o.querySelector('svg, [class*="icon"], div[style*="font-family"]') || o.children.length >= 2)`));
-  check(`${mode} 1: the Task line`, (await panelText()).includes('A normal task. If you place it inside a break it shows as a chip in that break.'));
+  check(`${mode} 1: the Task line`, (await panelText()).includes("A normal task. If you place it inside a break it shows as a block in that break's gap."));
   await I.shot(`p48-1-task-${mode}`);
 
   // ======== 2. Break, then Task again ========

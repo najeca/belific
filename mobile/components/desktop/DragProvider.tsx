@@ -70,6 +70,8 @@ export interface DragItem {
   scope?: string;
   // Blocks only: minutes between the block's start and where it was grabbed.
   grabOffsetMin?: number;
+  // 3.35.0: the step a move snaps to (a gap: 5 minutes; else the blocks' 30).
+  snap?: number;
   // Blocks of a task with several times a day (Part C): the time of the block that was grabbed.
   time?: string;
   // A projected occurrence of a repeating series (decision 023). On a time slot of

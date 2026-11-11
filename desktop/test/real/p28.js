@@ -1,11 +1,14 @@
 'use strict';
-// @real-input: pointer (hover, drag)
-// Real check for 3.9.0 to 3.11.0: a task during a break, follow up. Real mouse input into the real app on
-// an isolated data folder; Supabase is the in process fake (signed out, nothing leaves the machine).
-//  3.9.0: the chip's menu (right click or its small ⋯ button): "Move out of break" (right after the
-//         break, same day, same length) and "Remove time" (Anytime that day), each with a 5 second Undo;
-//         a task with several times moves only the time inside the break; a repeating day changes that day
-//         only (no question since 3.20.0) and its Undo puts it back; a chip dragged out is a normal move.
+// @real-input: quiet
+// Real check for 3.9.0 to 3.11.0: a task during a break, follow up. Real input into the real app on an isolated
+// data folder; Supabase is the in process fake (signed out, nothing leaves the machine).
+// 3.35.0 (PLAN_breaks_as_gaps): rewritten for gaps. A break is a gap and a task inside it is a block in the gap
+// (data-in-gap), no longer a chip; the menu opens on a right click of that block (the chip's ⋯ button is gone); the
+// break is resized by its gap's edge; gaps take no arrow keys, so the 3.12.0 key part is gone. Drags and right
+// clicks are events dispatched in the page, so it runs quiet.
+//  3.9.0: the menu: "Move out of break" (right after the break, same day, same length) and "Remove time" (Anytime
+//         that day), each with a 5 second Undo; a task with several times moves only the time inside the break; a
+//         repeating day changes that day only and its Undo puts it back; a block dragged out is a normal move.
 // BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -64,49 +67,48 @@ async function run() {
   win.focus();
   win.webContents.focus();
   const I = makeInput(win, process.env.BELIFIC_SHOTS || '');
-  await I.waitBody('Lunch', 20000);
+  // A break with a time has no card and its gap no text (3.33.0, 3.34.0): wait for a plain task.
+  await I.waitBody('Call the bank', 20000);
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 600);
   await C.sleep(1200);
 
   const V = (sel) => `[...document.querySelectorAll('${sel}')].find((e) => e.getBoundingClientRect().width > 0)`;
   const tb = (id) => `[data-block-id="${id}"]`;
-  const chip = (blockId) => V(`[data-host-chip="${blockId}"]`);
+  // A task in a break: its Timebox block in the gap ('task:pod' -> [data-block-id="pod"][data-in-gap]).
+  const chip = (blockId) => V(`[data-block-id="${blockId.replace(/^task:/, '')}"][data-in-gap]`);
+  const own = (id) => V(`[data-block-id="${id}"]:not([data-in-gap])`);
+  const hostCount = (title) => I.js(`[...document.querySelectorAll('[data-timebox-grid] [data-in-gap="${title}"]')].filter((e) => e.getBoundingClientRect().width > 0).length`);
   const scrollTo = (expr) => I.js(`(() => { const b = ${expr}; if (b) b.scrollIntoView({ block: 'center' }); return !!b; })()`);
   const undoText = () => I.js(`(document.querySelector('[data-undo-bar]') || {}).innerText || ''`);
   const rightClick = async (expr) => {
     await scrollTo(expr);
     await C.sleep(300);
-    const r = await I.js(`(() => { const e = ${expr}; const b = e.getBoundingClientRect(); return { x: Math.round(b.left + 20), y: Math.round(b.top + b.height / 2) }; })()`);
-    win.webContents.sendInputEvent({ type: 'mouseMove', x: r.x, y: r.y });
-    await C.sleep(80);
-    win.webContents.sendInputEvent({ type: 'mouseDown', x: r.x, y: r.y, button: 'right', clickCount: 1 });
-    win.webContents.sendInputEvent({ type: 'mouseUp', x: r.x, y: r.y, button: 'right', clickCount: 1 });
+    await I.js(`(() => { const e = ${expr}; if (e) e.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 })); })()`);
     await C.sleep(500);
   };
-  const menuOf = (blockId) => `document.querySelector('[data-host-chip-menu="${blockId}"]')`;
+  const menuOf = (blockId) => `document.querySelector('[data-host-block-menu="${blockId}"]')`;
 
   // ======== Right click: the menu ========
   await scrollTo(V(tb('lunch')));
   await C.sleep(300);
-  check('Lunch hosts the podcast, the call and the pill\'s 12:40', (await I.js(`(${V(tb('lunch'))} || {}).getAttribute?.('data-host-count')`)) === '3');
+  check('Lunch hosts the podcast, the call and the pill\'s 12:40 (three blocks in its gap)', (await hostCount('Lunch')) === 3);
   await rightClick(chip('task:pod'));
   const menu = await I.textOf(menuOf('task:pod'));
-  check('a right click on a chip opens its menu: Open, Move out of break, Remove time', menu.includes('Move out of break') && menu.includes('Remove time') && menu.includes('Open'), menu);
-  await I.shot('p28-01-chip-menu-light');
+  check('a right click on a block in a gap opens its menu: Open, Move out of break, Remove time', menu.includes('Move out of break') && menu.includes('Remove time') && menu.includes('Open'), menu);
+  await I.shot('p28-01-gap-block-menu-light');
   await I.click(`${menuOf('task:pod')}.querySelector('[aria-label="Move out of break"]')`, 900);
   const pod = byId('pod');
   check('Move out of break: right after the break, the same day and length', pod.startTime === '13:30' && pod.dueDate === TODAY && pod.durationMinutes === 30, JSON.stringify(pod));
-  check('it is a block of its own again', await I.exists(V(tb('pod'))));
+  check('it is a block of its own again (not in the gap)', await I.exists(own('pod')));
   const u1 = await undoText();
   check('an Undo message says what happened', /Moved Listen to a podcast out of Lunch/.test(u1) && /Undo/.test(u1), u1);
   await I.shot('p28-02-moved-out-undo');
   await C.sleep(5600);
   check('the Undo message goes after 5 seconds', !(await undoText()));
 
-  // ======== The small button: Remove time, then Undo ========
-  await scrollTo(chip('task:call'));
-  await I.click(V('[data-host-menu="task:call"]'), 500);
-  check('the small ⋯ button opens the same menu', (await I.textOf(menuOf('task:call'))).includes('Remove time'));
+  // ======== Remove time, then Undo ========
+  await rightClick(chip('task:call'));
+  check('the menu of another block in the gap', (await I.textOf(menuOf('task:call'))).includes('Remove time'));
   await I.click(`${menuOf('task:call')}.querySelector('[aria-label="Remove time"]')`, 900);
   const call = byId('call');
   check('Remove time: Anytime on the same day', !call.startTime && call.dueDate === TODAY && call.durationMinutes === 20, JSON.stringify(call));
@@ -115,8 +117,7 @@ async function run() {
   check('Undo puts the time back, and it is in the break again', byId('call').startTime === '12:15' && (await I.exists(chip('task:call'))), JSON.stringify(byId('call')));
 
   // ======== Several times: only the one inside the break ========
-  await scrollTo(chip('task:pill@12:40'));
-  await I.click(V('[data-host-menu="task:pill@12:40"]'), 500);
+  await rightClick(chip('task:pill@12:40'));
   await I.click(`${menuOf('task:pill@12:40')}.querySelector('[aria-label="Move out of break"]')`, 900);
   const pill = byId('pill');
   check('a task with several times moves only its time inside the break', pill.startTime === '08:00' && JSON.stringify(pill.extraTimes) === '["13:30"]', JSON.stringify(pill));
@@ -127,8 +128,8 @@ async function run() {
   const walkId = `walk:${TODAY}`;
   await scrollTo(V(tb('tea')));
   await C.sleep(300);
-  check('today\'s projected walk is a chip in the tea break', await I.exists(chip(`task:${walkId}`)));
-  await I.click(V(`[data-host-menu="task:${walkId}"]`), 500);
+  check('today\'s projected walk is a block in the tea break\'s gap', await I.exists(chip(`task:${walkId}`)));
+  await rightClick(chip(`task:${walkId}`));
   await I.click(`${menuOf(`task:${walkId}`)}.querySelector('[aria-label="Move out of break"]')`, 900);
   check('a day of a repeating task asks nothing', !(await I.exists(`document.querySelector('[data-scope-prompt]')`)));
   check('That day only: today\'s walk is stored at 09:20, the series keeps 09:05', byId(walkId)?.startTime === '09:20' && byId('walk').startTime === '09:05', JSON.stringify([byId(walkId), byId('walk')]));
@@ -138,25 +139,16 @@ async function run() {
   // Found by this check: the Undo once copied today onto the next day stored to carry the series.
   check('Undo leaves one walk today (the day stored to carry the series keeps its own day)', tasks().filter((t) => t.title === 'Short walk' && t.dueDate === TODAY && !t.deletedAt).length === 1, JSON.stringify(tasks().filter((t) => t.id.startsWith('walk')).map((t) => [t.id, t.dueDate, t.startTime])));
 
-  // ======== Drag a chip out ========
+  // ======== Drag a block out of its gap ========
   await scrollTo(chip('task:call'));
   await C.sleep(300);
-  const a = await I.js(`(() => { const r = ${chip('task:call')}.getBoundingClientRect(); return { x: Math.round(r.left + 30), y: Math.round(r.top + r.height / 2) }; })()`);
-  win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y });
-  await C.sleep(80);
-  win.webContents.sendInputEvent({ type: 'mouseDown', x: a.x, y: a.y, button: 'left', clickCount: 1 });
-  // Two hours down (56 px an hour), clear of the break.
-  for (let i = 1; i <= 12; i++) {
-    win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y + Math.round((168 * i) / 12), modifiers: ['leftButtonDown'] });
-    await C.sleep(30);
-  }
-  await C.sleep(300);
-  const lifted = await I.textOf(`document.querySelector('[data-lifted-card]')`);
-  check('a chip lifts like a block', lifted.includes('Call the bank'), lifted);
-  win.webContents.sendInputEvent({ type: 'mouseUp', x: a.x, y: a.y + 168, button: 'left', clickCount: 1 });
+  // Two hours down, clear of the break.
+  const lifted = await I.drag(chip('task:call'), '[data-timebox-grid]', 12 * 60 + 20, 14 * 60 + 20, { release: false });
+  check('a block in a gap lifts like any block', (lifted || '').includes('Call the bank'), lifted);
+  await I.dragRelease();
   await C.sleep(900);
   const moved = byId('call');
-  check('dropped outside the break it is a normal move: a block of its own, same length', moved.startTime >= '14:00' && moved.durationMinutes === 20 && (await I.exists(V(tb('call')))) && !(await I.exists(chip('task:call'))), JSON.stringify(moved));
+  check('dropped outside the break it is a normal move: a block of its own, same length', moved.startTime >= '14:00' && moved.durationMinutes === 20 && (await I.exists(own('call'))) && !(await I.exists(chip('task:call'))), JSON.stringify(moved));
   await I.shot('p28-03-dragged-out');
 
   // ======== 3.10.0: cards and details ========
@@ -218,48 +210,34 @@ async function run() {
   check('dark: the break\'s details list its task', (await I.textOf(`document.querySelector('[data-inside-break]')`)).includes('Short walk'));
   await I.shot('p28-08-break-details-dark');
   await closeDetails();
-  await scrollTo(chip('task:pill@12:40'));
-  await I.click(V('[data-host-menu="task:pill@12:40"]'), 500);
-  await I.shot('p28-09-chip-menu-dark');
+  await rightClick(chip('task:pill@12:40'));
+  await I.shot('p28-09-gap-block-menu-dark');
   await I.key('Escape', [], 400);
 
   // ======== 3.11.0: refuse, do not just warn (dark first, then light) ========
-  const dragBlockTo = async (id, toExpr, fracY) => {
-    await scrollTo(V(tb(id)));
-    await C.sleep(400);
-    const a = await I.js(`(() => { const r = ${V(tb(id))}.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 6) }; })()`);
-    win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y });
-    await C.sleep(80);
-    win.webContents.sendInputEvent({ type: 'mouseDown', x: a.x, y: a.y, button: 'left', clickCount: 1 });
-    win.webContents.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y + 12, modifiers: ['leftButtonDown'] });
-    await C.sleep(100);
+  // The block grabbed 5 minutes into it, dropped with the pointer at `toMin`.
+  const dragBlockTo = async (id, toExpr, toMin) => {
     await I.js(`${toExpr}.scrollIntoView({ block: 'center' })`);
     await C.sleep(400);
-    const b = await I.js(`(() => { const r = ${toExpr}.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height * ${fracY}) }; })()`);
-    for (let i = 1; i <= 10; i++) {
-      win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(a.x + ((b.x - a.x) * i) / 10), y: Math.round(b.y - 30 + (30 * i) / 10), modifiers: ['leftButtonDown'] });
-      await C.sleep(30);
-    }
-    await C.sleep(300);
-    const hint = await I.textOf(`document.querySelector('[data-lifted-card]')`);
-    win.webContents.sendInputEvent({ type: 'mouseUp', x: b.x, y: b.y, button: 'left', clickCount: 1 });
+    const from = Number(byId(id).startTime.slice(0, 2)) * 60 + Number(byId(id).startTime.slice(3)) + 5;
+    const hint = await I.drag(V(tb(id)), '[data-timebox-grid]', from, toMin);
     await C.sleep(900);
-    return hint;
+    return hint || '';
   };
   const noticeText = () => I.js(`(document.querySelector('[data-notice-bar]') || {}).innerText || ''`);
   await I.click(`document.querySelector('[data-notice-bar] [aria-label="Dismiss"]')`, 200).catch(() => {});
 
-  const h1 = await dragBlockTo('plus1', V(tb('tea')), 0.5);
+  const h1 = await dragBlockTo('plus1', V(tb('tea')), 9 * 60 + 10);
   check('dragging a task 1 minute longer than the break over it says "Longer than the break (20 min)"', /Longer than the break \(20 min\)/.test(h1), h1);
   check('and the drop snaps back: the task stays where it was', byId('plus1').startTime === '21:00', JSON.stringify(byId('plus1')));
   check('the note stays on screen after the drop', /Longer than the break \(20 min\)/.test(await noticeText()), await noticeText());
   await I.shot('p28-10-refused-drop-dark');
-  await dragBlockTo('exact', V(tb('lunch')), 0.3);
-  check('a task exactly as long as the break is hosted', byId('exact').startTime === '12:00' && (await I.js(`(${V(tb('lunch'))} || {}).getAttribute?.('data-host-count')`)) === '2', JSON.stringify(byId('exact')));
+  await dragBlockTo('exact', V(tb('lunch')), 12 * 60 + 27);
+  check('a task exactly as long as the break is hosted', byId('exact').startTime === '12:00' && (await hostCount('Lunch')) === 2, JSON.stringify(byId('exact')));
 
   // The details refuse a time that makes a hosted task stick out of its break.
   await scrollTo(chip('task:exact'));
-  await I.click(`${chip('task:exact')}.querySelector('div[dir="auto"]')`, 900);
+  await I.click(chip('task:exact'), 900);
   await I.js(`(() => { const el = document.querySelector('[data-detail-panel] input[aria-label="Time"]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(el, '12:30'); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
   await C.sleep(900);
   const tn = await I.textOf(`document.querySelector('[data-time-note]')`);
@@ -283,44 +261,28 @@ async function run() {
   if (await I.exists(I.byLabel('Back'))) await I.click(I.byLabel('Back'), 700);
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);
 
-  // 3.12.0: shrinking a break by its resize handle, or by the keys, would take 'exact' out of it: refused,
-  // snapped back, nothing written, with the note.
+  // 3.12.0: shrinking a break by its gap's bottom edge would take 'exact' out of it: refused, snapped back, nothing
+  // written, with the note. (Gaps take no arrow keys, 3.34.0.)
   await I.click(`document.querySelector('[data-notice-bar] [aria-label="Dismiss"]')`, 200).catch(() => {});
   await scrollTo(V(tb('lunch')));
   await C.sleep(400);
-  const hnd = await I.js(`(() => { const r = ${V('[aria-label="Resize Lunch"]')}.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
-  win.webContents.sendInputEvent({ type: 'mouseMove', x: hnd.x, y: hnd.y });
-  await C.sleep(80);
-  win.webContents.sendInputEvent({ type: 'mouseDown', x: hnd.x, y: hnd.y, button: 'left', clickCount: 1 });
-  for (let i = 1; i <= 8; i++) {
-    win.webContents.sendInputEvent({ type: 'mouseMove', x: hnd.x, y: hnd.y - Math.round((28 * i) / 8), modifiers: ['leftButtonDown'] });
-    await C.sleep(30);
-  }
-  await C.sleep(200);
-  win.webContents.sendInputEvent({ type: 'mouseUp', x: hnd.x, y: hnd.y - 28, button: 'left', clickCount: 1 });
+  await I.drag(`document.querySelector('[data-gap-edge="bottom:lunch"]')`, '[data-timebox-grid]', 13 * 60 + 28, 13 * 60);
   await C.sleep(1000);
   const REFUSE = 'Longer than the break. Shorten it or move it out.';
-  check('resize handle: the break stays 1 h 30 min', byId('lunch').durationMinutes === 90, JSON.stringify(byId('lunch')));
-  check('resize handle: "Longer than the break. Shorten it or move it out."', (await noticeText()).includes(REFUSE), await noticeText());
-  check('resize handle: the tasks are still chips inside it, nothing moved', (await I.exists(chip('task:exact'))) && (await I.exists(chip('task:pill@12:40'))) && byId('exact').startTime === '12:00');
+  check('bottom edge: the break stays 1 h 30 min', byId('lunch').durationMinutes === 90, JSON.stringify(byId('lunch')));
+  check('bottom edge: "Longer than the break. Shorten it or move it out."', (await noticeText()).includes(REFUSE), await noticeText());
+  check('bottom edge: the tasks are still blocks in its gap, nothing moved', (await I.exists(chip('task:exact'))) && (await I.exists(chip('task:pill@12:40'))) && byId('exact').startTime === '12:00');
   await I.shot('p28-12-resize-refused-light');
-  // Keys: 30 minutes shorter, and 30 minutes later (the 12:00 task would stick out at the start).
-  for (const [key, mods, label] of [['Up', ['shift'], 'shorter'], ['Down', [], 'later']]) {
-    await I.click(`document.querySelector('[data-notice-bar] [aria-label="Dismiss"]')`, 200).catch(() => {});
-    await I.js(`(() => { const b = ${V(tb('lunch'))}; b.focus(); return document.activeElement === b; })()`);
-    await I.key(key, mods, 900);
-    check(`key ${label}: refused with the note, the break unchanged`, (await noticeText()).includes(REFUSE) && byId('lunch').startTime === '12:00' && byId('lunch').durationMinutes === 90, (await noticeText()) + JSON.stringify(byId('lunch')));
-  }
-  // 30 minutes longer is fine: every task still fits.
-  await I.js(`(() => { const b = ${V(tb('lunch'))}; b.focus(); })()`);
-  await I.key('Down', ['shift'], 1200);
-  check('key longer: allowed (2 h)', byId('lunch').durationMinutes === 120, JSON.stringify(byId('lunch')));
+  // Longer is fine: every task still fits.
+  await I.drag(`document.querySelector('[data-gap-edge="bottom:lunch"]')`, '[data-timebox-grid]', 13 * 60 + 28, 14 * 60);
+  await C.sleep(1200);
+  check('bottom edge longer: allowed (2 h)', byId('lunch').durationMinutes === 120, JSON.stringify(byId('lunch')));
 
   // Split turned off: its tasks go back to normal blocks.
   await openBreak('Tea break');
   await I.click(`document.querySelector('[data-detail-panel] [data-kind="task"]')`, 900);
   await closeDetails();
-  check('Split off: the walk is a block of its own again, the tea break hosts nothing', (await I.exists(V(tb(walkId)))) && !(await I.js(`!!(${V(tb('tea'))} || {}).getAttribute?.('data-host-count')`)));
+  check('Split off: the walk is a block of its own again, the tea break hosts nothing', (await I.exists(own(walkId))) && (await hostCount('Tea break')) === 0);
   // A break deleted: its tasks go back to normal blocks.
   await openBreak('Lunch');
   await I.click(`document.querySelector('[aria-label="More task actions"]')`, 600);
@@ -331,7 +293,7 @@ async function run() {
   await I.js(`document.querySelector('[aria-label="Confirm delete task"]').click()`);
   await C.sleep(800);
   await C.waitFor(() => !!byId('lunch').deletedAt, 5000).catch(() => {});
-  check('the break deleted: the pill\'s 12:40 is a block again', !!byId('lunch').deletedAt && (await I.exists(V(tb('pill@12:40')))), JSON.stringify(byId('lunch')));
+  check('the break deleted: the pill\'s 12:40 is a block again', !!byId('lunch').deletedAt && (await I.exists(own('pill@12:40'))), JSON.stringify(byId('lunch')));
   await I.shot('p28-13-reverted-light');
 
   const failed = summary();

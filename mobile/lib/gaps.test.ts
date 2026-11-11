@@ -114,3 +114,16 @@ test('a refused cut on a task other breaks did cut: the note goes on the piece u
   assert.deepEqual([...g.hostNotes.keys()], ['task:long#0']);
   assert.equal(g.hostBadges.get('task:long#0'), 'Not cut: 50 min piece (min 60)');
 });
+
+test('3.35.0: two 5 minute tasks in a row in a gap (10 px each) share it in lanes rather than overlap', () => {
+  const brk = { id: 'task:coffee', startMin: m(10), endMin: m(10, 20), breaks: true };
+  const a = { id: 'task:a', startMin: m(10), endMin: m(10, 5), breaks: false };
+  const b = { id: 'task:b', startMin: m(10, 5), endMin: m(10, 10), breaks: false };
+  const c = { id: 'task:c', startMin: m(10, 15), endMin: m(10, 20), breaks: false };
+  const blocks = layoutItems(gapLayout([brk, a, b, c], 30, titleOf).items).blocks;
+  const at = (id: string) => blocks.find((x) => x.id === id);
+  assert.notEqual(at('task:a')?.col, at('task:b')?.col);
+  assert.equal(at('task:c')?.col, 0, 'a lane frees up once the block above it ends (as drawn)');
+  const plain = layoutItems([{ id: 'x', startMin: m(10), endMin: m(10, 5) }, { id: 'y', startMin: m(10, 5), endMin: m(10, 10) }]).blocks;
+  assert.equal(plain[1].col, 0, 'outside a gap nothing changes');
+});

@@ -46,7 +46,17 @@ function openExternal(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, onChanged, refreshKey = 0 }: { onOpenLabels: () => void; onOpenSignIn: () => void; labelCount: number; onChanged: () => void; refreshKey?: number }) {
+// F2 of PLAN_daily_flow (3.41.0): `links` are the places the avatar menu used to list (it keeps only the account and
+// Settings): Quick capture, Search, Keyboard shortcuts, Progress and Trash, as plain buttons at the top.
+export interface SettingsLinks {
+  capture: () => void;
+  search: () => void;
+  shortcuts: () => void;
+  progress: () => void;
+  trash: () => void;
+}
+
+export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, onChanged, refreshKey = 0, links }: { onOpenLabels: () => void; onOpenSignIn: () => void; labelCount: number; onChanged: () => void; refreshKey?: number; links?: SettingsLinks }) {
   const { account, setAccount, persistent, ui, status } = useAccount();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -145,6 +155,29 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.column}>
         <Text style={styles.heading}>Settings</Text>
+
+        {links && (
+          <Section title="Go to" icon="compass-outline">
+            <View style={styles.linkRow} {...({ dataSet: { settingsLinks: '1' } } as object)}>
+              {(
+                [
+                  ['Quick capture', 'Q', links.capture],
+                  ['Search', 'Ctrl+K', links.search],
+                  ['Keyboard shortcuts', 'Shift+/', links.shortcuts],
+                  ['Progress', '', links.progress],
+                  ['Trash', '', links.trash],
+                ] as const
+              ).map(([text, keys, run]) => (
+                <Pressable key={text} onPress={run} accessibilityRole="button" accessibilityLabel={`Open ${text}`} style={styles.btn} {...({ dataSet: { settingsLink: text } } as object)}>
+                  <Text style={styles.btnText}>
+                    {text}
+                    {keys ? <Text style={styles.linkKeys}>{`  ${keys}`}</Text> : null}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </Section>
+        )}
 
         <Section title="Account" icon="person-outline">
           {signedIn ? (
@@ -501,6 +534,8 @@ const domStyle: React.CSSProperties = {
 };
 
 const styles = StyleSheet.create({
+  linkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  linkKeys: { fontSize: 14, fontWeight: '500', color: Colors.textSecondary },
   scroll: { flex: 1 },
   content: { padding: 16, paddingTop: 4, alignItems: 'center' },
   column: { width: '100%', maxWidth: 640, gap: 12 },

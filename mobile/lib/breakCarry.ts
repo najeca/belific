@@ -10,7 +10,7 @@
 import type { Task } from './types.ts';
 import { dayHostEntries } from './hosting.ts';
 import { carryPlan, type CarryFrom } from './gaps.ts';
-import { toTime } from './timebox.ts';
+import { DEFAULT_TASK_MINUTES, toMinutes, toTime } from './timebox.ts';
 import { moveTimeFields } from './times.ts';
 import { addDays, dateKey, parseDateKey } from './kanban.ts';
 import { loadTasksRaw, updateTask } from './storage';
@@ -46,4 +46,15 @@ export async function carryBreaks(host: Pick<Task, 'id' | 'cutsBelow'>, from: Ca
     else await updateTask({ ...brk, ...fields });
   }
   return moves.length;
+}
+
+// F2 of PLAN_daily_flow: a task moved to another DAY whole (its time kept): "Move this day", "Move to today", the day
+// menu's moves. What is inside it goes to that day too, at the same times, in the same gesture (as a drag does since
+// S4). `task` is the task as it was before the move.
+export async function carryToDay(task: Task, toDay: string | undefined): Promise<number> {
+  if (!toDay || !task.dueDate || toDay === task.dueDate || task.cutsBelow) return 0;
+  const start = toMinutes(task.startTime);
+  if (start === null) return 0;
+  const len = task.durationMinutes && task.durationMinutes > 0 ? task.durationMinutes : DEFAULT_TASK_MINUTES;
+  return carryBreaks(task, { dayKey: task.dueDate, startMin: start, endMin: start + len }, toDay, start);
 }

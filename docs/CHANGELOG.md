@@ -8,6 +8,22 @@ to know the current version and recent history.
 
 ---
 
+## 3.41.0 — 2026-11-11 (Daily flow, F2: Clear tools, the batch save, the avatar menu trimmed, two fixes from S4; PLAN_daily_flow)
+
+**Desktop. No schema change, no migration, no data change: every Clear writes existing fields and the usual tombstones. The phone is unchanged.**
+- **The avatar menu is only the account and Settings** (signed out: Sign in and Settings; signed in: the account and its sync line, Sync now, Settings, Sign out). **Quick capture, Search, Keyboard shortcuts, Progress and Trash** are plain buttons at the top of Settings ("Go to", with their keys). Every keyboard shortcut works as before (Q, T, Ctrl+K, Shift+/ ...).
+- **Clear tools** (`lib/clear.ts` the rules, `lib/clearActions.ts` the writes, `components/desktop/ClearTools.tsx` the confirmation): **Clear day** in the day menu (Tasks board), **Clear week** in a new ⋯ beside the Tasks board's title and in the Calendar's Week header (Monday to Sunday), **Clear list** in the list's edit box, **Clear label** as a Clear button on each label (Labels). Each counts first ("Clear 3 tasks from today?", "Clear the label Work from 2 tasks?"), says in plain words what will happen, and has one main button and Cancel.
+  - Clear day and Clear week send the unticked tasks back to their lists (Day and time cleared). Nothing is deleted.
+  - Clear list moves its unticked tasks to the Trash (restorable for 30 days). The list stays.
+  - Clear label takes the label off its unticked tasks; a smaller second button, **Move the N tasks to Trash**, moves them to the Trash instead (D3).
+  - Done tasks are never touched, and free time (a Break) is left alone.
+  - A repeating task asks **This day only** (for a list or a label: its next day) or **All days** (chosen). This day only skips that day. All days, for a day or a week, stops the series repeating and sends it back to its list; for a list or the label's Trash it deletes the series (into the Trash). A label is shared by every day of a series, so taking it off asks nothing.
+  - A shift counts as one ("A shift counts as one, with the 2 tasks inside it.") and takes what is inside it along, the day after midnight too (not when only a label comes off).
+  - The confirmation is 14 px or more, the buttons are always visible, and nothing is red.
+- **One batch save, one undo** (`storage.updateTasks`): many rows in one read, one write and one sync batch, each recorded in the undo stack under the same gesture. A Clear is ONE entry: one Ctrl+Z, or the Undo in the note that follows ("Cleared 3 tasks"), restores everything. Wrap up's "Let go" and "Tick all" will reuse it (F3).
+- **Fixed from S4:** undoing **Delete repeating task** brings the repeat rule back (`undoStack.planStep`): when the series comes back as a copy under a new id (its own day's id was taken), the copy keeps the rule unless the old series is alive again through another of its rows (then a second series would show every day twice). **Move this day**, **Move to today** and the day menu's moves (Shift unfinished, Push rest of week, Mark as away) take what is inside a shift to the new day too (`breakCarry.carryToDay`), as a drag does; the day menu's Undo is now the undo stack's (one gesture), so it puts the carried items back too.
+- **Tests changed on purpose:** new clear.test.ts (6), undoStack.test.ts (+1: the rule comes back, a taken day id, an alive old series), easConfig.test.ts (version); real: new p57 (27 checks: the avatar menu and the Settings links, Q, each Clear with its count and wording, This day only and All days, the shift in a cleared day, one Ctrl+Z after each, the label's Trash button, the repeat rule undo, Move to today carrying), p56 (the avatar menu no longer has Trash or Quick capture); the pointer only checks p6, p7, p23 and cp11 now reach Trash and Progress through Settings (not run in quiet mode).
+
 ## 3.40.0 — 2026-11-11 (Daily flow, F1: the Plan button, the Free time line setting, the list on cards; PLAN_daily_flow)
 
 **Desktop. No schema change, no migration, no data change: the one new setting is a user_settings row. The phone is unchanged.**

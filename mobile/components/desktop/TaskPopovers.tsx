@@ -51,6 +51,7 @@ import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import type { TaskOps } from './taskOps';
 import { MonthGrid, SearchField, divider } from './ui';
 import { ShiftChoice } from './ShiftBody';
+import { carryToDay } from '../../lib/breakCarry';
 import { insideItems, withShift } from '../../lib/shiftActions';
 import type { DayHostEntry } from '../../lib/hosting';
 
@@ -224,7 +225,8 @@ export function MoveToDayBody({ task, ops, done }: BodyProps) {
   const move = (requested: string | undefined) => {
     // Nothing earlier than today can be chosen.
     const day = requested ? clampToToday(requested, todayKey) : undefined;
-    ops.patch({ dueDate: day, startTime: day ? task.startTime : undefined });
+    // F2: what is inside it goes to that day too (one gesture).
+    void ops.patch({ dueDate: day, startTime: day ? task.startTime : undefined }).then(() => carryToDay(task, day)).then(() => notifyChanged());
     done();
   };
   return (

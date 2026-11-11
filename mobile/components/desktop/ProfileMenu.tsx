@@ -8,7 +8,6 @@ import { runFullSync, type PublicSyncStatus } from '../../lib/sync';
 import { lastSyncedText, profileInitial, syncErrorText, syncLineText } from '../../lib/syncText';
 import Popover, { closePopover, Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { useAccount } from './useAccount';
-import { STREAK_TEXT } from '../../lib/seriesStreak';
 
 const POPOVER_ID = 'profile';
 
@@ -21,25 +20,16 @@ const POPOVER_ID = 'profile';
 // Settings and Sign out. The sign out, account choice and revoke code is unchanged.
 // 2.26.0: it also holds the day actions that used to be buttons in the top
 // strip (Quick capture, Search, Keyboard shortcuts); their keyboard shortcuts are unchanged. F1 of PLAN_daily_flow
-// (3.40.0): Plan my day, Wrap up (was Shut down my day) and Analytics moved to the Plan button in the top bar.
-export interface ProfileActions {
-  capture: () => void;
-  search: () => void;
-  shortcuts: () => void;
-}
+// (3.40.0): Plan my day, Wrap up (was Shut down my day) and Analytics moved to the Plan button in the top bar. F2
+// (3.41.0): the menu is only the account and Settings; Quick capture, Search, Keyboard shortcuts, Progress and Trash
+// are links at the top of Settings, and every keyboard shortcut works as before.
 
 export default function ProfileMenu({
   onOpenSettings,
-  onOpenProgress,
   onOpenSignIn,
-  onOpenTrash,
-  actions,
 }: {
   onOpenSettings: () => void;
-  onOpenProgress: () => void;
   onOpenSignIn: () => void;
-  onOpenTrash: () => void;
-  actions: ProfileActions;
 }) {
   const { account, status, ui } = useAccount();
   const { ref, get } = usePopoverAnchor();
@@ -68,33 +58,16 @@ export default function ProfileMenu({
       </Pressable>
       <Popover id={POPOVER_ID} anchor={get} width={288} label="Profile menu" maxHeight={720}>
         {signedIn ? (
-          <SignedInBody actions={actions} account={account} status={status} ui={ui} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} onOpenTrash={() => { closePopover(); onOpenTrash(); }} />
+          <SignedInBody account={account} status={status} ui={ui} onOpenSettings={() => { closePopover(); onOpenSettings(); }} />
         ) : (
-          <SignedOutBody actions={actions} busy={ui.busy} message={ui.message} onOpenSignIn={() => { closePopover(); onOpenSignIn(); }} onOpenSettings={() => { closePopover(); onOpenSettings(); }} onOpenProgress={() => { closePopover(); onOpenProgress(); }} onOpenTrash={() => { closePopover(); onOpenTrash(); }} />
+          <SignedOutBody busy={ui.busy} message={ui.message} onOpenSignIn={() => { closePopover(); onOpenSignIn(); }} onOpenSettings={() => { closePopover(); onOpenSettings(); }} />
         )}
       </Popover>
     </>
   );
 }
 
-// The day actions and the shortcuts list, in the menu's list of rows. Each
-// closes the menu, then acts.
-function DayActions({ actions, onOpenSettings }: { actions: ProfileActions; onOpenSettings: () => void }) {
-  const run = (fn: () => void) => () => {
-    closePopover();
-    fn();
-  };
-  return (
-    <>
-      <Row icon="flash-outline" label="Quick capture" onPress={run(actions.capture)} a11y="Quick capture" />
-      <Row icon="search-outline" label="Search" onPress={run(actions.search)} a11y="Search tasks" />
-      <Row icon="settings-outline" label="Settings" onPress={onOpenSettings} a11y="Settings" />
-      <Row icon="keypad-outline" label="Keyboard shortcuts" onPress={run(actions.shortcuts)} a11y="Keyboard shortcuts" />
-    </>
-  );
-}
-
-function SignedOutBody({ actions, busy, message, onOpenSignIn, onOpenSettings, onOpenProgress, onOpenTrash }: { actions: ProfileActions; busy: boolean; message: string | null; onOpenSignIn: () => void; onOpenSettings: () => void; onOpenProgress: () => void; onOpenTrash: () => void }) {
+function SignedOutBody({ busy, message, onOpenSignIn, onOpenSettings }: { busy: boolean; message: string | null; onOpenSignIn: () => void; onOpenSettings: () => void }) {
   return (
     <View>
     <View style={styles.body}>
@@ -106,15 +79,13 @@ function SignedOutBody({ actions, busy, message, onOpenSignIn, onOpenSettings, o
       {(busy || message) && <Text style={styles.hint}>{message ?? SIGN_IN_TEXT.waiting}</Text>}
     </View>
     <View style={styles.rows}>
-      <DayActions actions={actions} onOpenSettings={onOpenSettings} />
-      <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
-      <Row icon="trash-outline" label="Trash" onPress={onOpenTrash} a11y="Trash" />
+      <Row icon="settings-outline" label="Settings" onPress={onOpenSettings} a11y="Settings" />
     </View>
     </View>
   );
 }
 
-function SignedInBody({ actions, account, status, ui, onOpenSettings, onOpenProgress, onOpenTrash }: { actions: ProfileActions; account: string; status: PublicSyncStatus; ui: AuthUiState; onOpenSettings: () => void; onOpenProgress: () => void; onOpenTrash: () => void }) {
+function SignedInBody({ account, status, ui, onOpenSettings }: { account: string; status: PublicSyncStatus; ui: AuthUiState; onOpenSettings: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   const [syncing, setSyncing] = useState(false);
   // The "last synced" wording moves on while the menu is open.
@@ -157,9 +128,7 @@ function SignedInBody({ actions, account, status, ui, onOpenSettings, onOpenProg
       </View>
       <View style={styles.rows}>
         <Row label={syncing || status.state === 'syncing' ? 'Syncing…' : 'Sync now'} onPress={syncNow} disabled={syncing || status.state === 'syncing'} a11y="Sync now" />
-        <DayActions actions={actions} onOpenSettings={onOpenSettings} />
-        <Row label={STREAK_TEXT.progressRow} onPress={onOpenProgress} a11y="Progress" />
-        <Row icon="trash-outline" label="Trash" onPress={onOpenTrash} a11y="Trash" />
+        <Row icon="settings-outline" label="Settings" onPress={onOpenSettings} a11y="Settings" />
         <Row label="Sign out" onPress={signOut} a11y="Sign out" />
       </View>
     </View>

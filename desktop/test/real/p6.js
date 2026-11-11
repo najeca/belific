@@ -107,10 +107,12 @@ async function run() {
   const I = makeInput(win, process.env.BELIFIC_SHOTS || '');
   await I.waitBody('Plan trip', 20000);
   await C.sleep(600);
+  // 3.41.0 (F2): the avatar menu has only the account and Settings; Trash and Progress are links at the top of Settings.
   const openFromMenu = async (label) => {
     const icon = (await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in';
     await I.click(I.byLabel(icon));
-    await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="${label}"]')`, 600);
+    await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 600);
+    if (label !== 'Settings') await I.click(`document.querySelector('[data-settings-link="${label}"]')`, 600);
   };
   const back = async () => {
     await I.click(I.byLabel('Back'));

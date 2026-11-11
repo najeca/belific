@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { formatDuration } from '../../lib/duration';
 import { counter } from '../../lib/subtasks';
+import { carryToDay } from '../../lib/breakCarry';
 import { dateKey } from '../../lib/kanban';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
 import { BREAK_CUP, BREAK_TAG } from '../../lib/taskKind';
@@ -444,7 +445,7 @@ export default function TaskCard({
               </IconControl>
               {canMoveToday && (
                 <Pressable
-                  onPress={() => wrapped.patch({ dueDate: dateKey(new Date()) })}
+                  onPress={() => wrapped.patch({ dueDate: dateKey(new Date()) }).then(() => carryToDay(task, dateKey(new Date()))).then(() => notifyChanged())}
                   style={styles.icon}
                   focusable={iconsShown}
                   accessibilityRole="button"

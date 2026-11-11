@@ -498,6 +498,32 @@ export function updateTask(updated: Task): Promise<void> {
   });
 }
 
+// F2 of PLAN_daily_flow (3.41.0): the batch save. Many rows written in ONE save (one read, one write, one sync
+// batch), each recorded in the undo stack under the current gesture, so a Clear (and later Wrap up's "Let go" and
+// "Tick all") is one undo entry however many rows it touches. A row may be new (it is added) or replace a stored one.
+// A row that becomes deleted here gets deletedAt equal to its new updatedAt, so it reads as a delete (the Trash, undo).
+export function updateTasks(rows: Task[]): Promise<void> {
+  if (rows.length === 0) return Promise.resolve();
+  return storageLock.run(async () => {
+    const existing = await loadTasksRaw();
+    const byId = new Map(existing.map((t) => [t.id, t]));
+    const now = new Date().toISOString();
+    const stamped = rows.map((r) => {
+      const was = byId.get(r.id);
+      const row: Task = { ...r, updatedAt: now };
+      if (r.deletedAt && !was?.deletedAt) row.deletedAt = now;
+      return row;
+    });
+    const next = new Map(stamped.map((r) => [r.id, r]));
+    const merged = existing.map((t) => next.get(t.id) ?? t);
+    for (const r of stamped) if (!byId.has(r.id)) merged.push(r);
+    await saveTasks(merged);
+    await queueRows('tasks', stamped);
+    const at = Date.now();
+    for (const r of stamped) undoStack.record(byId.get(r.id), r, at);
+  });
+}
+
 // Tombstoned, not removed outright — see Task.deletedAt.
 export function deleteTask(id: string): Promise<void> {
   return storageLock.run(async () => {

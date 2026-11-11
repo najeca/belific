@@ -79,9 +79,11 @@ async function run() {
   await I.click(I.byLabel('Show Tasks'), 600);
   await C.sleep(800);
   const profileIcon = async () => ((await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in');
+  // 3.41.0 (F2): the avatar menu has only the account and Settings; Progress and Trash are links at the top of Settings.
   const openFromMenu = async (label) => {
     await I.click(I.byLabel(await profileIcon()));
-    await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="${label}"]')`, 600);
+    await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 600);
+    if (label !== 'Settings') await I.click(`document.querySelector('[data-settings-link="${label}"]')`, 600);
   };
   // 3.40.0 (F1 of PLAN_daily_flow): Plan my day, Wrap up and Analytics are the Plan button's, not the profile menu's.
   const planHas = async (label) => {
@@ -135,7 +137,7 @@ async function run() {
   await I.click(I.byLabel('📊 Analytics'));
   await C.waitFor(() => setting('feature.analytics'), 6000).catch(() => {});
   check('a toggle is one user_settings row ("off")', setting('feature.analytics')?.value === 'off', JSON.stringify(setting('feature.analytics')));
-  check('Analytics off: the Analytics button is gone, the profile menu still has Trash', (await analyticsButton()) === false && (await menuHas('Trash')) === true);
+  check('Analytics off: the Analytics button is gone, the profile menu still has Settings', (await analyticsButton()) === false && (await menuHas('Settings')) === true);
   await I.click(I.byLabel('📊 Analytics'));
   await C.waitFor(() => setting('feature.analytics')?.value === 'on', 6000).catch(() => {});
   check('Analytics on again: the Analytics button is back', (await analyticsButton()) === true);

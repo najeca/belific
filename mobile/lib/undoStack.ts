@@ -267,6 +267,11 @@ export function planStep(entry: UndoEntry, current: Task[], nowIso: string, dir:
   // The days an undone create gives back: the skipped first row of the same day needs no stand-in then.
   const covered = new Set<string>();
   if (dir === 'undo') for (const c of entry.changes) if (!c.before && !c.after.deletedAt && idDate(c.after.id)) covered.add(`${rootTaskId(c.after.id)}|${idDate(c.after.id)}`);
+  // F2 of PLAN_daily_flow: a deleted series that comes back as a copy under a new id (its own day's id was taken) keeps
+  // its repeat rule, unless the old series is alive again after this step (another row of it got its rule back, a
+  // skipped day's tombstone included, which series.ts uses as a template of last resort): then the series goes on
+  // from there and a second one would show every day twice. Checked once every row of the entry is back.
+  const copies: Array<{ id: string; content: Task }> = [];
 
   for (const c of list) {
     const from = expected(c);
@@ -284,6 +289,7 @@ export function planStep(entry: UndoEntry, current: Task[], nowIso: string, dir:
       if (isDeleteEvent(cur) && winner.get(rootTaskId(c.id)) !== c.id) continue;
       if (hasRule(cur) && covered.has(`${rootTaskId(c.id)}|${ownDay(to)}`)) continue;
       row = reviveRows(cur, to, rows, ctx, nowIso);
+      if (hasRule(to) && row[0] && !hasRule(row[0]) && rootTaskId(row[0].id) !== rootTaskId(c.id)) copies.push({ id: row[0].id, content: to });
     } else if (to.deletedAt && cur && !cur.deletedAt && cur.id !== to.id) {
       row = [{ ...cur, deletedAt: nowIso, updatedAt: nowIso }];
     } else {
@@ -291,6 +297,19 @@ export function planStep(entry: UndoEntry, current: Task[], nowIso: string, dir:
     }
     for (const r of row) put(r);
     if (row[0]) written.set(c.id, row[0]);
+  }
+  for (const { id, content } of copies) {
+    const root = rootTaskId(content.id);
+    const copy = rows.get(id);
+    if (!copy || seriesOfRows(root, [...rows.values()].filter((r) => r.id !== id && rootTaskId(r.id) === root))) continue;
+    const ruled: Task = {
+      ...copy,
+      recurrence: content.recurrence,
+      ...(content.recurrenceDays ? { recurrenceDays: [...content.recurrenceDays] } : {}),
+      ...(content.recurrenceMonthDay !== undefined ? { recurrenceMonthDay: content.recurrenceMonthDay } : {}),
+    };
+    put(ruled);
+    for (const [k, v] of written) if (v.id === id) written.set(k, ruled);
   }
   return { writes, skipped, written };
 }

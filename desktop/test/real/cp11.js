@@ -184,7 +184,10 @@ async function run() {
     const icon = (await exists(byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in';
     const open = await exists(`document.querySelector('[role="dialog"][aria-label="Profile menu"]')`);
     if (!open) await click(byLabel(icon));
-    await click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Progress"]')`);
+    // 3.41.0 (F2): Progress is a link at the top of Settings.
+    await click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`);
+    await C.sleep(500);
+    await click(`document.querySelector('[data-settings-link="Progress"]')`);
     await C.waitFor(onProgress, 8000);
   };
   const goBack = async () => {

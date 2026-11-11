@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { ClearBody } from './ClearTools';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { colorClash, freeColorKey, labelColor, sharedColorGroups } from '../../lib/labelColors';
@@ -183,6 +184,8 @@ function LabelRow({
   onChanged: () => Promise<void>;
 }) {
   const [confirming, setConfirming] = useState(false);
+  // F2 of PLAN_daily_flow: Clear label (the label off its tasks, or the tasks to the Trash, D3).
+  const [clearing, setClearing] = useState(false);
   const editId = `label-edit:${label.key}`;
   const { ref, get } = usePopoverAnchor();
   const editOpen = useIsOpen(editId);
@@ -223,6 +226,9 @@ function LabelRow({
           </Pressable>
         </View>
         <Text style={styles.count}>{openCountText(open)}</Text>
+        <Pressable onPress={() => setClearing((c) => !c)} accessibilityRole="button" accessibilityLabel={`Clear label ${label.name}`} style={styles.clearBtn} {...({ dataSet: { clearLabel: label.key } } as object)}>
+          <Text style={styles.clearBtnText}>Clear</Text>
+        </Pressable>
         <Pressable
           onPress={() => setConfirming((c) => !c)}
           accessibilityRole="button"
@@ -232,6 +238,15 @@ function LabelRow({
           <Ionicons name="trash-outline" size={18} color={Colors.textSecondary} />
         </Pressable>
       </View>
+      {clearing && (
+        <ClearBody
+          target={{ kind: 'label', labelKey: label.key, name: label.name }}
+          onDone={() => {
+            setClearing(false);
+            void onChanged();
+          }}
+        />
+      )}
       {confirming && (
         <View style={styles.confirm}>
           <Text style={styles.body}>
@@ -282,6 +297,8 @@ function LabelRow({
 }
 
 const styles = StyleSheet.create({
+  clearBtn: { height: 32, paddingHorizontal: 10, justifyContent: 'center', borderWidth: 2, borderColor: Colors.borderStrong, borderRadius: 0 },
+  clearBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
   scroll: { flex: 1 },
   content: { padding: 16, paddingTop: 4, alignItems: 'center' },
   column: { width: '100%', maxWidth: 640, gap: 12 },

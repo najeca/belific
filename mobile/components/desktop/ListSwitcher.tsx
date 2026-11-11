@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { ClearBody } from './ClearTools';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { BRAIN_DUMP_EMOJI, DEFAULT_LIST_EMOJI } from '../../lib/emoji';
@@ -175,6 +176,8 @@ function EditBox({ list, lists, count, onDone }: { list: TaskList; lists: TaskLi
   const [emoji, setEmoji] = useState<string | undefined>(list.emoji);
   const [problem, setProblem] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // F2 of PLAN_daily_flow: Clear list (its tasks to the Trash, the list stays).
+  const [clearing, setClearing] = useState(false);
   // 3.14.0: a list that already shares its emoji with another keeps it; this says so.
   const shared = sharedEmojiNote(lists, list.key);
 
@@ -230,6 +233,16 @@ function EditBox({ list, lists, count, onDone }: { list: TaskList; lists: TaskLi
         </View>
       </View>
       <View style={styles.sep} />
+      {clearing ? (
+        <ClearBody target={{ kind: 'list', listKey: list.key, name: list.name }} onDone={() => closePopover(true)} />
+      ) : (
+        <View style={popoverStyles.pad}>
+          <Pressable onPress={() => setClearing(true)} accessibilityRole="button" accessibilityLabel={`Clear list ${list.name}`} style={styles.clearRow} {...({ dataSet: { clearList: list.key } } as object)}>
+            <Text style={styles.clearText}>Clear list</Text>
+          </Pressable>
+        </View>
+      )}
+      <View style={styles.sep} />
       <View style={popoverStyles.pad}>
         {confirming ? (
           <View style={styles.confirm}>
@@ -269,6 +282,8 @@ const styles = StyleSheet.create({
   pencil: { width: 26, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   pencilOn: { backgroundColor: Colors.surfaceRaised },
   buttons: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  clearRow: { minHeight: 32, justifyContent: 'center' },
+  clearText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
   btn: { ...outlinedBtn, height: 34 },
   btnPrimary: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   btnPrimaryText: { color: Colors.onAccent, fontWeight: '700' },

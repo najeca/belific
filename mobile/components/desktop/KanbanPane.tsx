@@ -29,6 +29,7 @@ import { useTick } from './timerUi';
 import { openDetail, openNewTask, useGoToday, useReveal } from './uiStore';
 import OnlyTodayButton from './OnlyTodayButton';
 import { ShiftBody } from './ShiftBody';
+import { WeekMenu } from './ClearTools';
 import { useFreeTimeLine } from './freeTimeStore';
 import { shiftsOfDay } from '../../lib/shifts';
 import { setAtToday } from './todayStore';
@@ -380,6 +381,8 @@ export default function KanbanPane({
           </Text>
           <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
         </Pressable>
+        {/* F2 of PLAN_daily_flow: Clear week (the week, Monday to Sunday, of the first day shown). */}
+        <WeekMenu dayKey={firstShown} id="kanban-week-menu" />
         <View style={{ flex: 1 }} />
         <FilterButton filter={filter} labels={projects} onChange={onFilterChange} />
         <OnlyTodayButton on={!!onlyToday} onPress={onToggleOnlyToday} />

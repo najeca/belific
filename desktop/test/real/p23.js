@@ -70,9 +70,11 @@ async function run() {
     const icon = (await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in';
     await I.click(I.byLabel(icon), 500);
   };
+  // 3.41.0 (F2): the avatar menu has only the account and Settings; Progress and Trash are links at the top of Settings.
   const fromMenu = async (label) => {
     await profile();
-    await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="${label}"]')`, 800);
+    await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 800);
+    if (label !== 'Settings') await I.click(`document.querySelector('[data-settings-link="${label}"]')`, 800);
   };
   const back = async () => {
     if (await I.exists(I.byLabel('Back'))) await I.click(I.byLabel('Back'), 700);

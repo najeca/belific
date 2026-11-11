@@ -4,11 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { formatShortDate, parseDateKey, WEEKDAYS } from '../../lib/kanban';
 import { canShift, freeDaysAfter, planAwayMoves, planPushWeek, planShiftDay, tasksWord, weekEndOf, type DayMove } from '../../lib/dayShift';
-import { applyMoves, undoMoves } from '../../lib/dayShiftActions';
+import { applyMoves } from '../../lib/dayShiftActions';
 import type { Task } from '../../lib/types';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { markAway } from './awayStore';
 import { offerUndo } from './uiStore';
+import { ClearBody } from './ClearTools';
+import { loadTasksRaw } from '../../lib/storage';
+import { carryToDay } from '../../lib/breakCarry';
+import { runUndo } from './useUndoRedo';
 
 // The day header menu on the Tasks board (2.27.0): ⋮ beside a day's name, for
 // today and later days. Mark as away (item 8): a day with unfinished one off
@@ -19,10 +23,17 @@ import { offerUndo } from './uiStore';
 // many will move, keeping each task's time of day and order, with an undo.
 export const dayName = (day: string) => `${WEEKDAYS[parseDateKey(day).getDay()]} ${formatShortDate(day)}`;
 
+// F2 of PLAN_daily_flow: a shift moved this way takes what is inside it along (breakCarry.carryToDay), and the Undo is
+// the undo stack's (one gesture), so it puts the carried items back too.
 export async function moveWithUndo(moves: DayMove[], text: (n: number) => string, onChanged: () => void): Promise<number> {
+  const before = new Map((await loadTasksRaw()).map((t) => [t.id, t]));
   const done = await applyMoves(moves);
+  for (const m of done) {
+    const t = before.get(m.id);
+    if (t) await carryToDay(t, m.to);
+  }
   onChanged();
-  if (done.length > 0) offerUndo(text(done.length), () => undoMoves(done));
+  if (done.length > 0) offerUndo(text(done.length), runUndo);
   return done.length;
 }
 
@@ -31,8 +42,13 @@ export default function DayMenu({ dayKey, tasks, away, awayDays, onChanged }: { 
   const { ref, get } = usePopoverAnchor();
   const open = useIsOpen(id);
   const [asking, setAsking] = useState(false);
+  // F2 of PLAN_daily_flow: Clear day asks in this same popover.
+  const [clearing, setClearing] = useState(false);
   useEffect(() => {
-    if (!open) setAsking(false);
+    if (!open) {
+      setAsking(false);
+      setClearing(false);
+    }
   }, [open]);
   const movable = tasks.filter((t) => canShift(t) && t.dueDate === dayKey);
   const name = dayName(dayKey);
@@ -68,8 +84,10 @@ export default function DayMenu({ dayKey, tasks, away, awayDays, onChanged }: { 
         <Ionicons name="ellipsis-horizontal" size={16} color={Colors.textSecondary} />
       </Pressable>
       {open && (
-        <Popover id={id} anchor={get} width={276} label={`Menu for ${name}`}>
-          {asking ? (
+        <Popover id={id} anchor={get} width={clearing ? 360 : 276} maxHeight={560} label={`Menu for ${name}`}>
+          {clearing ? (
+            <ClearBody target={{ kind: 'day', dayKey }} onDone={() => closePopover(true)} />
+          ) : asking ? (
             <>
               <PopoverHeading>{`${tasksWord(movable.length)} on ${name}`}</PopoverHeading>
               <Row label="Move them to the next free day" sub={nextFree ? dayName(nextFree) : undefined} onPress={() => markAwayAs('next')} a11y="Move them to the next free day" />
@@ -115,6 +133,7 @@ export default function DayMenu({ dayKey, tasks, away, awayDays, onChanged }: { 
                 onPress={() => shift(pushWeek, (n) => `Pushed ${tasksWord(n)} a week on.`)}
                 a11y={`Push rest of week by a week, ${willMove(pushWeek.length)}`}
               />
+              <Row label="Clear day" sub="Back to their lists" leading={<Ionicons name="close-circle-outline" size={14} color={Colors.textSecondary} />} onPress={() => setClearing(true)} a11y={`Clear ${name}`} />
             </>
           )}
         </Popover>

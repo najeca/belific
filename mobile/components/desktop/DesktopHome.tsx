@@ -400,7 +400,7 @@ export default function DesktopHome() {
     if (viewRef.current !== 'home') setView('home');
     fn();
   };
-  // F1 of PLAN_daily_flow: Plan my day, Wrap up and Analytics are the Plan button's now, not the avatar menu's.
+  // F1 of PLAN_daily_flow: Plan my day, Wrap up and Analytics are the Plan button's. F2: these are links in Settings.
   const profileActions = {
     capture: onHome(() => openOverlay({ kind: 'capture', mode: 'list' })),
     search: onHome(() => openOverlay({ kind: 'search' })),
@@ -409,10 +409,7 @@ export default function DesktopHome() {
   const profile = (
     <ProfileMenu
       onOpenSettings={() => showView('settings')}
-      onOpenProgress={() => showView('progress')}
       onOpenSignIn={() => showView('signin')}
-      onOpenTrash={() => showView('trash')}
-      actions={profileActions}
     />
   );
   // One Plan button at a time, beside the avatar: here on the home screen, in the page strip otherwise.
@@ -526,7 +523,16 @@ export default function DesktopHome() {
           <Pressable style={styles.scrim} onPress={() => setOverlayOpen({ sidebar: false, timebox: false })} accessibilityLabel="Close the panel" />
         )}
       </View>
-      {view === 'settings' && <SettingsPage onOpenLabels={() => openOverlay({ kind: 'labels' })} onOpenSignIn={() => showView('signin')} labelCount={labelKeys?.length ?? 0} onChanged={onChanged} refreshKey={refreshKey} />}
+      {view === 'settings' && (
+        <SettingsPage
+          onOpenLabels={() => openOverlay({ kind: 'labels' })}
+          onOpenSignIn={() => showView('signin')}
+          labelCount={labelKeys?.length ?? 0}
+          onChanged={onChanged}
+          refreshKey={refreshKey}
+          links={{ ...profileActions, progress: () => showView('progress'), trash: () => showView('trash') }}
+        />
+      )}
       {view === 'progress' && <ProgressPage />}
       {view === 'quests' && <QuestsPage refreshKey={refreshKey} />}
       {view === 'analytics' && <AnalyticsPage refreshKey={refreshKey} />}

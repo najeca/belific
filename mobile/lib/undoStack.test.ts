@@ -403,3 +403,45 @@ test('a projected day nudged this-day-only stores the day and a carrier; undo le
   assert.equal(st.row(`rp:${THU}`)!.startTime, '15:30');
   assert.ok(st.live().filter((r) => r.startTime === '15:00').length >= 1, 'the carrier keeps the series time');
 });
+
+// F2 of PLAN_daily_flow (3.41.0): undoing "Delete repeating task" brings the repeat rule back.
+test('delete repeating task: undo brings the series back with its rule, also when its own day id is taken', () => {
+  const rule = { recurrence: 'weekly' as const, recurrenceDays: ['Mon', 'Thu'] as Task['recurrenceDays'] };
+  const del = (st: Store, id: string) => {
+    const cur = st.row(id)!;
+    const { recurrence: _r, recurrenceDays: _d, ...plain } = cur;
+    st.tick();
+    st.update({ ...plain, id, deletedAt: st.iso() } as Task);
+  };
+  // Plain case: the stand in is the day's own id and carries the rule.
+  const st = new Store([task('s', { dueDate: MON, ...rule })]);
+  st.gesture();
+  del(st, 's');
+  ok(st.undo());
+  const back = st.live().filter((r) => r.title === 'Zone 2');
+  assert.equal(back.length, 1);
+  assert.equal(back[0].recurrence, 'weekly', 'the rule is back');
+  assert.deepEqual(back[0].recurrenceDays, ['Mon', 'Thu']);
+  // The day's own id is already taken (a deleted day of it left a tombstone with no rule): the copy under the Trash's id
+  // keeps the rule, and the series shows on its next day once.
+  const st2 = new Store([task('s', { dueDate: MON, ...rule }), task(`s:${MON}`, { dueDate: MON, deletedAt: '2026-10-01T00:00:00.000Z' })]);
+  st2.gesture();
+  del(st2, 's');
+  ok(st2.undo());
+  const back2 = st2.live().filter((r) => r.title === 'Zone 2');
+  assert.equal(back2.length, 1);
+  assert.equal(back2[0].id, 'restored_s');
+  assert.equal(back2[0].recurrence, 'weekly', 'the copy repeats again');
+  assert.equal(projectOccurrences(st2.rows, [THU], MON).length, 1, 'and it shows on its next day, once');
+  // A skipped day's tombstone keeps its rule (deleteSeriesRows clears it too, and undo gives it back): the old series is
+  // alive again through it, so the copy stays a plain day and nothing shows twice.
+  const st3 = new Store([task('s', { dueDate: MON, ...rule }), task(`s:${MON}`, { dueDate: MON, ...rule, deletedAt: '2026-10-01T00:00:00.000Z' })]);
+  st3.gesture();
+  const tomb = st3.row(`s:${MON}`)!;
+  const { recurrence: _r3, recurrenceDays: _d3, ...plainTomb } = tomb;
+  del(st3, 's');
+  st3.tick();
+  st3.update({ ...plainTomb } as Task);
+  ok(st3.undo());
+  assert.equal(projectOccurrences(st3.rows, [THU], MON).length, 1, 'the series goes on, once');
+});

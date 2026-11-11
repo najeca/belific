@@ -7,6 +7,7 @@ import PriorityMark from './PriorityMark';
 import { isMustDo } from '../../lib/mustDo';
 import { pieceTimeText, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { gapLayout } from '../../lib/gaps';
+import { WeekMenu } from './ClearTools';
 import { fitNote, nestPlan, summaryShort, summaryText, type ShellSummary } from '../../lib/nesting';
 import { timeViews } from '../../lib/times';
 import { useCutMin } from './cutStore';
@@ -655,6 +656,8 @@ export default function CalendarPane({
         <Pressable onPress={() => step(1)} disabled={onlyToday} style={[styles.navBtn, onlyToday && styles.off]} accessibilityRole="button" accessibilityLabel={`Calendar next ${effView}`}>
           <Ionicons name="chevron-forward" size={22} color={Colors.textPrimary} />
         </Pressable>
+        {/* F2 of PLAN_daily_flow: Clear week, in the Week view's header. */}
+        {effView === 'week' && <WeekMenu dayKey={weekLeft} id="calendar-week-menu" />}
         <View style={{ flex: 1 }} />
         {totalsText ? (
           <Text style={styles.totals} accessibilityLabel={`Estimated: ${totalsText}`}>

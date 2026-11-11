@@ -96,7 +96,8 @@ async function run() {
 
   // ---- the avatar menu ----
   check('the avatar menu has no Plan my day, Shut down my day, Wrap up or Analytics', !(await profileHas('Plan my day')) && !(await profileHas('Shut down my day')) && !(await profileHas('Wrap up')) && !(await profileHas('Analytics')));
-  check('and still has Settings, Trash and Quick capture', (await profileHas('Settings')) && (await profileHas('Trash')) && (await profileHas('Quick capture')));
+  // 3.41.0 (F2, changed on purpose): the avatar menu is only the account and Settings; Trash and Quick capture are links in Settings.
+  check('and still has Settings (Trash and Quick capture are in Settings since 3.41.0)', (await profileHas('Settings')) && !(await profileHas('Trash')) && !(await profileHas('Quick capture')));
 
   // ---- Analytics from its button ----
   await I.click(`document.querySelector('[data-analytics-button]')`, 900);

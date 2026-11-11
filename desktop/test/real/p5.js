@@ -5,9 +5,9 @@
 // on an isolated data folder asserted NOT to be the real one; Supabase is the in
 // process fake (signed out, nothing leaves the machine). Covers: Cancel and
 // Escape leave the stored tasks byte for byte as they were after every kind of
-// draft change, Finish applies the draft and rolls earlier unfinished tasks to
-// today (a placed one keeps its time, a repeating one stays), a second Planning
-// changes nothing, Shutdown moves only the chosen tasks to tomorrow, and the
+// draft change, Finish applies the draft (3.42.0, F3 of PLAN_daily_flow: and no longer rolls earlier unfinished
+// tasks to today; they wait in Earlier), a second Planning changes nothing, Wrap up is one screen whose buttons save at
+// once (p58 checks it in full), and the
 // keys Ctrl+Shift+P, Shift+T, Shift+B, Left, Right and Ctrl+I (never while typing).
 // BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
@@ -53,7 +53,8 @@ async function run() {
       T('tm', 'Tomorrow task', { dueDate: tomorrow }),
     ]),
   );
-  // 3.25.0: "Show missed tasks" is off by default, so this check starts from a person who turned it on.
+  // 3.25.0: "Show missed tasks" was off by default, so this check started from a person who turned it on (F3: the
+  // switch is gone and the row is not read).
   fs.writeFileSync(path.join(dataDir, 'belific_user_settings.kv'), JSON.stringify([{ key: 'feature.missed', value: 'on', updatedAt: stamp }]));
   const file = path.join(dataDir, 'belific_tasks.kv');
   const raw = () => fs.readFileSync(file, 'utf8');
@@ -136,7 +137,8 @@ async function run() {
   await C.waitFor(() => byTitle('Added in planning').length === 1, 8000);
   check('Finish closes the flow', !(await flowOpen()));
   check('the missed task ticked as done is done', byId('m1').completed === true && byId('m1').dueDate === dk(-2));
-  check('the other missed task rolled to today and kept its time', byId('m2').dueDate === today && byId('m2').startTime === '08:00');
+  // F3 of PLAN_daily_flow (3.42.0, changed on purpose): Finish rolls nothing onto today; it waits in Earlier.
+  check('the other missed task stays on its own day with its time (no rollover)', byId('m2').dueDate === dk(-1) && byId('m2').startTime === '08:00');
   check('the repeating task did not move', byId('rep').dueDate === dk(-3));
   check('the list task is on today at 14:00', byId('b1').dueDate === today && byId('b1').startTime === '14:00');
   check('the task that can wait is tomorrow', byId('t1').dueDate === tomorrow);
@@ -154,21 +156,15 @@ async function run() {
   await C.sleep(800);
   check('a second Planning with no changes writes nothing at all', raw() === afterFirst);
 
-  // ======== 4. Shutdown: only the chosen tasks go to tomorrow ========
-  // 3.40.0: Shut down my day is "Wrap up", in the Plan button's menu.
+  // ======== 4. Wrap up (F3 of PLAN_daily_flow, 3.42.0, changed on purpose): one screen, each button saves at once ========
   await I.click(`document.querySelector('[data-plan-menu]')`, 500);
   await I.click(`document.querySelector('[data-popover] [aria-label="Wrap up from the menu"]')`, 600);
-  check('Wrap up opens, step 1 of 2', (await flowOpen()) && (await I.body()).includes('Step 1 of 2') && (await I.body()).includes('Wrap up'));
-  check('what was done today is listed (the task ticked in Planning)', await I.exists(inFlow('Flow task Missed one')));
-  // keep one today
-  await I.click(inFlow('Move Brain one to tomorrow'));
-  await next();
-  check('step 2 previews tomorrow: already planned and from today', /already planned task/.test(await I.body()) && /from Today/.test(await I.body()));
-  await I.shot('p5-04-shutdown');
-  await I.click(inFlow('Finish'), 900);
-  await C.waitFor(() => byId('m2').dueDate === tomorrow, 8000);
-  check('the chosen unfinished tasks of today went to tomorrow', byId('m2').dueDate === tomorrow && byId('t2').dueDate === tomorrow && byTitle('Added in planning')[0].dueDate === tomorrow);
-  check('the one left unticked stayed today, with its time', byId('b1').dueDate === today && byId('b1').startTime === '14:00');
+  check('Wrap up opens on one screen (no steps)', (await flowOpen()) && !(await I.body()).includes('Step 1 of') && (await I.body()).includes('Wrap up'));
+  await I.click(`document.querySelector('[data-wrap-for="t2"][data-wrap-btn="tomorrow"]')`, 1200);
+  check('Tomorrow moves that task at once', byId('t2').dueDate === tomorrow);
+  await I.shot('p5-04-wrap-up');
+  await I.click(`document.querySelector('[data-wrap-done]')`, 800);
+  check('Done closes and moves nothing else: the one left stays today, with its time', !(await flowOpen()) && byId('b1').dueDate === today && byId('b1').startTime === '14:00');
   check('done and repeating tasks did not move', byId('m1').dueDate === dk(-2) && byId('rep').dueDate === dk(-3));
 
   // ======== 5. The phase 5 keys ========

@@ -1,32 +1,30 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { addDays, dateKey, parseDateKey } from '../../lib/kanban';
+import { dateKey } from '../../lib/kanban';
 import { isTextEntryTarget } from '../../lib/editable';
-import { missedItems } from '../../lib/missed';
-import { loadTasksRaw } from '../../lib/storage';
-import { loadLabels } from '../../lib/labels';
-import { dropDay, markMissedDone, moveMissedAllToday, moveTaskTo, undoMissedDone } from '../../lib/missedActions';
-import type { Project, Task } from '../../lib/types';
-import MissedList from './MissedList';
+import { stack, type UndoEntry } from '../../lib/undoStack';
+import { undoEntry } from '../../lib/undoActions';
+import { allOpen, earlierItems, showToday, tickAllText, tickedAllText, type WrapChoice, type WrapItem } from '../../lib/wrapUp';
+import { tickAll } from '../../lib/wrapActions';
+import type { Task } from '../../lib/types';
 import { isPopoverOpen } from './Popover';
-import { closeOverlay, notifyChanged, offerUndo } from './uiStore';
+import { closeOverlay, notifyChanged, showNotice } from './uiStore';
 import { IconHeading } from './ui';
+import { WrapRow, runChoice, useWrapRows, styles as wrap } from './WrapUp';
 
-// The Missed panel (2.27.0, item 6), opened from the button in the left pane.
-// Every action writes at once (an ordinary task edit, queued for sync); nothing
-// here moves a date by itself, and the list is worked out afresh every time.
+// The Earlier panel (F3 of PLAN_daily_flow; it was the Missed panel, 2.27.0), opened from the Earlier pill in the left
+// pane. It lists the one off tasks planned for a day before today and not ticked (D5: they no longer stay on the board's
+// past columns). Each row has the Wrap up buttons (Tomorrow, Back to its list, Let go; Today too before 14:00) and a tick
+// that marks it done on its own day; Tick all marks every one done on its own day. Every action saves at once and folds
+// the row with its own Undo (Ctrl+Z works too). Nothing moves by itself. Repeating days are never listed.
 export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
-  const [tasks, setTasks] = useState<Task[] | null>(null);
-  const [labels, setLabels] = useState<Project[]>([]);
-  const todayKey = dateKey(new Date());
-  const tomorrow = dateKey(addDays(parseDateKey(todayKey), 1));
-  const reload = useCallback(() => {
-    loadTasksRaw().then(setTasks);
-    loadLabels().then(setLabels);
-  }, []);
-  useEffect(() => reload(), [reload, refreshKey]);
+  const todayKey = useRef(dateKey(new Date())).current;
+  const list = useCallback((raw: Task[]) => earlierItems(raw, todayKey), [todayKey]);
+  const { rows, act, undoRow, reload } = useWrapRows(list, refreshKey);
+  const [all, setAll] = useState<{ n: number; entry: UndoEntry } | null>(null);
+  const today = showToday(new Date().getHours());
 
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
@@ -45,50 +43,66 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
     };
   }, []);
 
-  const items = useMemo(() => (tasks ? missedItems(tasks, todayKey) : []), [tasks, todayKey]);
-  const done = (p: Promise<unknown>) => p.then(() => (notifyChanged(), reload()));
-  // 3.25.0: Done and Skip all mark tasks done on their own days, with an Undo for 8 seconds and no question first.
-  const markDone = (ids?: string[]) =>
-    done(
-      markMissedDone(todayKey, ids).then((r) => {
-        if (r.after.length > 0) {
-          offerUndo(
-            r.after.length === 1 ? `Marked ${r.after[0].title} done on its own day` : `Marked ${r.after.length} done on their own days`,
-            () => undoMissedDone(r).then(() => (notifyChanged(), reload())),
-            8000,
-          );
-        }
-      }),
-    );
+  const live = (rows ?? []).filter((r) => !r.decision).map((r) => ({ ...r.item, inside: r.kids.filter((k) => !k.decision).map((k) => k.item) }));
+  const open = allOpen(live);
+  // A tick here is Done on its own day (as Tick all, for one).
+  const onTick = (item: WrapItem) => void act(item, 'done', () => tickAll([item.task]));
+  const onChoose = (item: WrapItem, choice: WrapChoice) => void act(item, choice, () => runChoice(item, choice, dateKey(new Date())));
+  const onTickAll = async () => {
+    const group = live.flatMap((i) => [i, ...(i.inside ?? [])]);
+    const n = open.length;
+    const entry = await act(group[0], 'done', () => tickAll(open), group);
+    if (entry) setAll({ n, entry });
+  };
+  const allShown = all && stack.has(all.entry) ? all : null;
 
   return (
-    <Pressable style={styles.scrim} onPress={closeOverlay} accessibilityLabel="Close missed">
-      <Pressable onPress={() => {}} style={styles.card} accessibilityLabel="Missed" {...({ role: 'dialog', 'aria-modal': true } as object)}>
+    <Pressable style={styles.scrim} onPress={closeOverlay} accessibilityLabel="Close Earlier">
+      <Pressable onPress={() => {}} style={styles.card} accessibilityLabel="Earlier" {...({ role: 'dialog', 'aria-modal': true, dataSet: { earlier: '1' } } as object)}>
         <View style={styles.header}>
-          <IconHeading icon="time-outline" style={styles.title}>Missed</IconHeading>
-          <Pressable onPress={closeOverlay} style={styles.close} accessibilityRole="button" accessibilityLabel="Close" {...({ dataSet: { missedClose: '1' } } as object)}>
-            <Ionicons name="close" size={18} color={Colors.textSecondary} />
-          </Pressable>
+          <IconHeading icon="time-outline" style={styles.title}>Earlier</IconHeading>
+          <View style={styles.headRight}>
+            {open.length > 1 && (
+              <Pressable onPress={() => void onTickAll()} style={wrap.primary} accessibilityRole="button" accessibilityLabel={`${tickAllText(open.length)}: done on their own days`} {...({ dataSet: { earlierTickAll: String(open.length) } } as object)}>
+                <Text style={wrap.primaryText}>{tickAllText(open.length)}</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={closeOverlay} style={styles.close} accessibilityRole="button" accessibilityLabel="Close" {...({ dataSet: { missedClose: '1' } } as object)}>
+              <Ionicons name="close" size={20} color={Colors.textSecondary} />
+            </Pressable>
+          </View>
         </View>
-        <Text style={styles.hint}>Tasks planned for an earlier day and not done yet. Nothing moves until you choose. Done and Skip all mark them done on their own days; nothing is deleted.</Text>
-        <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
-          {tasks && (
-            <MissedList
-              items={items}
-              labels={labels}
-              todayKey={todayKey}
-              empty="Nothing missed. 🌤️"
-              actions={{
-                today: (t) => done(moveTaskTo(t.id, todayKey)),
-                tomorrow: (t) => done(moveTaskTo(t.id, tomorrow)),
-                pickDay: (t, day) => done(moveTaskTo(t.id, day)),
-                drop: (t) => done(dropDay(t.id)),
-                done: (t) => markDone([t.id]),
-                skipAll: () => markDone(),
-                allToday: () => done(moveMissedAllToday(todayKey)),
+        <Text style={wrap.hint}>Planned for an earlier day and not ticked. Nothing moves until you choose. A tick, or Tick all, marks a task done on its own day.</Text>
+        {allShown && (
+          <View style={[wrap.row, wrap.folded]} {...({ dataSet: { earlierTicked: String(allShown.n) } } as object)}>
+            <Text style={wrap.foldText}>{tickedAllText(allShown.n)}</Text>
+            <Pressable
+              onPress={async () => {
+                const r = await undoEntry(allShown.entry);
+                if (!r.ok) showNotice(r.text);
+                setAll(null);
+                notifyChanged();
+                reload();
               }}
-            />
-          )}
+              style={wrap.undo}
+              accessibilityRole="button"
+              accessibilityLabel="Undo Tick all"
+              {...({ dataSet: { earlierTickAllUndo: '1' } } as object)}
+            >
+              <Text style={wrap.undoText}>Undo</Text>
+            </Pressable>
+          </View>
+        )}
+        <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6 }} showsVerticalScrollIndicator={false}>
+          {rows && rows.length === 0 && <Text style={wrap.hint}>Nothing waiting from earlier days. 🌤️</Text>}
+          {rows?.map(({ item, decision, kids }) => (
+            <View key={item.key} style={{ gap: 6 }}>
+              <WrapRow item={item} decision={decision} onTick={onTick} onChoose={onChoose} onUndo={undoRow} showDay showToday={today} />
+              {kids.map((x) => (
+                <WrapRow key={x.item.key} item={x.item} decision={x.decision} onTick={onTick} onChoose={onChoose} onUndo={undoRow} showDay showToday={today} nested />
+              ))}
+            </View>
+          ))}
         </ScrollView>
       </Pressable>
     </Pressable>
@@ -97,9 +111,9 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.scrim },
-  card: { width: 560, maxWidth: '94%', maxHeight: '88%', borderRadius: 16, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 10 },
+  card: { width: 760, maxWidth: '94%', maxHeight: '88%', borderRadius: 16, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 10 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  hint: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
-  close: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  headRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
 });

@@ -126,7 +126,8 @@ async function run() {
   const screens = [
     ['settings', async () => fromMenu('Settings'), back],
     ['progress', async () => fromMenu('Progress'), back],
-    ['analytics', async () => I.click(`document.querySelector('[data-analytics-button]')`, 800), back],
+    // 3.40.0 (F1): when the top row is narrow, Analytics is a row of the Plan button's menu instead.
+    ['analytics', async () => ((await I.exists(`document.querySelector('[data-analytics-button]')`)) ? I.click(`document.querySelector('[data-analytics-button]')`, 800) : (await I.click(`document.querySelector('[data-plan-menu]')`, 500), I.click(`document.querySelector('[data-popover] [aria-label="Analytics from the menu"]')`, 800))), back],
     ['trash', async () => fromMenu('Trash'), back],
     ['quests', async () => I.click(I.byLabel('Quests'), 800), back],
     ['planning', async () => { await I.blur(); await I.key('P', ['control', 'shift']); await C.sleep(900); }, esc],

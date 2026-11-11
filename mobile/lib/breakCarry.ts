@@ -19,7 +19,7 @@ import { editRepeatingTime, moveDay } from './seriesActions';
 // Moves the breaks. `source` is how the task itself was changed: 'day' (a drag, a nudge: that day only on a
 // repeating break) or 'panel' (the details: a repeating break follows every repeat day without a time of its own,
 // as the task did). Returns how many breaks moved.
-export async function carryBreaks(host: Pick<Task, 'id' | 'cutsBelow'>, from: CarryFrom, toDay: string, toStart: number, source: 'day' | 'panel' = 'day'): Promise<number> {
+export async function carryBreaks(host: Pick<Task, 'id' | 'cutsBelow'>, from: CarryFrom, toDay: string, toStart: number, source: 'day' | 'panel' = 'day', only?: (t: Task) => boolean): Promise<number> {
   if (host.cutsBelow) return 0;
   const tasks = await loadTasksRaw();
   const today = dateKey(new Date());
@@ -27,7 +27,7 @@ export async function carryBreaks(host: Pick<Task, 'id' | 'cutsBelow'>, from: Ca
   const after = (k: string) => dateKey(addDays(parseDateKey(k), 1));
   const nextDay = from.endMin > 24 * 60 ? after(from.dayKey) : undefined;
   const next = nextDay ? dayHostEntries(tasks, nextDay, today) : [];
-  const moves = carryPlan(entries, host.id, from, toDay, toStart, next, nextDay, after(toDay));
+  const moves = carryPlan(entries, host.id, from, toDay, toStart, next, nextDay, after(toDay)).filter((m) => !only || only(m.entry.full));
   for (const m of moves) {
     const brk = m.entry.full;
     const to = toTime(m.startMin);
@@ -50,11 +50,12 @@ export async function carryBreaks(host: Pick<Task, 'id' | 'cutsBelow'>, from: Ca
 
 // F2 of PLAN_daily_flow: a task moved to another DAY whole (its time kept): "Move this day", "Move to today", the day
 // menu's moves. What is inside it goes to that day too, at the same times, in the same gesture (as a drag does since
-// S4). `task` is the task as it was before the move.
-export async function carryToDay(task: Task, toDay: string | undefined): Promise<number> {
+// S4). `task` is the task as it was before the move. F3: `only` limits what goes along (Wrap up's Tomorrow takes the
+// one off items that are not done).
+export async function carryToDay(task: Task, toDay: string | undefined, only?: (t: Task) => boolean): Promise<number> {
   if (!toDay || !task.dueDate || toDay === task.dueDate || task.cutsBelow) return 0;
   const start = toMinutes(task.startTime);
   if (start === null) return 0;
   const len = task.durationMinutes && task.durationMinutes > 0 ? task.durationMinutes : DEFAULT_TASK_MINUTES;
-  return carryBreaks(task, { dayKey: task.dueDate, startMin: start, endMin: start + len }, toDay, start);
+  return carryBreaks(task, { dayKey: task.dueDate, startMin: start, endMin: start + len }, toDay, start, 'day', only);
 }

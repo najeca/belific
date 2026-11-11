@@ -393,6 +393,23 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               <Text style={styles.hint}>
                 One quiet notification per day for tasks with a Day but no time. Event and task notifications fire at their start time.
               </Text>
+              {/* F3 of PLAN_daily_flow: the evening note, off by default; a click opens Wrap up. */}
+              <ToggleRow label="Remind me to wrap up" value={!!prefs.wrapReminder} onChange={(v) => setPref({ wrapReminder: v })} />
+              {prefs.wrapReminder && (
+                <View style={styles.timeRow}>
+                  <Text style={styles.body}>Remind me at</Text>
+                  <input
+                    type="time"
+                    value={prefs.wrapTime ?? '18:00'}
+                    onChange={(e) => {
+                      if (/^\d{2}:\d{2}$/.test(e.target.value)) setPref({ wrapTime: e.target.value });
+                    }}
+                    style={domStyle}
+                    aria-label="Wrap up reminder time"
+                  />
+                </View>
+              )}
+              <Text style={styles.hint}>One calm note in the evening: "Time to wrap up the day, if you like." A click opens Wrap up.</Text>
               <ToggleRow label="Close to the system tray" value={prefs.closeToTray} onChange={(v) => setPref({ closeToTray: v })} />
               <ToggleRow label="Start with Windows" value={prefs.startWithWindows} onChange={(v) => setPref({ startWithWindows: v })} />
               <Text style={styles.hint}>
@@ -500,7 +517,7 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   );
 }
 
-const FEATURE_ICONS: Record<string, IconName> = { dueDates: 'notifications-outline', planning: 'sunny-outline', pomodoro: 'timer-outline', templates: 'copy-outline', analytics: 'bar-chart-outline', attachments: 'attach-outline', missed: 'time-outline' };
+const FEATURE_ICONS: Record<string, IconName> = { dueDates: 'notifications-outline', planning: 'sunny-outline', pomodoro: 'timer-outline', templates: 'copy-outline', analytics: 'bar-chart-outline', attachments: 'attach-outline' };
 
 function Section({ title, icon, children }: { title: string; icon?: IconName; children: React.ReactNode }) {
   return (

@@ -328,7 +328,11 @@ function showToast({ title, body, kind }) {
     return;
   }
   const toast = new Notification({ title, body, icon: ICON_PATH, silent: false });
-  toast.on('click', showWindow);
+  toast.on('click', () => {
+    showWindow();
+    // F3 of PLAN_daily_flow: the evening note opens Wrap up.
+    if (kind === 'wrap' && mainWindow) mainWindow.webContents.send('notify:open', 'wrap');
+  });
   toast.show();
   log(`toast shown (${kind})`);
 }

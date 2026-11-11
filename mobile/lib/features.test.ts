@@ -8,7 +8,7 @@ const STAMP = '2026-10-16T00:00:00.000Z';
 const row = (key: string, value: string, deletedAt?: string) => ({ key, value, updatedAt: STAMP, ...(deletedAt ? { deletedAt } : {}) });
 
 test('the six power features, each with a stable setting key (Priority removed in 2.26.0)', () => {
-  assert.deepEqual(FEATURES.map((f) => f.key), ['dueDates', 'planning', 'pomodoro', 'templates', 'analytics', 'missed', 'attachments']);
+  assert.deepEqual(FEATURES.map((f) => f.key), ['dueDates', 'planning', 'pomodoro', 'templates', 'analytics', 'attachments']);
   assert.equal(featureSettingKey('pomodoro'), 'feature.pomodoro');
   for (const f of FEATURES) assert.ok(f.label && f.emoji && f.hint, f.key);
   assert.ok(FEATURES.every((f) => featureSettingKey(f.key).length < 40));
@@ -16,7 +16,7 @@ test('the six power features, each with a stable setting key (Priority removed i
 
 test('defaults keep the existing screens (reminders, planning, analytics on); the new ones start off', () => {
   const d = defaultFeatures();
-  assert.deepEqual(d, { dueDates: true, planning: true, pomodoro: false, templates: false, analytics: true, missed: false, attachments: false });
+  assert.deepEqual(d, { dueDates: true, planning: true, pomodoro: false, templates: false, analytics: true, attachments: false });
 });
 
 test('on and off are the only values; anything else is the default', () => {
@@ -58,15 +58,9 @@ test('a toggle value always fits a setting', () => {
   assert.ok('off'.length < MAX_SETTING_VALUE);
 });
 
-// 3.25.0: Show missed tasks.
-test('3.25.0: Show missed tasks is off for everyone by default, and a saved value is kept', () => {
-  const missed = FEATURES.find((f) => f.key === 'missed')!;
-  assert.equal(missed.label, 'Show missed tasks');
-  assert.equal(defaultFeatures().missed, false);
-  assert.equal(parseFeature(missed, undefined), false, 'never saved: off');
-  assert.equal(parseFeature(missed, 'garbled'), false, 'a damaged value: the default, off');
-  assert.equal(parseFeature(missed, 'on'), true, 'a person who turned it on keeps it on');
-  assert.equal(parseFeature(missed, 'off'), false);
-  assert.equal(featuresFromSettings([{ key: 'feature.missed', value: 'on' }]).missed, true);
-  assert.equal(featuresFromSettings([{ key: 'feature.missed', value: 'on', deletedAt: 'x' }]).missed, false, 'a deleted row is the default');
+// F3 of PLAN_daily_flow (3.42.0, changed on purpose): Show missed tasks is gone (the Earlier pill is always there); a
+// stored row is simply not read.
+test('F3: there is no Show missed tasks switch, and an old saved row changes nothing', () => {
+  assert.equal(FEATURES.some((f) => (f.key as string) === 'missed'), false);
+  assert.equal('missed' in featuresFromSettings([{ key: 'feature.missed', value: 'on' }]), false);
 });

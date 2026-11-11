@@ -21,7 +21,7 @@ const WINDOW_MS = 48 * 60 * 60 * 1000;
 const MAX_ITEMS = 500;
 // A timer that fires later than this (the computer was asleep) is dropped
 // rather than shown as a stale toast.
-const MAX_LATE_MS = { event: 5 * 60 * 1000, task: 5 * 60 * 1000, daily: 3 * 60 * 60 * 1000 };
+const MAX_LATE_MS = { event: 5 * 60 * 1000, task: 5 * 60 * 1000, daily: 3 * 60 * 60 * 1000, wrap: 60 * 60 * 1000 };
 const HM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -97,6 +97,9 @@ function leadText(min) {
   return min % 60 === 0 && min > 60 ? `${min / 60} hours` : `${min} minutes`;
 }
 
+// F3 of PLAN_daily_flow: the evening note (off by default). No count in it, ever; a click opens Wrap up.
+const WRAP_BODY = 'Time to wrap up the day, if you like.';
+
 function dailyBody(count) {
   return count === 1 ? '1 task planned for today' : `${count} tasks planned for today`;
 }
@@ -140,6 +143,14 @@ function plan({ payload, settings, now, zone = localZone }) {
       const count = planned.filter((t) => t && t.dueDate === day && t.completed !== true && !t.startTime && wantsReminder(t)).length;
       if (count === 0) continue;
       out.push({ key: `daily:${day}`, at, kind: 'daily', title: 'Belific', body: dailyBody(count) });
+    }
+  }
+  if (settings.wrapReminder && HM.test(settings.wrapTime)) {
+    for (let offset = 0; offset <= 2; offset++) {
+      const day = zone.addDays(now, offset);
+      const at = zone.at(day, settings.wrapTime);
+      if (at <= now || at > horizon) continue;
+      out.push({ key: `wrap:${day}`, at, kind: 'wrap', title: 'Belific', body: WRAP_BODY });
     }
   }
   return out;
@@ -245,4 +256,4 @@ class Scheduler {
   }
 }
 
-module.exports = { Scheduler, plan, dailyBody, localZone, fixedZone, normalizeLeads, leadsFor, WINDOW_MS, MAX_LATE_MS, HM };
+module.exports = { Scheduler, plan, dailyBody, WRAP_BODY, localZone, fixedZone, normalizeLeads, leadsFor, WINDOW_MS, MAX_LATE_MS, HM };

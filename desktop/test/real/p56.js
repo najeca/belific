@@ -83,7 +83,8 @@ async function run() {
   const menu = await I.textOf(`document.querySelector('[data-popover="plan-menu"]')`);
   check('the menu lists both, Plan my day and Wrap up, and no Analytics (the window is wide)', menu.includes('Plan my day') && menu.includes('Wrap up') && !menu.includes('Analytics'), menu);
   await I.click(`document.querySelector('[data-popover] [aria-label="${other} from the menu"]')`, 900);
-  const otherSteps = flow === 'planning' ? 'Step 1 of 2' : 'Step 1 of 4';
+  // 3.42.0 (F3, changed on purpose): Wrap up is one screen, with no steps.
+  const otherSteps = flow === 'planning' ? 'Wrap up' : 'Step 1 of 4';
   const body = await I.body();
   check(`the other one is one press away: ${other} opens (${otherSteps})`, (await I.exists(`document.querySelector('[data-flow]')`)) && body.includes(otherSteps) && (other !== 'Wrap up' || body.includes('Wrap up')), body.slice(0, 120));
   check('Wrap up is not called "Daily Shutdown" or "Shut down"', !/Daily Shutdown|Shut down/.test(body));

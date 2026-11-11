@@ -55,8 +55,6 @@ export default function BrainDumpPane({
   const [lists, setLists] = useState<TaskList[]>([]);
   const selectedRaw = useSelectedList();
   const templatesOn = useFeature('templates');
-  // 3.25.0: "Show missed tasks" (Settings, off by default) shows the Earlier button and the Missed panel.
-  const showMissed = useFeature('missed');
   const [doneOpen, setDoneOpen] = useState(false);
   const captureRef = useRef<TextInput>(null);
   const { drag, registerZone, sourceRef } = useDrag();
@@ -112,7 +110,8 @@ export default function BrainDumpPane({
     <View ref={paneRef as never} style={[styles.pane, isTarget && styles.paneTarget]}>
       <View style={styles.headRow}>
         <ListSwitcher lists={lists} counts={counts} selected={selected} />
-        {showMissed && <MissedButton refreshKey={refreshKey} />}
+        {/* F3 of PLAN_daily_flow (D5): always there, as earlier days' unticked tasks wait here, not on the board. */}
+        <MissedButton refreshKey={refreshKey} />
       </View>
       {/* 3.31.0: Brain Dump says how many tasks have no day yet, the number in bold (never a nag: nothing at zero). */}
       {selected === undefined && rows.length > 0 ? (

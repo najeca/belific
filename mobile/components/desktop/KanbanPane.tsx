@@ -259,7 +259,10 @@ export default function KanbanPane({
   const dropDay = drag && drag.mode === 'move' && drag.accepted && drag.target?.kind === 'day' ? drag.target.dayKey : null;
 
   const renderColumn = (day: ColumnDay, left: number | null) => {
-    const items = columns.days[day.key] ?? [];
+    // F3 of PLAN_daily_flow (D5): a day before today shows only what was done; the unticked ones wait in Earlier (the
+    // left pane's pill), and the Calendar keeps the day as it was planned.
+    const all = columns.days[day.key] ?? [];
+    const items = day.key < todayKey ? all.filter((i) => i.task.completed) : all;
     // P1 of PLAN_breaks_as_gaps (D1): a Break with a time is a gap, not a card; the column ends with one quiet line for them.
     // Shifts S3 (D2): a block fully inside a shift is a row of the shift's card, not a card of its own.
     const shown = items.filter((i) => !isTimedBreak(i.task));

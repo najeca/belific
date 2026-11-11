@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
 import { dateKey } from '../../lib/kanban';
-import { missedItems } from '../../lib/missed';
+import { earlierItems } from '../../lib/wrapUp';
 import { loadTasksRaw } from '../../lib/storage';
 import { useTick } from './timerUi';
 import { pressStyle } from './pressStyle';
@@ -19,8 +19,8 @@ export default function MissedButton({ refreshKey }: { refreshKey: number }) {
   const tick = useTick(60000);
   useEffect(() => {
     let live = true;
-    // Raw rows, tombstones included: a skipped day of a series is not missed.
-    loadTasksRaw().then((t) => live && setCount(missedItems(t, dateKey(new Date())).length));
+    // Raw rows, tombstones included: a skipped day of a series is not missed. F3: a shift is one, with what is inside it.
+    loadTasksRaw().then((t) => live && setCount(earlierItems(t, dateKey(new Date())).length));
     return () => {
       live = false;
     };
@@ -31,7 +31,7 @@ export default function MissedButton({ refreshKey }: { refreshKey: number }) {
       style={pressStyle(({ hovered }) => [styles.btn, hovered && styles.hover])}
       accessibilityRole="button"
       accessibilityLabel={count === 0 ? 'Earlier days: nothing waiting' : `Earlier days: ${count} to look at`}
-      {...({ dataSet: { missedButton: String(count) }, title: 'Planned for an earlier day and not done yet (the Missed list)' } as object)}
+      {...({ dataSet: { missedButton: String(count) }, title: 'Planned for an earlier day and not ticked yet' } as object)}
     >
       <Ionicons name="time-outline" size={15} color={Colors.textSecondary} />
       <Text style={styles.text}>Earlier</Text>

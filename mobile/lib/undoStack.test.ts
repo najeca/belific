@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. Undo and redo of task changes on the desktop (3.21.0, lib/undoStack.ts).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GROUP_GAP_MS, UNDO_LIMIT, UndoStack, labelOf, sameRow, stepStack, verbOf, type StepOutcome } from './undoStack.ts';
+import { GROUP_GAP_MS, UNDO_LIMIT, UndoStack, labelOf, sameRow, stepEntry, stepStack, verbOf, type StepOutcome } from './undoStack.ts';
 import { planMoveDay, planSkip, planThisDayEdit, projectOccurrences, seriesOfRows } from './series.ts';
 import { mergeRows, type OutboxEntry } from './syncCore.ts';
 import type { Task } from './types.ts';
@@ -444,4 +444,24 @@ test('delete repeating task: undo brings the series back with its rule, also whe
   st3.update({ ...plainTomb } as Task);
   ok(st3.undo());
   assert.equal(projectOccurrences(st3.rows, [THU], MON).length, 1, 'the series goes on, once');
+});
+
+// F3 of PLAN_daily_flow: a decided row's own Undo in Wrap up undoes ITS entry, even when it is not the last one.
+test('F3: undoing an older entry puts back its rows only; the later entry stays and still undoes', () => {
+  const st = new Store([task('a', { dueDate: MON }), task('b', { dueDate: MON })]);
+  st.gesture();
+  st.update({ ...st.row('a')!, dueDate: THU });
+  const first = st.s.peekUndo()!;
+  st.gesture();
+  st.del('b');
+  const r = stepEntry(st.s, first, st.rows, st.iso(), { labels: [], lists: [] });
+  assert.equal(r.outcome.ok, true);
+  for (const w of r.writes) st.rows = st.rows.map((x) => (x.id === w.id ? w : x));
+  assert.equal(st.row('a')!.dueDate, MON, 'a is back on Monday');
+  assert.ok(st.row('b')!.deletedAt, 'b stays deleted');
+  assert.equal(st.s.has(first), false, 'the entry left the stack');
+  assert.equal(st.s.depth, 1);
+  ok(st.undo());
+  assert.ok(st.live().some((x) => x.title === 'Zone 2' && x.id !== 'a'), 'the delete is undone too (a restored copy)');
+  assert.equal(stepEntry(st.s, first, st.rows, st.iso()).outcome.ok, false, 'twice: nothing to undo');
 });

@@ -2,17 +2,16 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
-import { addDays, dateKey, formatShortDate, parseDateKey } from '../../lib/kanban';
+import { addDays, dateKey, parseDateKey } from '../../lib/kanban';
 import { formatClock } from '../../lib/duration';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { listTitle, tasksInList } from '../../lib/lists';
 import { generateId } from '../../lib/data';
 import { newThought } from '../../lib/thoughts';
-import { canCarryToTomorrow, tomorrowOf } from '../../lib/rollover';
-import { EMPTY_DRAFT, doneOn, draftAdd, draftEdit, draftView, missedTasks, nextWeekStart, onDay, type Draft } from '../../lib/planningDraft';
+import { tomorrowOf } from '../../lib/rollover';
+import { EMPTY_DRAFT, doneOn, draftAdd, draftEdit, draftView, nextWeekStart, onDay, type Draft } from '../../lib/planningDraft';
 import { missedItems, ownDayCompletedAt, type MissedItem } from '../../lib/missed';
-import { useFeatures } from './featureStore';
 import MissedList, { type MissedActions } from './MissedList';
 import { useAwayDays } from './awayStore';
 import { finishFlow } from '../../lib/planningActions';
@@ -41,11 +40,11 @@ import { IconHeading, type IconName } from './ui';
 // ticking a missed task as done, pulling a task onto today, adding one, moving
 // one to tomorrow or next week, giving one a time or an estimate. Nothing is
 // written until Finish (lib/planningActions.ts). Cancel, Escape or closing throws the draft
-// away, so every task is exactly as it was. Finish in Planning also rolls the
-// unfinished tasks of earlier days onto today (not repeating tasks, a placed
-// task keeps its time); Finish in Shutdown moves the chosen unfinished tasks of
-// today to tomorrow.
-export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }) {
+// away, so every task is exactly as it was.
+//
+// F3 of PLAN_daily_flow (3.42.0): this is Plan my day only (Wrap up is WrapUp.tsx, one screen), and Finish no longer
+// rolls the tasks of earlier days onto today: they wait in Earlier until you choose (D5). F4 replaces this screen.
+export default function PlanningFlow({ mode }: { mode: 'planning' }) {
   // The smallest piece a Break leaves: a task the breaks cut counts only its pieces in the figures (D4).
   const cutMin = useCutMin();
   const [tasks, setTasks] = useState<Task[] | null>(null);
@@ -53,7 +52,6 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
   const [lists, setLists] = useState<TaskList[]>([]);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [step, setStep] = useState(0);
-  const [carry, setCarry] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState(false);
   // The day the flow is about, fixed when it opens (a flow left open past
   // midnight still plans the day it was opened for).
@@ -70,8 +68,6 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
       setTasks(t);
       setLabels(l);
       setLists(ls);
-      // Shutdown: every unfinished task of today is chosen to go to tomorrow.
-      setCarry(new Set(t.filter((x) => canCarryToTomorrow(x, todayKey)).map((x) => x.id)));
     });
     const before = document.activeElement as HTMLElement | null;
     // Escape is Cancel, wherever the keyboard is in the flow (a text box
@@ -110,28 +106,22 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
     doneUndo?.ids.forEach((id) => edit(id, { completed: false, completedAt: undefined }));
     setDoneUndo(null);
   };
-  const steps = mode === 'planning' ? PLANNING_STEPS : SHUTDOWN_STEPS;
+  const steps = PLANNING_STEPS;
   const last = step === steps.length - 1;
   const labelOf = (t: Task) => labels.find((l) => l.key === t.projectKey);
 
   async function finish() {
     if (!tasks || busy) return;
     setBusy(true);
-    await finishFlow(draft, todayKey, mode, carry ?? new Set(), showMissed);
+    await finishFlow(draft, todayKey, mode, new Set(), false);
     notifyChanged();
     closeOverlay();
   }
 
   // What each step shows.
-  // 3.25.0: "Show missed tasks" (Settings, off by default). Off: no missed step or column, and Finish brings nothing onto
-  // today: tasks of earlier days stay on their own day.
-  const showMissed = useFeatures().missed;
-  const missed = showMissed ? missedTasks(view, todayKey) : [];
-  // Today, as Finish will leave it in Planning: today's tasks and every missed
-  // task the draft has not moved (they roll onto today).
-  const decided = new Set(Object.keys(draft.edits).filter((id) => 'dueDate' in draft.edits[id] || 'completed' in draft.edits[id]));
-  const rollingIn = mode === 'planning' ? missed.filter((t) => !decided.has(t.id)) : [];
-  const todayList = [...onDay(view, todayKey), ...rollingIn];
+  // F3: the earlier days' column is always there, and nothing rolls onto today on Finish (D5).
+  const showMissed = true;
+  const todayList = onDay(view, todayKey);
   const tomorrowList = onDay(view, tomorrow);
   const nextWeekList = onDay(view, nextWeek);
 
@@ -175,7 +165,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
 
   if (!tasks) {
     columns = <Text style={styles.muted}>Loading…</Text>;
-  } else if (mode === 'planning' && step === 0) {
+  } else if (step === 0) {
     const done = doneOn(view, yesterday);
     figures = [
       ['Finished yesterday', String(done.length)],
@@ -185,22 +175,22 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         <Column title="Here's what you finished" icon="checkmark-circle-outline">
           {done.length === 0 ? <Text style={styles.muted}>Nothing was finished yesterday.</Text> : done.map((t) => <Row key={t.id} task={t} label={labelOf(t)} />)}
         </Column>
-        {showMissed && missedColumn("Here's what you missed", 'Tick any that were actually done, or choose a day. The tasks you leave come to today when you finish. Skip all marks them done on their own days.')}
+        {showMissed && missedColumn('From earlier days', 'Tick any that were done, or choose a day. The ones you leave wait in Earlier. Skip all marks them done on their own days.')}
       </>
     );
-  } else if ((mode === 'planning' && step === 1) || (mode === 'shutdown' && step === 1)) {
-    const target = mode === 'planning' ? todayKey : tomorrow;
-    const targetList = mode === 'planning' ? todayList : [...tomorrowList, ...view.filter((t) => carry?.has(t.id) && canCarryToTomorrow(t, todayKey))];
+  } else if (step === 1) {
+    const target = todayKey;
+    const targetList = todayList;
     figures = [
-      [mode === 'planning' ? 'For today' : 'For tomorrow', String(targetList.filter((t) => !t.cutsBelow).length)],
+      ['For today', String(targetList.filter((t) => !t.cutsBelow).length)],
       ['Estimated', formatClock(totalsOf(targetList, Date.now(), cutMin).estimate)],
     ];
     columns = (
       <>
-        <ListColumn lists={lists} tasks={view} labels={labels} actionLabel={mode === 'planning' ? 'Today' : 'Tomorrow'} onPick={(t) => edit(t.id, { dueDate: target })} />
-        <Column title={mode === 'planning' ? 'Today' : 'Tomorrow'} icon={mode === 'planning' ? 'calendar-outline' : 'sunny-outline'} hint={mode === 'shutdown' ? `${tomorrowList.length === 1 ? '1 already planned task' : `${tomorrowList.length} already planned tasks`}, ${countFromToday(view, carry, todayKey)} from Today` : undefined}>
+        <ListColumn lists={lists} tasks={view} labels={labels} actionLabel="Today" onPick={(t) => edit(t.id, { dueDate: target })} />
+        <Column title="Today" icon="calendar-outline">
           <AddBar
-            placeholder={mode === 'planning' ? 'Add a task for today' : 'Add a task for tomorrow'}
+            placeholder="Add a task for today"
             onAdd={(title) => {
               const t = newThought(generateId(), title, new Date().toISOString());
               if (t) setDraft((d) => draftAdd(d, { ...t, dueDate: target }));
@@ -210,13 +200,13 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
             <Text style={styles.muted}>Nothing yet. Pull tasks across from the list, or add one above.</Text>
           ) : (
             targetList.map((t) => (
-              <Row key={t.id} task={t} label={labelOf(t)} onEstimate={(m) => edit(t.id, { durationMinutes: m })} sub={rollingIn.includes(t) ? `from ${formatShortDate(t.dueDate as string)}` : undefined} actions={[{ text: 'Not now', a11y: `Take ${t.title} off`, onPress: () => (draft.added.some((a) => a.id === t.id) ? setDraft((d) => ({ ...d, added: d.added.filter((a) => a.id !== t.id) })) : edit(t.id, { dueDate: undefined })) }]} />
+              <Row key={t.id} task={t} label={labelOf(t)} onEstimate={(m) => edit(t.id, { durationMinutes: m })} actions={[{ text: 'Not now', a11y: `Take ${t.title} off`, onPress: () => (draft.added.some((a) => a.id === t.id) ? setDraft((d) => ({ ...d, added: d.added.filter((a) => a.id !== t.id) })) : edit(t.id, { dueDate: undefined })) }]} />
             ))
           )}
         </Column>
       </>
     );
-  } else if (mode === 'planning' && step === 2) {
+  } else if (step === 2) {
     const tot = totalsOf(todayList, Date.now(), cutMin);
     figures = [
       ['Tasks today', String(todayList.filter((t) => !t.cutsBelow).length)],
@@ -244,7 +234,7 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         </Column>
       </>
     );
-  } else if (mode === 'planning' && step === 3) {
+  } else if (step === 3) {
     figures = [
       ['Tasks today', String(todayList.length)],
       ['Placed', String(todayList.filter((t) => t.startTime).length)],
@@ -276,51 +266,13 @@ export default function PlanningFlow({ mode }: { mode: 'planning' | 'shutdown' }
         </Column>
       </>
     );
-  } else if (mode === 'shutdown' && step === 0) {
-    const done = doneOn(view, todayKey);
-    const left = view.filter((t) => canCarryToTomorrow(t, todayKey));
-    figures = [
-      ['Done today', String(done.length)],
-    ];
-    columns = (
-      <>
-        <Column title="Here's what you did today" icon="checkmark-circle-outline" hint="Corrections are fine: untick anything that is not done.">
-          {done.length === 0 ? <Text style={styles.muted}>Nothing finished today, and that is fine.</Text> : done.map((t) => <Row key={t.id} task={t} label={labelOf(t)} tick onTick={() => edit(t.id, { completed: false })} />)}
-        </Column>
-        {missedRows.length > 0 && missedColumn('From earlier days', 'The Missed list. Nothing here moves unless you choose; Shutdown does not bring them to today.')}
-        <Column title="What you missed" icon="moon-outline" hint="Ticked ones go to tomorrow when you finish.">
-          {left.length === 0 ? (
-            <Text style={styles.muted}>Nothing left over from today.</Text>
-          ) : (
-            left.map((t) => (
-              <Row
-                key={t.id}
-                task={t}
-                label={labelOf(t)}
-                check={{
-                  on: !!carry?.has(t.id),
-                  a11y: `Move ${t.title} to tomorrow`,
-                  onPress: () =>
-                    setCarry((c) => {
-                      const n = new Set(c ?? []);
-                      if (n.has(t.id)) n.delete(t.id);
-                      else n.add(t.id);
-                      return n;
-                    }),
-                }}
-              />
-            ))
-          )}
-        </Column>
-      </>
-    );
   }
 
   return (
-    <View style={styles.overlay} accessibilityLabel={mode === 'planning' ? 'Daily Planning' : 'Wrap up'} {...({ role: 'dialog', 'aria-modal': true, dataSet: { flow: mode } } as object)}>
+    <View style={styles.overlay} accessibilityLabel="Daily Planning" {...({ role: 'dialog', 'aria-modal': true, dataSet: { flow: mode } } as object)}>
       <View style={styles.rail}>
         <Text style={styles.badge}>
-          {mode === 'planning' ? 'Daily Planning' : 'Wrap up'} · Step {step + 1} of {steps.length}
+          Daily Planning · Step {step + 1} of {steps.length}
         </Text>
         <Text style={styles.title} accessibilityRole="header">
           {s.title}
@@ -374,17 +326,7 @@ const PLANNING_STEPS = [
   { title: 'Can anything wait?', helper: 'Move what does not fit today to tomorrow or next week.' },
   { title: 'Finalise your day', helper: 'Give tasks a time if you like. Finish applies it all.' },
 ];
-const SHUTDOWN_STEPS = [
-  { title: "Review today's work", helper: 'What you did today, and what is left over.' },
-  { title: 'What do you want to get done tomorrow?', helper: 'Pull tasks across from a list, or add new ones. Finish applies it all.' },
-];
-
 const SLOTS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
-
-function countFromToday(view: Task[], carry: Set<string> | null, todayKey: string): string {
-  const n = view.filter((t) => carry?.has(t.id) && canCarryToTomorrow(t, todayKey)).length;
-  return n === 1 ? '1 task' : `${n} tasks`;
-}
 
 // The estimate per label, for the rail (3.26.0: the time spent per label is no longer shown).
 // Shifts S1: a block inside a longer one is not counted again (nesting.ts).

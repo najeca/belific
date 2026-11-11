@@ -155,6 +155,13 @@ export class UndoStack {
     const e = this.redoList.pop();
     if (e) this.undoList.push(e);
   }
+  // F3 of PLAN_daily_flow: a row's own Undo (Wrap up, Earlier) names its entry, which may not be the top one.
+  has(entry: UndoEntry): boolean {
+    return this.undoList.includes(entry);
+  }
+  remove(entry: UndoEntry): void {
+    this.undoList = this.undoList.filter((e) => e !== entry);
+  }
   // An entry that can no longer be applied (its rows changed since) is dropped.
   dropUndo(): void {
     this.undoList.pop();
@@ -331,6 +338,18 @@ export function stepStack(s: UndoStack, dir: 'undo' | 'redo', rows: Task[], nowI
   if (dir === 'undo') s.moveToRedo();
   else s.moveToUndo();
   return { writes: plan.writes, skipped: plan.skipped, outcome: { ok: true, dir, label: entry.label } };
+}
+
+// F3 of PLAN_daily_flow: the undo of ONE entry, a row's own Undo in Wrap up or Earlier. The top entry is an ordinary
+// undo (it can be redone); an older one is planned the same way (a row changed since is left alone) and leaves the
+// stack, as there is no place for it on the redo stack.
+export function stepEntry(s: UndoStack, entry: UndoEntry, rows: Task[], nowIso: string, ctx: PlanContext = NO_CONTEXT): UndoPlan & { outcome: StepOutcome } {
+  if (s.peekUndo() === entry) return stepStack(s, 'undo', rows, nowIso, ctx);
+  if (!s.has(entry)) return { writes: [], skipped: 0, outcome: { ok: false, text: 'Nothing to undo' } };
+  const plan = planStep(entry, rows, nowIso, 'undo', ctx);
+  s.remove(entry);
+  if (plan.writes.length === 0) return { writes: [], skipped: plan.skipped, outcome: { ok: false, text: `Can't undo "${entry.label}": it changed since` } };
+  return { writes: plan.writes, skipped: plan.skipped, outcome: { ok: true, dir: 'undo', label: entry.label } };
 }
 
 export const stack = new UndoStack();

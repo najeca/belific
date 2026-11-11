@@ -254,7 +254,7 @@ test('plan is pure: it never mutates its inputs', () => {
 // ----- settings -----
 
 test('settings: defaults, validation and persistence', async () => {
-  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', defaultReminders: [0], dayStart: '05:00', showStreaks: true, vibrantColours: true, theme: 'light', closeToTray: true, startWithWindows: false, trayNoteShown: false });
+  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', wrapReminder: false, wrapTime: '18:00', defaultReminders: [0], dayStart: '05:00', showStreaks: true, vibrantColours: true, theme: 'light', closeToTray: true, startWithWindows: false, trayNoteShown: false });
   const s = sanitize({ dailyTime: '25:00', closeToTray: 'yes', startWithWindows: true, evil: 1, dailyReminder: false });
   assert.equal(s.dailyTime, '09:00');
   assert.equal(s.closeToTray, true);
@@ -565,4 +565,20 @@ test('Part C: a junk slot is ignored (the key is the first time\'s), so it can n
   const r = rig();
   r.sched.update({ events: [], placed: [placed('a', r.now + 30 * M, { slot: 'x:y' })], planned: [] });
   assert.deepEqual(keysOf(r), ['task:a']);
+});
+
+// ----- F3 of PLAN_daily_flow: the evening note -----
+
+test('F3: the wrap up note is off by default; on, one a day at its time, no count in it', () => {
+  const off = rig();
+  off.sched.update({});
+  assert.equal(off.sched.pending().filter((p) => p.kind === 'wrap').length, 0);
+  const r = rig({ settings: { ...S, wrapReminder: true, wrapTime: '18:00' } }); // 2026-10-06 08:00 UTC
+  r.sched.update({});
+  const wrap = r.sched.pending().filter((p) => p.kind === 'wrap');
+  assert.deepEqual(wrap.map((p) => p.key), [`wrap:${day(0, r.now)}`, `wrap:${day(1, r.now)}`]);
+  r.advance(10 * H + M);
+  assert.deepEqual(r.shown.filter((n) => n.kind === 'wrap'), [{ kind: 'wrap', key: `wrap:${day(0, r.now)}`, title: 'Belific', body: 'Time to wrap up the day, if you like.' }]);
+  assert.equal(sanitize({ wrapTime: '7pm' }).wrapTime, '18:00');
+  assert.equal(sanitize({ wrapReminder: true, wrapTime: '21:30' }).wrapTime, '21:30');
 });

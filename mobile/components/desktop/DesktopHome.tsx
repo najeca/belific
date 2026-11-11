@@ -19,6 +19,7 @@ import QuestsPage from './QuestsPage';
 import AnalyticsPage from './AnalyticsPage';
 import TrashPage from './TrashPage';
 import PlanningFlow from './PlanningFlow';
+import WrapUp from './WrapUp';
 import SignInPage from './SignInPage';
 import { DAY_START_EVENT } from './useDayStart';
 import { setShowStreaks, setStreaks } from './streakStore';
@@ -141,6 +142,16 @@ export default function DesktopHome() {
   }, [view]);
   // File, Settings in the app menu.
   useEffect(() => globalThis.belificDesktop?.menu?.onOpenSettings(() => showView('settings')), [showView]);
+  // F3 of PLAN_daily_flow: a click on the evening note opens Wrap up.
+  useEffect(
+    () =>
+      globalThis.belificDesktop?.notify.onOpen?.((what) => {
+        if (what !== 'wrap') return;
+        showView('home');
+        openOverlay({ kind: 'flow', mode: 'shutdown' });
+      }),
+    [showView],
+  );
   // File, Progress.
   useEffect(() => globalThis.belificDesktop?.menu?.onOpenProgress?.(() => showView('progress')), [showView]);
   // Validated sign in callbacks from the main process (decision 012).
@@ -545,8 +556,10 @@ export default function DesktopHome() {
       {view === 'home' && overlay?.kind === 'capture' && <QuickCapture key={overlay.mode} mode={overlay.mode} />}
       {view === 'home' && overlay?.kind === 'search' && <SearchPalette />}
       {overlay?.kind === 'labels' && <LabelsOverlay onChanged={onChanged} />}
-      {view === 'home' && overlay?.kind === 'flow' && <PlanningFlow key={overlay.mode} mode={overlay.mode} />}
-      {view === 'home' && overlay?.kind === 'missed' && features.missed && <MissedPanel refreshKey={refreshKey} />}
+      {/* F3 of PLAN_daily_flow: Wrap up is one screen of its own; Earlier is always there (D5). */}
+      {view === 'home' && overlay?.kind === 'flow' && overlay.mode === 'planning' && <PlanningFlow key={overlay.mode} mode={overlay.mode} />}
+      {view === 'home' && overlay?.kind === 'flow' && overlay.mode === 'shutdown' && <WrapUp refreshKey={refreshKey} />}
+      {view === 'home' && overlay?.kind === 'missed' && <MissedPanel refreshKey={refreshKey} />}
       {view === 'home' && <UndoBar />}
       <TimerWidget refreshKey={refreshKey} />
       <MiddlePan />

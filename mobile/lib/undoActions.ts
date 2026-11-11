@@ -1,5 +1,5 @@
 import { applyTaskPlan, loadListsRaw, loadProjectsRaw } from './storage';
-import { stack, stepStack, type StepOutcome } from './undoStack';
+import { stack, stepEntry, stepStack, type StepOutcome, type UndoEntry } from './undoStack';
 
 // Undo and redo of task changes on the desktop (3.21.0): the top of the stack (lib/undoStack.ts) is planned and
 // its inverse written through the storage layer as ordinary edits (a new updatedAt, queued for sync), inside the
@@ -22,3 +22,11 @@ async function step(dir: 'undo' | 'redo'): Promise<UndoOutcome> {
 
 export const undoLast = () => serial(() => step('undo'));
 export const redoLast = () => serial(() => step('redo'));
+
+// F3 of PLAN_daily_flow: a decided row's own Undo (Wrap up, Earlier): that row's entry, wherever it is in the stack.
+export const undoEntry = (entry: UndoEntry) =>
+  serial(async () => {
+    const [labels, lists] = await Promise.all([loadProjectsRaw(), loadListsRaw()]);
+    const result = await applyTaskPlan((rows, nowIso) => stepEntry(stack, entry, rows, nowIso, { labels, lists }));
+    return result.outcome;
+  });

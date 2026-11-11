@@ -827,3 +827,12 @@ Tests changed on purpose: new blade.test.ts (5), shortcuts.test.ts (D2 pair; the
 Gates: tsc clean; mobile `npm test` 1100/1100; desktop 114/114; iOS export plus `check:ios-markers` OK (49 markers, 0 hits); security scan passed. Real checks on the rebuilt web export (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p14 39/39, p27 86/86, p28 49/49 (twice, after its start wait was fixed; it first timed out waiting for "Lunch"), p42 21/21 (twice), p47 9/9, p48 15/15, p49 36/36, p50 11/11, p51 19/19. The full 77 run regression was NOT run.
 Check by hand: the scissors in Day, Week and the Timebox (button, C, the line and time, a refused cut, click click, press drag release, the popover with Enter and with This day only, a cut on empty grid, Esc twice, Ctrl+Z); C on a focused card; drag Boot Camp by its first or middle piece; drag a gap in 5 minute steps; the Task line in a task's details.
 Not in this phase: the phone (P5).
+
+## Shifts, S1 (2026-11-11): 3.36.0, a block inside a longer block counts once (PLAN_shifts, D1, D3)
+Files: new `lib/nesting.ts` (`nestDay`: the shells and what is inside each, one level, for S2's drawing; `nestedMinutesBy` and `nestedMinutes`: the minutes taken off a total, per task), `lib/taskTotals.ts` (`totalsOf` and `plannedText` take them off), `lib/analytics.ts` (`timeCard`), `components/desktop/PlanningFlow.tsx` (the per label shares); `app.json` 3.36.0.
+Choices made without asking: a block inside counts nothing only while a longer block holding it is counted in the same total (a done shift in "planned", a shift that is not done in Analytics, or one not in the list: the inside blocks count on their own); a block cut by free time takes off only its pieces (gapMinutes already took off the rest); Brain Dump "planned" still does not take off free time (as before), only the inside blocks; yesterday's overnight rest is not a shell in the totals (they are per day, as gapMinutes); `nestDay` sends a block held by two shells to the shorter one.
+Tests changed on purpose: new nesting.test.ts (8), easConfig.test.ts; new real check p52 (2: the nurse's Kanban total 10:30 with Read beside it, Timebox Scheduled 10h 30m).
+Gates: tsc clean; mobile `npm test` 1108/1108; real checks on the rebuilt web export (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p52 2/2, p48 15/15, p49 36/36. The full 77 run regression was NOT run.
+Check by hand: the nurse day on the Tasks board (10:00 for the day), the Calendar header and the Timebox; tick the shift and see "planned" drop to the inside items.
+Not in this phase: the drawing (S2).
+

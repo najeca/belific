@@ -12,6 +12,7 @@ import { timesCount, timesLeft } from './times.ts';
 import { gapMinutes } from './hosting.ts';
 import { DEFAULT_CUT_MIN } from './cuts.ts';
 import { isBreak } from './taskKind.ts';
+import { nestedMinutes } from './nesting.ts';
 
 export interface Totals {
   count: number;
@@ -43,6 +44,8 @@ type TotalsInput = Pick<Task, 'durationMinutes' | 'actualMinutes' | 'timerStarte
 // P1 of PLAN_breaks_as_gaps: a Break is not work. It is not counted, has no estimate, and its time is not planned time.
 // A task the breaks cut counts only its pieces (D4: hosting.ts gapMinutes, with `cutMin`, the setting's smallest piece);
 // a task inside a break is not cut and counts in full. The actual time is never changed.
+// Shifts S1: a block inside a longer block counts nothing on top of it (nesting.ts nestedMinutes), so a 10 hour shift
+// with 5 hours of things inside reads 10h, not 15h.
 export function totalsOf(tasks: TotalsInput[], nowMs: number, cutMin: number = DEFAULT_CUT_MIN): Totals {
   const t: Totals = { count: 0, done: 0, estimate: 0, actual: 0 };
   for (const task of tasks) {
@@ -52,7 +55,7 @@ export function totalsOf(tasks: TotalsInput[], nowMs: number, cutMin: number = D
     t.estimate += estimateOf(task) * timesCount(task);
     t.actual += actualOf(task, nowMs);
   }
-  t.estimate -= gapMinutes(tasks, cutMin);
+  t.estimate -= gapMinutes(tasks, cutMin) + nestedMinutes(tasks, cutMin);
   return t;
 }
 
@@ -65,10 +68,12 @@ export function formatTotals(t: Pick<Totals, 'estimate'>): string {
 
 // The add task box's total (2.26.0): the estimated time of what is still to do
 // in a list, "5h planned", "1h 30m planned", "45m planned"; nothing when there
-// is none. Finished tasks do not count; a missing estimate is 0.
+// is none. Finished tasks do not count; a missing estimate is 0. Shifts S1: what is still to do inside a shift that is
+// still to do counts once.
 export function plannedText(tasks: TotalsInput[]): string {
   let minutes = 0;
   for (const t of tasks) if (!t.deletedAt && !t.completed) minutes += estimateOf(t) * timesLeft(t);
+  minutes -= nestedMinutes(tasks, DEFAULT_CUT_MIN, tasks, (t, time) => !(t as TotalsInput).completed && !((t as TotalsInput).timesDone ?? []).includes(time));
   if (minutes <= 0) return '';
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

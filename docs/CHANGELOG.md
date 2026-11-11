@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.36.0 — 2026-11-11 (Shifts, S1: a block inside a longer block counts once; PLAN_shifts)
+
+**Desktop and phone share the counting. No schema change, no migration, no data change: which block is inside which is worked out from the times. Nothing looks different on screen yet (S2 draws it).**
+- **A block inside a longer block counts once** (`lib/nesting.ts`: `nestDay`, `nestedMinutesBy`, `nestedMinutes`). A timed block that starts and ends inside a longer block's time (the edges count) adds nothing on top of it; the longer block counts at its own length less any free time cut out of it (D3, G4). One level: everything goes to the outermost block. Free time comes first: a task inside a gap still belongs to the gap and counts in full. Lunch inside a shift is an ordinary block and part of its planned time (D1).
+- **Where:** the Tasks board's day totals, the Calendar header total, Daily Planning ("Estimated" and the per label shares), Brain Dump "planned" and the Analytics time card. The Timebox "Scheduled" already counted the union of the blocks, so it is unchanged. The nurse example (Shift 8:00 for 10 h with five things inside) now reads 10h everywhere, not 15h.
+- **Still counted twice on purpose:** two blocks with the same start and end, and two that only partly overlap (both count, side by side). A block inside a shift that is done (or not in the list being totalled) counts on its own; so does a done item inside a shift that is not done, in Analytics.
+- **Tests changed on purpose:** new nesting.test.ts (the rule, the nurse example in every total, D1, D3, partial and equal overlaps, several times a day), easConfig.test.ts (version); new real check p52 (the nurse's Kanban total and Timebox Scheduled).
+
 ## 3.35.0 — 2026-11-11 (Breaks are free gaps, phase 4: the scissors; three fixes from 3.34.0; PLAN_breaks_as_gaps)
 
 **Desktop. No schema change, no migration, no data change: a cut writes exactly what Task or Break = Break writes. The phone is unchanged (P5).**

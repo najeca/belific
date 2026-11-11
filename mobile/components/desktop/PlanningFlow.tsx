@@ -17,6 +17,7 @@ import MissedList, { type MissedActions } from './MissedList';
 import { useAwayDays } from './awayStore';
 import { finishFlow } from '../../lib/planningActions';
 import { estimateOf, formatTotals, lengthOf, totalsOf } from '../../lib/taskTotals';
+import { nestedMinutesBy } from '../../lib/nesting';
 import { useCutMin } from './cutStore';
 import { minutesOfDay, nowLineTop } from '../../lib/calendarView';
 import { loadLists, loadTasksRaw } from '../../lib/storage';
@@ -386,12 +387,14 @@ function countFromToday(view: Task[], carry: Set<string> | null, todayKey: strin
 }
 
 // The estimate per label, for the rail (3.26.0: the time spent per label is no longer shown).
+// Shifts S1: a block inside a longer one is not counted again (nesting.ts).
 function byLabel(tasks: Task[], labels: Project[]): Array<[string, string]> {
   const by = new Map<string, number>();
+  const nested = nestedMinutesBy(tasks);
   for (const t of tasks) {
     const name = labels.find((l) => l.key === t.projectKey);
     const k = name ? `${name.emoji ? `${name.emoji} ` : ''}${name.name}` : 'No label';
-    const m = estimateOf(t);
+    const m = estimateOf(t) - (nested.get(t) ?? 0);
     by.set(k, (by.get(k) ?? 0) + m);
   }
   return [...by.entries()].filter(([, m]) => m > 0).map(([k, m]) => [k, formatClock(m)]);
@@ -507,10 +510,12 @@ function AddBar({ placeholder, onAdd }: { placeholder: string; onAdd: (title: st
 
 // A per label share of the day's estimate, as one quiet bar.
 function LabelBar({ tasks, labels }: { tasks: Task[]; labels: Project[] }) {
-  const total = tasks.reduce((n, t) => n + estimateOf(t), 0);
+  const nested = nestedMinutesBy(tasks);
+  const own = (t: Task) => estimateOf(t) - (nested.get(t) ?? 0);
+  const total = tasks.reduce((n, t) => n + own(t), 0);
   if (total === 0) return null;
   const parts = new Map<string, number>();
-  for (const t of tasks) parts.set(t.projectKey ?? '', (parts.get(t.projectKey ?? '') ?? 0) + estimateOf(t));
+  for (const t of tasks) parts.set(t.projectKey ?? '', (parts.get(t.projectKey ?? '') ?? 0) + own(t));
   return (
     <View style={styles.bar} accessibilityLabel="Time by label">
       {[...parts.entries()].filter(([, m]) => m > 0).map(([k, m]) => (

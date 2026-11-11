@@ -12,6 +12,7 @@ import { addDays, dateKey, isDateKey, parseDateKey, weekStartOf } from './kanban
 import { toCsv } from './csv.ts';
 import { estimateOf } from './taskTotals.ts';
 import { gapMinutes } from './hosting.ts';
+import { nestedMinutes } from './nesting.ts';
 import { DEFAULT_CUT_MIN } from './cuts.ts';
 import { isBreak } from './taskKind.ts';
 import { effectiveListKey } from './lists.ts';
@@ -144,6 +145,7 @@ export interface TimeCard {
 
 // P1 of PLAN_breaks_as_gaps: breaks are not work (completedIn leaves them out), and a done task the breaks of its day cut
 // counts only its pieces (D4). The breaks come from all the stored tasks, ticked or not (lib/hosting.ts gapMinutes).
+// Shifts S1: a done block inside a done longer block adds nothing (nesting.ts); inside a shift that is not done it counts.
 export function timeCard(tasks: Task[], r: DateRange, cutMin: number = DEFAULT_CUT_MIN): TimeCard {
   const done = completedIn(tasks, r);
   let estimated = 0;
@@ -157,7 +159,8 @@ export function timeCard(tasks: Task[], r: DateRange, cutMin: number = DEFAULT_C
       actual += act(t);
     }
   }
-  estimated -= gapMinutes(done.filter((t) => estimateOf(t) > 0), cutMin, tasks);
+  const timed = done.filter((t) => estimateOf(t) > 0);
+  estimated -= gapMinutes(timed, cutMin, tasks) + nestedMinutes(timed, cutMin, tasks);
   const withoutEstimate = done.length - withEstimate;
   const text = withEstimate === 0 ? '' : `${formatClock(actual)} spent of ${formatClock(estimated)} estimated`;
   return { estimated, actual, withEstimate, withoutEstimate, text };

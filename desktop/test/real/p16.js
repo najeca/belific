@@ -113,13 +113,12 @@ async function run() {
   await C.sleep(300);
   await I.click(cal(today, 'brk'), 800);
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 4000);
-  // 3.27.0 (changed on purpose): Split became "Task or Break"; the Break line says "Cuts the tasks it overlaps" (Jethro's words).
-  const row = await I.js(`(() => { const r = document.querySelector('[data-detail-row="Task or Break"]'); return r ? r.innerText.replace(/\\s+/g, ' ').trim() : null; })()`);
-  check('Break: the details row is Type, Task | Break, with the Break line', !!row && row.includes('Task') && row.includes('Break') && row.includes('Cuts the tasks it overlaps into pieces and can hold other tasks inside it.'), String(row));
-  const sw = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] [data-kind="break"]'); return s ? [s.getAttribute('aria-label'), s.getAttribute('aria-checked')] : null; })()`);
-  check('Break: the option has the accessible name "Break" and is chosen for the break', !!sw && sw[0] === 'Break' && sw[1] === 'true', JSON.stringify(sw));
-  const rowTip = await I.js(`(() => { const r = document.querySelector('[data-detail-row="Task or Break"] [role="heading"]'); return r ? [r.getAttribute('title'), r.getAttribute('aria-label')] : null; })()`);
-  check('Break: its tooltip is "Task or Break"', !!rowTip && rowTip.some((v) => v === 'Task or Break'), JSON.stringify(rowTip));
+  // 3.37.0 (Shifts S2, changed on purpose): no Task | Break choice; a Break's details have a "Free time" row in plain words
+  // with a visible "Make it a normal block".
+  const row = await I.js(`(() => { const r = document.querySelector('[data-detail-row="Free time"]'); return r ? r.innerText.replace(/\\s+/g, ' ').trim() : null; })()`);
+  check('Break: the details row is "Free time", in plain words', !!row && row.includes('Free time is not counted as planned.'), String(row));
+  const sw = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] [data-make-normal]'); return s ? s.getAttribute('aria-label') : null; })()`);
+  check('Break: a visible button "Make it a normal block", and no Task | Break control', sw === 'Make it a normal block' && !(await I.exists(`document.querySelector('[data-detail-panel] [data-kind-choice]')`)), JSON.stringify(sw));
   const detailText = await I.js(`document.querySelector('[data-detail-panel]').innerText`);
   check('Break: no "Split" wording is left in the details', !/split/i.test(detailText), detailText.split('\n').filter((l) => /split/i.test(l)).join(' | '));
   await I.blur();
@@ -195,12 +194,14 @@ async function run() {
   await scrollBox(6);
   await C.sleep(400);
   const onBox = await timebox();
-  const names = { p1: 'boot piece', brk: 'break', p2: 'second piece', red: 'red', yel: 'yellow' };
+  // 3.34.0 (PLAN_breaks_as_gaps P2; updated in 3.37.0): a break is a gap (hatched, no fill, no text) in both modes, so it
+  // is no longer one of the vibrant blocks.
+  const names = { p1: 'boot piece', p2: 'second piece', red: 'red', yel: 'yellow' };
   for (const k of Object.keys(names)) {
     const x = onBox[k];
     check(`ON Timebox: ${names[k]} is white bold text on a vibrant background with at least 6:1`, !!x && whiteBold(x) && ratio('rgb(255, 255, 255)', x.bg) >= 6, x && JSON.stringify([x.bg, x.texts.map((n) => [n.color, n.fw]), x.bg && ratio('rgb(255, 255, 255)', x.bg).toFixed(2)]));
   }
-  check('ON Timebox: the break is a mid slate grey (83, 96, 112)', onBox.brk.bg === 'rgb(83, 96, 112)', onBox.brk.bg);
+  check('ON Timebox: the break is a gap: no fill, no text', onBox.brk.bg === 'rgba(0, 0, 0, 0)' && onBox.brk.texts.length === 0, JSON.stringify([onBox.brk.bg, onBox.brk.texts]));
   check('ON Timebox: the repeat icon is white', onBox.yel.repeatColor === 'rgb(255, 255, 255)', String(onBox.yel.repeatColor));
   check('ON Timebox: the ❗ sits on a small white rounded chip', onBox.red.markBg === 'rgb(255, 255, 255)', String(onBox.red.markBg));
   check('ON Timebox: the pieces of one task share one colour', onBox.p1.bg === onBox.p2.bg && onBox.p1.bg !== offBox.p1.bg, JSON.stringify([onBox.p1.bg, onBox.p2.bg]));
@@ -218,12 +219,12 @@ async function run() {
   await scrollTo(6);
   await C.sleep(400);
   const onWeek = await week();
-  const wk = { p1: 'boot piece', brk: 'break', p2: 'second piece', red: 'red', yel: 'yellow' };
+  const wk = { p1: 'boot piece', p2: 'second piece', red: 'red', yel: 'yellow' };
   for (const k of Object.keys(wk)) {
     const x = onWeek[k];
     check(`ON Week: ${wk[k]} is white bold text on a vibrant background with at least 6:1`, !!x && whiteBold(x) && ratio('rgb(255, 255, 255)', x.bg) >= 6, x && JSON.stringify([x.bg, x.texts.map((n) => [n.color, n.fw])]));
   }
-  check('ON Week: the break is the mid slate grey', onWeek.brk.bg === 'rgb(83, 96, 112)', onWeek.brk.bg);
+  check('ON Week: the break is a gap: no fill, no text', onWeek.brk.bg === 'rgba(0, 0, 0, 0)' && onWeek.brk.texts.length === 0, JSON.stringify([onWeek.brk.bg, onWeek.brk.texts]));
   check('ON Week: the unlabelled task keeps its plain block (white text would not show on it)', onWeek.plain.bg === offWeek.plain.bg && !whiteBold(onWeek.plain), onWeek.plain.bg);
   check('ON Week: the all-day chip is vibrant with white bold text', whiteBold(onWeek.chip) && ratio('rgb(255, 255, 255)', onWeek.chip.bg) >= 6 && onWeek.chip.bg !== offWeek.chip.bg, JSON.stringify([onWeek.chip.bg, onWeek.chip.texts]));
   check('ON Week: the ❗ is on a white chip (all-day chip and red block)', onWeek.chip.markBg === 'rgb(255, 255, 255)' && onWeek.red.markBg === 'rgb(255, 255, 255)', JSON.stringify([onWeek.chip.markBg, onWeek.red.markBg]));
@@ -239,7 +240,7 @@ async function run() {
   await C.sleep(400);
   const onDay = {};
   for (const id of ['boot', 'brk', 'boot~2']) onDay[id] = await look(cal(today, id));
-  check('ON Day: the split day (piece, break, piece) is vibrant, white and bold, same geometry as OFF', ['boot', 'brk', 'boot~2'].every((id) => whiteBold(onDay[id]) && ratio('rgb(255, 255, 255)', onDay[id].bg) >= 6 && geom(onDay[id]) === geom(offDay[id])), JSON.stringify(onDay));
+  check('ON Day: the split day (piece, gap, piece): the pieces vibrant, white and bold, the gap plain, same geometry as OFF', ['boot', 'boot~2'].every((id) => whiteBold(onDay[id]) && ratio('rgb(255, 255, 255)', onDay[id].bg) >= 6) && onDay.brk.texts.length === 0 && ['boot', 'brk', 'boot~2'].every((id) => geom(onDay[id]) === geom(offDay[id])), JSON.stringify(onDay));
   await I.shot('p16-DAY-on');
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 800);
 

@@ -1,7 +1,10 @@
 // Run with `npm test` from mobile/. Shifts S1: a block inside a longer block counts once.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nestDay, nestedMinutes, nestedMinutesBy, type NestEntry } from './nesting.ts';
+import { fitInsideFields, fitInsideFor, fitNote, nestDay, nestPlan, nestedMinutes, nestedMinutesBy, partialOverlaps, summaryShort, summaryText, type NestEntry } from './nesting.ts';
+import { layoutNested } from './timebox.ts';
+import { hostDay } from './hosting.ts';
+import { gapLayout } from './gaps.ts';
 import { plannedText, totalsOf } from './taskTotals.ts';
 import { timeCard } from './analytics.ts';
 import type { Task } from './types.ts';
@@ -92,4 +95,62 @@ test('a task with several times: only the time inside the shift is taken off', (
   const by = nestedMinutesBy([T('shift', '08:00', 600), pill]);
   assert.equal(by.get(pill), 15);
   assert.equal(totalsOf([T('shift', '08:00', 600), pill], 0).estimate, 615);
+});
+
+// ---- S2: drawing ----
+
+const entriesOf = (tasks: Task[]) =>
+  tasks.map((t) => {
+    const [h, m] = (t.startTime as string).split(':').map(Number);
+    const s = h * 60 + m;
+    return { id: `task:${t.id}`, startMin: s, endMin: s + (t.durationMinutes ?? 30), breaks: !!t.cutsBelow };
+  });
+
+test('S2: the nurse day draws the five things inside the shift, and its summary reads "5h of 10h planned, 5h free"', () => {
+  const entries = entriesOf(nurse());
+  const host = hostDay(entries);
+  const plan = gapLayout(entries, 30, (id) => id);
+  const nest = nestPlan(entries, host.hostOf, plan.items);
+  assert.equal(nest.groupOf.get('task:shift'), 'task:shift');
+  assert.deepEqual([...nest.insideOf.keys()].sort(), ['task:briefing', 'task:depts', 'task:lunch', 'task:patients', 'task:teams']);
+  const sum = nest.summaries.get('task:shift');
+  assert.deepEqual(sum, { total: 600, planned: 300, free: 300 });
+  assert.equal(summaryText(sum!), '5h of 10h planned, 5h free');
+  assert.equal(summaryShort(sum!), '5h/10h');
+  const items = plan.items.map((it) => ({ id: it.id, startMin: it.startMin, endMin: it.endMin, inside: nest.insideOf.get(it.id), group: nest.groupOf.get(it.id) }));
+  const lay = layoutNested(items);
+  assert.equal(lay.blocks.length, 1, 'only the shift is laid out in the column');
+  assert.equal(lay.blocks[0].cols, 1, 'full width: nothing beside it');
+  assert.equal(lay.shells.length, 1);
+  assert.equal(lay.shells[0].blocks.length, 5, 'its five blocks, in its lane');
+  assert.ok(lay.shells[0].blocks.every((b) => b.cols === 1), 'none of them overlap: each one lane');
+  const lunch = lay.shells[0].blocks.find((b) => b.id === 'task:lunch')!;
+  assert.equal(lunch.height, 28, 'real size: 30 minutes is 28 px');
+});
+
+test('S2: free time in a shift lowers its total (D3); overlapping things inside count once', () => {
+  const entries = entriesOf([...nurse(), T('gap', '15:00', 60, { cutsBelow: true }), T('extra', '11:30', 60)]);
+  const host = hostDay(entries);
+  const plan = gapLayout(entries, 30, (id) => id);
+  const sum = nestPlan(entries, host.hostOf, plan.items).summaries.get('task:shift');
+  assert.deepEqual(sum, { total: 540, planned: 300, free: 240 }, '9h: the gap is not the shift; extra sits within Ring patients');
+  assert.equal(summaryText({ total: 600, planned: 0, free: 600 }), 'Nothing planned yet, 10h free');
+  assert.equal(summaryText({ total: 600, planned: 600, free: 0 }), '10h planned, nothing free');
+  assert.equal(summaryText({ total: 600, planned: 270, free: 330 }), '4h 30m of 10h planned, 5h 30m free');
+});
+
+test('S2: two blocks that only partly overlap stay side by side, with the grey note and "Fit inside"', () => {
+  const late = { id: 'late', startMin: 17 * 60, endMin: 19 * 60 };
+  const shift = { id: 'shift', startMin: 8 * 60, endMin: 18 * 60 };
+  assert.deepEqual([...partialOverlaps([shift, late])], [['late', 'shift']]);
+  assert.equal(partialOverlaps([shift, { id: 'in', startMin: 9 * 60, endMin: 10 * 60 }]).size, 0, 'inside is not partial');
+  assert.equal(partialOverlaps([shift, { id: 'early', startMin: 7 * 60, endMin: 9 * 60 }]).size, 0, 'only one that starts inside');
+  assert.deepEqual(fitInsideFields(late, shift), { startTime: '16:00' }, 'it keeps its length and ends with the shift');
+  assert.deepEqual(fitInsideFields({ startMin: 9 * 60, endMin: 21 * 60 }, shift), { startTime: '08:00', durationMinutes: 600 }, 'longer than the shift: its start and length');
+  assert.equal(fitNote('Shift'), 'Starts inside Shift and ends after it');
+  const lay = layoutNested([{ ...shift }, { ...late }]);
+  assert.equal(lay.blocks.every((b) => b.cols === 2), true, 'side by side');
+  const tasks = [T('shift', '08:00', 600, { title: 'Shift' }), T('late', '17:00', 120)];
+  assert.deepEqual(fitInsideFor(tasks, tasks[1], DAY), { title: 'Shift', fields: { startTime: '16:00' } });
+  assert.equal(fitInsideFor(tasks, tasks[0], DAY), null);
 });

@@ -32,21 +32,21 @@ test('hostAt: the timed task under the point, the shortest of two', () => {
 
 test('bladeCheck (D3): a cut that leaves a piece under the minimum is refused, with the reason', () => {
   assert.equal(bladeCheck([m(11), m(11, 20)], camp, [], 30), null);
-  assert.equal(bladeCheck([m(9, 40), m(10)], camp, [], 30), 'A piece would be 10 min (min 30)');
-  assert.equal(bladeCheck([m(9, 30), m(16, 30)], camp, [], 30), 'It would cover all of the task');
+  assert.equal(bladeCheck([m(9, 40), m(10)], camp, [], 30), 'Too short: this would leave 10 min (at least 30)');
+  assert.equal(bladeCheck([m(9, 30), m(16, 30)], camp, [], 30), 'This would cover the whole block');
   assert.equal(bladeCheck([m(9, 40), m(10)], null, [], 30), null, 'on empty grid there is nothing to refuse');
   // The day's other breaks count: with 11:00 to 11:20 already a gap, 11:30 to 12:00 would leave 10 minutes between.
   const short1 = { id: 'task:short1', startMin: m(11), endMin: m(11, 20), breaks: true };
-  assert.equal(bladeCheck([m(11, 30), m(12)], camp, [short1], 30), 'A piece would be 10 min (min 30)');
+  assert.equal(bladeCheck([m(11, 30), m(12)], camp, [short1], 30), 'Too short: this would leave 10 min (at least 30)');
   assert.equal(bladeCheck([m(12, 30), m(13, 30)], camp, [short1], 30), null);
-  assert.equal(bladeCheck([m(9, 40), m(10)], camp, [], 15), 'A piece would be 10 min (min 15)', 'the setting is used');
+  assert.equal(bladeCheck([m(9, 40), m(10)], camp, [], 15), 'Too short: this would leave 10 min (at least 15)', 'the setting is used');
 });
 
 test('bladeTask: this day only, or the task\'s repeat rule for all days', () => {
   const rule = { recurrence: 'weekly', recurrenceDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] } as Pick<Task, 'recurrence' | 'recurrenceDays'>;
-  assert.deepEqual(bladeTask([m(11), m(11, 20)], '2026-11-10', 'day', rule), { title: 'Break', cutsBelow: true, dueDate: '2026-11-10', startTime: '11:00', durationMinutes: 20 });
-  assert.deepEqual(bladeTask([m(11), m(11, 20)], '2026-11-10', 'all', rule), { title: 'Break', cutsBelow: true, dueDate: '2026-11-10', startTime: '11:00', durationMinutes: 20, recurrence: 'weekly', recurrenceDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] });
-  assert.deepEqual(bladeTask([m(15), m(15, 20)], '2026-11-10', 'all', { recurrence: 'monthly', recurrenceMonthDay: 10 } as Task), { title: 'Break', cutsBelow: true, dueDate: '2026-11-10', startTime: '15:00', durationMinutes: 20, recurrence: 'monthly', recurrenceMonthDay: 10 });
+  assert.deepEqual(bladeTask([m(11), m(11, 20)], '2026-11-10', 'day', rule), { title: 'Free time', cutsBelow: true, dueDate: '2026-11-10', startTime: '11:00', durationMinutes: 20 });
+  assert.deepEqual(bladeTask([m(11), m(11, 20)], '2026-11-10', 'all', rule), { title: 'Free time', cutsBelow: true, dueDate: '2026-11-10', startTime: '11:00', durationMinutes: 20, recurrence: 'weekly', recurrenceDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] });
+  assert.deepEqual(bladeTask([m(15), m(15, 20)], '2026-11-10', 'all', { recurrence: 'monthly', recurrenceMonthDay: 10 } as Task), { title: 'Free time', cutsBelow: true, dueDate: '2026-11-10', startTime: '15:00', durationMinutes: 20, recurrence: 'monthly', recurrenceMonthDay: 10 });
   assert.equal(bladeTask([m(11), m(11, 20)], '2026-11-10', 'all', null).recurrence, undefined, 'no task under it: a one off');
   assert.equal(allDaysOf('Boot Camp'), 'All days of Boot Camp');
 });

@@ -100,9 +100,10 @@ async function run() {
 
   // ---- The details: Must do and Split, dark then light ----
   await openDetails();
-  // 3.27.0: the Split switch became the Task | Break control, so the details have one switch (Must do).
+  // 3.27.0: the Split switch became the Task | Break control, so the details have one switch (Must do). 3.37.0 (Shifts S2):
+  // the control is gone on the desktop.
   const d = await audit('dark details', 1);
-  check('the details have the Must do switch and the Task | Break control', d.length === 1 && (await I.exists(`document.querySelector('[data-detail-panel] [data-kind-choice]')`)), JSON.stringify(d.map((x) => x.label)));
+  check('the details have the Must do switch and no Task | Break control', d.length === 1 && !(await I.exists(`document.querySelector('[data-detail-panel] [data-kind-choice]')`)), JSON.stringify(d.map((x) => x.label)));
   await I.shot('p31-details-dark');
   await I.click(`document.querySelector('[data-must-do-switch]')`, 600);
   const on = await switches();

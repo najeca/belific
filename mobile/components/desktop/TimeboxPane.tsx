@@ -17,6 +17,10 @@ import {
   PX_PER_HOUR,
   formatMinutes,
   layoutItems,
+  layoutNested,
+  SHELL_WIDE_PX,
+  type NestedItem,
+  type PlacedBlock,
   scrollOffsetFor,
   taskToItem,
   toMinutes,
@@ -26,6 +30,7 @@ import {
 } from '../../lib/timebox';
 import { pieceTimeText, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { gapLayout } from '../../lib/gaps';
+import { fitNote, nestPlan, summaryShort, summaryText, type ShellSummary } from '../../lib/nesting';
 import { timeViews } from '../../lib/times';
 import { hostDay, hostSnapshot, scheduledSpans, type HostEntry } from '../../lib/hosting';
 import { setDayBreaks, watchDay, type DayBreak } from './breakStore';
@@ -144,6 +149,8 @@ export default function TimeboxPane({
   const scrollRef = useRef<ScrollView>(null);
   const dayStartMin = useDayStart();
   const [viewH, setViewH] = useState(0);
+  // Shifts S2: the blocks' width, so a shell knows whether its header fits on the left.
+  const [blocksW, setBlocksW] = useState(0);
   const { drag, registerZone, sourceRef, startResize } = useDrag();
   const paneScroll = usePaneScroll();
   const scrollNode = useRef<HTMLElement | null>(null);
@@ -237,9 +244,9 @@ export default function TimeboxPane({
   // "Vibrant task colours" (Settings): saturated cards with bold white text; off = as before.
   const vibrant = useVibrant();
   const tint = useTint();
-  const { sources, items, scheduled, notes, badges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap } = useMemo(() => {
+  const { sources, items, shellOf, scheduled, notes, badges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap } = useMemo(() => {
     const map = new Map<string, Source>();
-    const list: TimeboxItem[] = [];
+    const list: NestedItem[] = [];
     for (const e of getWeeklyEventsForDate(day)) {
       const s = toMinutes(e.start);
       const en = toMinutes(e.end);
@@ -304,6 +311,17 @@ export default function TimeboxPane({
       return s && (s.kind === 'task' || s.kind === 'continuation') ? [{ ...g, task: s.task, full: s.full ?? s.task, projected: !!s.projected, ...(s.time ? { time: s.time, suffix: s.suffix } : {}) }] : [];
     });
     const inGap = new Map<string, { guest: HostedGuest; brk: HostBreak }>();
+    // Shifts S2 (lib/nesting.ts): a block fully inside a longer one is drawn inside it; a shell shows its summary; a
+    // block that starts inside a longer one and ends after it says so (grey, with "Fit inside" in its details).
+    const nest = nestPlan(entries, host.hostOf, plan.items);
+    const shellOf = new Map<string, ShellSummary>();
+    for (const it of plan.items) {
+      const sum = nest.groupOf.has(it.id) ? nest.summaries.get(nest.groupOf.get(it.id) as string) : undefined;
+      if (sum && (!it.piece || it.piece.index === 0)) shellOf.set(it.id, sum);
+      const over = nest.partial.get(it.piece?.hostId ?? it.id);
+      const os = over ? map.get(over) : undefined;
+      if (os && (os.kind === 'task' || os.kind === 'continuation') && !plan.hostNotes.has(it.id)) plan.hostNotes.set(it.id, fitNote(os.task.title));
+    }
     for (const it of plan.items) {
       if (it.piece) {
         const host = map.get(it.piece.hostId);
@@ -321,7 +339,9 @@ export default function TimeboxPane({
           brk: { endMin: brk?.endMin ?? it.endMin, title: b.task.title },
         });
       }
-      list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id), ...(it.minPx !== undefined ? { minPx: it.minPx } : {}) });
+      const inside = nest.insideOf.get(it.id);
+      const group = nest.groupOf.get(it.id);
+      list.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id), ...(it.minPx !== undefined ? { minPx: it.minPx } : {}), ...(inside ? { inside } : {}), ...(group ? { group } : {}) });
     }
     // P1 of PLAN_breaks_as_gaps: the Scheduled total counts work, not gaps. A Break's span is left out; a task inside a
     // break (hosted, so not in `list`) counts at its real length. Events and the pieces of cut tasks count as before.
@@ -334,7 +354,7 @@ export default function TimeboxPane({
       return [{ id: e.id, startMin: e.startMin, endMin: e.endMin, title: s.task.title, task: full, repeats: !!full.recurrence }];
     });
     const bladeBreaks = entries.filter((e) => e.breaks && !host.hostOf.has(e.id));
-    return { sources: map, items: list, scheduled, notes: plan.hostNotes, badges: plan.hostBadges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries) };
+    return { sources: map, items: list, shellOf, scheduled, notes: plan.hostNotes, badges: plan.hostBadges, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries) };
   }, [day, key, todayKey, events, categories, tasks, filter, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
   useEffect(() => {
@@ -342,7 +362,7 @@ export default function TimeboxPane({
     watchDay(key, snap);
   }, [key, breaks, snap]);
 
-  const layout = useMemo(() => layoutItems(items), [items]);
+  const layout = useMemo(() => layoutNested(items), [items]);
   // The work's time once (breaks are gaps and do not count, P1 of PLAN_breaks_as_gaps).
   const total = totalScheduledMinutes(scheduled);
 
@@ -355,6 +375,115 @@ export default function TimeboxPane({
     if (source.kind === 'task' || source.kind === 'continuation' || source.kind === 'piece') openDetail(source.task.id);
     else if (source.custom) setEditing(source.custom);
   }
+
+  // One drawn block (a block inside a shell is drawn by the same code, in the shell's lane).
+  const renderBlock = (b: PlacedBlock) => {
+              const source = sources.get(b.id);
+              if (!source) return null;
+              const positioned = {
+                top: b.top,
+                height: b.height,
+                left: `${(b.col * 100) / b.cols}%` as const,
+                width: `${100 / b.cols}%` as const,
+                ...(b.high ? { zIndex: 2 } : {}),
+              };
+              if (source.kind === 'continuation' || (source.kind === 'piece' && source.cont)) {
+                const t = source.task;
+                const pc = source.kind === 'piece' ? source.piece : undefined;
+                const timeText = pc && !pc.head ? pieceTimeText(formatTime(toTime(pc.startMin)), undefined, formatDuration(pc.leftMin), false) : 'Continues from yesterday';
+                const color = labelColor(labels.find((p) => p.key === t.projectKey)?.colorKey);
+                const look = vibrantLook(vibrant, color, !!t.cutsBelow);
+                const vt = look ? vibrantText : undefined;
+                return (
+                  <View key={b.id} style={[styles.blockWrap, positioned]}>
+                    <View style={styles.blockBase}>
+                      <Pressable
+                        onPress={() => openSource(source)}
+                        style={[
+                          styles.block,
+                          styles.taskBlock,
+                          styles.continuationBlock,
+                          color && [styles.taskBlockLabelled, { backgroundColor: look?.bg ?? tint(color), borderLeftColor: look?.edge ?? color.edge }],
+                          !color && look && [styles.taskBlockLabelled, { backgroundColor: look.bg, borderLeftColor: look.edge }],
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Continues from yesterday: ${t.title}`}
+                        {...({ dataSet: { blockId: `${t.id}${source.suffix ?? ''}${pc && pc.index > 0 ? `~${pc.index + 1}` : ''}`, continuation: '1', ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
+                      >
+                        <View style={styles.blockTitleRow}>
+                          <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone, vt]} numberOfLines={1}>
+                            {t.title}
+                          </Text>
+                          {isCompactBlock(b.height) && <Text style={[styles.blockTimeInline, look ? vibrantMeta : undefined]}>{timeText}</Text>}
+                          {isMustDo(t) && <PriorityMark chip={!!look} />}
+                        </View>
+                        {!isCompactBlock(b.height) && (
+                          <Text style={[styles.blockTime, look ? vibrantMeta : undefined]}>
+                            {timeText}
+                            {listEmojiOf(t, lists) ? ' ' : ''}
+                            <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
+                          </Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              }
+              if (source.kind === 'task' || source.kind === 'piece') {
+                const t = source.task;
+                const proj = labels.find((p) => p.key === t.projectKey);
+                return (
+                  <TimeBlock
+                    key={b.id}
+                    task={t}
+                    listEmoji={listEmojiOf(t, lists)}
+                    listName={listNameOf(t, lists)}
+                    label={proj}
+                    color={labelColor(proj?.colorKey)}
+                    projected={!!source.projected}
+                    positioned={positioned}
+                    height={b.height}
+                    continues={b.continues}
+                    piece={source.kind === 'piece' ? source.piece : undefined}
+                    fullTask={source.full}
+                    time={source.time}
+                    blockSuffix={source.suffix}
+                    note={notes.get(b.id)}
+                    badge={badges.get(b.id)}
+                    inGap={inGap.get(b.id)}
+                    shell={shellOf.has(b.id) ? { text: summaryText(shellOf.get(b.id) as ShellSummary), short: summaryShort(shellOf.get(b.id) as ShellSummary), wide: blocksW / b.cols >= SHELL_WIDE_PX } : undefined}
+                    a11y={`Task ${t.title}`}
+                    gridNode={() => gridNode.current}
+                    onChanged={onChanged}
+                  />
+                );
+              }
+              const e = source.event;
+              return (
+                <View key={b.id} style={[styles.blockWrap, positioned]}>
+                  <View style={styles.blockBase}>
+                  <Pressable
+                    onPress={() => openSource(source)}
+                    disabled={!source.custom}
+                    style={[styles.block, { backgroundColor: `${e.color}26`, borderLeftColor: e.color, borderLeftWidth: 3 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Event ${e.title}`}
+                  >
+                    <Text style={styles.blockTitle} numberOfLines={1}>
+                      {e.icon ? `${e.icon} ` : ''}
+                      {e.title}
+                    </Text>
+                    {!isCompactBlock(b.height) && (
+                      <Text style={styles.blockTime}>
+                        {formatTime(e.start)} to {formatTime(e.end)}
+                      </Text>
+                    )}
+                  </Pressable>
+                  {b.continues && <Continues />}
+                  </View>
+                </View>
+              );
+  };
 
   const hours: number[] = [];
   for (let h = GRID_START_HOUR; h <= GRID_END_HOUR; h++) hours.push(h);
@@ -456,114 +585,16 @@ export default function TimeboxPane({
             <View key={`half-${h}`} style={[styles.halfLine, { top: (h - GRID_START_HOUR + 0.5) * PX_PER_HOUR }]} />
           ))}
 
-          <View style={styles.blocks}>
+          <View style={styles.blocks} onLayout={(e) => setBlocksW(Math.round(e.nativeEvent.layout.width))}>
             <GapLayer gaps={gaps} gridNode={() => gridNode.current} />
-            {layout.blocks.map((b) => {
-              const source = sources.get(b.id);
-              if (!source) return null;
-              const positioned = {
-                top: b.top,
-                height: b.height,
-                left: `${(b.col * 100) / b.cols}%` as const,
-                width: `${100 / b.cols}%` as const,
-                ...(b.high ? { zIndex: 2 } : {}),
-              };
-              if (source.kind === 'continuation' || (source.kind === 'piece' && source.cont)) {
-                const t = source.task;
-                const pc = source.kind === 'piece' ? source.piece : undefined;
-                const timeText = pc && !pc.head ? pieceTimeText(formatTime(toTime(pc.startMin)), undefined, formatDuration(pc.leftMin), false) : 'Continues from yesterday';
-                const color = labelColor(labels.find((p) => p.key === t.projectKey)?.colorKey);
-                const look = vibrantLook(vibrant, color, !!t.cutsBelow);
-                const vt = look ? vibrantText : undefined;
-                return (
-                  <View key={b.id} style={[styles.blockWrap, positioned]}>
-                    <View style={styles.blockBase}>
-                      <Pressable
-                        onPress={() => openSource(source)}
-                        style={[
-                          styles.block,
-                          styles.taskBlock,
-                          styles.continuationBlock,
-                          color && [styles.taskBlockLabelled, { backgroundColor: look?.bg ?? tint(color), borderLeftColor: look?.edge ?? color.edge }],
-                          !color && look && [styles.taskBlockLabelled, { backgroundColor: look.bg, borderLeftColor: look.edge }],
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Continues from yesterday: ${t.title}`}
-                        {...({ dataSet: { blockId: `${t.id}${source.suffix ?? ''}${pc && pc.index > 0 ? `~${pc.index + 1}` : ''}`, continuation: '1', ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
-                      >
-                        <View style={styles.blockTitleRow}>
-                          <Text style={[styles.blockTitle, styles.blockTitleFlex, t.completed && styles.blockTitleDone, vt]} numberOfLines={1}>
-                            {t.title}
-                          </Text>
-                          {isCompactBlock(b.height) && <Text style={[styles.blockTimeInline, look ? vibrantMeta : undefined]}>{timeText}</Text>}
-                          {isMustDo(t) && <PriorityMark chip={!!look} />}
-                        </View>
-                        {!isCompactBlock(b.height) && (
-                          <Text style={[styles.blockTime, look ? vibrantMeta : undefined]}>
-                            {timeText}
-                            {listEmojiOf(t, lists) ? ' ' : ''}
-                            <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
-                          </Text>
-                        )}
-                      </Pressable>
-                    </View>
-                  </View>
-                );
-              }
-              if (source.kind === 'task' || source.kind === 'piece') {
-                const t = source.task;
-                const proj = labels.find((p) => p.key === t.projectKey);
-                return (
-                  <TimeBlock
-                    key={b.id}
-                    task={t}
-                    listEmoji={listEmojiOf(t, lists)}
-                    listName={listNameOf(t, lists)}
-                    label={proj}
-                    color={labelColor(proj?.colorKey)}
-                    projected={!!source.projected}
-                    positioned={positioned}
-                    height={b.height}
-                    continues={b.continues}
-                    piece={source.kind === 'piece' ? source.piece : undefined}
-                    fullTask={source.full}
-                    time={source.time}
-                    blockSuffix={source.suffix}
-                    note={notes.get(b.id)}
-                    badge={badges.get(b.id)}
-                    inGap={inGap.get(b.id)}
-                    a11y={`Task ${t.title}`}
-                    gridNode={() => gridNode.current}
-                    onChanged={onChanged}
-                  />
-                );
-              }
-              const e = source.event;
-              return (
-                <View key={b.id} style={[styles.blockWrap, positioned]}>
-                  <View style={styles.blockBase}>
-                  <Pressable
-                    onPress={() => openSource(source)}
-                    disabled={!source.custom}
-                    style={[styles.block, { backgroundColor: `${e.color}26`, borderLeftColor: e.color, borderLeftWidth: 3 }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Event ${e.title}`}
-                  >
-                    <Text style={styles.blockTitle} numberOfLines={1}>
-                      {e.icon ? `${e.icon} ` : ''}
-                      {e.title}
-                    </Text>
-                    {!isCompactBlock(b.height) && (
-                      <Text style={styles.blockTime}>
-                        {formatTime(e.start)} to {formatTime(e.end)}
-                      </Text>
-                    )}
-                  </Pressable>
-                  {b.continues && <Continues />}
-                  </View>
+            {layout.blocks.map(renderBlock)}
+            {layout.shells.map((sh) => (
+              <View key={`shell:${sh.id}`} pointerEvents="box-none" style={[styles.shellLane, { left: `${(sh.col * 100) / sh.cols}%` as const, width: `${100 / sh.cols}%` as const }]} {...({ dataSet: { shellInner: sh.id } } as object)}>
+                <View pointerEvents="box-none" style={[styles.shellInner, blocksW / sh.cols >= SHELL_WIDE_PX ? styles.shellInnerWide : styles.shellInnerNarrow]}>
+                  {sh.blocks.map(renderBlock)}
                 </View>
-              );
-            })}
+              </View>
+            ))}
             <GapEdges gaps={gaps} gridNode={() => gridNode.current} />
             <BladeLayer dayKey={key} hosts={bladeHosts} breaks={bladeBreaks} cutMin={cutMin} gridNode={() => gridNode.current} />
             {key === dateKey(new Date(nowTick)) && (
@@ -715,6 +746,11 @@ function EventPopover({
 }
 
 const styles = StyleSheet.create({
+  // Shifts S2: the lane of a shell, over its block; the blocks inside start after its header.
+  shellLane: { position: 'absolute', top: 0, bottom: 0, zIndex: 3 },
+  shellInner: { position: 'absolute', top: 0, bottom: 0, right: 0 },
+  shellInnerWide: { left: '40%' },
+  shellInnerNarrow: { left: 8 },
   pane: {
     flex: 1,
     backgroundColor: Colors.pane,

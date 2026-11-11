@@ -7,6 +7,7 @@ import PriorityMark from './PriorityMark';
 import { isMustDo } from '../../lib/mustDo';
 import { pieceTimeText, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { gapLayout } from '../../lib/gaps';
+import { fitNote, nestPlan, summaryShort, summaryText, type ShellSummary } from '../../lib/nesting';
 import { timeViews } from '../../lib/times';
 import { useCutMin } from './cutStore';
 import { hostDay, hostSnapshot, type HostEntry, type HostSnapshot } from '../../lib/hosting';
@@ -33,6 +34,11 @@ import {
   hourLabel,
   isCompactBlock,
   layoutItems,
+  layoutNested,
+  SHELL_WIDE_PX,
+  type NestedItem,
+  type PlacedBlock,
+  type ShellLane,
   scrollOffsetFor,
   taskToItem,
   toMinutes,
@@ -118,6 +124,9 @@ interface DayData {
   notes: Map<string, string>;
   badges: Map<string, string>;
   blocks: ReturnType<typeof layoutItems>['blocks'];
+  // Shifts S2: the blocks drawn inside a longer block, per shell, and each shell's summary by its own items' ids.
+  shells: ShellLane[];
+  shellOf: Map<string, ShellSummary>;
   // 3.34.0: the day's breaks as gaps under the blocks, and the blocks that sit in a gap (lib/gaps.ts).
   gaps: DrawnGap[];
   inGap: Map<string, { guest: HostedGuest; brk: HostBreak }>;
@@ -217,7 +226,7 @@ export default function CalendarPane({
     if (effView === 'month') return [];
     return keys.map((dayKey) => {
       const sources = new Map<string, Source>();
-      const items: TimeboxItem[] = [];
+      const items: NestedItem[] = [];
       for (const e of getWeeklyEventsForDate(parseDateKey(dayKey))) {
         const s = toMinutes(e.start);
         const en = toMinutes(e.end);
@@ -279,6 +288,16 @@ export default function CalendarPane({
         return s && (s.kind === 'task' || s.kind === 'continuation') ? [{ ...g, task: s.task, full: s.full ?? s.task, projected: s.projected, ...(s.time ? { time: s.time, suffix: s.suffix } : {}) }] : [];
       });
       const inGap = new Map<string, { guest: HostedGuest; brk: HostBreak }>();
+      // Shifts S2 (lib/nesting.ts): a block fully inside a longer one is drawn inside it; a shell shows its summary; a
+      // block that starts inside a longer one and ends after it says so (grey, with "Fit inside" in its details).
+      const nest = nestPlan(entries, host.hostOf, plan.items);
+      const shellOf = new Map<string, ShellSummary>();
+      for (const it of plan.items) {
+        const sum = nest.groupOf.has(it.id) ? nest.summaries.get(nest.groupOf.get(it.id) as string) : undefined;
+        if (sum && (!it.piece || it.piece.index === 0)) shellOf.set(it.id, sum);
+        const over = nest.partial.get(it.piece?.hostId ?? it.id);
+        if (over && !plan.hostNotes.has(it.id)) plan.hostNotes.set(it.id, fitNote(titleOf(over)));
+      }
       for (const it of plan.items) {
         if (it.piece) {
           const host = sources.get(it.piece.hostId);
@@ -296,7 +315,9 @@ export default function CalendarPane({
             brk: { endMin: brk?.endMin ?? it.endMin, title: b.task.title },
           });
         }
-        items.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id), ...(it.minPx !== undefined ? { minPx: it.minPx } : {}) });
+        const inside = nest.insideOf.get(it.id);
+        const group = nest.groupOf.get(it.id);
+        items.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id), ...(it.minPx !== undefined ? { minPx: it.minPx } : {}), ...(inside ? { inside } : {}), ...(group ? { group } : {}) });
       }
       const bladeHosts: BladeHost[] = entries.flatMap((e) => {
         const s = sources.get(e.id);
@@ -317,7 +338,7 @@ export default function CalendarPane({
       }
       // 2.29.0: top priority first in the all day row (a stable sort; nothing stored).
       allDay.sort((a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)));
-      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.hostNotes, badges: plan.hostBadges, blocks: layoutItems(items).blocks, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries) };
+      return { key: dayKey, allDay, importedAllDay, sources, notes: plan.hostNotes, badges: plan.hostBadges, ...layoutNested(items), shellOf, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries) };
     });
   }, [effView, keys, tasks, events, categories, filter, todayKey, imported, cutMin, labels]);
   // A drag over one of these breaks starts the task inside it (DragProvider).
@@ -497,6 +518,117 @@ export default function CalendarPane({
   }, [effView, key, todayKey, monthTasks, days, now, cutMin]);
 
   const labelOf = (t: Task) => labels.find((p) => p.key === t.projectKey);
+  // One drawn block of a day column (a block inside a shell is drawn by the same code, in the shell's lane).
+  const renderBlock = (d: DayData, b: PlacedBlock) => {
+                    const source = d.sources.get(b.id);
+                    if (!source) return null;
+                    const pos = { top: b.top, height: b.height, left: `${(b.col * 100) / b.cols}%` as const, width: `${100 / b.cols}%` as const, ...(b.high ? { zIndex: 2 } : {}) };
+                    if (source.kind === 'imported') {
+                      const { occ, startMin, endMin, continues } = source.seg;
+                      return (
+                        <View key={b.id} style={[styles.blockWrap, pos]}>
+                          <View
+                            style={[styles.block, styles.imported]}
+                            accessibilityLabel={`Imported event ${occ.title}, ${minuteLabel(startMin)} to ${minuteLabel(endMin)}, ${occ.calendarName}${continues ? ', continues from the day before' : ''}`}
+                            ref={tipRef(`${occ.title || 'Busy'}, ${minuteLabel(startMin)} to ${minuteLabel(endMin)}, ${occ.calendarName}`) as never}
+                            {...({ dataSet: { extBlock: occ.id } } as object)}
+                          >
+                            <Text style={styles.blockTitle}>
+                              📅 {occ.title || 'Busy'}
+                            </Text>
+                            {!isCompactBlock(b.height) && (
+                              <Text style={styles.blockTime}>
+                                {continues ? 'Continues' : minuteLabel(startMin)} to {minuteLabel(endMin)} · {occ.calendarName}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    }
+                    if (source.kind === 'event') {
+                      const e = source.event;
+                      return (
+                        <View key={b.id} style={[styles.blockWrap, pos]}>
+                          <View style={[styles.block, { backgroundColor: `${e.color}26`, borderLeftColor: e.color, borderLeftWidth: 3 }]} accessibilityLabel={`Event ${e.title}`} ref={tipRef(`${e.icon ? `${e.icon} ` : ''}${e.title}, ${formatTime(e.start)} to ${formatTime(e.end)}`) as never}>
+                            <Text style={styles.blockTitle}>
+                              {e.icon ? `${e.icon} ` : ''}
+                              {e.title}
+                            </Text>
+                            {!isCompactBlock(b.height) && (
+                              <Text style={styles.blockTime}>
+                                {formatTime(e.start)} to {formatTime(e.end)}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    }
+                    const t = source.task;
+                    const scope = scopeOf(d.key);
+                    if (source.kind === 'continuation' || (source.kind === 'piece' && source.cont)) {
+                      const color = labelColor(labelOf(t)?.colorKey);
+                      const look = vibrantLook(vibrant, color, !!t.cutsBelow);
+                      const vt = look ? vibrantText : undefined;
+                      const pc = source.kind === 'piece' ? source.piece : undefined;
+                      const note = d.notes.get(b.id);
+                      const timeText = pc && !pc.head ? pieceTimeText(formatTime(toTime(pc.startMin)), undefined, formatDuration(pc.leftMin), false) : 'Continues from yesterday';
+                      return (
+                        <View key={b.id} style={[styles.blockWrap, pos]}>
+                          <Pressable
+                            onPress={() => openDetail(t.id)}
+                            style={[styles.block, styles.taskBlock, { backgroundColor: look?.bg ?? (color ? tint(color) : Colors.plainBlock), borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent }, styles.projected]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Calendar block, continues from yesterday: ${t.title}`}
+                            ref={tipRef(`${t.emoji ? `${t.emoji} ` : ''}${t.title}, ${timeText.toLowerCase()}${note ? `, ${note}` : ''}`) as never}
+                            {...({ dataSet: { calBlock: `${scope}${t.id}${source.suffix ?? ''}${pc && pc.index > 0 ? `~${pc.index + 1}` : ''}`, ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
+                          >
+                            <View style={styles.chipRow}>
+                              <Text style={[styles.blockTitle, styles.chipTextFlex, t.completed && styles.chipDone, vt]}>
+                                {t.emoji ? `${t.emoji} ` : ''}
+                                {t.title}
+                              </Text>
+                              {isMustDo(t) && <PriorityMark chip={!!look} />}
+                            </View>
+                            {!isCompactBlock(b.height) && (
+                              <Text style={[styles.blockTime, look ? vibrantMeta : undefined]}>
+                                {timeText}
+                                {listEmojiOf(t, lists) ? ' ' : ''}
+                                <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
+                              </Text>
+                            )}
+                          </Pressable>
+                        </View>
+                      );
+                    }
+                    return (
+                      <TimeBlock
+                        key={b.id}
+                        task={t}
+                        listEmoji={listEmojiOf(t, lists)}
+                        listName={listNameOf(t, lists)}
+                        label={labelOf(t)}
+                        color={labelColor(labelOf(t)?.colorKey)}
+                        projected={source.projected}
+                        positioned={pos}
+                        height={b.height}
+                        continues={b.continues}
+                        scope={scope}
+                        a11y={`Calendar block ${t.title}`}
+                        piece={source.kind === 'piece' ? source.piece : undefined}
+                        fullTask={source.full}
+                        time={source.time}
+                        blockSuffix={source.suffix}
+                        note={d.notes.get(b.id)}
+                        badge={d.badges.get(b.id)}
+                        inGap={d.inGap.get(b.id)}
+                        shell={d.shellOf.has(b.id) ? { text: summaryText(d.shellOf.get(b.id) as ShellSummary), short: summaryShort(d.shellOf.get(b.id) as ShellSummary), wide: colW / b.cols >= SHELL_WIDE_PX, week: effView === 'week' } : undefined}
+                        fullText
+                        gridNode={() => gridEl.current}
+                        onChanged={onChanged}
+                      />
+                    );
+  };
+
   const hours: number[] = [];
   for (let h = GRID_START_HOUR; h <= GRID_END_HOUR; h++) hours.push(h);
   const goTo = (view_: CalendarView, dayKey: string) => {
@@ -746,114 +878,14 @@ export default function CalendarPane({
                   {...({ dataSet: { calCol: d.key } } as object)}
                 >
                   <GapLayer gaps={d.gaps} scope={scopeOf(d.key)} gridNode={() => gridEl.current} />
-                  {d.blocks.map((b) => {
-                    const source = d.sources.get(b.id);
-                    if (!source) return null;
-                    const pos = { top: b.top, height: b.height, left: `${(b.col * 100) / b.cols}%` as const, width: `${100 / b.cols}%` as const, ...(b.high ? { zIndex: 2 } : {}) };
-                    if (source.kind === 'imported') {
-                      const { occ, startMin, endMin, continues } = source.seg;
-                      return (
-                        <View key={b.id} style={[styles.blockWrap, pos]}>
-                          <View
-                            style={[styles.block, styles.imported]}
-                            accessibilityLabel={`Imported event ${occ.title}, ${minuteLabel(startMin)} to ${minuteLabel(endMin)}, ${occ.calendarName}${continues ? ', continues from the day before' : ''}`}
-                            ref={tipRef(`${occ.title || 'Busy'}, ${minuteLabel(startMin)} to ${minuteLabel(endMin)}, ${occ.calendarName}`) as never}
-                            {...({ dataSet: { extBlock: occ.id } } as object)}
-                          >
-                            <Text style={styles.blockTitle}>
-                              📅 {occ.title || 'Busy'}
-                            </Text>
-                            {!isCompactBlock(b.height) && (
-                              <Text style={styles.blockTime}>
-                                {continues ? 'Continues' : minuteLabel(startMin)} to {minuteLabel(endMin)} · {occ.calendarName}
-                              </Text>
-                            )}
-                          </View>
-                        </View>
-                      );
-                    }
-                    if (source.kind === 'event') {
-                      const e = source.event;
-                      return (
-                        <View key={b.id} style={[styles.blockWrap, pos]}>
-                          <View style={[styles.block, { backgroundColor: `${e.color}26`, borderLeftColor: e.color, borderLeftWidth: 3 }]} accessibilityLabel={`Event ${e.title}`} ref={tipRef(`${e.icon ? `${e.icon} ` : ''}${e.title}, ${formatTime(e.start)} to ${formatTime(e.end)}`) as never}>
-                            <Text style={styles.blockTitle}>
-                              {e.icon ? `${e.icon} ` : ''}
-                              {e.title}
-                            </Text>
-                            {!isCompactBlock(b.height) && (
-                              <Text style={styles.blockTime}>
-                                {formatTime(e.start)} to {formatTime(e.end)}
-                              </Text>
-                            )}
-                          </View>
-                        </View>
-                      );
-                    }
-                    const t = source.task;
-                    const scope = scopeOf(d.key);
-                    if (source.kind === 'continuation' || (source.kind === 'piece' && source.cont)) {
-                      const color = labelColor(labelOf(t)?.colorKey);
-                      const look = vibrantLook(vibrant, color, !!t.cutsBelow);
-                      const vt = look ? vibrantText : undefined;
-                      const pc = source.kind === 'piece' ? source.piece : undefined;
-                      const note = d.notes.get(b.id);
-                      const timeText = pc && !pc.head ? pieceTimeText(formatTime(toTime(pc.startMin)), undefined, formatDuration(pc.leftMin), false) : 'Continues from yesterday';
-                      return (
-                        <View key={b.id} style={[styles.blockWrap, pos]}>
-                          <Pressable
-                            onPress={() => openDetail(t.id)}
-                            style={[styles.block, styles.taskBlock, { backgroundColor: look?.bg ?? (color ? tint(color) : Colors.plainBlock), borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent }, styles.projected]}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Calendar block, continues from yesterday: ${t.title}`}
-                            ref={tipRef(`${t.emoji ? `${t.emoji} ` : ''}${t.title}, ${timeText.toLowerCase()}${note ? `, ${note}` : ''}`) as never}
-                            {...({ dataSet: { calBlock: `${scope}${t.id}${source.suffix ?? ''}${pc && pc.index > 0 ? `~${pc.index + 1}` : ''}`, ...(pc ? { piece: String(pc.index + 1), pieceCount: String(pc.count) } : {}) } } as object)}
-                          >
-                            <View style={styles.chipRow}>
-                              <Text style={[styles.blockTitle, styles.chipTextFlex, t.completed && styles.chipDone, vt]}>
-                                {t.emoji ? `${t.emoji} ` : ''}
-                                {t.title}
-                              </Text>
-                              {isMustDo(t) && <PriorityMark chip={!!look} />}
-                            </View>
-                            {!isCompactBlock(b.height) && (
-                              <Text style={[styles.blockTime, look ? vibrantMeta : undefined]}>
-                                {timeText}
-                                {listEmojiOf(t, lists) ? ' ' : ''}
-                                <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
-                              </Text>
-                            )}
-                          </Pressable>
-                        </View>
-                      );
-                    }
-                    return (
-                      <TimeBlock
-                        key={b.id}
-                        task={t}
-                        listEmoji={listEmojiOf(t, lists)}
-                        listName={listNameOf(t, lists)}
-                        label={labelOf(t)}
-                        color={labelColor(labelOf(t)?.colorKey)}
-                        projected={source.projected}
-                        positioned={pos}
-                        height={b.height}
-                        continues={b.continues}
-                        scope={scope}
-                        a11y={`Calendar block ${t.title}`}
-                        piece={source.kind === 'piece' ? source.piece : undefined}
-                        fullTask={source.full}
-                        time={source.time}
-                        blockSuffix={source.suffix}
-                        note={d.notes.get(b.id)}
-                        badge={d.badges.get(b.id)}
-                        inGap={d.inGap.get(b.id)}
-                        fullText
-                        gridNode={() => gridEl.current}
-                        onChanged={onChanged}
-                      />
-                    );
-                  })}
+                  {d.blocks.map((b) => renderBlock(d, b))}
+                  {d.shells.map((sh) => (
+                    <View key={`shell:${sh.id}`} pointerEvents="box-none" style={[styles.shellLane, { left: `${(sh.col * 100) / sh.cols}%` as const, width: `${100 / sh.cols}%` as const }]} {...({ dataSet: { shellInner: sh.id } } as object)}>
+                      <View pointerEvents="box-none" style={[styles.shellInner, colW / sh.cols >= SHELL_WIDE_PX ? styles.shellInnerWide : styles.shellInnerNarrow]}>
+                        {sh.blocks.map((b) => renderBlock(d, b))}
+                      </View>
+                    </View>
+                  ))}
                   <GapEdges gaps={d.gaps} scope={scopeOf(d.key)} gridNode={() => gridEl.current} />
                   <BladeLayer dayKey={d.key} hosts={d.bladeHosts} breaks={d.bladeBreaks} cutMin={cutMin} gridNode={() => gridEl.current} />
                   {d.key === todayKey && (
@@ -876,6 +908,11 @@ export default function CalendarPane({
 }
 
 const styles = StyleSheet.create({
+  // Shifts S2: the lane of a shell, over its block; the blocks inside start after its header (Day) or a small inset (Week).
+  shellLane: { position: 'absolute', top: 0, bottom: 0, zIndex: 3 },
+  shellInner: { position: 'absolute', top: 0, bottom: 0, right: 0 },
+  shellInnerWide: { left: '40%' },
+  shellInnerNarrow: { left: 8 },
   // Inside the centre pane (2.26.0), which draws the frame.
   pane: { flex: 1, minWidth: 0 },
   paneLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },

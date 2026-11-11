@@ -19,16 +19,11 @@ export function breakGaps(task: Pick<Task, 'durationMinutes' | 'startTime' | 'ex
   return { count, minutes: len * count };
 }
 
-// "☕ 3 breaks · 1h 40m"
+// "☕ Free time · 1h 40m" (Shifts S2, plain words; it was "☕ 3 breaks · 1h 40m")
 export function breakLineText(breaks: Array<Pick<Task, 'durationMinutes' | 'startTime' | 'extraTimes'>>): string {
-  let count = 0;
   let minutes = 0;
-  for (const b of breaks) {
-    const g = breakGaps(b);
-    count += g.count;
-    minutes += g.minutes;
-  }
-  return `${BREAK_CUP} ${count === 1 ? '1 break' : `${count} breaks`} · ${formatDuration(minutes) ?? '0m'}`;
+  for (const b of breaks) minutes += breakGaps(b).minutes;
+  return `${BREAK_CUP} Free time · ${formatDuration(minutes) ?? '0m'}`;
 }
 
 // A row of the line's list: "11:00 · 20m".

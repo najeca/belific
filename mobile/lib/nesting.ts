@@ -15,8 +15,8 @@
 //    it adds nothing. Lunch is an ordinary block inside, so it is part of the shell's planned time (D1).
 import type { Task } from './types.ts';
 import { DEFAULT_CUT_MIN, cutDay } from './cuts.ts';
-import { DEFAULT_TASK_MINUTES, toMinutes } from './timebox.ts';
-import { hostDay, type HostEntry } from './hosting.ts';
+import { DEFAULT_TASK_MINUTES, formatMinutes, toMinutes, toTime } from './timebox.ts';
+import { dayHostEntries, hostDay, type HostEntry } from './hosting.ts';
 import { timesOf } from './times.ts';
 
 export interface NestEntry {
@@ -110,4 +110,115 @@ export function nestedMinutes(tasks: NestInput[], minLen: number = DEFAULT_CUT_M
   let m = 0;
   for (const v of nestedMinutesBy(tasks, minLen, context, counts).values()) m += v;
   return m;
+}
+
+// ---- Drawing (S2) ----
+
+// What a shell shows in its header (D1, D3): its own length less the free time cut out of it, the part of it the blocks
+// inside cover (once, however they overlap), and the rest.
+export interface ShellSummary {
+  total: number;
+  planned: number;
+  free: number;
+}
+export function summaryText(s: ShellSummary): string {
+  if (s.planned <= 0) return `Nothing planned yet, ${formatMinutes(s.total)} free`;
+  if (s.free <= 0) return `${formatMinutes(s.planned)} planned, nothing free`;
+  return `${formatMinutes(s.planned)} of ${formatMinutes(s.total)} planned, ${formatMinutes(s.free)} free`;
+}
+// The narrow Week column: "5h/10h".
+export const summaryShort = (s: ShellSummary): string => `${formatMinutes(s.planned)}/${formatMinutes(s.total)}`;
+
+// The union of spans, in minutes.
+function unionMinutes(spans: Array<[number, number]>): number {
+  const sorted = spans.filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  let total = 0;
+  let cur: [number, number] | null = null;
+  for (const [a, b] of sorted) {
+    if (!cur || a > cur[1]) {
+      if (cur) total += cur[1] - cur[0];
+      cur = [a, b];
+    } else cur[1] = Math.max(cur[1], b);
+  }
+  if (cur) total += cur[1] - cur[0];
+  return total;
+}
+
+// A block that starts inside a longer block and ends after it (both count, side by side): the grey note and its
+// "Fit inside" (S2). Only blocks that are not inside anything, against LONGER blocks that are not inside anything (a long
+// shift that starts during a short task is not offered to shrink into it).
+export const FIT_INSIDE = 'Fit inside';
+export const fitNote = (title: string): string => `Starts inside ${title} and ends after it`;
+export function partialOverlaps(entries: NestEntry[]): Map<string, string> {
+  const out = new Map<string, string>();
+  const { shellOf } = nestDay(entries);
+  const top = entries.filter((e) => valid(e) && !shellOf.has(e.id));
+  for (const e of top) {
+    const o = top
+      .filter((x) => x !== e && len(x) > len(e) && x.startMin <= e.startMin && e.startMin < x.endMin && x.endMin < e.endMin)
+      .sort((a, b) => len(b) - len(a) || a.startMin - b.startMin || a.id.localeCompare(b.id))[0];
+    if (o) out.set(e.id, o.id);
+  }
+  return out;
+}
+// "Fit inside": the block keeps its length and ends when the longer one ends; one longer than it takes its start and
+// its length.
+export function fitInsideFields(e: Pick<NestEntry, 'startMin' | 'endMin'>, outer: Pick<NestEntry, 'startMin' | 'endMin'>): Pick<Task, 'startTime' | 'durationMinutes'> {
+  if (len(e as NestEntry) > len(outer as NestEntry)) return { startTime: toTime(outer.startMin), durationMinutes: len(outer as NestEntry) };
+  return { startTime: toTime(outer.endMin - len(e as NestEntry)) };
+}
+
+// A day as the panes draw it, after free time (gaps.ts gapLayout): which drawn item is inside which shell, which items
+// are a shell's own (its pieces), each shell's summary and the blocks that stick out of a longer one. `entries` are
+// the day's entries (breaks included), `hostOf` hosting.ts's answer for them, `items` the drawn items (a piece carries
+// its task's entry id; an item in a gap its gap's id).
+export interface NestPlan {
+  insideOf: Map<string, string>;
+  groupOf: Map<string, string>;
+  summaries: Map<string, ShellSummary>;
+  partial: Map<string, string>;
+}
+export function nestPlan(entries: Array<HostEntry>, hostOf: Map<string, string>, items: Array<{ id: string; startMin: number; endMin: number; piece?: { hostId: string }; gapId?: string }>): NestPlan {
+  const plan: NestPlan = { insideOf: new Map(), groupOf: new Map(), summaries: new Map(), partial: new Map() };
+  const plain = entries.filter((e) => !e.breaks && !hostOf.has(e.id));
+  const { shellOf, inside } = nestDay(plain);
+  plan.partial = partialOverlaps(plain);
+  const spans = new Map<string, { own: number; covered: Array<[number, number]> }>();
+  for (const it of items) {
+    if (it.gapId) continue;
+    const base = it.piece?.hostId ?? it.id;
+    const shell = shellOf.get(base);
+    if (shell) {
+      plan.insideOf.set(it.id, shell);
+      const s = spans.get(shell) ?? { own: 0, covered: [] };
+      s.covered.push([it.startMin, it.endMin]);
+      spans.set(shell, s);
+    } else if (inside.has(base)) {
+      plan.groupOf.set(it.id, base);
+      const s = spans.get(base) ?? { own: 0, covered: [] };
+      s.own += it.endMin - it.startMin;
+      spans.set(base, s);
+    }
+  }
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  for (const [id, s] of spans) {
+    const e = byId.get(id);
+    if (!e || s.own <= 0) continue;
+    const planned = Math.min(s.own, unionMinutes(s.covered.map(([a, b]) => [Math.max(a, e.startMin), Math.min(b, e.endMin)] as [number, number])));
+    plan.summaries.set(id, { total: s.own, planned, free: s.own - planned });
+  }
+  return plan;
+}
+
+// The details of a block that starts inside a longer one and ends after it: that block's title and the fields that fit
+// it inside. Not for a task with several times a day, nor for yesterday's overnight rest.
+export function fitInsideFor(tasks: Task[], task: Pick<Task, 'id' | 'dueDate'>, todayKey: string): { title: string; fields: Pick<Task, 'startTime' | 'durationMinutes'> } | null {
+  if (!task.dueDate) return null;
+  const entries = dayHostEntries(tasks, task.dueDate, todayKey);
+  const { hostOf } = hostDay(entries);
+  const plain = entries.filter((e) => !e.breaks && !e.cont && !hostOf.has(e.id));
+  const partial = partialOverlaps(plain);
+  const e = plain.find((x) => x.full.id === task.id && !x.time);
+  const outer = e ? plain.find((x) => x.id === partial.get(e.id)) : undefined;
+  return e && outer ? { title: outer.full.title, fields: fitInsideFields(e, outer) } : null;
 }

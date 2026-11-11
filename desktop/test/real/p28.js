@@ -280,7 +280,8 @@ async function run() {
 
   // Split turned off: its tasks go back to normal blocks.
   await openBreak('Tea break');
-  await I.click(`document.querySelector('[data-detail-panel] [data-kind="task"]')`, 900);
+  // 3.37.0 (Shifts S2): no Task | Break choice; a break's details offer "Make it a normal block".
+  await I.click(`document.querySelector('[data-detail-panel] [data-make-normal]')`, 900);
   await closeDetails();
   check('Split off: the walk is a block of its own again, the tea break hosts nothing', (await I.exists(own(walkId))) && (await hostCount('Tea break')) === 0);
   // A break deleted: its tasks go back to normal blocks.

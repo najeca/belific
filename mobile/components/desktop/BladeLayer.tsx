@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { GRID_START_HOUR, PX_PER_HOUR, toTime } from '../../lib/timebox';
 import { yToMinutes } from '../../lib/drag';
-import { BLADE_HINT, allDaysOf, bladeCheck, bladeSpan, bladeTask, hostAt, snap5, type BladeHost, type BladeScope, type BladeState } from '../../lib/blade';
+import { BLADE_HINT, BLADE_LABEL, FREE_TIME, allDaysOf, bladeCheck, bladeSpan, bladeTask, hostAt, snap5, type BladeHost, type BladeScope, type BladeState } from '../../lib/blade';
 import type { CutEntry } from '../../lib/cuts';
 import { generateId } from '../../lib/data';
 import { addTask } from '../../lib/storage';
@@ -153,7 +153,7 @@ function Ask({ state }: { state: Extract<BladeState, { mode: 'asking' }> }) {
   }, []);
   const pick = (scope: BladeScope) => void bladeCut(state.dayKey, state.span, state.host, scope);
   return (
-    <View style={[styles.ask, { left: state.x + 8, top: state.y + 8 }]} accessibilityRole="menu" accessibilityLabel="Cut a break" {...({ dataSet: { bladeAsk: state.host.title } } as object)}>
+    <View style={[styles.ask, { left: state.x + 8, top: state.y + 8 }]} accessibilityRole="menu" accessibilityLabel="Mark free time" {...({ dataSet: { bladeAsk: state.host.title } } as object)}>
       <Pressable onPress={() => pick('day')} style={styles.choice} accessibilityRole="button" accessibilityLabel="This day only" {...({ dataSet: { bladeChoice: 'day' } } as object)}>
         <Text style={styles.choiceText}>This day only</Text>
       </Pressable>
@@ -195,20 +195,22 @@ export function useBladeKeys(): void {
   }, []);
 }
 
-// The square toolbar button (Calendar and Timebox headers), pressed while the scissors are on.
+// The toolbar button (Calendar and Timebox headers), pressed while the scissors are on. Shifts S2: it says what it does,
+// "✂ Free time", not an icon on its own.
 export function BladeButton({ size = 40 }: { size?: number }) {
   const on = useBlade().mode !== 'off';
   return (
     <Pressable
-      ref={tipRef('Scissors (C)') as never}
+      ref={tipRef(BLADE_LABEL) as never}
       onPress={toggleBlade}
-      style={[styles.btn, { width: size, height: size }, on && styles.btnOn]}
+      style={[styles.btn, { height: size }, on && styles.btnOn]}
       accessibilityRole="button"
-      accessibilityLabel="Scissors (C)"
+      accessibilityLabel={BLADE_LABEL}
       accessibilityState={{ selected: on }}
       {...({ 'aria-pressed': on, dataSet: { bladeButton: on ? 'on' : 'off' } } as object)}
     >
-      <Ionicons name="cut-outline" size={20} color={on ? Colors.onAccent : Colors.textPrimary} />
+      <Ionicons name="cut-outline" size={18} color={on ? Colors.onAccent : Colors.textPrimary} />
+      <Text style={[styles.btnText, on && styles.btnTextOn]}>{FREE_TIME}</Text>
     </Pressable>
   );
 }
@@ -227,7 +229,7 @@ export function BladeHint() {
 const styles = StyleSheet.create({
   layer: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 8 },
   line: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: Colors.accent, zIndex: 9 },
-  tag: { position: 'absolute', left: 2, top: -9, paddingHorizontal: 4, height: 17, lineHeight: 17, fontSize: 11, fontWeight: '700', color: Colors.onAccent, backgroundColor: Colors.accent, overflow: 'hidden' },
+  tag: { position: 'absolute', left: 2, top: -10, paddingHorizontal: 4, height: 20, lineHeight: 20, fontSize: 14, fontWeight: '700', color: Colors.onAccent, backgroundColor: Colors.accent, overflow: 'hidden' },
   preview: {
     position: 'absolute',
     left: 0,
@@ -241,13 +243,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as object,
   previewOff: { borderColor: Colors.textTertiary, opacity: 0.75 },
-  reason: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary, backgroundColor: Colors.surface, alignSelf: 'flex-start', paddingHorizontal: 4 },
+  reason: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary, backgroundColor: Colors.surface, alignSelf: 'flex-start', paddingHorizontal: 4 },
   ask: { position: 'fixed' as 'absolute', zIndex: 1000, padding: 6, gap: 6, backgroundColor: Colors.surface, borderWidth: 2, borderColor: Colors.textPrimary, borderRadius: 0 },
   choice: { paddingHorizontal: 12, height: 34, justifyContent: 'center', borderRadius: 0, borderWidth: 2, borderColor: Colors.borderStrong },
   choiceOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   choiceText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
   choiceTextOn: { color: Colors.onAccent },
-  btn: { borderRadius: 0, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.borderStrong },
+  btn: { flexDirection: 'row', gap: 6, paddingHorizontal: 10, borderRadius: 0, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.borderStrong },
+  btnText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+  btnTextOn: { color: Colors.onAccent },
   btnOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  hint: { fontSize: 12, color: Colors.textSecondary, marginBottom: 6 },
+  hint: { fontSize: 14, color: Colors.textSecondary, marginBottom: 6 },
 });

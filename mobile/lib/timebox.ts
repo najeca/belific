@@ -13,6 +13,9 @@ export const PX_PER_HOUR = 56;
 // A 5 minute event still needs to be readable and clickable. 20px is less
 // than a 30 minute slot (28px), so a short block never looks like it fills one.
 export const MIN_BLOCK_PX = 20;
+// Shifts S2: a shell's lane at least this wide puts its header on the left and the blocks inside on the right (Day,
+// a wide Timebox); a narrower one (Week, a shell beside another block) keeps its header on top and insets them 8 px.
+export const SHELL_WIDE_PX = 280;
 // 3.34.0 (PLAN_breaks_as_gaps P2): the floor of a block inside a gap.
 export const GAP_BLOCK_MIN_PX = 10;
 // Below this height a block shows one line (title and duration).
@@ -182,6 +185,37 @@ export function layoutItems(items: TimeboxItem[]): TimeboxLayout {
   closeCluster();
 
   return { blocks };
+}
+
+// Shifts S2 (PLAN_shifts): a block fully inside a longer block is drawn INSIDE it. `inside` is the shell's id on an
+// item drawn inside it; `group` the shell's id on the shell's own items (it may be cut into pieces). The other items are
+// laid out as always; each shell's inside items are laid out on their own (lanes among themselves) and placed in the
+// lane of the shell's first item. A shell that is not drawn (out of the grid) leaves its items to the usual layout.
+export type NestedItem = TimeboxItem & { inside?: string; group?: string };
+export interface ShellLane {
+  id: string;
+  col: number;
+  cols: number;
+  blocks: PlacedBlock[];
+}
+export function layoutNested(items: NestedItem[]): { blocks: PlacedBlock[]; shells: ShellLane[] } {
+  const outer = items.filter((i) => !i.inside);
+  let blocks = layoutItems(outer).blocks;
+  const groupOf = new Map(items.filter((i) => i.group).map((i) => [i.id, i.group as string]));
+  const shells: ShellLane[] = [];
+  const orphans: NestedItem[] = [];
+  const byShell = new Map<string, NestedItem[]>();
+  for (const i of items) if (i.inside) byShell.set(i.inside, [...(byShell.get(i.inside) ?? []), i]);
+  for (const [id, list] of byShell) {
+    const lane = blocks.find((b) => groupOf.get(b.id) === id);
+    if (!lane) {
+      orphans.push(...list);
+      continue;
+    }
+    shells.push({ id, col: lane.col, cols: lane.cols, blocks: layoutItems(list).blocks });
+  }
+  if (orphans.length > 0) blocks = layoutItems([...outer, ...orphans]).blocks;
+  return { blocks, shells };
 }
 
 // Minutes actually scheduled in the day: the union of all ranges, so two

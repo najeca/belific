@@ -13,10 +13,10 @@ test('only a Break with a time is a gap that leaves the day column', () => {
   assert.equal(isTimedBreak(T({ startTime: '11:00' })), false, 'an ordinary task stays a card');
 });
 
-test('the line says how many breaks and how long: "☕ 3 breaks · 1h 40m"', () => {
+test('the line says how long the free time is (Shifts S2, plain words): "☕ Free time · 1h 40m"', () => {
   const day = [T({ startTime: '11:00', durationMinutes: 20 }), T({ startTime: '12:30', durationMinutes: 60 }), T({ startTime: '15:00', durationMinutes: 20 })];
-  assert.equal(breakLineText(day), '☕ 3 breaks · 1h 40m');
-  assert.equal(breakLineText([day[0]]), '☕ 1 break · 20m');
+  assert.equal(breakLineText(day), '☕ Free time · 1h 40m');
+  assert.equal(breakLineText([day[0]]), '☕ Free time · 20m');
   assert.deepEqual(breakGaps(T({ startTime: '11:00' })), { count: 1, minutes: 30 }, 'no length: the 30 minutes it is drawn at');
   assert.deepEqual(breakGaps(T({ startTime: '08:00', extraTimes: ['14:00'], durationMinutes: 15 })), { count: 2, minutes: 30 }, 'each time of the day is a gap');
   assert.equal(breakRowSub(T({ startTime: '11:00', durationMinutes: 20 })), '11:00 · 20m');

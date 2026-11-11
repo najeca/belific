@@ -4,7 +4,8 @@
 // repeating (today and tomorrow in its rule) and a one off "Read" at 20:00.
 //   - the button in the header and C (no card focused) turn them on: pressed button, hint, a layer over the column;
 //   - hover: a line and the time under the pointer, snapped to 5 minutes;
-//   - D3: a cut that would leave a 10 minute piece is muted with "A piece would be 10 min (min 30)" and is not made;
+//   - D3: a cut that would leave a 10 minute piece is muted with "Too short: this would leave 10 min (at least 30)" and is
+//     not made (3.37.0, Shifts S2: plain words; the button says "Free time", its name is "Mark free time (C)");
 //   - click 11:00, click 11:20 on Boot Camp: the popover asks This day only / All days of Boot Camp, All days has the
 //     keyboard; Enter makes ONE Break series from today on the task's days; the gap shows today and tomorrow;
 //   - one Ctrl+Z removes it;
@@ -91,7 +92,7 @@ async function run() {
   const btn = () => I.js(`(document.querySelector('[data-blade-button]') || {}).getAttribute?.('data-blade-button')`);
 
   // ---- on with C (nothing focused) ----
-  check('the Calendar header has the scissors button, off, with "Scissors (C)"', (await btn()) === 'off' && (await I.exists(`document.querySelector('[data-blade-button][aria-label="Scissors (C)"]')`)));
+  check('the Calendar header has the Free time button, off, named "Mark free time (C)", with the words on it', (await btn()) === 'off' && (await I.exists(`document.querySelector('[data-blade-button][aria-label="Mark free time (C)"]')`)) && (await I.textOf(`document.querySelector('[data-blade-button]')`)).includes('Free time'));
   await I.blur();
   await I.key('C', [], 500);
   check('C turns the scissors on: the button is pressed, the hint shows, a layer covers the column', (await btn()) === 'on' && (await I.exists(`document.querySelector('[data-blade-hint]')`)) && (await I.exists(layer)), String(await btn()));
@@ -105,7 +106,7 @@ async function run() {
   await P('pointermove', m(10), true);
   await C.sleep(250);
   const refused = await I.js(`(document.querySelector('[data-blade-refused]') || {}).getAttribute?.('data-blade-refused')`);
-  check('D3: a cut that leaves a 10 minute piece is muted with the reason', refused === 'A piece would be 10 min (min 30)', String(refused));
+  check('D3: a cut that leaves a 10 minute piece is muted with the reason', refused === 'Too short: this would leave 10 min (at least 30)', String(refused));
   await I.shot('p51-refused');
   await click(m(10));
   await C.sleep(500);
@@ -126,7 +127,7 @@ async function run() {
   await I.shot('p51-ask');
   await I.enter([], 1200);
   const b1 = breaks();
-  check('Enter makes ONE Break: 11:00 for 20 minutes from today, on Boot Camp\'s days', b1.length === 1 && b1[0].title === 'Break' && b1[0].dueDate === today && b1[0].startTime === '11:00' && b1[0].durationMinutes === 20 && b1[0].recurrence === 'weekly' && JSON.stringify(b1[0].recurrenceDays) === JSON.stringify(days), JSON.stringify(b1));
+  check('Enter makes ONE Break: 11:00 for 20 minutes from today, on Boot Camp\'s days', b1.length === 1 && b1[0].title === 'Free time' && b1[0].dueDate === today && b1[0].startTime === '11:00' && b1[0].durationMinutes === 20 && b1[0].recurrence === 'weekly' && JSON.stringify(b1[0].recurrenceDays) === JSON.stringify(days), JSON.stringify(b1));
   check('the gap is drawn today', await I.exists(`document.querySelector('[data-cal-col="${today}"] [data-gap]')`));
   check('the scissors stay on after a cut', (await btn()) === 'on');
   await I.shot('p51-cut-all-days');

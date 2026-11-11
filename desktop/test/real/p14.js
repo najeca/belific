@@ -185,26 +185,25 @@ async function run() {
   await I.click(`document.querySelector('[data-break-line="${today}"]')`, 500);
   await I.click(`document.querySelector('[aria-label="Open Short Break"]')`, 700);
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 4000).catch(() => {});
-  // 3.27.0: the Split switch became the Task | Break control.
-  const sw = await I.js(`(() => { const s = document.querySelector('[data-detail-panel] [data-kind-choice]'); const b = document.querySelector('[data-detail-panel] [data-kind="break"]'); return s && b ? [s.getAttribute('data-kind-choice'), b.getAttribute('aria-checked')] : null; })()`);
-  check('P4: the details have Task | Break, Break chosen for the break', !!sw && sw[0] === 'break' && sw[1] === 'true', JSON.stringify(sw));
-  await I.click(`document.querySelector('[data-detail-panel] [data-kind="task"]')`, 600);
+  // 3.27.0: the Split switch became the Task | Break control; 3.37.0 (Shifts S2): that control is gone on the desktop, a
+  // break's details offer "Make it a normal block".
+  check('P4: the details of the break offer "Make it a normal block"', await I.exists(`document.querySelector('[data-detail-panel] [data-make-normal]')`));
+  await I.click(`document.querySelector('[data-detail-panel] [data-make-normal]')`, 600);
   await C.sleep(500);
-  check('P4: Task chosen, the stored value is gone', stored('brk').cutsBelow === undefined, JSON.stringify(stored('brk')));
+  check('P4: a normal block now, the stored value is gone', stored('brk').cutsBelow === undefined, JSON.stringify(stored('brk')));
   await I.blur();
   await I.key('Escape');
   await C.sleep(500);
   const noPieces = await I.js(`!document.querySelector('[data-block-id="boot~2"]')`);
   const bootAfter = await tb('boot');
   const brkAfter = await tb('brk');
-  check('P4: the pieces recompute at once: the task is whole again and overlaps the break side by side', noPieces && !!bootAfter && !!brkAfter && bootAfter.l !== brkAfter.l, JSON.stringify([bootAfter && bootAfter.l, brkAfter && brkAfter.l]));
+  // 3.37.0 (Shifts S2): the former break sits inside Boot Camp, so it is drawn inside it (not at the same left edge).
+  check('P4: the pieces recompute at once: the task is whole again and the former break is drawn inside it', noPieces && !!bootAfter && !!brkAfter && bootAfter.l !== brkAfter.l, JSON.stringify([bootAfter && bootAfter.l, brkAfter && brkAfter.l]));
   check('P4: the host row is exactly as it was', JSON.stringify(stored('boot')) === JSON.stringify(seed[0]));
-  // and on again from the details
-  await I.click(`document.querySelector('[data-day-col="${today}"] [aria-label="Title Short Break"]')`, 700);
-  await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 4000).catch(() => {});
-  await I.click(`document.querySelector('[data-detail-panel] [data-kind="break"]')`, 600);
-  await C.sleep(400);
-  check('P4: Break chosen again: stored true and the cut returns', stored('brk').cutsBelow === true && (await I.exists(`document.querySelector('[data-block-id="boot~2"]')`)));
+  // and back again: 3.37.0 (Shifts S2) has no Break choice in the details, so one Ctrl+Z undoes "Make it a normal block".
+  await I.blur();
+  await I.key('Z', ['control'], 1200);
+  check('P4: one Ctrl+Z: stored true again and the cut returns', stored('brk').cutsBelow === true && (await I.exists(`document.querySelector('[data-block-id="boot~2"]')`)));
   await I.blur();
   await I.key('Escape');
   await C.sleep(400);

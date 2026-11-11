@@ -18,7 +18,8 @@ import { carryBreaks } from '../../lib/breakCarry';
 import { toMinutes } from '../../lib/timebox';
 import { taskDuration } from '../../lib/drag';
 import { DuringBreak, InsideBreak } from './HostDetails';
-import { BREAK_HINT, KIND_LABEL, TASK_HINT_DESKTOP, breakIgnored, kindOf, kindPatch, type TaskKind } from '../../lib/taskKind';
+import { FREE_TIME_TEXT, MAKE_NORMAL, breakIgnored, kindPatch } from '../../lib/taskKind';
+import { FIT_INSIDE, fitInsideFor, fitNote } from '../../lib/nesting';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
@@ -74,6 +75,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
   const [lists, setLists] = useState<TaskList[]>([]);
   // 3.10.0: the task's day, as the Timebox draws it: the tasks inside this break, or the break it is during.
   const [links, setLinks] = useState<HostLink[]>([]);
+  const [fit, setFit] = useState<ReturnType<typeof fitInsideFor>>(null);
 
   useEffect(() => {
     const blank = id && isDraftId(id) ? blankDraft(id, where ?? {}) : null;
@@ -123,6 +125,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     setTask(found);
     setProjected(proj);
     setLinks(found && found.dueDate ? hostLinks(tasks, found.dueDate, dateKey(new Date())) : []);
+    setFit(found ? fitInsideFor(tasks, found, dateKey(new Date())) : null);
     setLabels(l);
     setLists(ls);
     // The task was deleted (here, or on the other device): nothing to show. A new card is not stored yet.
@@ -167,7 +170,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     <View style={styles.layer} {...({ dataSet: { detailLayer: '1' } } as object)}>
       <Pressable style={styles.scrim} onPress={closeDetail} accessibilityLabel="Close the task details" {...({ tabIndex: -1 } as object)} />
       <View style={styles.centre} pointerEvents="box-none">
-        <Panel key={shown.id} task={shown} projected={projected} labels={labels} lists={lists} links={links} draftPatch={task ? undefined : patchDraft} onSaved={() => { if (task) { notifyChanged(); reload(); } }} />
+        <Panel key={shown.id} task={shown} projected={projected} labels={labels} lists={lists} links={links} fit={fit} draftPatch={task ? undefined : patchDraft} onSaved={() => { if (task) { notifyChanged(); reload(); } }} />
       </View>
     </View>
   );
@@ -185,7 +188,7 @@ function blankDraft(id: string, where: NewTaskWhere): Task {
   return t;
 }
 
-function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
+function Panel({ task, projected, labels, lists, links, fit, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; fit?: ReturnType<typeof fitInsideFor>; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
   const drafting = !!draftPatch;
   const dark = useResolvedTheme() === 'dark';
   const draftOps: TaskOps = {
@@ -497,18 +500,36 @@ function Panel({ task, projected, labels, lists, links, onSaved, draftPatch }: {
           <RepeatField task={task} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
-        {/* Task or Break (3.27.0; was the Split switch, field cutsBelow): a Break cuts the timed tasks it overlaps into pieces. */}
-        <DetailRow icon={kindOf(task) === 'break' ? 'cafe-outline' : 'checkmark-circle-outline'} label={KIND_LABEL} shown="Type" tip={KIND_LABEL}>
-          <KindChoice value={kindOf(task)} onChange={(k) => patch(kindPatch(k))} />
-          <Text style={styles.hintText} {...({ dataSet: { kindHint: kindOf(task) } } as object)}>
-            {kindOf(task) === 'break' ? BREAK_HINT : TASK_HINT_DESKTOP}
-          </Text>
-          {task.cutsBelow && links.some((l) => l.guest.full.id === task.id) ? (
-            <Text style={styles.quietSub} {...({ dataSet: { splitIgnored: '1' } } as object)}>
-              {breakIgnored(links.find((l) => l.guest.full.id === task.id)?.brk.full.title ?? 'the break')}
-            </Text>
-          ) : null}
-        </DetailRow>
+        {/* Shifts S2: no Task or Break choice on the desktop (one kind of block). Free time (made with the Free time tool,
+            or an older Break) keeps one plain way back. */}
+        {task.cutsBelow ? (
+          <DetailRow icon="cafe-outline" label="Free time">
+            <View style={styles.plainCol}>
+              <Text style={styles.plainText}>{FREE_TIME_TEXT}</Text>
+              {links.some((l) => l.guest.full.id === task.id) ? (
+                <Text style={styles.plainText} {...({ dataSet: { splitIgnored: '1' } } as object)}>
+                  {breakIgnored(links.find((l) => l.guest.full.id === task.id)?.brk.full.title ?? 'the break')}
+                </Text>
+              ) : null}
+              <Pressable onPress={() => void patch(kindPatch('task'))} style={styles.plainBtn} accessibilityRole="button" accessibilityLabel={MAKE_NORMAL} {...({ dataSet: { makeNormal: '1' } } as object)}>
+                <Text style={styles.plainBtnText}>{MAKE_NORMAL}</Text>
+              </Pressable>
+            </View>
+          </DetailRow>
+        ) : null}
+        {/* Shifts S2: it starts inside a longer block and ends after it (both count, side by side). */}
+        {fit && !task.cutsBelow ? (
+          <DetailRow icon="contract-outline" label="Fit inside" shown="Overlap" tip={fitNote(fit.title)}>
+            <View style={styles.plainCol}>
+              <Text style={styles.plainText} {...({ dataSet: { fitNote: fit.title } } as object)}>
+                {fitNote(fit.title)}
+              </Text>
+              <Pressable onPress={() => void patch(fit.fields)} style={styles.plainBtn} accessibilityRole="button" accessibilityLabel={`${FIT_INSIDE} ${fit.title}`} {...({ dataSet: { fitInside: '1' } } as object)}>
+                <Text style={styles.plainBtnText}>{FIT_INSIDE}</Text>
+              </Pressable>
+            </View>
+          </DetailRow>
+        ) : null}
 
         {feats.dueDates && (
           <DetailRow icon="notifications-outline" label="Reminder">
@@ -830,35 +851,6 @@ function ReminderField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSav
 // value on the right, no divider lines.
 // `label` keys the row; `shown` replaces the words on screen (the priority row shows
 // only its mark) and `tip` is then its hover tooltip and screen reader name.
-// Task | Break (3.27.0): two options side by side, each with its icon; the chosen one is filled.
-function KindChoice({ value, onChange }: { value: TaskKind; onChange: (k: TaskKind) => void }) {
-  const opts: Array<[TaskKind, string, React.ComponentProps<typeof Ionicons>['name']]> = [
-    ['task', 'Task', 'checkmark-circle-outline'],
-    ['break', 'Break', 'cafe-outline'],
-  ];
-  return (
-    <View style={styles.kindSeg} accessibilityRole="radiogroup" accessibilityLabel={KIND_LABEL} {...({ dataSet: { kindChoice: value } } as object)}>
-      {opts.map(([k, text, icon]) => {
-        const on = value === k;
-        return (
-          <Pressable
-            key={k}
-            onPress={() => !on && onChange(k)}
-            style={[styles.kindOpt, on && styles.kindOptOn]}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: on }}
-            accessibilityLabel={text}
-            {...({ 'aria-checked': on, dataSet: { kind: k } } as object)}
-          >
-            <Ionicons name={icon} size={16} color={on ? Colors.onAccent : Colors.onHostPill} />
-            <Text style={[styles.kindText, on && styles.kindTextOn]}>{text}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 function DetailRow({ glyph, icon, label, shown, tip, children }: { glyph?: string; icon?: React.ComponentProps<typeof Ionicons>['name']; label: string; shown?: string; tip?: string; children: React.ReactNode }) {
   const text = shown ?? label;
   return (
@@ -900,11 +892,11 @@ const domSelect: React.CSSProperties = {
 
 const styles = StyleSheet.create({
   // 3.32.0: Task | Break: two square buttons side by side, the chosen one primary.
-  kindSeg: { flexDirection: 'row', alignSelf: 'flex-start' },
-  kindOpt: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 16, borderRadius: radius.square, backgroundColor: Colors.hostPill },
-  kindOptOn: { backgroundColor: Colors.accent },
-  kindText: { fontSize: 16, fontWeight: '700', color: Colors.onHostPill },
-  kindTextOn: { color: Colors.onAccent },
+  // Shifts S2: plain words and a visible button, at least 14 px, no red.
+  plainCol: { gap: 6, alignItems: 'flex-start' },
+  plainText: { fontSize: 14, lineHeight: 19, color: Colors.textSecondary },
+  plainBtn: { height: 36, paddingHorizontal: 14, justifyContent: 'center', borderRadius: radius.square, borderWidth: 2, borderColor: Colors.borderStrong },
+  plainBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
   layer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: Colors.scrim, cursor: 'default' } as never,
   centre: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24 },

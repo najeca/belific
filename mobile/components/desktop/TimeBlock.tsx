@@ -71,7 +71,13 @@ export default function TimeBlock({
   time,
   blockSuffix,
   inGap,
+  shell,
 }: {
+  // Shifts S2 (PLAN_shifts): this block holds other blocks, drawn inside it (lib/nesting.ts). Its first piece shows the
+  // summary under the title: "5h of 10h planned, 5h free" (14 px, `wide`: the left part of the block, the blocks inside
+  // take the rest) or, in a narrow lane, "5h/10h" on the line under the title (14 px; the Week view keeps its own size, D5). Its free parts are a light
+  // tint of its label colour.
+  shell?: { text: string; short: string; wide: boolean; week?: boolean };
   // 3.34.0 (PLAN_breaks_as_gaps P2): this block is a task inside a break, drawn at its real size in the break's gap
   // (lib/gaps.ts). A right click opens its menu (Open, Move out of break, Remove time). A break itself is never a
   // TimeBlock: it is a gap (GapLayer.tsx).
@@ -155,7 +161,8 @@ export default function TimeBlock({
   // The Calendar's hover tooltip holds the whole block, kept current as the task changes.
   // A block too short to show everything has the same tooltip (2.47.0).
   // A block in a gap always has one: it says which break it is in.
-  const gapTip = inGap ? `in ${inGap.brk.title}` : '';
+  // Shifts S2: a shell's tooltip carries its summary.
+  const gapTip = inGap ? `in ${inGap.brk.title}` : shell ? shell.text : '';
   const tipped = !!fullText || blockPlan(height).tier !== 3 || !!gapTip;
   const menuId = `gapblock:${scope}${task.id}${blockSuffix ?? ''}`;
   const liveGap = useRef(inGap);
@@ -316,9 +323,12 @@ export default function TimeBlock({
   const metaText = [plan.showTime ? clockText : '', plan.showLeft ? lengthText ?? '' : ''].filter(Boolean).join(' ') + (task.completed && lastPiece && plan.showTime ? ' done' : '');
   const pieceData = piece ? { piece: String(piece.index + 1), pieceCount: String(piece.count) } : {};
   const baseData = scope ? { calBlock: `${scope}${blockKey}`, blockTask: task.id } : { blockId: blockKey, blockTask: task.id };
-  const dataSet = { ...baseData, ...pieceData, ...(time ? { blockTime: time } : {}), ...(inGap ? { inGap: inGap.brk.title } : {}) };
+  const dataSet = { ...baseData, ...pieceData, ...(time ? { blockTime: time } : {}), ...(inGap ? { inGap: inGap.brk.title } : {}), ...(shell ? { shell: shell.text } : {}) };
   // 3.34.0: a block in a gap is drawn at its real size (a 10 px floor): under 16 px the title takes a smaller line.
   const tiny = shownH < 16;
+  // Shifts S2: a shell in a narrow lane keeps its header to one line ("Shift   5h/10h"): the first block inside may start
+  // half an hour in. The time is in the gutter and the tooltip.
+  const narrowShell = !!shell && !shell.wide;
 
   return (
     <View style={[styles.wrap, sized, lifted && styles.lifted]}>
@@ -331,6 +341,7 @@ export default function TimeBlock({
             look
               ? { backgroundColor: look.bg, borderLeftColor: look.edge }
               : { backgroundColor: (color ? tint(color) : undefined) ?? Colors.plainBlock, borderLeftColor: color?.edge ?? Colors.accent },
+            shell && { backgroundColor: `${look?.edge ?? color?.edge ?? Colors.accent}1A`, borderLeftColor: look?.edge ?? color?.edge ?? Colors.accent },
             tier === 1 && styles.blockOne,
             tiny && styles.blockTiny,
             continues && styles.continues,
@@ -339,16 +350,22 @@ export default function TimeBlock({
             resizing !== undefined && styles.active,
           ]}
           accessibilityRole="button"
-          accessibilityLabel={`${a11y}${time ? `, ${formatTime(time)}` : ''}${piece ? `, part ${piece.index + 1} of ${piece.count}` : ''}${moved ? `, ${moved}` : ''}${inGap ? `, ${gapTip}` : ''}`}
+          accessibilityLabel={`${a11y}${time ? `, ${formatTime(time)}` : ''}${piece ? `, part ${piece.index + 1} of ${piece.count}` : ''}${moved ? `, ${moved}` : ''}${inGap || shell ? `, ${gapTip}` : ''}`}
           {...({ dataSet: late ? { ...dataSet, late: '1' } : dataSet } as object)}
         >
           {tier === 3 ? (
-            <>
+            <View style={shell?.wide ? styles.shellHead : styles.plainHead}>
               <View style={[styles.titleRow, fullText && styles.titleRowTop]}>
-                <Text style={[styles.title, fullText && styles.titleWrap, task.completed && styles.titleDone, vt]} numberOfLines={fullText ? undefined : 1}>
+                <Text style={[styles.title, fullText && !narrowShell && styles.titleWrap, shell?.wide && styles.shellTitle, task.completed && styles.titleDone, shell ? undefined : vt]} numberOfLines={fullText && !narrowShell ? undefined : 1}>
                   {task.emoji ? `${task.emoji} ` : ''}
                   {task.title}
                 </Text>
+                {narrowShell && resizing === undefined && (
+                  <Text style={[styles.time, styles.shellShort, styles.rightText, !shell.week && styles.shellMeta]} numberOfLines={1} {...({ dataSet: { shellShort: shell.short } } as object)}>
+                    {shell.short}
+                  </Text>
+                )}
+
                 {isMustDo(task) && <PriorityMark chip={!!look} />}
                 {task.recurrence && (
                   <View style={fullText ? styles.repeatTop : styles.noShrink}>
@@ -360,8 +377,8 @@ export default function TimeBlock({
                 <Text style={[styles.snap, vm]} {...({ dataSet: look ? {} : { mono: '1' } } as object)}>
                   {slotLabel(startMin, resizing)}
                 </Text>
-              ) : (
-                <Text style={[styles.time, vm]} {...({ dataSet: look ? {} : { mono: '1' } } as object)}>
+              ) : narrowShell ? null : (
+                <Text style={[styles.time, shell?.wide && styles.shellMeta, shell ? undefined : vm]} {...({ dataSet: look ? {} : { mono: '1' } } as object)}>
                   {piece && !piece.head
                     ? pieceTimeText(formatTime(toTime(piece.startMin)), undefined, formatDuration(piece.leftMin), false)
                     : `${formatTime(task.startTime ?? '')} ${formatDuration(task.durationMinutes) ?? ''}`}
@@ -380,7 +397,12 @@ export default function TimeBlock({
                   ↪ {moved}
                 </Text>
               )}
-            </>
+              {shell?.wide && resizing === undefined && (
+                <Text style={styles.shellSummary} {...({ dataSet: { shellSummary: shell.text } } as object)}>
+                  {shell.text}
+                </Text>
+              )}
+            </View>
           ) : (
             <>
               <View style={[styles.titleRow, tier === 1 && styles.titleRowOne]}>
@@ -463,6 +485,13 @@ export function SlotPreview({ startMin, duration, top }: { startMin: number; dur
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', paddingRight: 2, paddingBottom: 1 },
+  // Shifts S2: a shell's header, at least 14 px, in the left part of the block (the blocks inside take the rest).
+  plainHead: { minWidth: 0 },
+  shellHead: { width: '38%', minWidth: 0, gap: 2 } as object,
+  shellTitle: { fontSize: 15, lineHeight: 19 },
+  shellMeta: { fontSize: 14, lineHeight: 18 },
+  shellShort: { fontWeight: '700', color: Colors.textPrimary },
+  shellSummary: { fontSize: 14, lineHeight: 18, fontWeight: '600', color: Colors.textPrimary, marginTop: 2 },
   lifted: { opacity: 0.35 },
   // Flat: a 1px inset outline (no layout change), small 4px corners.
   base: { flex: 1, borderRadius: 8, overflow: 'hidden' } as object,

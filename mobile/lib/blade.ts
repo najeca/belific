@@ -56,22 +56,22 @@ export function hostAt(hosts: BladeHost[], min: number): BladeHost | null {
 }
 
 // D3: why the cut is refused, or null. The day's other breaks are judged as the drawing judges them (cuts.ts, earliest
-// first), with the smallest piece setting. "A piece would be 10 min (min 30)".
+// first), with the smallest piece setting. Shifts S2, plain words: "Too short: this would leave 10 min (at least 30)".
 export const BLADE_NEW_ID = 'blade:new';
 export function bladeCheck(span: [number, number], host: Pick<BladeHost, 'id' | 'startMin' | 'endMin'> | null, dayBreaks: CutEntry[], cutMin: number): string | null {
   if (!host) return null;
   const res = cutDay([{ id: host.id, startMin: host.startMin, endMin: host.endMin, breaks: false }, ...dayBreaks.filter((b) => b.breaks), { id: BLADE_NEW_ID, startMin: span[0], endMin: span[1], breaks: true }], cutMin);
   const r = res.refusals.find((x) => x.breakId === BLADE_NEW_ID && x.hostId === host.id);
   if (!r) return null;
-  if (r.reason === 'covers') return 'It would cover all of the task';
-  return `A piece would be ${r.pieceMin ?? 0} min (min ${cutMin})`;
+  if (r.reason === 'covers') return 'This would cover the whole block';
+  return `Too short: this would leave ${r.pieceMin ?? 0} min (at least ${cutMin})`;
 }
 
 // The Break the cut makes. 'all': the task's repeat rule too, so the break series starts on this day and repeats on
 // the same days as the task from here on (earlier days do not change).
 export type BladeScope = 'day' | 'all';
 export function bladeTask(span: [number, number], dayKey: string, scope: BladeScope, template?: Pick<Task, 'recurrence' | 'recurrenceDays' | 'recurrenceMonthDay'> | null): Partial<Task> {
-  const base: Partial<Task> = { title: 'Break', cutsBelow: true, dueDate: dayKey, startTime: toTime(span[0]), durationMinutes: span[1] - span[0] };
+  const base: Partial<Task> = { title: FREE_TIME, cutsBelow: true, dueDate: dayKey, startTime: toTime(span[0]), durationMinutes: span[1] - span[0] };
   if (scope !== 'all' || !template?.recurrence) return base;
   return {
     ...base,
@@ -83,4 +83,7 @@ export function bladeTask(span: [number, number], dayKey: string, scope: BladeSc
 
 // The popover's second choice: "All days of Boot Camp".
 export const allDaysOf = (title: string): string => `All days of ${title}`;
-export const BLADE_HINT = 'Click the start of a break, then its end · Esc to stop';
+// Shifts S2: the scissors are called "Free time" on screen, in plain words.
+export const FREE_TIME = 'Free time';
+export const BLADE_LABEL = 'Mark free time (C)';
+export const BLADE_HINT = 'Click where the free time starts, then where it ends. Esc to stop.';

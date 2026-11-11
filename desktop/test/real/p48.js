@@ -1,10 +1,11 @@
 'use strict';
 // @real-input: quiet
-// Real check for 3.27.0: "Task or Break" replaces the Split switch in the details.
-//   1. a plain task's details: Task | Break with Task chosen, an icon each, and the Task line,
-//   2. choosing Break stores cutsBelow true (nothing else), shows the Break line, the card gets a "☕ Break" tag
-//      and the Calendar block title a ☕; choosing Task clears it,
-//   3. a Task placed over a Break says "Shows inside <break>" in its details; a Task over a Task shows nothing new,
+// Real check for 3.27.0, rewritten for Shifts S2 (3.37.0): the desktop details have no Task or Break choice any more.
+//   1. a plain task's details: no Task | Break control, no "Task or Break" row, no "Make it a normal block",
+//   3. a task placed over a Break says "Shows inside <break>" in its details; a task over a task shows nothing new,
+//   2. the Break "Lunch" (12:00, 1 h) is a gap, not a card: the day column ends with "☕ Free time · 1h"; its details say
+//      it is free time and offer "Make it a normal block", which clears cutsBelow (nothing else); Lunch is then a
+//      block with "Quick note" drawn inside it and the summary "10m of 1h planned, 50m free",
 //   4. no "Split" anywhere in the details, the card or Settings.
 // Real mouse and key input into the real app, isolated data folder, in process fake Supabase. Light and dark (P48_DARK).
 // BELIFIC_SHOTS: screenshots.
@@ -82,58 +83,52 @@ async function run() {
     await C.sleep(500);
   };
   const panelText = () => I.js(`(${panel} || {}).innerText || ''`);
-  const choice = () => I.js(`(() => { const s = ${panel}.querySelector('[data-kind-choice]'); return s ? s.getAttribute('data-kind-choice') : null; })()`);
 
-  // ======== 1. A plain task ========
+  // ======== 1. A plain task: no Task | Break ========
   await openCard('Plan the week');
-  check(`${mode} 1: Task | Break, Task chosen`, (await choice()) === 'task' && (await I.js(`${panel}.querySelector('[data-kind="task"]').getAttribute('aria-checked')`)) === 'true');
-  check(`${mode} 1: an icon on each option`, await I.js(`[...${panel}.querySelectorAll('[data-kind]')].every((o) => !!o.querySelector('svg, [class*="icon"], div[style*="font-family"]') || o.children.length >= 2)`));
-  check(`${mode} 1: the Task line`, (await panelText()).includes("A normal task. If you place it inside a break it shows as a block in that break's gap."));
+  const t1 = await panelText();
+  check(`${mode} 1: no Task | Break control and no "Task or Break" row`, !(await I.exists(`${panel}.querySelector('[data-kind-choice], [data-kind]')`)) && !/Task or Break/.test(t1), t1);
+  check(`${mode} 1: no "Make it a normal block" on a plain task`, !(await I.exists(`${panel}.querySelector('[data-make-normal]')`)));
   await I.shot(`p48-1-task-${mode}`);
-
-  // ======== 2. Break, then Task again ========
-  await I.click(`${panel}.querySelector('[data-kind="break"]')`, 700);
-  await C.waitFor(() => byId('plain').cutsBelow === true, 4000).catch(() => {});
-  const p = byId('plain');
-  check(`${mode} 2: Break stores cutsBelow true and nothing else changes`, p.cutsBelow === true && p.startTime === '09:00' && p.durationMinutes === 30 && p.title === 'Plan the week', JSON.stringify(p));
-  check(`${mode} 2: the Break line`, (await panelText()).includes('Cuts the tasks it overlaps into pieces and can hold other tasks inside it.'));
-  await I.shot(`p48-2-break-${mode}`);
-  await close();
-  // P1 of PLAN_breaks_as_gaps (D1): a Break with a time is a gap on the grid, not a card; its day column ends with a quiet line.
-  const line = await I.js(`(() => { const l = document.querySelector('[data-break-line="${today}"]'); return l ? l.innerText : null; })()`);
-  check(`${mode} 2: a Break with a time is not a card; the day column ends with "☕ 2 breaks · 1h 30m"`, !(await I.js(`!!document.querySelector('[data-task-card="plain"]')`)) && line === '☕ 2 breaks · 1h 30m', String(line));
-  check(`${mode} 2: a plain task's card has none`, !(await I.js(`!!(${card('Deep work')} || document.body).querySelector('[data-break-tag]')`)));
-  await I.shot(`p48-2-card-${mode}`);
-  await I.click(I.byLabel('Show the Calendar'), 800).catch(() => {});
-  await I.key('d');
-  await C.sleep(700);
-  await I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); if (s) s.scrollTop = 8.5 * 60 * (s.scrollHeight / 1440); })()`);
-  await C.sleep(400);
-  // 3.34.0 (PLAN_breaks_as_gaps P2): a Break with a time is a gap on the grid (hatched, no ☕, no text), not a block.
-  const cup = await I.js(`(() => { const b = document.querySelector('[data-cal-block="cal${today}:plain"]'); return b ? [b.getAttribute('data-gap'), !!b.querySelector('[data-break-cup]'), b.innerText.trim()] : null; })()`);
-  check(`${mode} 2: on the Calendar it is a gap, with no ☕ and no text`, !!cup && cup[0] === 'plain' && !cup[1] && cup[2] === '', JSON.stringify(cup));
-  const plainCup = await I.js(`!!document.querySelector('[data-cal-block="cal${today}:a"] [data-break-cup]')`);
-  check(`${mode} 2: a plain task's block has no cup`, !plainCup);
-  await I.shot(`p48-2-calendar-${mode}`);
-  await I.click(`document.querySelector('[data-cal-block="cal${today}:plain"]')`, 900);
-  await C.waitFor(() => I.exists(panel), 4000);
-  await I.click(`${panel}.querySelector('[data-kind="task"]')`, 700);
-  await C.waitFor(() => byId('plain').cutsBelow === undefined, 4000).catch(() => {});
-  check(`${mode} 2: Task clears it`, byId('plain').cutsBelow === undefined && (await choice()) === 'task', JSON.stringify(byId('plain')));
   await close();
 
-  // ======== 3. Shows inside, and nothing new for a Task over a Task ========
-  await I.click(I.byLabel('Show Tasks'), 800).catch(() => {});
-  await C.sleep(500);
+  // ======== 3. Shows inside, and nothing new for a task over a task ========
   await openCard('Quick note');
-  check(`${mode} 3: a Task over a Break says "Shows inside Lunch"`, /Shows inside Lunch/.test(await panelText()), await panelText());
+  check(`${mode} 3: a task over a Break says "Shows inside Lunch"`, /Shows inside Lunch/.test(await panelText()), await panelText());
   await I.shot(`p48-3-inside-${mode}`);
   await close();
   await openCard('Email');
   const emailText = await panelText();
-  check(`${mode} 3: a Task over a Task shows nothing new`, !/Shows inside|Break is ignored|Inside this break/.test(emailText), emailText);
+  check(`${mode} 3: a task over a task shows nothing new`, !/Shows inside|Break is ignored|Inside this break/.test(emailText), emailText);
   check(`${mode} 4: no "Split" in the details`, !/split/i.test(emailText));
   await close();
+
+  // ======== 2. A Break: a gap, the quiet line, "Make it a normal block" ========
+  const line = await I.js(`(() => { const l = document.querySelector('[data-break-line="${today}"]'); return l ? l.innerText : null; })()`);
+  check(`${mode} 2: a Break with a time is not a card; the day column ends with "☕ Free time · 1h"`, !(await I.js(`!!document.querySelector('[data-task-card="lunch"]')`)) && line === '☕ Free time · 1h', String(line));
+  await I.click(I.byLabel('Show the Calendar'), 800).catch(() => {});
+  await I.key('d');
+  await C.sleep(700);
+  await I.js(`(() => { const s = document.querySelector('[data-cal-scroller]'); if (s) s.scrollTop = 11 * 56; })()`);
+  await C.sleep(400);
+  const gap = await I.js(`(() => { const b = document.querySelector('[data-cal-block="cal${today}:lunch"]'); return b ? [b.getAttribute('data-gap'), b.innerText.trim()] : null; })()`);
+  check(`${mode} 2: on the Calendar it is a gap, with no text`, !!gap && gap[0] === 'lunch' && gap[1] === '', JSON.stringify(gap));
+  await I.click(`document.querySelector('[data-cal-block="cal${today}:lunch"]')`, 900);
+  await C.waitFor(() => I.exists(panel), 4000);
+  const t2 = await panelText();
+  check(`${mode} 2: its details say it is free time, in plain words, with a visible "Make it a normal block"`, t2.includes('Free time is not counted as planned.') && (await I.exists(`${panel}.querySelector('[data-make-normal]')`)) && !(await I.exists(`${panel}.querySelector('[data-kind-choice]')`)), t2);
+  await I.shot(`p48-2-free-time-${mode}`);
+  await I.click(`${panel}.querySelector('[data-make-normal]')`, 900);
+  await C.waitFor(() => byId('lunch').cutsBelow === undefined, 4000).catch(() => {});
+  const l2 = byId('lunch');
+  check(`${mode} 2: "Make it a normal block" clears cutsBelow and nothing else`, l2.cutsBelow === undefined && l2.startTime === '12:00' && l2.durationMinutes === 60 && l2.title === 'Lunch', JSON.stringify(l2));
+  await close();
+  await C.sleep(500);
+  const shell = await I.js(`(() => { const b = document.querySelector('[data-cal-block="cal${today}:lunch"][data-shell]'); const inner = document.querySelector('[data-shell-inner] [data-cal-block="cal${today}:note"]'); return b ? [b.getAttribute('data-shell'), !!inner] : null; })()`);
+  check(`${mode} 2: Lunch is now a block with Quick note drawn inside it, "10m of 1h planned, 50m free"`, !!shell && shell[0] === '10m of 1h planned, 50m free' && shell[1], JSON.stringify(shell));
+  await I.shot(`p48-2-shell-${mode}`);
+  await I.click(I.byLabel('Show Tasks'), 800).catch(() => {});
+  await C.sleep(500);
   check(`${mode} 4: no "Split" on the board`, !/split/i.test(await I.body()));
   await settings();
   check(`${mode} 4: Settings says "Minimum piece size when a Break cuts a task" and no "Split"`, (await I.body()).includes('Minimum piece size when a Break cuts a task') && !/split/i.test(await I.body()));

@@ -262,7 +262,7 @@ async function run() {
   check("the Timebox's Scheduled leaves the gaps out and counts the tasks inside them at their length: 4h 25m", fig.scheduled === 265, JSON.stringify(fig));
   check('a Break with a time is not a card in its day column', !(await I.exists(`document.querySelector('[data-day-col="${TODAY}"] [data-task-card="tea1"]')`)));
   const line = await I.js(`(() => { const l = document.querySelector('[data-break-line="${TODAY}"]'); return l ? l.innerText : null; })()`);
-  check('the column ends with one quiet line: "☕ 5 breaks · 3h 40m"', line === '☕ 5 breaks · 3h 40m', String(line));
+  check('the column ends with one quiet line: "☕ Free time · 3h 40m" (3.37.0 wording)', line === '☕ Free time · 3h 40m', String(line));
   await I.click(`document.querySelector('[data-break-line="${TODAY}"]')`, 600);
   const listed = await I.js(`[...document.querySelectorAll('[role="dialog"] [role="button"], [role="dialog"] [role="menuitem"]')].map((e) => e.innerText.split('\\n')[0]).filter(Boolean)`);
   check('pressing the line lists the five breaks', ['Tea break', 'Coffee', 'Lunch', 'Long lunch', 'Nap'].every((t) => listed.includes(t)), JSON.stringify(listed));

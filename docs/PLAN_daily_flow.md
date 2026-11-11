@@ -1,7 +1,10 @@
 # Plan: a calm daily flow
 
 Planning only, 2026-11-11, on top of 3.38.0 (branch v2-redesign; shifts S1 to S3 built, `docs/PLAN_shifts.md`). No code
-yet, no version bump.
+yet, no version bump. The five questions were answered the same day; they are decisions **D1 to D5** (section 15). The
+names D1 to D5 are used because nothing in this plan refers to another plan's decisions (PLAN_shifts has its own D1 to D5
+and calls PLAN_breaks_as_gaps' G1 to G5; this plan only refers to the shifts phases S1 to S4). F1 to F7 stay the names
+of this plan's phases.
 
 Goal: a calm, uncluttered planning flow, simple enough for a beginner and for someone over 50. A shift (a long block
 with things inside it) counts as ONE item on every screen below, and what is inside it travels with it.
@@ -108,7 +111,7 @@ least 14 px, one main (filled) button per screen, plain words.
   - "Repeating, not on today": a series whose next day is not today. **Today** moves its next day here (the existing `moveDay`: it shows "↪ from Fri").
   - **Earlier days** stay folded as ONE line, "▸ 3 from earlier days". Opening it shows the rows with **Today**, plus the Wrap up buttons (section 5).
 - **Today's Timebox** (right) is the real Timebox component for today. Drag any row onto it to give it a time (the existing drag and its 5 minute steps). A row left alone stays untimed.
-- **Writes as it goes (Q1):** every button, tick and drag is an ordinary write in its own gesture, so Ctrl+Z puts it back. **Done** only closes. There is no draft and no Cancel, because a real Timebox cannot show a draft. `planningDraft.ts`, `finishFlow` and the rollover on Finish go (rule 3 replaces them).
+- **Writes as it goes (D1):** every button, tick and drag is an ordinary write in its own gesture, so Ctrl+Z puts it back. **Done** only closes. There is no draft and no Cancel, because a real Timebox cannot show a draft. `planningDraft.ts`, `finishFlow` and the rollover on Finish go (rule 3 replaces them).
 - **The figure** at the foot is "Planned 11h 15m": `totalsOf` (a shift counts once, S1). Nothing else is counted.
 - **Morning notification (optional):** Settings, Planning has "Remind me to plan my day", off by default, with a time (default 08:00). It is one toast, "Good morning. Your day is ready to plan when you are.", and a click opens Plan my day. The scheduler gets a new kind, `plan`, next to `daily`. It is stored as a `user_settings` row (synced, no schema change). It never has a count in it.
 
@@ -135,7 +138,7 @@ least 14 px, one main (filled) button per screen, plain words.
 - **Each unticked task has three visible buttons:**
   - **Tomorrow** sets the Day to tomorrow and keeps its time and length. A repeating day moves that day only (`moveDay`).
   - **Back to its list** clears the Day and time, so it returns to its list (or the Brain Dump). It is not offered for a repeating day.
-  - **Let go** moves it to the Trash (a tombstone, restorable for 30 days, Ctrl+Z at once; Q2). A repeating day is skipped (its skip tombstone), never the whole series.
+  - **Let go** moves it to the Trash (a tombstone, restorable for 30 days, Ctrl+Z at once; D2). A repeating day is skipped (its skip tombstone), never the whole series.
 
   When a row is decided it folds to one grey line ("Tomorrow · Undo"). The Undo there is the same as Ctrl+Z.
 - **Steps:** a task with some steps ticked and some not also offers **Only the N steps left to tomorrow**. In one gesture:
@@ -153,7 +156,7 @@ least 14 px, one main (filled) button per screen, plain words.
 
 - **Past day columns** on the Tasks board draw only DONE tasks (history). An unticked one off task of an earlier day is not drawn there. It waits in the **Earlier** pill.
 - Nothing moves on its own: there is no automatic roll, and Plan my day's Finish rollover is removed.
-- The Calendar keeps showing past days as they were (Q5).
+- The Calendar keeps showing past days as they were (D5).
 - **The Earlier panel** is the Missed panel, rebuilt with the Wrap up rows:
   - Tomorrow, Back to its list and Let go on each row, plus one **Tick all** at the top ("Tick all 3: done on their own days", the existing Skip all write);
   - a fourth button, **Today**, shows only before 14:00, when you are planning, not wrapping up.
@@ -210,17 +213,24 @@ least 14 px, one main (filled) button per screen, plain words.
 │                                                                │
 │                          [ Cancel ]   [ Clear 14 tasks ]       │
 └────────────────────────────────────────────────────────────────┘
+
+┌ Clear the label "Home"? ──────────────────────────────────────┐
+│ 9 tasks have this label. The label comes off them; the tasks   │
+│ stay where they are.                                           │
+│                                                                │
+│ [ Move the 9 tasks to Trash ]       [ Cancel ]  [ Clear label ]│
+└────────────────────────────────────────────────────────────────┘
 ```
 
 **The count comes first** and counts what will change: a shift is one, plus its inside items ("14 tasks, a shift counts as one with what is inside it"). Done tasks are never touched: they are history.
 
-**Safest data handling (Q3):**
+**Safest data handling (D3 for the label):**
 
 | Tool | What it writes | Why |
 |---|---|---|
 | Clear day / Clear week | Unticked one off tasks lose their Day and time and go back to their lists. Repeating days: **This day only** writes a skip tombstone for each of those days; **All days** stops the series from that day on (the existing "Does not repeat" from that day, not a delete). | Nothing is deleted. The work stays in its list. |
 | Clear list | Its unticked tasks go to the **Trash** (tombstones, restorable 30 days). The list itself stays. A repeating task asks This day only / All days: All days is "Delete repeating task", into the Trash too. | The only tool that removes tasks, so it says "move 14 tasks to the Trash". |
-| Clear label | The label comes off its tasks (`projectKey` cleared). The tasks stay where they are. | A label is a colour, not a place. Removing tasks by colour would surprise. |
+| Clear label (D3) | By default the label comes off its tasks (`projectKey` cleared) and the tasks stay where they are. The confirmation also has a small, outlined second button, **Move the N tasks to Trash**, which tombstones the unticked ones (the label's done tasks stay as history). Repeating tasks ask This day only / All days, as for Clear list. | A label is a colour, not a place: removing tasks by colour must be the deliberate, second choice, never the main button. |
 
 **Undo:**
 - Each tool is ONE gesture, so ONE Ctrl+Z restores everything.
@@ -245,17 +255,15 @@ least 14 px, one main (filled) button per screen, plain words.
   - On the **Tasks board** it is a one line row at the top of its day column ("⏰ 11:15 Ring the pharmacy", a tick at the left), not a card.
   - It counts in no total, estimate, shift summary or Analytics figure.
 - **It notifies** at its time (the existing per task reminder at the start). A tick clears it: the bubble goes, and the row folds into the day's done list.
-- **Storage, the honest answer:** "a timed task with 0 minutes" does **not** work as is.
-  - `syncCore.sanitizeDuration` only accepts 1 to 1440, so a 0 is uploaded as NULL. On every other device it becomes a task with no length, which is drawn as a 30 minute block.
-  - The migration's comment also says "1 to 1440 when set", and the draft schema has a `> 0` check.
-
-  Two options (Q4):
-  - **(a) Recommended:** allow 0 in `sanitizeDuration` and its reader. First check the live `tasks.duration_minutes` for a check constraint (Jethro, in the Supabase SQL editor). With none, there is **no database change**. With one, it needs a one line migration to relax it to `>= 0`.
-    - Older builds receive 0 and draw it as a 30 minute block that counts 0 minutes.
-    - An older build that EDITS a reminder uploads NULL and turns it into an ordinary task. That is a quiet, rare loss, so say so in the CHANGELOG.
-  - **(b)** A new boolean column `is_reminder`. It is clean but needs migration 005, and it does not avoid the old build problem.
-
-  The pure rule is `isQuickReminder(t) = t.durationMinutes === 0 && !!t.startTime && !!t.dueDate`.
+- **Storage (D4):** a quick reminder is a timed task with `durationMinutes: 0`.
+  - `syncCore.sanitizeDuration` today only accepts 1 to 1440, so a 0 would be uploaded as NULL and every other device
+    would draw a 30 minute block. F6 allows 0 there (writing and reading; the same shared file, so the phone accepts it
+    too).
+  - **No database change.** Jethro checked the live database: `tasks.duration_minutes` is a plain integer with no check
+    constraint. (The draft schema's `> 0` check and the migration's "1 to 1440" comment were never applied.)
+  - **Older builds** receive 0 and draw it as a 30 minute block that counts 0 minutes. An older build that EDITS a
+    reminder uploads NULL and turns it into an ordinary task: a quiet, rare loss, said in the CHANGELOG.
+  - The pure rule is `isQuickReminder(t) = t.durationMinutes === 0 && !!t.startTime && !!t.dueDate`.
 - **Making one:** in Quick capture, a time with no length ("ring the pharmacy 11:15") offers a small toggle, "Just a reminder (no length)", which defaults on when the text has a time and no length. The details window has a "Reminder only" switch.
 
 ## 10. Quick add understands simple phrases (wanted 8)
@@ -299,37 +307,56 @@ least 14 px, one main (filled) button per screen, plain words.
 
 ## 13. Phases, effort and model
 
-Each phase is one version, with targeted real checks in quiet mode while building and the full regression at the end of F7. **Before F2: build shifts S4** (inside items move with the shift, skip and delete offers), because Wrap up's Tomorrow on a shift needs that carry.
+**Shifts S4 runs first** (inside items move with their shift; skip and delete offers; `docs/PLAN_shifts.md`, about 1 day,
+Opus): Wrap up's Tomorrow on a shift, and Clear on a day with a shift, move or change what is inside it with the shift.
+
+Then, in this order. Each phase is one version, with targeted real checks in quiet mode while building and the full
+regression at the end of F7.
 
 | Phase | What | Model | Why | Effort |
 |---|---|---|---|---|
 | F1 Entry and small things | The Plan button and its chevron, the Analytics text button, the avatar menu trimmed; the Free time line setting; cards show the list | **Sonnet** | UI moves on settled code | 1 day |
-| F2 Wrap up and Earlier | The Wrap up screen; the three buttons; steps to tomorrow; shifts as one row; Earlier panel rebuilt with Tick all; past columns draw done tasks only; no rollover; the evening notification | **Opus** | Repeating days, the steps split, shifts and undo meet here | 2 days |
-| F3 Plan my day | One screen; untick to skip today; Add to today with the picker and repeating tasks; the real Timebox to drag onto; write as you go; `planningDraft` removed; the morning notification | **Opus** | It removes the draft model, and the drag and skip writes must stay one gesture each | 2 days |
-| F4 Clear tools | Day, week, list and label; the count first; `updateTasks` batch write as one undo entry; This day only / All days | **Opus** | Bulk writes, undo grouping and series rules are where data can go wrong | 1½ days |
-| F5 Plan week | One screen, seven days with totals, click or drag, last week's leftovers | **Sonnet** | Reuses F2 and F3 pieces | 1½ days |
-| F6 Quick reminders | `isQuickReminder`, 0 allowed in sync, the bubble on the Timebox and Calendar, the board row, notification, tick | **Opus** | Sync rules and older builds, and the layout must ignore it | 1½ days |
+| F2 Clear tools | Day, week, list and label; the count first; `updateTasks` batch write as one undo entry; This day only / All days; Clear label's second button "Move the N tasks to Trash" (D3) | **Opus** | Bulk writes, undo grouping and series rules are where data can go wrong | 1½ days |
+| F3 Wrap up and Earlier | The Wrap up screen; the three buttons; steps to tomorrow; shifts as one row; Earlier panel rebuilt with Tick all; past board columns draw done tasks only (D5); no rollover; the evening notification | **Opus** | Repeating days, the steps split, shifts and undo meet here | 2 days |
+| F4 Plan my day | One screen; untick to skip today; Add to today with the picker and repeating tasks; the real Timebox to drag onto; save as you go with Undo (D1); `planningDraft` removed; the morning notification | **Opus** | It removes the draft model, and the drag and skip writes must stay one gesture each | 2 days |
+| F5 Plan week | One screen, seven days with totals, click or drag, last week's leftovers | **Sonnet** | Reuses F3 and F4 pieces | 1½ days |
+| F6 Quick reminders | `isQuickReminder`, 0 allowed in sync (D4), the bubble on the Timebox and Calendar, the board row, notification, tick | **Opus** | Sync rules and older builds, and the layout must ignore it | 1½ days |
 | F7 Quick add phrases | `quickParse.ts`, the preview line, the reminder toggle | **Sonnet** | Pure parser with tests | 1 day |
 
-That is about 10½ days for F1 to F7, plus S4 (1 day, Opus) first. F1 is safe alone. F2 and F3 belong together for a beta, because rule 3 (no rollover) needs both the Earlier panel and Plan my day's folded line.
+That is about 10½ days for F1 to F7, plus S4 first.
+
+**Does Clear (F2) depend on the others?** No. It needs only what is built already: the existing writes (Day and time
+cleared, `projectKey` cleared, tombstones, skip, "Does not repeat from here") and S3's `shiftsOfDay`, to count a shift as
+one with what is inside it. It adds the batch write `storage.updateTasks` itself. Wrap up's "Let go" (D2) and Tick all
+(F3) then reuse that batch write, so F2 first saves work later. Its only link is S4: a cleared day that holds a shift
+takes the shift's inside items along, which uses S4's carry rules, and S4 runs first anyway.
+
+F1 and F2 are each safe alone. F3 and F4 belong together for a beta, because rule 3 (no rollover) needs both the Earlier
+panel and Plan my day's folded line.
 
 ## 14. Risks
 
 | Risk | What breaks | Plan |
 |---|---|---|
-| **Sync** | A Clear writes hundreds of rows at once. An older build's Daily Planning Finish still rolls earlier tasks onto today. A reminder edited on an older build loses its 0. | `updateTasks` batches the queue. Older builds' rolls are the person's own action, and the rows are ordinary edits. The reminder loss is in the CHANGELOG and is rare. Check the live duration constraint before F6. |
+| **Sync** | A Clear writes hundreds of rows at once. An older build's Daily Planning Finish still rolls earlier tasks onto today. A reminder edited on an older build loses its 0. | `updateTasks` batches the queue. Older builds' rolls are the person's own action, and the rows are ordinary edits. The reminder loss is in the CHANGELOG and is rare. The live `duration_minutes` has no check constraint (D4). |
 | **Repeating days** | Unticking in Plan my day, Let go, Clear "This day only" and Tomorrow on a series day each touch one day of a series | They use only existing writes (skip tombstone, `moveDay`, "Does not repeat from here"). "All days" never deletes in Clear day or week, and only Clear list puts a series in the Trash. |
 | **Undo** | The stack is session only, 50 entries, grouped by time | Each button is one gesture (`markGesture`); a Clear is one batch. For anything older, the Trash (30 days) and plain edits remain. |
-| **Shifts** | A shift moved to tomorrow without its inside items splits it across days | S4 before F2. Wrap up's Tomorrow and Clear go through the shift carry. |
-| **Removing the draft** | Plan my day writes as it goes, and there is no Cancel | Every write is undoable at once, and the folded "Tomorrow · Undo" lines make it visible. Q1 keeps the option. |
-| **Past columns hide unticked tasks** | Someone looks for yesterday's task on the board | The Earlier pill and its count are next to the board. The Calendar keeps history (Q5). |
+| **Shifts** | A shift moved to tomorrow without its inside items splits it across days | S4 runs first. Wrap up's Tomorrow and Clear go through the shift carry. |
+| **Removing the draft** | Plan my day writes as it goes, and there is no Cancel (D1) | Every write is undoable at once, and the folded "Tomorrow · Undo" lines make it visible. |
+| **Past columns hide unticked tasks** | Someone looks for yesterday's task on the board | The Earlier pill and its count are next to the board. The Calendar keeps history (D5). |
 | **Tests that pin the old flow** | Units: `planningDraft.test`, `rollover.test` (Finish rollover), `missed.test` (actions), `shortcuts.test` (new keys). Real checks: p5, p7, p23, p43, p46 (Planning and Shutdown steps, Finish, Missed panel), cp11 (no loss wording), p27 and p48 (the "☕ Free time" line, now off by default), p22 and any check of card meta (label chip to list chip), avatar menu checks (ProfileMenu rows). Phone: phone-p9 and phone-p17 are untouched (the phone keeps its flows until a phone phase). | Each phase rewrites the checks it breaks, on purpose, listed in the CHANGELOG |
-| **The phone** | It shares `lib` (missed, rollover, totals, sync) | Desktop only for F1 to F7. A phone phase follows S5. `sanitizeDuration` (F6) is shared, so the phone's reader must accept 0 too (the same file). |
+| **The phone** | It shares `lib` (missed, rollover, totals, sync) | Desktop only for F1 to F7. A phone phase follows S5. `sanitizeDuration` (F6, D4) is shared, so the phone's reader must accept 0 too (the same file). |
 
-## 15. Questions (recommended default first)
+## 15. Decisions (2026-11-11)
 
-1. **Plan my day and Wrap up: write as you go, with Ctrl+Z and a folded "Undo" per row, or keep a draft with Cancel?** *Default: write as you go.* A real Timebox to drag onto cannot show a draft, and every write is one undo.
-2. **"Let go": move to the Trash (restorable for 30 days), mark done on its own day, or only take the day off?** *Default: the Trash.* It is honest (not counted as done) and can be restored. "Back to its list" already covers "not now".
-3. **Clear label: take the label off the tasks, or move them to the Trash?** *Default: take the label off.* Only Clear list moves tasks to the Trash, and its confirmation says so.
-4. **Quick reminders: allow 0 minutes (no database change unless the live column has a check, then a one line migration), or a new `is_reminder` column?** *Default: allow 0.*
-5. **Past days: hide unticked tasks on the Tasks board only, or on the Calendar too?** *Default: the board only.* The Calendar stays a faithful record of what was planned.
+1. **D1, save as you go with Undo.** Plan my day and Wrap up write each tick, button and drag at once, in its own
+   gesture: Ctrl+Z and the folded "Undo" on a decided row put it back. Done only closes. There is no draft and no Cancel.
+2. **D2, Let go moves to the Trash.** A one off task is tombstoned (restorable for 30 days, Ctrl+Z at once). A repeating
+   day is skipped, never the whole series. It is not counted as done.
+3. **D3, Clear label takes the label off by default.** The confirmation's main button clears the label and leaves the
+   tasks where they are. A small, outlined second button, **Move the N tasks to Trash**, tombstones them instead.
+4. **D4, quick reminders are timed tasks with 0 minutes, allowed in the app code.** `sanitizeDuration` and its reader
+   accept 0. Jethro checked the live database: `duration_minutes` is a plain integer with no check constraint, so **no
+   database change**.
+5. **D5, past days: the board only.** The Tasks board's past columns draw only done tasks; unticked ones wait in the
+   Earlier pill. The Calendar keeps showing past days as they were planned.

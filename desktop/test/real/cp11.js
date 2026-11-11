@@ -255,22 +255,32 @@ async function run() {
   await shot('cp11-progress');
 
   // ======== 3. Keyboard: Escape and Back return focus where it came from ========
+  // 3.41.0 (F2 of PLAN_daily_flow, changed on purpose): Progress is a link at the top of Settings, not a row of the profile
+  // menu. Escape leaves the Progress page (and goes back to where it opened from); the profile menu's Tab and Enter are
+  // checked on its Settings row.
   await press('Escape');
   await C.waitFor(async () => !(await onProgress()), 5000);
-  check('Escape leaves the Progress page and returns focus to the profile icon (it opened from the profile menu)', (await activeLabel()) === 'Profile, not signed in', String(await activeLabel()));
+  check('Escape leaves the Progress page', !(await onProgress()));
+  await js(`(() => { const b = document.querySelector('[aria-label="Back"]'); const s = document.querySelector('[data-settings-link]'); return !!(b || s); })()`);
+  if (await exists(`document.querySelector('[data-settings-link]')`)) await click(byLabel('Back'));
+  await C.sleep(400);
   await click(byLabel('Profile, not signed in'));
   let reached = false;
   for (let i = 0; i < 8 && !reached; i++) {
     await press('Tab');
-    reached = (await activeLabel()) === 'Progress';
+    reached = (await activeLabel()) === 'Settings';
   }
-  check('Tab inside the profile menu reaches the Progress row', reached, String(await activeLabel()));
+  check('Tab inside the profile menu reaches the Settings row', reached, String(await activeLabel()));
   await enter();
+  await C.waitFor(async () => (await body()).toUpperCase().includes('PLANNING'), 8000);
+  check('Enter on that row opens Settings', (await body()).toUpperCase().includes('PLANNING'));
+  await click(`document.querySelector('[data-settings-link="Progress"]')`);
   await C.waitFor(onProgress, 8000);
-  check('Enter on that row opens the Progress page', await onProgress());
+  check('the Progress link in Settings opens the Progress page', await onProgress());
   await press('Escape');
   await C.waitFor(async () => !(await onProgress()), 5000);
-  check('Escape returns focus to the profile icon again', (await activeLabel()) === 'Profile, not signed in', String(await activeLabel()));
+  if (await exists(`document.querySelector('[data-settings-link]')`)) await click(byLabel('Back'));
+  await C.sleep(400);
 
   // File, Progress (the real menu item), then Back to the card that had focus.
   await js(`(() => { const c = ${todayCard}; c.focus(); return document.activeElement === c; })()`);

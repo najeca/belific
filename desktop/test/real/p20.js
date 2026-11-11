@@ -83,7 +83,9 @@ async function run() {
   const b1 = await box(cal(D, 'brk'));
   const b2 = await box(cal(D, 'brk@15:00'));
   check('A: the Short break has a block at each of its two times', !!b1 && !!b2, JSON.stringify([b1 && b1.text, b2 && b2.text]));
-  check('A: each block says its own time and the length', !!b1 && !!b2 && /11:00am 20m/.test(b1.text) && /3:00pm 20m/.test(b2.text), JSON.stringify([b1 && b1.text, b2 && b2.text]));
+  // 3.32.0 on (P1 of PLAN_breaks_as_gaps, changed on purpose): a Break is drawn as a gap, "Short break · 20 min", not as a task
+  // block with its time; each of its two times is a gap of its own, at its own place.
+  check('A: each gap says the break and its length (a Break is free time, drawn as a gap)', !!b1 && !!b2 && /Short break · 20 min/.test(b1.text) && /Short break · 20 min/.test(b2.text) && b1.t < b2.t, JSON.stringify([b1 && b1.text, b2 && b2.text]));
   const p1 = await box(cal(D, 'boot'));
   const p2 = await box(cal(D, 'boot~2'));
   const p3 = await box(cal(D, 'boot~3'));
@@ -134,7 +136,9 @@ async function run() {
   const d2 = await box(cal(D, 'brk@15:00'));
   // A short block is one line: a done time shows its title struck through (the "done" word needs a taller block).
   const struck = (expr) => I.js(`(() => { const e = ${expr}; if (!e) return null; const t = Array.from(e.querySelectorAll('*')).filter((n) => n.textContent.replace('☕', '').trim() === 'Short break').pop(); return t ? getComputedStyle(t).textDecorationLine.includes('line-through') : null; })()`);
-  check('D: ticking 11:00 marks only the 11:00 block as done (its title is struck through, the 15:00 one is not)', !!d1 && !!d2 && (await struck(cal(D, 'brk'))) === true && (await struck(cal(D, 'brk@15:00'))) === false, JSON.stringify([await struck(cal(D, 'brk')), await struck(cal(D, 'brk@15:00'))]));
+  // A gap has no done look (free time is not work): ticking a time in the details only records that time; both gaps stay.
+  void struck;
+  check('D: ticking 11:00 records only the 11:00 time (the details); both gaps stay drawn, a Break being free time', !!d1 && !!d2 && JSON.stringify(rowOf('brk').timesDone) === '["11:00"]', JSON.stringify([rowOf('brk').timesDone, !!d1, !!d2]));
 
   // ======== E: dragging one block moves only its time ========
   const g = await I.js(`(() => { const r = document.querySelector('[data-cal-col="${D}"]').getBoundingClientRect(); return { top: r.top }; })()`);
@@ -160,7 +164,7 @@ async function run() {
   await C.sleep(500);
   const t1 = await box(blk('brk'));
   const t2 = await box(blk('brk@14:00'));
-  check('F: the Timebox draws a card at each time too, the first with the task\'s id', !!t1 && !!t2 && /11:00am 20m/.test(t1.text) && /2:00pm 20m/.test(t2.text), JSON.stringify([t1 && t1.text, t2 && t2.text]));
+  check('F: the Timebox draws a gap at each time too', !!t1 && !!t2 && /Short break · 20 min/.test(t1.text) && /Short break · 20 min/.test(t2.text), JSON.stringify([t1 && t1.text, t2 && t2.text]));
   const tp = await box(blk('boot~3'));
   check('F: and the Boot Camp is in three pieces there as well', !!tp && tp.count === '3', JSON.stringify(tp));
   await I.shot('p20-timebox');

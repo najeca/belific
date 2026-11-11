@@ -900,3 +900,21 @@ Gates: tsc clean; mobile `npm test` 1137/1137; desktop 116/116; iOS export plus 
 Check by hand: Plan week on a real Sunday evening and Monday morning; a real mouse drag from the list and between days; a list with many tasks; a narrow window (the seven days scroll sideways); the leftover line and Earlier; a shift moved between days.
 Not in this phase: Quick reminders (F6).
 
+
+## Full regression on 6ec248c (3.44.0), 2026-11-11: test fixes only, no app change
+Run: tsc clean; mobile `npm test` 1137/1137; desktop 116/116; iOS export plus `check:ios-markers` OK (51 markers, 0 hits); security scan passed (Git Bash). Real checks on a rebuilt web export, `BELIFIC_TEST_DISPLAY=2`, in batches of 10 with a 30 s pause and Electron killed after every run: 63 quiet runs with `BELIFIC_QUIET=1` (60 green first time), then the 25 pointer-only runs without it (18 green first time). 88 runs in all; the two runners (run-cp8b, run-cp8f) stand for cp8b and cp8f. Every failure was rerun alone.
+| Check | Full run | Alone | Verdict |
+|---|---|---|---|
+| p41 | harness error (no "Delete task" in the popover) | 33/33 | flake |
+| cp8h | 46/50 (one time) | same on 3 runs; then 50/50 after the fix | stale and fixed (below); a later run also failed once at the click on "Mark Today tick complete" and passed 50/50 twice, a click timing flake of the same kind as before |
+| p12 | 34/37 | 34/37 | stale and fixed |
+| p13 | 10/12 | 10/12 | stale and fixed |
+| p2 | 36/37 | 36/37 | stale and fixed |
+| p9 | 67/68 | 67/68 | stale and fixed |
+| p20 | 14/17 | 14/17 | stale and fixed |
+| cp11 | 51/52 then a timeout | same | stale and fixed |
+| cp12 | 57/58 | 57/58 | stale and fixed |
+| run-cp8b (cp8b) | 55/56 | 55/56 | stale and fixed |
+No real bug found: each failure was a check that still expected behaviour changed on purpose. **Stale and fixed (test files only, one commit):** p12 (a 7 hour block that holds two others is a shell: A3 now checks the one line header with its summary, the title not clipped, and the start time in the tooltip, S2); p13 (blocks wholly inside a longer block are nested, not lanes: the seed's blocks now overlap partly and have the same length, S1 and S2); p2 (a card shows its list; the label is a dot with its name as the tooltip, not its emoji, F1); p9 (a past day on the board shows only done tasks; the unticked one waits in the Earlier pill, D5, F3); p20 (a Break is a gap, "Short break · 20 min", with no done look and no time on it, P1 of PLAN_breaks_as_gaps); cp11 (Progress is a link in Settings, not a row of the profile menu, F2; the Tab and Enter steps use the Settings row and the Progress link); cp12 (the Plan button, its menu and Analytics add Tab stops before the sign in buttons, F1); cp8b (the label dot has an aria-label starting "Label", so the check clicks the label icon `[data-ctl="label"]` instead, F1); cp8h (a daily Daily walk at 05:00 fell inside the seed's 8 hour overnight routine and so became a row of its card, S3: the routine is 7 hours now and ends at 05:00). The pointer checks p5 and p7, p6, p10, p11, p23 and cp11 that the F phases had updated but not run were all in these runs: p5 (quiet) and p23 (quiet) passed in the quiet phase; p6, p7, p10, p11 passed first time with the pointer.
+Noted: while comparing cp8h with an older build I made a worktree whose node_modules were junctions to the real ones, and removing it emptied `desktop/node_modules` and `mobile/node_modules`. Both were restored with `npm ci` from the lockfiles (Electron 44.5.1 binary through its install script); no tracked file changed. The reruns after that point (cp8h, cp11, cp12, p2, p9, p20, run-cp8b, p12, p13, p41) were made on the restored install; the first full-run results were made before it.
+Not run: the full 88 run set once more after the fixes (only the fixed checks were rerun); everything on the iPhone.

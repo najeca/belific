@@ -44,7 +44,9 @@ async function run() {
       t('th', 'Plain thought'),
       t('tt', 'Today tick', { dueDate: today, recurrence: 'daily' }),
       t('ms', 'Missed', { dueDate: yesterday, recurrence: 'daily' }),
-      t('nr', 'Night routine', { dueDate: keyOf(shift(now, -2)), recurrence: 'daily', completed: true, completedAt: `${yesterday}T01:00:00.000Z`, startTime: '22:00', durationMinutes: 480 }),
+      // 3.28.0 on (S3, changed on purpose): a task wholly inside a long block is a row of that block's card, not a card of its own.
+      // The overnight routine ends at 05:00 (7 hours, it was 8) so that Daily walk at 05:00 is not inside it.
+      t('nr', 'Night routine', { dueDate: keyOf(shift(now, -2)), recurrence: 'daily', completed: true, completedAt: `${yesterday}T01:00:00.000Z`, startTime: '22:00', durationMinutes: 420 }),
     ]),
   );
   fs.writeFileSync(

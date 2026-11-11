@@ -109,7 +109,9 @@ async function run() {
 
   await I.click(I.byLabel('Earlier days'));
   await C.sleep(500);
-  check('Earlier days scrolls back: the day before yesterday shows its unfinished task on its own day', (await colText(day(-2))).includes('Unfinished from before'));
+  // 3.42.0 (F3 of PLAN_daily_flow, D5, changed on purpose): a day before today shows only what was done there; the unticked
+  // task waits in the Earlier pill (it is no longer drawn on its own past day).
+  check('Earlier days scrolls back: the day before yesterday is there, and its unfinished task waits in the Earlier pill instead', (await I.exists(col(day(-2)))) && !(await colText(day(-2))).includes('Unfinished from before') && Number(await I.js(`document.querySelector('[data-missed-button]')?.getAttribute('data-missed-button') ?? 0`)) >= 1);
   check('the finished task of yesterday stays hidden while Show complete is off (the filter, unchanged)', !(await colText(day(-1))).includes('Finished yesterday') && (await I.exists(col(day(-1)))));
   check('the stored date of the old task never changed', byId('old').dueDate === day(-2));
   check('past days have no Add a task box', !(await I.exists(`document.querySelector('[aria-label="Add a task on ${day(-1)}"]')`)));

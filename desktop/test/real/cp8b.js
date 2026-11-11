@@ -218,7 +218,9 @@ async function run() {
 
   // ---- 2. only one open at a time ----
   await click(inCard('Bravo', '[aria-label="Select label"]'));
-  await click(inCard('Alpha', '[aria-label^="Label"]'));
+  // 3.40.0 (F1 of PLAN_daily_flow, changed on purpose): a labelled card also has a dot whose aria-label starts with "Label" (a
+  // tooltip, not a button); the control that opens the label menu is the card's label icon.
+  await click(inCard('Alpha', '[data-ctl="label"]'));
   const count = await js(`document.querySelectorAll('[data-popover]').length`);
   check('only one dropdown is open at a time', count === 1);
   await key('Escape');

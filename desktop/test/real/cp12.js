@@ -160,8 +160,10 @@ async function run() {
   await shot('cp12-signin-page');
 
   // keyboard: Tab reaches Apple, Google, Not now in that order
+  // 3.40.0 (F1 of PLAN_daily_flow): the top bar has the Plan button, its menu and Analytics before the page, so more Tab
+  // presses are needed to reach the sign in buttons.
   const seen = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 14; i++) {
     await press('Tab');
     seen.push(await activeLabel());
   }

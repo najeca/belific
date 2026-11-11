@@ -87,9 +87,11 @@ async function run() {
   const info = await I.js(`(() => { const b = ${blk}; if (!b) return null; const t = [...b.querySelectorAll('div,span')].find((e) => e.textContent.trim() === ${JSON.stringify(LONG)}) ; const r = t.getBoundingClientRect(); const s = getComputedStyle(t); return { h: Math.round(r.height), lh: parseFloat(s.lineHeight) || 16, overflow: s.textOverflow, clamp: s.webkitLineClamp, text: b.innerText.replace(/\\s+/g, ' '), clipped: t.scrollHeight > t.clientHeight + 1, tip: b.getAttribute('title') }; })()`);
   check('A3: the 7 hour block is on the Calendar', !!info, JSON.stringify(info));
   check('A3: the whole title is in the block', !!info && info.text.includes(LONG), info && info.text);
-  check('A3: no ellipsis and no line clamp', !!info && info.overflow !== 'ellipsis' && (info.clamp === 'none' || info.clamp === undefined || info.clamp === ''), JSON.stringify(info));
-  check('A3: the title wraps over more than one line', !!info && info.h > info.lh * 1.5, JSON.stringify(info));
-  check('A3: the time and duration line shows in full', !!info && /9:30/.test(info.text) && /7h/.test(info.text), info && info.text);
+  // 3.28.0 on (S2, changed on purpose): this 7 hour block holds two others (11:00 and 13:00), so it is drawn as a shell with a
+  // one line header ("title 2h/7h"); the whole title is in it, not clipped, and the tooltip has the full text.
+  check('A3: the shell header shows the whole title on one line, not clipped, with its summary', !!info && info.clipped === false && /2h\/7h/.test(info.text), JSON.stringify(info));
+  // The shell's header has the summary ("2h/7h"); its start time is in the tooltip (checked below).
+  check('A3: the header shows the length (2h/7h) and the tooltip the start time', !!info && /7h/.test(info.text) && /9:30/.test(info.tip || ''), info && `${info.text} | ${info.tip}`);
   check('A3: the repeat icon is there', await I.exists(`${blk}.querySelector('[aria-label="Repeats"]')`));
   check('A3: the tooltip has the full text', !!info && !!info.tip && info.tip.includes(LONG) && /9:30/.test(info.tip), info && info.tip);
   const geom = await I.js(`(() => { const r = ${blk}.getBoundingClientRect(); return Math.round(r.height); })()`);

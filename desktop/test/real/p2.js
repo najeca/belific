@@ -296,7 +296,9 @@ async function run() {
   check('3.26.0: the day shows its estimated time only (1:00, not 0:25 / 1:00)', (await body()).includes('1:00') && !(await body()).includes('0:25 / 1:00'));
 
   // ======== 9. Emoji ========
-  check('a label with an emoji shows it on its card', (await js(`(${card('Planned task')} || {}).innerText || ''`)).includes('💼'));
+  // 3.40.0 (F1 of PLAN_daily_flow, changed on purpose): a card shows its LIST (emoji and name); the label is only a dot in its
+  // colour, its name the dot's tooltip. A label's emoji is not on the card any more (it is on the label's own row and chips).
+  check('a label shows on its card as a dot, with its name as the tooltip (its emoji is not on the card)', (await js(`(() => { const c = ${card('Planned task')}; if (!c) return false; const l = c.querySelector('[data-card-label]'); return !!l && l.getAttribute('aria-label') === 'Label: Work' && !c.innerText.includes('💼'); })()`)));
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

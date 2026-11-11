@@ -35,9 +35,11 @@ async function run() {
     path.join(dataDir, 'belific_tasks.kv'),
     JSON.stringify([
       // Three overlapping blocks: narrow lanes.
-      T('o1', 'Leep Talent Online Boot Camp Session', { dueDate: today, startTime: '10:00', durationMinutes: 180 }),
+      // 3.28.0 on (S1, S2, changed on purpose): a block that lies wholly inside a longer one is nested in it, not a lane. The
+      // blocks here overlap PARTLY and have the same length, so they stay in lanes (P1 and P2 are about lanes).
+      T('o1', 'Leep Talent Online Boot Camp Session', { dueDate: today, startTime: '10:00', durationMinutes: 120 }),
       T('o2', 'Extraordinarily international collaboration', { dueDate: today, startTime: '10:30', durationMinutes: 120 }),
-      T('o3', 'Representative documentation', { dueDate: today, startTime: '11:00', durationMinutes: 90 }),
+      T('o3', 'Representative documentation', { dueDate: today, startTime: '11:00', durationMinutes: 120 }),
       // Untimed tasks (P2): the top priority one is made last on purpose.
       T('u1', 'Untimed alpha', { dueDate: today, createdAt: '2026-09-01T07:00:01.000Z' }),
       T('u2', 'Untimed beta', { dueDate: today, createdAt: '2026-09-01T07:00:02.000Z' }),
@@ -46,8 +48,8 @@ async function run() {
       T('l1', 'Left plain', { createdAt: '2026-09-03T07:00:00.000Z' }),
       T('l2', 'Left urgent', { createdAt: '2026-09-02T07:00:00.000Z', priority: 'high' }),
       // Overlap with a top priority block (P2): it must take the first lane and sit on top.
-      T('p1', 'Low block', { dueDate: day(1), startTime: '09:00', durationMinutes: 120 }),
-      T('p2', 'Urgent block', { dueDate: day(1), startTime: '09:30', durationMinutes: 60, priority: 'high' }),
+      T('p1', 'Low block', { dueDate: day(1), startTime: '09:00', durationMinutes: 90 }),
+      T('p2', 'Urgent block', { dueDate: day(1), startTime: '09:30', durationMinutes: 90, priority: 'high' }),
     ]),
   );
 

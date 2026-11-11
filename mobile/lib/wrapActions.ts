@@ -4,7 +4,7 @@ import type { Task } from './types';
 import { generateId } from './data';
 import { deleteTask, loadTasksRaw, updateTasks } from './storage';
 import { patchTask } from './taskActions';
-import { skipOccurrence } from './seriesActions';
+import { moveDay, skipOccurrence } from './seriesActions';
 import { opsForProjected, opsForTask } from './taskOps';
 import { tickRow } from './shiftActions';
 import { carryToDay } from './breakCarry';
@@ -71,4 +71,21 @@ export const tickAll = (tasks: Task[]) =>
       return row ? [doneOnOwnDay(row)] : [];
     });
     if (rows.length > 0) await updateTasks(rows);
+  });
+
+// ---- F4: Plan my day ----
+
+// "Not today" (an untick on On today): a one off task goes back to its list, a repeating day is skipped.
+export const notToday = (item: WrapItem) => (item.series ? wrapLetGo(item) : wrapToList(item));
+
+// Add to today: a task with no Day gets today (no time: the Timebox takes a drag for that); a repeating task's next
+// day moves to today, that day only (series.ts moveDay).
+export const addToday = (item: WrapItem, todayKey: string) =>
+  gesture(async () => {
+    if (item.series) {
+      await moveDay(item.task, todayKey);
+      return;
+    }
+    const t = await fresh(item.task.id);
+    if (t && !t.completed && !t.dueDate) await patchTask(t.id, { dueDate: todayKey });
   });

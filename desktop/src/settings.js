@@ -22,6 +22,9 @@ const DEFAULTS = Object.freeze({
   // F3 of PLAN_daily_flow: one calm evening note, "Time to wrap up the day, if you like.", off by default.
   wrapReminder: false,
   wrapTime: '18:00',
+  // F4: the morning note, "Time to plan your day, if you like.", off by default.
+  planReminder: false,
+  planTime: '08:00',
   // Part B (P5): the reminders a timed task gets unless it has its own list: whole minutes
   // before the start, 0 = at the start; up to five. [] means none by default.
   defaultReminders: Object.freeze([0]),
@@ -36,7 +39,7 @@ const DEFAULTS = Object.freeze({
   trayNoteShown: false,
 });
 
-const BOOLEANS = ['notifyEvents', 'notifyTasks', 'dailyReminder', 'wrapReminder', 'closeToTray', 'startWithWindows', 'trayNoteShown', 'showStreaks', 'vibrantColours'];
+const BOOLEANS = ['notifyEvents', 'notifyTasks', 'dailyReminder', 'wrapReminder', 'planReminder', 'closeToTray', 'startWithWindows', 'trayNoteShown', 'showStreaks', 'vibrantColours'];
 
 // Applies `partial` onto `current`, ignoring unknown keys and invalid values.
 function sanitize(partial, current = DEFAULTS) {
@@ -48,6 +51,7 @@ function sanitize(partial, current = DEFAULTS) {
   if (p.theme === 'light' || p.theme === 'dark' || p.theme === 'system') out.theme = p.theme;
   if (typeof p.dailyTime === 'string' && HM.test(p.dailyTime)) out.dailyTime = p.dailyTime;
   if (typeof p.wrapTime === 'string' && HM.test(p.wrapTime)) out.wrapTime = p.wrapTime;
+  if (typeof p.planTime === 'string' && HM.test(p.planTime)) out.planTime = p.planTime;
   if (typeof p.dayStart === 'string' && HM_30.test(p.dayStart)) out.dayStart = p.dayStart;
   if (Array.isArray(p.defaultReminders)) out.defaultReminders = normalizeLeads(p.defaultReminders);
   // A stored value that is not a list falls back to the default.

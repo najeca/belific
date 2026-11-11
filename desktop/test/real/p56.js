@@ -84,7 +84,8 @@ async function run() {
   check('the menu lists both, Plan my day and Wrap up, and no Analytics (the window is wide)', menu.includes('Plan my day') && menu.includes('Wrap up') && !menu.includes('Analytics'), menu);
   await I.click(`document.querySelector('[data-popover] [aria-label="${other} from the menu"]')`, 900);
   // 3.42.0 (F3, changed on purpose): Wrap up is one screen, with no steps.
-  const otherSteps = flow === 'planning' ? 'Wrap up' : 'Step 1 of 4';
+  // 3.43.0 (F4): Plan my day is one screen too.
+  const otherSteps = flow === 'planning' ? 'Wrap up' : 'Plan my day';
   const body = await I.body();
   check(`the other one is one press away: ${other} opens (${otherSteps})`, (await I.exists(`document.querySelector('[data-flow]')`)) && body.includes(otherSteps) && (other !== 'Wrap up' || body.includes('Wrap up')), body.slice(0, 120));
   check('Wrap up is not called "Daily Shutdown" or "Shut down"', !/Daily Shutdown|Shut down/.test(body));
@@ -92,7 +93,7 @@ async function run() {
   await I.key('Escape', [], 700);
   await I.click(`document.querySelector('[data-plan-button]')`, 900);
   const own = await I.body();
-  check(`a press on the button opens ${word}`, (await I.exists(`document.querySelector('[data-flow="${flow}"]')`)) && (flow === 'planning' ? own.includes('Step 1 of 4') : own.includes('Wrap up')), own.slice(0, 100));
+  check(`a press on the button opens ${word}`, (await I.exists(`document.querySelector('[data-flow="${flow}"]')`)) && (flow === 'planning' ? own.includes('Plan my day') && !own.includes('Step 1 of') : own.includes('Wrap up')), own.slice(0, 100));
   await I.key('Escape', [], 700);
 
   // ---- the avatar menu ----

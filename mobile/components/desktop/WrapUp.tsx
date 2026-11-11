@@ -38,7 +38,8 @@ export interface ShownRow {
 }
 
 // The rows as they are now, plus the ones decided here (folded, in the place they had).
-export function useWrapRows(list: (raw: Task[]) => WrapItem[], refreshKey: number) {
+// `keys`: this list handles Ctrl+Z and Ctrl+Y (one list per screen does, or a press would undo twice).
+export function useWrapRows(list: (raw: Task[]) => WrapItem[], refreshKey: number, keys = true) {
   const [raw, setRaw] = useState<Task[] | null>(null);
   const [decided, setDecided] = useState<Map<string, Decision>>(new Map());
   const order = useRef<string[]>([]);
@@ -107,6 +108,7 @@ export function useWrapRows(list: (raw: Task[]) => WrapItem[], refreshKey: numbe
   );
   // Ctrl+Z and Ctrl+Y here as on the home screen (the home keys stand aside while an overlay is open).
   useEffect(() => {
+    if (!keys) return;
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.repeat || isEditableTarget(e.target)) return;
       const k = e.key.toLowerCase();
@@ -118,7 +120,7 @@ export function useWrapRows(list: (raw: Task[]) => WrapItem[], refreshKey: numbe
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [reload]);
+  }, [reload, keys]);
   return { raw, rows, act, undoRow, reload };
 }
 

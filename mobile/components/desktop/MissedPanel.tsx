@@ -10,7 +10,7 @@ import { allOpen, earlierItems, showToday, tickAllText, tickedAllText, type Wrap
 import { tickAll } from '../../lib/wrapActions';
 import type { Task } from '../../lib/types';
 import { isPopoverOpen } from './Popover';
-import { closeOverlay, notifyChanged, showNotice } from './uiStore';
+import { closeOverlay, notifyChanged, openOverlay, showNotice } from './uiStore';
 import { IconHeading } from './ui';
 import { WrapRow, runChoice, useWrapRows, styles as wrap } from './WrapUp';
 
@@ -19,7 +19,9 @@ import { WrapRow, runChoice, useWrapRows, styles as wrap } from './WrapUp';
 // past columns). Each row has the Wrap up buttons (Tomorrow, Back to its list, Let go; Today too before 14:00) and a tick
 // that marks it done on its own day; Tick all marks every one done on its own day. Every action saves at once and folds
 // the row with its own Undo (Ctrl+Z works too). Nothing moves by itself. Repeating days are never listed.
-export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
+export default function MissedPanel({ refreshKey, back }: { refreshKey: number; back?: 'planning' }) {
+  // F4: opened from Plan my day, it goes back there when it closes.
+  const close = () => (back === 'planning' ? openOverlay({ kind: 'flow', mode: 'planning' }) : closeOverlay());
   const todayKey = useRef(dateKey(new Date())).current;
   const list = useCallback((raw: Task[]) => earlierItems(raw, todayKey), [todayKey]);
   const { rows, act, undoRow, reload } = useWrapRows(list, refreshKey);
@@ -32,7 +34,7 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
       if (e.key !== 'Escape' || e.defaultPrevented || isPopoverOpen() || isTextEntryTarget(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
-      closeOverlay();
+      close();
     };
     window.addEventListener('keydown', onKey, true);
     const t = setTimeout(() => (document.querySelector('[data-missed-close]') as HTMLElement | null)?.focus(), 30);
@@ -57,7 +59,7 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
   const allShown = all && stack.has(all.entry) ? all : null;
 
   return (
-    <Pressable style={styles.scrim} onPress={closeOverlay} accessibilityLabel="Close Earlier">
+    <Pressable style={styles.scrim} onPress={close} accessibilityLabel="Close Earlier">
       <Pressable onPress={() => {}} style={styles.card} accessibilityLabel="Earlier" {...({ role: 'dialog', 'aria-modal': true, dataSet: { earlier: '1' } } as object)}>
         <View style={styles.header}>
           <IconHeading icon="time-outline" style={styles.title}>Earlier</IconHeading>
@@ -67,7 +69,7 @@ export default function MissedPanel({ refreshKey }: { refreshKey: number }) {
                 <Text style={wrap.primaryText}>{tickAllText(open.length)}</Text>
               </Pressable>
             )}
-            <Pressable onPress={closeOverlay} style={styles.close} accessibilityRole="button" accessibilityLabel="Close" {...({ dataSet: { missedClose: '1' } } as object)}>
+            <Pressable onPress={close} style={styles.close} accessibilityRole="button" accessibilityLabel="Close" {...({ dataSet: { missedClose: '1' } } as object)}>
               <Ionicons name="close" size={20} color={Colors.textSecondary} />
             </Pressable>
           </View>

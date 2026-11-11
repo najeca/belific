@@ -5,8 +5,8 @@
 // Plan my day's Finish brings nothing onto today. (2) The Earlier panel holds one off tasks only (a repeating task's past
 // days are never listed and nothing is written for them); a tick and "Tick all" mark tasks done on their own days (Day
 // kept, completion recorded on that day, nothing deleted), saved at once with an Undo on the row (or at the top for Tick
-// all), no question first. (3) Skip all next to "Move all to today" in Plan my day step 1, as a draft written on Finish
-// (until F4). Light and dark.
+// all), no question first. (3) F4 (3.43.0): Plan my day shows earlier days as one folded line that opens Earlier.
+// Light and dark.
 // BELIFIC_SHOTS: screenshots.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -92,11 +92,11 @@ async function run() {
   // ======== 1. No switch: Earlier is always there ========
   check('1: the Earlier pill is there for a person who never saved anything, and counts the three one off tasks (no Gym day)', (await I.exists(pill)) && (await badge()) === '3', String(await badge()));
   await openPlanning();
-  check('1: Plan my day step 1 lists the earlier days', (await flowOpen()) && (await I.exists(`document.querySelector('[data-flow] [data-missed-list]')`)));
-  for (let i = 0; i < 3; i++) await I.click(inFlow('Next step'), 400);
-  await I.click(inFlow('Finish'), 1000);
+  // F4 (3.43.0): Plan my day shows earlier days as one folded line, and nothing moves when it closes.
+  check('1: Plan my day shows the earlier days as one folded line (3)', (await flowOpen()) && (await I.js(`document.querySelector('[data-plan-earlier]')?.getAttribute('data-plan-earlier') ?? null`)) === '3');
+  await I.click(inFlow('Done'), 1000);
   await C.sleep(600);
-  check('1: Finish brings nothing onto today: the earlier tasks stay on their own days', byId('m1').dueDate === dk(-3) && byId('m2').dueDate === dk(-2) && byId('m3').dueDate === dk(-1) && byId('m2').startTime === '08:00', JSON.stringify(tasks().map((t) => [t.id, t.dueDate])));
+  check('1: Done brings nothing onto today: the earlier tasks stay on their own days', byId('m1').dueDate === dk(-3) && byId('m2').dueDate === dk(-2) && byId('m3').dueDate === dk(-1) && byId('m2').startTime === '08:00', JSON.stringify(tasks().map((t) => [t.id, t.dueDate])));
   const icon = (await I.exists(I.byLabel('Profile and account'))) ? 'Profile and account' : 'Profile, not signed in';
   await I.click(I.byLabel(icon));
   await I.click(`document.querySelector('[role="dialog"][aria-label="Profile menu"] [aria-label="Settings"]')`, 700);
@@ -147,24 +147,20 @@ async function run() {
   await I.shot(`p46-missed-panel-after-${mode}`);
   await I.key('Escape', [], 500);
 
-  // ======== 3. Daily Planning (two missed tasks left) ========
+  // ======== 3. Plan my day (two left; F4, 3.43.0, changed on purpose: the folded line opens Earlier) ========
   await openPlanning();
-  const flowBtns = await I.js(`(() => { const a = document.querySelector('[data-flow] [data-missed-skip-all]'); const b = document.querySelector('[data-flow] [data-missed-all-today]'); if (!a || !b) return null; const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect(); return { skip: a.innerText.trim(), today: b.innerText.trim(), sameLine: Math.abs(ra.top - rb.top) < 4, order: ra.left < rb.left }; })()`);
-  check('3: Planning step 1 has "Skip all (2)" next to "Move all to today (2)"', !!flowBtns && flowBtns.skip === 'Skip all (2)' && flowBtns.today === 'Move all to today (2)' && flowBtns.sameLine && flowBtns.order, JSON.stringify(flowBtns));
-  check('3: each row has a Done tick (the existing round tick) and no repeating day is listed', (await I.exists(inFlow('Mark Missed two done'))) && !(await I.exists(`document.querySelector('[data-flow] [data-missed-row="gym"]')`)));
-  const rawBefore = JSON.stringify(tasks());
+  check('3: Plan my day\'s folded line counts the two left, and no repeating day', (await I.js(`document.querySelector('[data-plan-earlier]')?.getAttribute('data-plan-earlier') ?? null`)) === '2');
   await I.shot(`p46-planning-${mode}`);
-  await I.click(`document.querySelector('[data-flow] [data-missed-skip-all]')`, 500);
-  check('3: Skip all is a draft: the rows are ticked, an Undo shows for a few seconds, nothing is stored yet', (await I.exists(inFlow('Mark Missed two not done'))) && (await I.exists(`document.querySelector('[data-flow] [data-missed-undo]')`)) && JSON.stringify(tasks()) === rawBefore);
-  await I.click(`document.querySelector('[data-flow] [data-missed-undo-btn]')`, 500);
-  check('3: Undo unticks them', (await I.exists(inFlow('Mark Missed two done'))) && !(await I.exists(`document.querySelector('[data-flow] [data-missed-undo]')`)) && JSON.stringify(tasks()) === rawBefore);
-  await I.click(`document.querySelector('[data-flow] [data-missed-skip-all]')`, 500);
-  for (let i = 0; i < 3; i++) await I.click(inFlow('Next step'), 400);
-  await I.click(inFlow('Finish'), 1000);
+  await I.click(`document.querySelector('[data-plan-earlier]')`, 900);
+  check('3: it opens Earlier with the two', JSON.stringify(await rows()) === JSON.stringify(['m2', 'm3']), JSON.stringify(await rows()));
+  await I.click(`document.querySelector('[data-earlier-tick-all]')`, 1200);
   await C.waitFor(() => byId('m2').completed === true && byId('m3').completed === true, 5000).catch(() => {});
-  check('3: Finish writes them done on their own days (Day kept, nothing rolled to today, nothing deleted)', ['m2', 'm3'].every((id) => byId(id).completed && localDay(byId(id).completedAt) === byId(id).dueDate && !byId(id).deletedAt) && byId('m2').dueDate === dk(-2) && byId('m3').dueDate === dk(-1), JSON.stringify(['m2', 'm3'].map(byId)));
+  check('3: Tick all writes them done on their own days (Day kept, nothing rolled to today, nothing deleted)', ['m2', 'm3'].every((id) => byId(id).completed && localDay(byId(id).completedAt) === byId(id).dueDate && !byId(id).deletedAt) && byId('m2').dueDate === dk(-2) && byId('m3').dueDate === dk(-1), JSON.stringify(['m2', 'm3'].map(byId)));
+  await I.key('Escape', [], 900);
+  check('3: closing Earlier comes back to Plan my day, with no folded line left', (await flowOpen()) && !(await I.exists(`document.querySelector('[data-plan-earlier]')`)));
+  await I.click(inFlow('Done'), 800);
   check('3: the repeating Gym rows and the other tasks are untouched', JSON.stringify(tasks().filter((t) => t.id === 'gym' || t.id.startsWith('gym:'))) === gymBefore && byId('t1').dueDate === today && !byId('t1').completed);
-  check('3: nothing is missed any more: the pill shows 0', (await badge()) === '0', String(await badge()));
+  check('3: nothing is waiting any more: the pill shows 0', (await badge()) === '0', String(await badge()));
 
   app.exit(summary() === 0 ? 0 : 1);
 }

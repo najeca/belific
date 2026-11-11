@@ -22,6 +22,9 @@ export interface DesktopSettings {
   // F3 of PLAN_daily_flow: "Remind me to wrap up", off by default, and its time. Per computer, never synced.
   wrapReminder?: boolean;
   wrapTime?: string;
+  // F4: "Remind me to plan my day", off by default, and its time. Per computer, never synced.
+  planReminder?: boolean;
+  planTime?: string;
   // Part B (P5): the reminders a timed task gets unless it has its own list, as whole minutes
   // before the start (0 = at the start). Per computer, never synced.
   defaultReminders: number[];

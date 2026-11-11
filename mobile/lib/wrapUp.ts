@@ -92,7 +92,8 @@ export function buttonsFor(item: WrapItem): WrapButtons {
 export const stepsButton = (n: number): string => (n === 1 ? 'Only the 1 step left to tomorrow' : `Only the ${n} steps left to tomorrow`);
 
 // What a decided row folds to ("Tomorrow · Undo").
-export type WrapChoice = 'tomorrow' | 'list' | 'letGo' | 'skip' | 'steps' | 'today' | 'done';
+// F4: 'notToday' (Plan my day's untick of a one off task: back to its list), 'skipToday' (of a repeating day), 'addToday'.
+export type WrapChoice = 'tomorrow' | 'list' | 'letGo' | 'skip' | 'steps' | 'today' | 'done' | 'notToday' | 'skipToday' | 'addToday';
 export function choiceText(c: WrapChoice): string {
   if (c === 'tomorrow') return 'Tomorrow';
   if (c === 'list') return 'Back to its list';
@@ -100,6 +101,9 @@ export function choiceText(c: WrapChoice): string {
   if (c === 'skip') return 'Let go for today, it repeats';
   if (c === 'steps') return 'The steps left go to tomorrow';
   if (c === 'today') return 'Today';
+  if (c === 'notToday') return 'Not today, back to its list';
+  if (c === 'skipToday') return 'Skipped today, it repeats';
+  if (c === 'addToday') return 'Added to today';
   return 'Done on its own day';
 }
 

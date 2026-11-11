@@ -393,6 +393,23 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               <Text style={styles.hint}>
                 One quiet notification per day for tasks with a Day but no time. Event and task notifications fire at their start time.
               </Text>
+              {/* F4 of PLAN_daily_flow: the morning note, off by default; a click opens Plan my day. */}
+              <ToggleRow label="Remind me to plan my day" value={!!prefs.planReminder} onChange={(v) => setPref({ planReminder: v })} />
+              {prefs.planReminder && (
+                <View style={styles.timeRow}>
+                  <Text style={styles.body}>Remind me at</Text>
+                  <input
+                    type="time"
+                    value={prefs.planTime ?? '08:00'}
+                    onChange={(e) => {
+                      if (/^\d{2}:\d{2}$/.test(e.target.value)) setPref({ planTime: e.target.value });
+                    }}
+                    style={domStyle}
+                    aria-label="Plan my day reminder time"
+                  />
+                </View>
+              )}
+              <Text style={styles.hint}>One calm note in the morning: "Time to plan your day, if you like." A click opens Plan my day.</Text>
               {/* F3 of PLAN_daily_flow: the evening note, off by default; a click opens Wrap up. */}
               <ToggleRow label="Remind me to wrap up" value={!!prefs.wrapReminder} onChange={(v) => setPref({ wrapReminder: v })} />
               {prefs.wrapReminder && (

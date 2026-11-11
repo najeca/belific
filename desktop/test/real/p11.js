@@ -201,25 +201,8 @@ async function run() {
   // The details of a new typed task open by themselves (2.27.0): close them.
   if (await modalOpen()) await closeModal();
   await I.blur();
-  // The Planning flow: an estimate is a draft until Finish.
-  const inFlow = (l) => `document.querySelector('[data-flow] [aria-label=${JSON.stringify(l)}]')`;
-  await I.key('P', ['control', 'shift']);
-  await C.waitFor(() => I.exists(`document.querySelector('[data-flow]')`), 4000).catch(() => {});
-  await I.click(inFlow('Next step'), 500);
-  const flowDd = `document.querySelector('[data-flow] [data-duration-select="Estimated time for Plain task"]')`;
-  check('2: Planning has the same drop-down on each task for today', await I.exists(flowDd));
-  await I.click(flowDd, 400);
-  await I.click(`document.querySelector('[data-popover] [aria-label="Estimated time for Plain task 45 min"]')`, 400);
-  check('2: in Planning it is a draft (nothing stored yet)', byId('t2').durationMinutes === undefined && (await ddText(flowDd)) === '45 min');
-  await I.click(flowDd, 400);
-  await I.key('Escape');
-  await C.sleep(300);
-  check('2: Escape in the drop-down closes only the drop-down, not the flow', (await I.exists(`document.querySelector('[data-flow]')`)) && !(await I.exists('document.querySelector("[data-popover]")')));
-  await I.click(inFlow('Next step'), 500);
-  await I.click(inFlow('Next step'), 500);
-  await I.click(inFlow('Finish'), 1000);
-  await C.waitFor(() => byId('t2').durationMinutes === 45, 4000).catch(() => {});
-  check('2: Finish stores it (45 minutes)', byId('t2').durationMinutes === 45);
+  // 3.43.0 (F4 of PLAN_daily_flow, changed on purpose): Plan my day is one screen with no estimate drop-down; the
+  // estimate is set on the card or in the details, as above.
 
   // ======== 3. The list on the card ========
   // 3.40.0 (F1 of PLAN_daily_flow, changed on purpose): a card on the board shows the LIST (emoji and name) on line 1, after
@@ -227,7 +210,7 @@ async function run() {
   const metaOf = (expr) => I.js(`(() => { const m0 = (${expr}).querySelector('[data-card-meta]'); if (!m0) return null; const m = m0.querySelector('[data-card-meta-line="1"]') || m0; const dot = m.querySelector('[data-card-label] > div'); const lab = m.querySelector('[data-card-label]'); return { first: m.querySelector('[data-card-list-emoji]') ? m.querySelector('[data-card-list-emoji]').textContent : null, emoji: (m.querySelector('[data-card-list-emoji]') || {}).textContent || null, list: (m.querySelector('[data-card-list-name]') || {}).textContent || null, labelText: lab ? lab.textContent : null, dotBg: dot ? getComputedStyle(dot).backgroundColor : null, tip: lab ? lab.getAttribute('aria-label') : null, chip: lab ? lab.textContent : null, size: m.querySelector('[data-card-list-name]') ? parseFloat(getComputedStyle(m.querySelector('[data-card-list-name]')).fontSize) : null }; })()`);
   const m1 = await metaOf(card(today, 'Modal task'));
   check('3: a card shows its list: the emoji and the name', !!m1 && m1.emoji === '🎲' && m1.list === 'Games', JSON.stringify(m1));
-  check('3: the label is only a dot in its colour (no name on the card); its name is the dot's tooltip', !!m1 && m1.labelText === '' && m1.dotBg === 'rgb(111, 143, 126)' && m1.tip === 'Label: Work', JSON.stringify(m1));
+  check('3: the label is only a dot in its colour (no name on the card); its name is the dot\'s tooltip', !!m1 && m1.labelText === '' && m1.dotBg === 'rgb(111, 143, 126)' && m1.tip === 'Label: Work', JSON.stringify(m1));
   const m4 = await metaOf(card(today, 'No emoji list'));
   check('3: a list with no emoji shows its name alone (not the default list emoji)', !!m4 && m4.emoji === null && m4.list === 'Plain list' && m4.tip === 'Label: Home', JSON.stringify(m4));
   // Changed on purpose in 3.14.1: a task in Brain Dump shows its brain, and now its name.

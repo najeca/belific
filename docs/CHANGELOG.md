@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 3.43.0 — 2026-11-11 (Daily flow, F4: Plan my day on one screen, the morning note; PLAN_daily_flow)
+
+**Desktop. No schema change, no migration, no data change: every button writes existing fields and the usual tombstones. The phone is unchanged.**
+- **Plan my day is one screen** (`components/desktop/PlanMyDay.tsx`; rules `lib/planDay.ts`; writes `lib/wrapActions.ts` `notToday` and `addToday`), from the Plan button or Ctrl+Shift+P. It takes the place of the left pane and the centre while it is open; **the real Timebox stays on the right**, docked and on today. One main button, **Done**, which only closes; there is no draft, no Cancel, no Next and nothing moves on Done (the four steps, `planningDraft.ts`, `planningActions.finishFlow`, `PlanningFlow.tsx` and `MissedList.tsx` are gone).
+  - **On today:** the day's stored and repeating tasks by time; a done one shows as done. **A shift is one item**, with what is inside it folded into its line ("2 inside · 1 to do"); its inside blocks are not rows of their own. Each task has a ticked box: **unticking** a one off task sends it back to its list (Day and time cleared); unticking a repeating task **skips it today** (the usual skip tombstone; its other days stay). The foot says "Planned 11h 15m" (a shift once).
+  - **Add to today:** one picker, Brain Dump first, then each list by name, with a **Today** button on each task that has no Day. Below it, **Repeating, not on today**: each repeating task whose next day is not today, with "next: Fri 14 Nov"; Today moves that one day here (Move this day).
+  - **The Timebox:** drag any row onto it to give it today and a time (the existing drag and drop, one gesture, Ctrl+Z). A task left alone stays untimed.
+  - **Earlier days** are one folded line, "3 from earlier days" (never "missed"), which opens the Earlier panel; closing it comes back to Plan my day.
+  - **Saves as you go (D1):** each button is one gesture and folds its row ("Added to today", "Not today, back to its list", "Skipped today, it repeats") with its own Undo; Ctrl+Z and Ctrl+Y work on the screen. Today or Tomorrow being an away day is one line at the top.
+  - Words 14 px or more, buttons always visible, nothing red.
+- **Morning note (optional):** Settings, Notifications, **Remind me to plan my day**, off by default, at 08:00 unless changed, next to Remind me to wrap up. One calm toast, "Time to plan your day, if you like." (no count, ever); a click opens Plan my day (`scheduler.js` kind `plan`, `settings.js` `planReminder` and `planTime`, `notify:open`). A per computer setting.
+- **Tests changed on purpose:** new planDay.test.ts (3); planningDraft.test.ts removed with the draft; scheduler.test.js (+1: the morning note; the defaults); easConfig.test.ts (version); real: new p59 (29 checks: one screen, the Timebox beside it, a shift as one item, skipping a repeating task today and its Undo, a one off task back to its list and Ctrl+Z, Today from Brain Dump and from a list, a repeating task's next day, a drag onto the Timebox and Ctrl+Z, the planned figure, the earlier line and back, Done, Ctrl+Shift+P, Escape, the morning note setting), p5 (sections 1 to 3 are now Plan my day on one screen), p46 (the earlier days line in Plan my day opens Earlier), p56 (Plan my day has no steps); pointer only p10 (the earlier line, the away line) and p11 (the flow's estimate drop-down is gone; and an apostrophe that stopped p11 from parsing since 3.40.0 is escaped) (not run in quiet mode).
+
 ## 3.42.0 — 2026-11-11 (Daily flow, F3: Wrap up on one screen, the Earlier panel, past days on the board; PLAN_daily_flow)
 
 **Desktop. No schema change, no migration, no data change: every button writes existing fields and the usual tombstones. The phone is unchanged.**

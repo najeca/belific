@@ -311,12 +311,10 @@ async function run() {
     await I.key('P', ['control', 'shift']);
     await C.waitFor(() => I.exists(`document.querySelector('[data-flow]')`), 4000).catch(() => {});
   };
-  // Daily Planning (the flow) lists no repeating day either; p46 covers Done, Skip all and the setting.
-  await I.blur();
-  await I.key('P', ['control', 'shift']);
-  await C.waitFor(() => I.exists(`document.querySelector('[data-flow]')`), 4000).catch(() => {});
-  check('6: Daily Planning lists no repeating Gym day', (await I.js(`document.querySelectorAll('[data-flow] [data-missed-row^="gym"]').length`)) === 0);
-  await I.click(`document.querySelector('[data-flow] [aria-label="Cancel and change nothing"]')`, 600);
+  // F4 (3.43.0): Plan my day shows earlier days as one folded line; nothing is left and no Gym day is counted.
+  await openPlanning();
+  check('6: Plan my day has no earlier days line left (no repeating Gym day counted)', !(await I.exists(`document.querySelector('[data-plan-earlier]')`)));
+  await I.click(inFlow('Done'), 600);
 
   // ======== 7. Late timed tasks ========
   // "Late one" was placed at 00:00 for 15 minutes today (late from 00:15 on).
@@ -376,8 +374,8 @@ async function run() {
   await C.waitFor(() => awayRow(day(1))?.value === '1', 4000).catch(() => {});
   check('8: Leave them here marks the day and moves nothing', awayRow(day(1))?.value === '1' && byTitle('Fresh one')?.dueDate === day(1));
   await openPlanning();
-  check('8: Daily Planning shows the away day', (await I.js(`document.querySelector('[data-flow-away]')?.innerText ?? ''`)).includes('Tomorrow is an away day'));
-  await I.click(inFlow('Cancel and change nothing'), 600);
+  check('8: Plan my day shows the away day', (await I.js(`document.querySelector('[data-flow-away]')?.innerText ?? ''`)).includes('Tomorrow is an away day'));
+  await I.click(inFlow('Done'), 600);
   await I.click(dayMenu(day(1)), 400);
   await I.click(`[...document.querySelectorAll('[role="button"]')].find((b) => (b.getAttribute('aria-label') || '').startsWith('Not away on'))`, 600);
   await C.waitFor(() => awayRow(day(1))?.value === '0', 4000).catch(() => {});

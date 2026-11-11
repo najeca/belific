@@ -48,9 +48,9 @@ const notify = {
     ipcRenderer.on('notify:tick', handler);
     return () => ipcRenderer.removeListener('notify:tick', handler);
   },
-  // F3 of PLAN_daily_flow: a click on the evening note asks the page to open Wrap up.
+  // F3 and F4 of PLAN_daily_flow: a click on the evening note opens Wrap up, on the morning note Plan my day.
   onOpen: (listener) => {
-    const handler = (_e, what) => listener(what === 'wrap' ? 'wrap' : '');
+    const handler = (_e, what) => listener(what === 'wrap' || what === 'plan' ? what : '');
     ipcRenderer.on('notify:open', handler);
     return () => ipcRenderer.removeListener('notify:open', handler);
   },

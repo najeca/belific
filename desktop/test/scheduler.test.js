@@ -254,7 +254,7 @@ test('plan is pure: it never mutates its inputs', () => {
 // ----- settings -----
 
 test('settings: defaults, validation and persistence', async () => {
-  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', wrapReminder: false, wrapTime: '18:00', defaultReminders: [0], dayStart: '05:00', showStreaks: true, vibrantColours: true, theme: 'light', closeToTray: true, startWithWindows: false, trayNoteShown: false });
+  assert.deepEqual({ ...DEFAULTS }, { notifyEvents: true, notifyTasks: true, dailyReminder: true, dailyTime: '09:00', wrapReminder: false, wrapTime: '18:00', planReminder: false, planTime: '08:00', defaultReminders: [0], dayStart: '05:00', showStreaks: true, vibrantColours: true, theme: 'light', closeToTray: true, startWithWindows: false, trayNoteShown: false });
   const s = sanitize({ dailyTime: '25:00', closeToTray: 'yes', startWithWindows: true, evil: 1, dailyReminder: false });
   assert.equal(s.dailyTime, '09:00');
   assert.equal(s.closeToTray, true);
@@ -581,4 +581,19 @@ test('F3: the wrap up note is off by default; on, one a day at its time, no coun
   assert.deepEqual(r.shown.filter((n) => n.kind === 'wrap'), [{ kind: 'wrap', key: `wrap:${day(0, r.now)}`, title: 'Belific', body: 'Time to wrap up the day, if you like.' }]);
   assert.equal(sanitize({ wrapTime: '7pm' }).wrapTime, '18:00');
   assert.equal(sanitize({ wrapReminder: true, wrapTime: '21:30' }).wrapTime, '21:30');
+});
+
+// ----- F4 of PLAN_daily_flow: the morning note -----
+
+test('F4: the plan my day note is off by default; on, one a day at its time, no count in it', () => {
+  const off = rig();
+  off.sched.update({});
+  assert.equal(off.sched.pending().filter((p) => p.kind === 'plan').length, 0);
+  const r = rig({ now: Date.UTC(2026, 9, 6, 6, 0), settings: { ...S, planReminder: true, planTime: '08:00' } });
+  r.sched.update({});
+  assert.deepEqual(r.sched.pending().filter((p) => p.kind === 'plan').map((p) => p.key), [`plan:${day(0, r.now)}`, `plan:${day(1, r.now)}`]);
+  r.advance(2 * H + M);
+  assert.deepEqual(r.shown.filter((n) => n.kind === 'plan'), [{ kind: 'plan', key: `plan:${day(0, r.now)}`, title: 'Belific', body: 'Time to plan your day, if you like.' }]);
+  assert.equal(sanitize({ planTime: 'early' }).planTime, '08:00');
+  assert.equal(sanitize({ planReminder: true, planTime: '07:30' }).planTime, '07:30');
 });

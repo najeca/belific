@@ -10,6 +10,8 @@ in words a beginner understands at once.
 
 ## 0. Today in six lines
 
+Paths below are under `mobile/` (for example `lib/series.ts` is `mobile/lib/series.ts`).
+
 1. **Repeating tasks** (`lib/series.ts`, decision 023). A series is every row whose id is `root` or `root:YYYY-MM-DD`
    (`lib/recurrence.ts` `rootTaskId`, `nextOccurrenceId`). The **root row** is the first one; a **stored day row**
    exists only when a day was ticked, moved, skipped (a tombstone) or changed "This day only". The **template** is the
@@ -55,7 +57,7 @@ in words a beginner understands at once.
 ### 2.1 What the person sees
 
 - One date field in the details, under Repeat: **Repeat until** with "No end" as its empty state and a visible
-  **Clear** button. Plain wording on the repeat line: "Mon to Thu, until Fri 18 Dec".
+  **Clear** button. Plain wording on the repeat line: "Mon to Thu, until Thu 17 Dec".
 - The date is **the last day it happens** (inclusive). Example: a boot camp repeating Monday to Thursday, until
   Thursday 17 December. Nothing shows from Friday 18 December on.
 - **Days after the end are hidden, not deleted.** No row is tombstoned or rewritten when the date is set. Clearing the

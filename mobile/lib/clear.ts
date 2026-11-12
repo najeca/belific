@@ -13,7 +13,7 @@
 //   * A shift takes what is inside it along (shifts.ts insideItemsOf, the day after midnight too), and counts as one.
 import type { Task } from './types.ts';
 import { addDays, dateKey, formatShortDate, parseDateKey } from './kanban.ts';
-import { projectOccurrences } from './series.ts';
+import { isGone, projectOccurrences } from './series.ts';
 import { rootTaskId } from './recurrence.ts';
 import { isSeriesRow } from './rollover.ts';
 import { insideItemsOf } from './shifts.ts';
@@ -51,7 +51,7 @@ export interface ClearPlan {
 
 export const defaultMode = (t: ClearTarget): ClearMode => (t.kind === 'list' ? 'trash' : t.kind === 'label' ? 'off' : 'unplan');
 
-const open = (t: Task) => !t.deletedAt && !t.completed && !t.cutsBelow;
+const open = (t: Task) => !isGone(t) && !t.completed && !t.cutsBelow;
 
 function daysAhead(todayKey: string, n: number): string[] {
   const d = parseDateKey(todayKey);

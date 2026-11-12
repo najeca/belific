@@ -12,7 +12,7 @@
 // occurrence was only ever projected, so a night shift does not look empty.
 import type { Task } from './types.ts';
 import { addDays, dateKey, parseDateKey } from './kanban.ts';
-import { projectOccurrences } from './series.ts';
+import { isGone, projectOccurrences } from './series.ts';
 import { continuationOf } from './timebox.ts';
 import { timeViews } from './times.ts';
 
@@ -31,7 +31,7 @@ export function tasksForTimebox(tasks: Task[], dayKey: string, todayKey: string)
   const own: DayTask[] = [];
   const spill: DayTask[] = [];
   for (const t of tasks) {
-    if (t.deletedAt) continue;
+    if (isGone(t)) continue;
     if (t.dueDate === dayKey) own.push({ task: t, projected: false });
     else if (t.dueDate === prevKey && continues(t)) spill.push({ task: t, projected: false });
   }

@@ -9,7 +9,7 @@ import { dateKey } from '../../lib/kanban';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
 import { BREAK_CUP, BREAK_TAG } from '../../lib/taskKind';
 import { tipRef } from './tip';
-import { movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
+import { isLastDay, LAST_DAY, movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
 import { duringCaption } from '../../lib/hosting';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
@@ -119,6 +119,7 @@ export default function TaskCard({
           projected: ops.series.projected,
           skipDay: () => run(() => ops.series!.skipDay()),
           deleteSeries: () => run(() => ops.series!.deleteSeries()),
+          setUntil: (k) => run(() => ops.series!.setUntil(k)),
         }
       : undefined,
   };
@@ -258,13 +259,15 @@ export default function TaskCard({
   const dayText = showDay && task.dueDate ? dayLabel(task.dueDate, todayKey) : null;
   // 3.3.0: a day of a repeating task moved on its own says where it came from.
   const moved = movedCaption(task);
+  // R2: the last day of a repeating task with an end date says so, quietly.
+  const lastDay = !!task.dueDate && isLastDay(task, task.dueDate);
   // 3.15.2: the start time lives in the meta line only (with the day when it is shown); the bold figure at the top
   // right is the length, on every card.
   const whenText = [dayText, placed ? timesLabel(task) : null].filter(Boolean).join(' · ');
   const lengthText = formatDuration(task.durationMinutes);
   const isBreak = !!task.cutsBelow;
-  const hasLine2 = !!whenText || steps.total > 0 || mustDo || !!moved || !!during || isBreak;
-  const hasMeta = isBreak || !!whenText || !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || !!during;
+  const hasLine2 = !!whenText || steps.total > 0 || mustDo || !!moved || lastDay || !!during || isBreak;
+  const hasMeta = isBreak || !!whenText || !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || lastDay || !!during;
 
   return (
     <HoverPressable
@@ -396,6 +399,11 @@ export default function TaskCard({
                         {...({ dataSet: { movedFrom: movedFrom(task) } } as object)}
                       >
                         ↪ {moved}
+                      </Text>
+                    )}
+                    {lastDay && (
+                      <Text style={styles.lastDay} {...({ dataSet: { lastDay: '1' } } as object)}>
+                        {LAST_DAY}
                       </Text>
                     )}
                     {steps.total > 0 && (
@@ -578,6 +586,7 @@ const styles = StyleSheet.create({
   // The day and time: bold, in the text colour (the label name beside it is the quiet grey).
   metaDay: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
   metaNote: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
+  lastDay: { fontSize: 14, fontWeight: '500', color: Colors.textSecondary },
   breakTag: { height: 20, paddingHorizontal: 7, borderRadius: radius.square, backgroundColor: Colors.surfaceRaised, justifyContent: 'center' },
   breakTagText: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
   hostCaption: { fontSize: 13, fontWeight: '600', color: Colors.onHostPill, flexShrink: 1 },

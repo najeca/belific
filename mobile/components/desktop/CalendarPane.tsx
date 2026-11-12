@@ -51,7 +51,7 @@ import { formatDuration } from '../../lib/duration';
 import { tasksForTimebox, type DayTask } from '../../lib/timeboxTasks';
 import { isQuickReminder, splitReminders } from '../../lib/quickReminder';
 import ReminderBubbles from './ReminderBubbles';
-import { movedCaption, movedCaptionLong, projectOccurrences } from '../../lib/series';
+import { isGone, movedCaption, movedCaptionLong, projectOccurrences } from '../../lib/series';
 import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
 import { calendarTitle, minutesOfDay, monthGrid, nowLineTop, splitAllDay, stepAnchor, visibleDayKeys } from '../../lib/calendarView';
 import type { CalendarView } from '../../lib/paneState';
@@ -486,7 +486,7 @@ export default function CalendarPane({
     if (effView !== 'month') return new Map<string, Task[]>();
     const map = new Map<string, Task[]>(keys.map((k) => [k, []]));
     for (const t of tasks) {
-      if (t.deletedAt || !t.dueDate || !map.has(t.dueDate) || !taskVisible(t, filter)) continue;
+      if (isGone(t) || !t.dueDate || !map.has(t.dueDate) || !taskVisible(t, filter)) continue;
       map.get(t.dueDate)!.push(t);
     }
     for (const t of projectOccurrences(tasks, keys, todayKey)) {

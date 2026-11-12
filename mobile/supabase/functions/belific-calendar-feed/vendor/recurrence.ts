@@ -65,7 +65,16 @@ function nextChosenDay(base: Date, days: WeekDay[], anchor: Date, period: number
 // today, not a date that is already gone. Two devices completing on the same
 // day agree on the id; if they complete on different days they could create
 // two different next occurrences, which is accepted.
+// R2: no next day after the end date (E1: the end date is the last day it happens).
 export function nextOccurrence(
+  task: { dueDate?: string; recurrence?: RecurrenceRule; recurrenceDays?: WeekDay[]; recurrenceMonthDay?: number; repeatUntil?: string },
+  todayKey: string,
+): string | null {
+  const next = nextOccurrenceByRule(task, todayKey);
+  return next && isDateKey(task.repeatUntil) && next > task.repeatUntil ? null : next;
+}
+
+function nextOccurrenceByRule(
   task: { dueDate?: string; recurrence?: RecurrenceRule; recurrenceDays?: WeekDay[]; recurrenceMonthDay?: number },
   todayKey: string,
 ): string | null {

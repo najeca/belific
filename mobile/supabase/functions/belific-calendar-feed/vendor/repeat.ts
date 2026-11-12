@@ -332,3 +332,30 @@ export function shortRepeat(
       return undefined;
   }
 }
+
+// R2 (PLAN_repeat_end_and_parts): a run of three or more days in a row reads "Mon to Thu"; others as before.
+export function dayRun(days: WeekDay[]): string {
+  const list = sortDays(days);
+  const first = WEEK_ORDER.indexOf(list[0]);
+  const inRow = list.length >= 3 && list.every((d, i) => WEEK_ORDER.indexOf(d) === first + i);
+  return inRow ? `${list[0]} to ${list[list.length - 1]}` : list.join(' ');
+}
+
+// The repeat line of the details (R2): the short form, with "Mon to Thu" for days in a row, and the end date when
+// there is one: "Mon to Thu, until Thu 17 Dec".
+export function repeatLine(
+  task: Pick<Task, 'recurrence' | 'recurrenceDays' | 'recurrenceMonthDay' | 'dueDate'> & Partial<Pick<Task, 'repeatUntil'>>,
+  todayKey: string,
+): string | undefined {
+  const days = effectiveDays(task, todayKey);
+  const base =
+    task.recurrence === 'weekly'
+      ? dayRun(days)
+      : task.recurrence === 'biweekly'
+        ? `Every 2 wks ${dayRun(days)}`
+        : task.recurrence === 'triweekly'
+          ? `Every 3 wks ${dayRun(days)}`
+          : shortRepeat(task, todayKey);
+  if (!base) return undefined;
+  return isDateKey(task.repeatUntil) ? `${base}, until ${formatDayLabel(task.repeatUntil)}` : base;
+}

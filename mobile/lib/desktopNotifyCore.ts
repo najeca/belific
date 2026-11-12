@@ -1,5 +1,5 @@
 import type { NotifyPayload } from './kv';
-import { projectOccurrences } from './series.ts';
+import { isAfterEnd, projectOccurrences } from './series.ts';
 import { normalizeReminders } from './reminder.ts';
 import { doneTimesOf, timesOf } from './times.ts';
 import { isQuickReminder } from './quickReminder.ts';
@@ -38,6 +38,8 @@ interface TaskLike {
   completedAt?: string;
   // Tombstones are passed in too: a skipped day blocks its projection.
   deletedAt?: string;
+  // R2: an open day after its series' end date is hidden (no reminder).
+  repeatUntil?: string;
   // F6: 0 with a Day and a time is a quick reminder.
   durationMinutes?: number;
 }
@@ -70,7 +72,7 @@ export function buildNotifyPayload(events: EventLike[], tasks: TaskLike[], now: 
   }
   const windowDays = new Set(windowList);
   const add = (t: TaskLike) => {
-    if (t.completed || t.deletedAt || !t.dueDate) return;
+    if (t.completed || t.deletedAt || !t.dueDate || isAfterEnd(t)) return;
     if (t.startTime) {
       // One entry per time that is still to do (the first has no `slot`, so its reminders keep their keys).
       const times = timesOf(t);

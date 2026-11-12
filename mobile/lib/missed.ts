@@ -11,7 +11,7 @@
 // (a day not done still reads as not done in the streak, quietly, as before).
 // Must do first, then the oldest day first, then by title.
 import type { Task } from './types.ts';
-import { isDateKey, parseDateKey } from './kanban.ts';
+import { isAfterEndRow, isDateKey, parseDateKey } from './kanban.ts';
 import { isSeriesRow } from './rollover.ts';
 import { isMustDo } from './mustDo.ts';
 import { isQuickReminder } from './quickReminder.ts';
@@ -26,7 +26,7 @@ export interface MissedItem {
 export function isMissedTask(t: Task, todayKey: string): boolean {
   // A Break is a free gap, not a task to do: it is never missed (PLAN_breaks_as_gaps, P1). F6: nor is a quick reminder
   // (it has done its job once it has notified; the Calendar still shows its bubble on that day).
-  return !t.deletedAt && !t.completed && !t.cutsBelow && !isQuickReminder(t) && isDateKey(t.dueDate) && t.dueDate < todayKey && !isSeriesRow(t);
+  return !t.deletedAt && !isAfterEndRow(t) && !t.completed && !t.cutsBelow && !isQuickReminder(t) && isDateKey(t.dueDate) && t.dueDate < todayKey && !isSeriesRow(t);
 }
 
 export function missedItems(tasks: Task[], todayKey: string): MissedItem[] {

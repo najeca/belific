@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { isLastDay, LAST_DAY } from '../../lib/series';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
@@ -184,7 +185,11 @@ function DayItem({ item }: { item: WrapItem }) {
         {t.title}
         {item.series ? ' ↻' : ''}
       </Text>
-      {time ? <Text style={wrap.meta}>{time}</Text> : null}
+      {time || (t.dueDate && isLastDay(t, t.dueDate)) ? (
+        <Text style={wrap.meta} {...({ dataSet: { weekLastDay: t.dueDate && isLastDay(t, t.dueDate) ? '1' : '0' } } as object)}>
+          {[time, t.dueDate && isLastDay(t, t.dueDate) ? LAST_DAY : ''].filter(Boolean).join(' · ')}
+        </Text>
+      ) : null}
     </View>
   );
 }

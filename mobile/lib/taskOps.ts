@@ -2,6 +2,7 @@ import { completeTaskById, editDumpItem, patchTask, setTimeDoneById, toggleSubta
 import {
   completeProjected,
   deleteSeries,
+  setRepeatUntil,
   editRepeatingTime,
   endSeries,
   moveDay,
@@ -42,6 +43,8 @@ export interface SeriesOps {
   projected: boolean;
   skipDay(): Promise<void>;
   deleteSeries(): Promise<void>;
+  // R2: "End repeat here" (this day is the last) and the Repeat until field (undefined clears it).
+  setUntil(untilKey: string | undefined): Promise<void>;
 }
 
 // A stored task. A repeating one also gets the series actions, and setting it
@@ -72,7 +75,7 @@ export function opsForTask(task: Task): TaskOps {
     toggleSubtask: (sid) => toggleSubtaskById(task.id, sid),
     remove: () => deleteTask(task.id),
     ...(repeating
-      ? { series: { projected: false, skipDay: () => skipOccurrence(task), deleteSeries: () => deleteSeries(task) } }
+      ? { series: { projected: false, skipDay: () => skipOccurrence(task), deleteSeries: () => deleteSeries(task), setUntil: (k) => setRepeatUntil(task, k) } }
       : {}),
   };
 }
@@ -114,7 +117,7 @@ export function opsForProjected(task: Task): TaskOps {
     setTimeDone: (time, done) => tickTimeProjected(task, time, done),
     toggleSubtask: (sid) => toggleProjectedSubtask(task, sid),
     remove: () => skipOccurrence(task),
-    series: { projected: true, skipDay: () => skipOccurrence(task), deleteSeries: () => deleteSeries(task) },
+    series: { projected: true, skipDay: () => skipOccurrence(task), deleteSeries: () => deleteSeries(task), setUntil: (k) => setRepeatUntil(task, k) },
   };
 }
 

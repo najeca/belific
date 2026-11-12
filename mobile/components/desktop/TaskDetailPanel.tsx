@@ -5,7 +5,7 @@ import { Colors } from '../../lib/theme';
 import { isDateKey } from '../../lib/kanban';
 import { addSubtask, counterLabel, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { generateId } from '../../lib/data';
-import { idDate, movedCaptionLong, projectOccurrences } from '../../lib/series';
+import { endTooEarlyText, idDate, movedCaptionLong, projectOccurrences, seriesOf } from '../../lib/series';
 import { reminderHint, taskRemindersLabel } from '../../lib/reminder';
 import { useDefaultReminders } from './reminderStore';
 import { effectiveListKey } from '../../lib/lists';
@@ -34,11 +34,13 @@ import EmojiField from './EmojiField';
 import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
+import { MonthGrid } from './ui';
 import { LabelBody, MoveToDayBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import { labelColor } from '../../lib/labelColors';
 import StreakLine from './StreakLine';
-import { shortRepeat } from '../../lib/repeat';
-import { dateKey } from '../../lib/kanban';
+import { repeatLine } from '../../lib/repeat';
+import { rootTaskId } from '../../lib/recurrence';
+import { dateKey, formatDayLabel } from '../../lib/kanban';
 import { movesOneDay, opsForProjected, opsForTask, withoutDay, type TaskOps } from './taskOps';
 import { moveDay } from '../../lib/seriesActions';
 import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
@@ -84,6 +86,8 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
   const [fit, setFit] = useState<ReturnType<typeof fitInsideFor>>(null);
   // Shifts S3: what is inside this task on its day (the same summary, progress and rows as its Kanban card).
   const [shift, setShift] = useState<ShiftInfo | null>(null);
+  // R2: the first day of the series (an end date can not be before it).
+  const [seriesStart, setSeriesStart] = useState<string | undefined>(undefined);
   const cutMin = useCutMin();
 
   useEffect(() => {
@@ -133,6 +137,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     }
     setTask(found);
     setProjected(proj);
+    setSeriesStart(found?.recurrence ? seriesOf(tasks, rootTaskId(found.id))?.startKey : undefined);
     setLinks(found && found.dueDate ? hostLinks(tasks, found.dueDate, dateKey(new Date())) : []);
     setFit(found ? fitInsideFor(tasks, found, dateKey(new Date())) : null);
     setShift(found && found.dueDate && !found.cutsBelow ? shiftsOfDay(tasks, found.dueDate, dateKey(new Date()), cutMin).byTask.get(found.id) ?? null : null);
@@ -180,7 +185,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     <View style={styles.layer} {...({ dataSet: { detailLayer: '1' } } as object)}>
       <Pressable style={styles.scrim} onPress={closeDetail} accessibilityLabel="Close the task details" {...({ tabIndex: -1 } as object)} />
       <View style={styles.centre} pointerEvents="box-none">
-        <Panel key={shown.id} task={shown} projected={projected} labels={labels} lists={lists} links={links} fit={fit} shift={shift} draftPatch={task ? undefined : patchDraft} onSaved={() => { if (task) { notifyChanged(); reload(); } }} />
+        <Panel key={shown.id} task={shown} projected={projected} labels={labels} lists={lists} links={links} fit={fit} shift={shift} seriesStart={seriesStart} draftPatch={task ? undefined : patchDraft} onSaved={() => { if (task) { notifyChanged(); reload(); } }} />
       </View>
     </View>
   );
@@ -198,7 +203,7 @@ function blankDraft(id: string, where: NewTaskWhere): Task {
   return t;
 }
 
-function Panel({ task, projected, labels, lists, links, fit, shift, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; fit?: ReturnType<typeof fitInsideFor>; shift?: ShiftInfo | null; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
+function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; fit?: ReturnType<typeof fitInsideFor>; shift?: ShiftInfo | null; seriesStart?: string; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
   const drafting = !!draftPatch;
   const dark = useResolvedTheme() === 'dark';
   const draftOps: TaskOps = {
@@ -523,6 +528,13 @@ function Panel({ task, projected, labels, lists, links, fit, shift, onSaved, dra
           <RepeatField task={task} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
+        {/* R2: Repeat until, the last day it happens (E1). Later days are hidden, not deleted; Clear brings them back. */}
+        {task.recurrence && ops.series ? (
+          <DetailRow icon="flag-outline" label="Repeat until">
+            <RepeatUntilField task={task} start={seriesStart} setUntil={ops.series.setUntil} onSaved={onSaved} />
+          </DetailRow>
+        ) : null}
+
         {/* Shifts S2: no Task or Break choice on the desktop (one kind of block). Free time (made with the Free time tool,
             or an older Break) keeps one plain way back. */}
         {task.cutsBelow ? (
@@ -802,14 +814,56 @@ function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved
         style={[styles.quiet, open && styles.openBg, { alignSelf: 'flex-start' }]}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={`Repeat: ${task.recurrence ? shortRepeat(task, dateKey(new Date())) ?? 'repeats' : 'Does not repeat'}`}
+        accessibilityLabel={`Repeat: ${task.recurrence ? repeatLine(task, dateKey(new Date())) ?? 'repeats' : 'Does not repeat'}`}
       >
-        <Text style={styles.quietText}>{task.recurrence ? shortRepeat(task, dateKey(new Date())) ?? 'Repeats' : 'Does not repeat'}</Text>
+        <Text style={styles.quietText}>{task.recurrence ? repeatLine(task, dateKey(new Date())) ?? 'Repeats' : 'Does not repeat'}</Text>
       </Pressable>
       <Popover id={id} anchor={get} width={300}>
         <RepeatBody task={task} ops={wrapped} done={() => closePopover(true)} />
       </Popover>
     </>
+  );
+}
+
+// R2: the Repeat until field. "No end" when empty; a day picker (nothing before the series' first day); a visible
+// Clear button. The date is the last day it happens; later days are hidden, not deleted.
+function RepeatUntilField({ task, start, setUntil, onSaved }: { task: Task; start?: string; setUntil: (k: string | undefined) => Promise<void>; onSaved: () => void }) {
+  const { ref, get } = usePopoverAnchor();
+  const id = `detail:${task.id}:until`;
+  const open = useIsOpen(id);
+  const until = isDateKey(task.repeatUntil) ? task.repeatUntil : undefined;
+  const min = start ?? (isDateKey(task.dueDate) ? task.dueDate : dateKey(new Date()));
+  const pick = async (key: string | undefined) => {
+    closePopover(true);
+    await setUntil(key);
+    notifyChanged();
+    onSaved();
+  };
+  return (
+    <View style={styles.row} {...({ dataSet: { repeatUntil: until ?? '' } } as object)}>
+      <Pressable
+        ref={ref as never}
+        onPress={() => togglePopover(id, get)}
+        style={[styles.quiet, open && styles.openBg]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`Repeat until: ${until ? formatDayLabel(until) : 'No end'}`}
+      >
+        <Text style={styles.quietText}>{until ? formatDayLabel(until) : 'No end'}</Text>
+      </Pressable>
+      {until ? (
+        <Pressable onPress={() => void pick(undefined)} style={styles.untilClear} accessibilityRole="button" accessibilityLabel="Clear the end date" {...({ dataSet: { untilClear: '1' } } as object)}>
+          <Text style={styles.untilClearText}>Clear</Text>
+        </Pressable>
+      ) : null}
+      <Popover id={id} anchor={get} width={288} maxHeight={560}>
+        <View style={styles.untilBody}>
+          <Text style={styles.plainText}>The last day it happens. Later days are hidden, not deleted.</Text>
+          <Text style={styles.plainText}>{endTooEarlyText(min)}.</Text>
+          <MonthGrid selected={until} min={min} onPick={(key) => void pick(key)} a11y={(key) => `Repeat until ${key}`} />
+        </View>
+      </Popover>
+    </View>
   );
 }
 
@@ -995,6 +1049,9 @@ const styles = StyleSheet.create({
   bigBtnText: { fontSize: 16, fontWeight: '700', color: Colors.onAccent },
   bigBtnTextOn: { color: Colors.onAccent },
   quiet: { paddingHorizontal: 6, height: 36, borderRadius: 8, justifyContent: 'center' },
+  untilClear: { paddingHorizontal: 12, height: 32, borderRadius: 8, borderWidth: 1, borderColor: Colors.borderStrong, justifyContent: 'center' },
+  untilClearText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  untilBody: { padding: 8, gap: 6 },
   // A value in a row: 16/700 in the text colour.
   quietText: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   // A hint: 11px, grey (the study's hint size).

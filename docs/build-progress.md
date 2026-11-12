@@ -943,3 +943,9 @@ Files: `lib/types.ts` (+ vendored feed `types.ts`, types only), `lib/syncCore.ts
 Tests: new repeatParts.test.ts (6); syncEngine +3 (absent, appear later, older build safety); schemaProfile +1; syncCore, repeatPartsSchema, easConfig changed on purpose.
 Gates: tsc clean; mobile 1169/1169; desktop 118/118; iOS markers OK (51, 0 hits); security scan passed. No real checks (none touch sync). Full regression NOT run.
 Next: R2 (Repeat until on screen, including the vendored feed `series.ts` and its redeploy).
+
+## Repeat until and Parts, R2 (2026-11-12): 3.48.0, Repeat until
+What: the Repeat until field (No end, a date, a visible Clear), "Mon to Thu, until Thu 17 Dec", End repeat here (card menu and block right click menu), "Last day" on the card, Wrap up, Plan week and the block tooltip; days after the end hidden, not deleted, everywhere a day's tasks are built; one Ctrl+Z.
+Files: see CHANGELOG 3.48.0. The vendored calendar feed files are copies again: `belific-calendar-feed` needs a redeploy (Jethro).
+Tests: new repeatUntil.test.ts (11); easConfig changed on purpose; real new p63 (18).
+Gates: tsc clean; mobile `npm test` 1180/1180; desktop 118/118; iOS export plus `check:ios-markers` OK (51 markers, 0 hits); security scan passed. Real checks on the rebuilt web export (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p63 18/18, p54 28/28, p57 27/27, p58 37/37, p60 33/33. cp8d and p26 skip in quiet mode (they need the pointer) and were not run. Full regression NOT run.

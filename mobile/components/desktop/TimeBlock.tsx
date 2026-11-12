@@ -14,7 +14,7 @@ import { shortcutFor } from '../../lib/shortcuts';
 import { updateTask } from '../../lib/storage';
 import { editRepeatingTime, moveDay } from '../../lib/seriesActions';
 import { withoutDay } from '../../lib/taskOps';
-import { movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
+import { isLastDay, LAST_DAY, movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
 import type { LabelColor } from '../../lib/labelColors';
 import type { Project, Task } from '../../lib/types';
 import { domNode, useDrag } from './DragProvider';
@@ -472,7 +472,7 @@ export default function TimeBlock({
 function blockTip(task: Task, piece?: CutPiece, note?: string, gap?: string): string {
   const dur = formatDuration(task.durationMinutes);
   const when = piece && !piece.head ? `${formatTime(toTime(piece.startMin))} ${formatDuration(piece.leftMin)} left` : [formatTime(task.startTime ?? ''), dur].filter(Boolean).join(' ');
-  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, when, task.recurrence ? 'Repeats' : '', movedCaptionLong(task) ?? '', gap ?? '', note ?? ''].filter(Boolean).join(', ');
+  return [`${task.emoji ? `${task.emoji} ` : ''}${task.title}`, when, task.recurrence ? 'Repeats' : '', task.dueDate && isLastDay(task, task.dueDate) ? LAST_DAY : '', movedCaptionLong(task) ?? '', gap ?? '', note ?? ''].filter(Boolean).join(', ');
 }
 
 // Where a drag would land on a time grid: a dashed outline at the snapped slot

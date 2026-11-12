@@ -1,4 +1,5 @@
-import { addTask, loadTasksRaw, updateTask } from './storage';
+import { addTask, loadTasksRaw, updateTask, updateTasks } from './storage';
+import { stack } from './undoStack';
 import { completeTaskById, patchTask, setTimeDoneById, toggleSubtaskById } from './taskActions';
 import { rootTaskId } from './recurrence';
 import {
@@ -9,6 +10,7 @@ import {
   planMoveDay,
   planSkip,
   planThisDayEdit,
+  repeatUntilRows,
   seriesEditTargets,
   seriesOfRows,
   templatePatch,
@@ -128,6 +130,16 @@ export function endSeries(task: Task, fields: Partial<Task> = {}): Promise<void>
     const { rows } = await rowsOfRoot(task.id);
     for (const changed of endSeriesRows(rows, nowIso())) await updateTask(changed);
   }).then(() => (Object.keys(fields).length > 0 ? patchTask(task.id, fields) : undefined));
+}
+
+// R2, Repeat until: the end date (the last day it happens, E1) on every row of the series, or cleared (undefined)
+// to bring every later day back. One batch, so one Ctrl+Z. Nothing is deleted.
+export function setRepeatUntil(task: Task, untilKey: string | undefined): Promise<void> {
+  return serial(async () => {
+    const { rows } = await rowsOfRoot(task.id);
+    stack.markGesture();
+    await updateTasks(repeatUntilRows(rows, untilKey, nowIso()));
+  });
 }
 
 // "Delete repeating task": open rows are tombstoned, completed history stays but

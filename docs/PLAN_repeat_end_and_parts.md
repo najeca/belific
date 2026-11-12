@@ -22,6 +22,8 @@ R0 status: file `mobile/supabase/belific_schema/005_repeat_until_and_parts.sql` 
 
 R1 status (3.47.0): both fields sync behind the probe `Caps.repeatParts`; nothing visible.
 
+R2 status (3.48.0): Repeat until built; the server calendar feed needs a redeploy.
+
 ## 0. Today in six lines
 
 Paths below are under `mobile/` (for example `lib/series.ts` is `mobile/lib/series.ts`).

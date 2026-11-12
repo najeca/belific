@@ -8,6 +8,23 @@ to know the current version and recent history.
 
 ---
 
+## 3.48.0 — 2026-11-12 (Repeat until and Parts, R2: Repeat until; PLAN_repeat_end_and_parts)
+
+**Desktop. Uses migration 005's `repeat_until` (synced since 3.47.0 once the column exists; kept on the device until then). The phone screens are unchanged; the shared rules mean the phone also stops showing days after an end date set on the desktop.**
+- **Repeat until** in the details of a repeating task, under Repeats: "No end", or the date with a visible **Clear** button. The picker says "The last day it happens. Later days are hidden, not deleted." and the first day allowed ("Pick a day on or after Mon 2 Nov."); nothing earlier can be picked. E1: the date is the last day it happens.
+- The repeat line reads "Mon to Thu, until Thu 17 Dec" (three or more days in a row read "Mon to Thu").
+- **End repeat here** in a repeating card's menu and in a block's right click menu: that day becomes the last ("This day is the last. Later days are hidden."). One Ctrl+Z puts it back.
+- **Hidden, not deleted:** the end date is written on every row of the series (tombstones and done days too, as "Does not repeat" clears the rule on every row), projections stop after it, and an open stored day after it is hidden everywhere: the board, the Timebox, the Calendar (day, week and month, and their headers' totals), Wrap up, Plan my day, Plan week, Clear tools, Earlier, desktop and phone reminders, the ICS feed. Done days stay. Clearing the date brings every day back. Ticking the last day stores nothing ahead.
+- **"Last day"** shows on the last day's card, in Wrap up and Plan week, and in the block's tooltip.
+- "Does not repeat" and "Delete repeating task" clear the end date with the rest of the rule.
+- **Server calendar feed:** its vendored `series.ts`, `kanban.ts`, `recurrence.ts`, `repeat.ts` and `icsFeed.ts` are byte for byte copies again, so `belific-calendar-feed` NEEDS A REDEPLOY (Jethro) before the subscribed calendar stops sending days after an end date.
+Files: `lib/series.ts` (`isAfterEnd`, `isGone`, `repeatUntilRows`, `earliestEnd`, `endTooEarlyText`, `untilWords`, `isLastDay`, `LAST_DAY`, `END_REPEAT_HERE`; `repeatUntil` in the rule and template fields, in `occursOn` and `occurrenceFromTemplate`), `lib/kanban.ts` (`isAfterEndRow`, the board), `lib/recurrence.ts` (`nextOccurrence`), `lib/repeat.ts` (`dayRun`, `repeatLine`), `lib/timeboxTasks.ts`, `lib/planDay.ts`, `lib/wrapUp.ts`, `lib/clear.ts`, `lib/missed.ts`, `lib/desktopNotifyCore.ts`, `lib/phoneReminders.ts`, `lib/icsFeed.ts`, `lib/seriesActions.ts` (`setRepeatUntil`, one batch), `lib/taskOps.ts` (`series.setUntil`); `TaskDetailPanel.tsx` (the field), `TaskPopovers.tsx` and `ShiftBody.tsx` (End repeat here), `TaskCard.tsx`, `TimeBlock.tsx`, `CalendarPane.tsx`, `WrapUp.tsx`, `PlanWeek.tsx`; the vendored feed copies; `app.json` 3.48.0.
+Choices made without asking: the end date goes on every row of the series, not only the template, so whichever row becomes the template keeps it; a moved day is judged by the day it stands for (the last day moved to a later date still shows); the field shows only when the task repeats; an end date in the past is allowed (the series has simply ended); "End repeat here" is not offered on a done day or on the day that is already the last.
+Tests changed on purpose: easConfig.test.ts; new repeatUntil.test.ts (11); real new p63 (18).
+Gates: see build-progress.
+
+---
+
 ## 3.47.0 — 2026-11-12 (Repeat until and Parts, R1: sync for repeat_until and parent_id; PLAN_repeat_end_and_parts)
 
 **Sync only. Nothing visible changes. Migration 005 is applied (Jethro, after R0); the file is unchanged.**

@@ -14,7 +14,7 @@
 //   * Earlier: the one off tasks of a day before today that are not done (missed.ts). A shift is one row with its
 //     inside rows under it. Tick all marks them all done on their own days. Before 14:00 a row also has Today.
 import type { Task } from './types.ts';
-import { projectOccurrences } from './series.ts';
+import { isGone, projectOccurrences } from './series.ts';
 import { isSeriesRow } from './rollover.ts';
 import { shiftsOfDay, insideItemsOf, type ShiftRow } from './shifts.ts';
 import { withAllDone } from './subtasks.ts';
@@ -44,7 +44,7 @@ const byTime = (a: WrapItem, b: WrapItem) => startOf(a.task) - startOf(b.task) |
 
 // The day's tasks, as Wrap up lists them. `raw`: every stored row, tombstones included (a skipped day is not shown).
 export function dayItems(raw: Task[], dayKey: string, todayKey: string, cutMin: number): WrapItem[] {
-  const stored = raw.filter((t) => !t.deletedAt && !t.cutsBelow && t.dueDate === dayKey);
+  const stored = raw.filter((t) => !isGone(t) && !t.cutsBelow && t.dueDate === dayKey);
   const shown = projectOccurrences(raw, [dayKey], todayKey).filter((t) => !t.cutsBelow);
   const shifts = shiftsOfDay(raw, dayKey, todayKey, cutMin);
   const items: WrapItem[] = [];
@@ -161,7 +161,7 @@ export function tomorrowText(raw: Task[], tomorrowKey: string, todayKey: string,
   // F6: a quick reminder is not a task in the count.
   const items = dayItems(raw, tomorrowKey, todayKey, cutMin).filter((i) => !isQuickReminder(i.task));
   if (items.length === 0) return 'Tomorrow so far: nothing planned yet.';
-  const all = [...raw.filter((t) => !t.deletedAt && t.dueDate === tomorrowKey), ...projectOccurrences(raw, [tomorrowKey], todayKey)];
+  const all = [...raw.filter((t) => !isGone(t) && t.dueDate === tomorrowKey), ...projectOccurrences(raw, [tomorrowKey], todayKey)];
   const est = totalsOf(all, nowMs, cutMin).estimate;
   return `Tomorrow so far: ${tasksWord(items.length)}${est > 0 ? `, ${formatMinutes(est)}` : ''}`;
 }

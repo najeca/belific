@@ -22,7 +22,7 @@
 // row can restart it. A tombstone left by "Skip this day" never ends a series
 // and is only a template of last resort (when nothing else is live).
 import type { Subtask, Task, WeekDay } from './types.ts';
-import { WEEKDAYS, addDays, dateKey, formatDayLabel, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
+import { WEEKDAYS, addDays, dateKey, formatDayLabel, isAfterEndRow, isDateKey, parseDateKey, weekStartOf } from './kanban.ts';
 import { effectiveDays, monthDayOf, occursAnnually } from './repeat.ts';
 import { nextOccurrenceId, rootTaskId } from './recurrence.ts';
 import { copyForNextOccurrence } from './subtasks.ts';
@@ -69,7 +69,9 @@ export function keepsOccurrenceTombstone(
 }
 
 // The series fields a projection and a template carry.
-const RULE_FIELDS = ['recurrence', 'recurrenceDays', 'recurrenceMonthDay'] as const;
+// R2 (PLAN_repeat_end_and_parts): the end date is part of the rule, so "Does not repeat" and "Delete repeating
+// task" clear it with the rest.
+const RULE_FIELDS = ['recurrence', 'recurrenceDays', 'recurrenceMonthDay', 'repeatUntil'] as const;
 
 export interface Series {
   root: string;
@@ -189,11 +191,13 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // `rule` is the template; `anchorKey` is the Day its every-N-weeks count starts
 // from (the template's own Day: that week is "on", then every Nth after it).
 export function occursOn(
-  rule: Pick<Task, 'recurrence' | 'recurrenceDays' | 'recurrenceMonthDay' | 'dueDate'>,
+  rule: Pick<Task, 'recurrence' | 'recurrenceDays' | 'recurrenceMonthDay' | 'dueDate'> & Partial<Pick<Task, 'repeatUntil'>>,
   dayKey: string,
   anchorKey: string,
 ): boolean {
   if (!rule.recurrence || !isDateKey(dayKey) || !isDateKey(anchorKey)) return false;
+  // R2: nothing after the last day (E1: the end date is the last day it happens).
+  if (isDateKey(rule.repeatUntil) && dayKey > rule.repeatUntil) return false;
   const day = parseDateKey(dayKey);
   const weekday = WEEKDAYS[day.getDay()] as WeekDay;
   switch (rule.recurrence) {
@@ -244,6 +248,7 @@ export function occurrenceFromTemplate(template: Task, dayKey: string, nowIso: s
     recurrence: template.recurrence,
     recurrenceDays: template.recurrenceDays,
     recurrenceMonthDay: template.recurrenceMonthDay,
+    ...(template.repeatUntil ? { repeatUntil: template.repeatUntil } : {}),
     ...(subtasks ? { subtasks } : {}),
     ...(template.reminderMinutes !== undefined && template.reminderMinutes !== null ? { reminderMinutes: template.reminderMinutes } : {}),
     ...(template.cutsBelow ? { cutsBelow: true } : {}),
@@ -302,6 +307,7 @@ export const TEMPLATE_FIELDS = [
   'recurrence',
   'recurrenceDays',
   'recurrenceMonthDay',
+  'repeatUntil',
   'subtasks',
   'reminderMinutes',
   'cutsBelow',
@@ -355,6 +361,55 @@ export function templatePatch(template: Task, fields: Partial<Task>): Partial<Ta
   }
   return out;
 }
+
+// ---- Repeat until (R2, PLAN_repeat_end_and_parts) ----
+//
+// The end date is the LAST day a repeating task happens (E1). It is written on EVERY row of the series that has
+// the rule (tombstones and done days included), the way "Does not repeat" clears the rule on every row, so
+// whichever row is the template carries it. Nothing is deleted: projections stop after it (occursOn), and an
+// OPEN stored day after it (moved, changed "This day only", or stored ahead by a tick) is hidden by isAfterEnd.
+// Clearing the date brings every day back. Done days stay where they are, after the end too.
+
+// An open stored day the end date hides: live, not done, and the day it stands for is after its end.
+export const isAfterEnd = isAfterEndRow;
+
+// Not shown on any day: a tombstone, or an open day after the end. Every place that turns stored rows into a
+// day's tasks uses this instead of `deletedAt` alone.
+export function isGone(row: Pick<Task, 'id' | 'dueDate' | 'completed' | 'deletedAt'> & Partial<Pick<Task, 'repeatUntil'>>): boolean {
+  return !!row.deletedAt || isAfterEnd(row);
+}
+
+// The rows to write for a new end date (a day key) or none (undefined): every row with a rule whose value
+// differs. Rows keep their Day, completed state and tombstones.
+export function repeatUntilRows(rows: Task[], untilKey: string | undefined, nowIso: string): Task[] {
+  const value = isDateKey(untilKey) ? untilKey : undefined;
+  return rows.filter((r) => !!r.recurrence && r.repeatUntil !== value).map((r) => ({ ...r, repeatUntil: value, updatedAt: nowIso }));
+}
+
+// The earliest end date allowed: the first day the series has a row on (nothing can end before it starts).
+export function earliestEnd(rows: Task[]): string | undefined {
+  if (rows.length === 0) return undefined;
+  return seriesOfRows(rootTaskId(rows[0].id), rows)?.startKey;
+}
+
+// The quiet line when a day before the start is picked (never a red error).
+export function endTooEarlyText(startKey: string): string {
+  return `Pick a day on or after ${formatDayLabel(startKey)}`;
+}
+
+// "until Thu 17 Dec": the words for an end date.
+export function untilWords(untilKey: string): string {
+  return `until ${formatDayLabel(untilKey)}`;
+}
+
+// Is `dayKey` the last day of its series (the block's tooltip, Wrap up and Plan week say "Last day")?
+export function isLastDay(task: Pick<Task, 'recurrence'> & Partial<Pick<Task, 'repeatUntil'>>, dayKey: string): boolean {
+  return !!task.recurrence && isDateKey(task.repeatUntil) && task.repeatUntil === dayKey;
+}
+
+export const LAST_DAY = 'Last day';
+export const END_REPEAT_HERE = 'End repeat here';
+export const END_REPEAT_HERE_NOTE = 'This day is the last. Later days are hidden.';
 
 // ---- Ending a series ----
 

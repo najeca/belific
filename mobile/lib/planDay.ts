@@ -9,7 +9,7 @@
 //     the Earlier panel (F3).
 import type { Task, TaskList } from './types.ts';
 import { addDays, dateKey, parseDateKey } from './kanban.ts';
-import { projectOccurrences } from './series.ts';
+import { isGone, projectOccurrences } from './series.ts';
 import { rootTaskId } from './recurrence.ts';
 import { isSeriesRow } from './rollover.ts';
 import { tasksInList } from './lists.ts';
@@ -22,7 +22,7 @@ const item = (task: Task, projected: boolean): WrapItem => ({ key: task.id, task
 
 // The tasks of a list (undefined: Brain Dump) that have no Day and are not done, oldest first as the list shows them.
 export function addRows(raw: Task[], listKey: string | undefined, lists: Array<Pick<TaskList, 'key' | 'deletedAt'>>): WrapItem[] {
-  const live = raw.filter((t) => !t.deletedAt);
+  const live = raw.filter((t) => !isGone(t));
   return tasksInList(live, listKey, lists)
     .filter((t) => !t.completed && !t.dueDate && !t.cutsBelow && !t.recurrence)
     .map((t) => item(t, false));
@@ -36,7 +36,7 @@ export function repeatingNotToday(raw: Task[], todayKey: string): WrapItem[] {
   const start = parseDateKey(todayKey);
   const days = Array.from({ length: AHEAD_DAYS }, (_, i) => dateKey(addDays(start, i)));
   const shown = projectOccurrences(raw, days, todayKey);
-  const live = raw.filter((t) => !t.deletedAt);
+  const live = raw.filter((t) => !isGone(t));
   const onToday = new Set([...shown, ...live].filter((t) => t.dueDate === todayKey && isSeriesRow(t)).map((t) => rootTaskId(t.id)));
   const next = new Map<string, WrapItem>();
   const candidates = [
@@ -66,7 +66,7 @@ export function insideText(it: WrapItem): string {
 
 // "Planned 11h 15m": today's planned time, a shift once (S1); free time does not count.
 export function plannedText(raw: Task[], todayKey: string, cutMin: number, nowMs: number): string {
-  const all = [...raw.filter((t) => !t.deletedAt && t.dueDate === todayKey), ...projectOccurrences(raw, [todayKey], todayKey)];
+  const all = [...raw.filter((t) => !isGone(t) && t.dueDate === todayKey), ...projectOccurrences(raw, [todayKey], todayKey)];
   const est = totalsOf(all, nowMs, cutMin).estimate;
   return est > 0 ? `Planned ${formatMinutes(est)}` : 'Nothing has a length yet.';
 }
@@ -75,7 +75,7 @@ export function plannedText(raw: Task[], todayKey: string, cutMin: number, nowMs
 
 // A day's planned total for its column: a shift counts at its own length, once (S1); "—" when nothing has a length.
 export function dayTotalText(raw: Task[], dayKey: string, todayKey: string, cutMin: number, nowMs: number): string {
-  const all = [...raw.filter((t) => !t.deletedAt && t.dueDate === dayKey), ...projectOccurrences(raw, [dayKey], todayKey)];
+  const all = [...raw.filter((t) => !isGone(t) && t.dueDate === dayKey), ...projectOccurrences(raw, [dayKey], todayKey)];
   const est = totalsOf(all, nowMs, cutMin).estimate;
   return est > 0 ? formatMinutes(est) : '—';
 }

@@ -19,7 +19,7 @@
 // next day.
 import type { Task } from './types.ts';
 import { addDays, dateKey, isDateKey, parseDateKey } from './kanban.ts';
-import { projectOccurrences } from './series.ts';
+import { isGone, projectOccurrences } from './series.ts';
 import { rootTaskId } from './recurrence.ts';
 
 export const FEED_DAYS_BACK = 30;
@@ -82,7 +82,7 @@ export function feedEvents(tasks: Task[], todayKey: string): FeedEvent[] {
       end: floating(t.dueDate, t.startTime, minutesOf(t)),
     });
   };
-  for (const t of tasks) if (!t.deletedAt && isDateKey(t.dueDate)) add(t);
+  for (const t of tasks) if (!isGone(t) && isDateKey(t.dueDate)) add(t);
   const ahead: string[] = [];
   for (let i = 0; i <= FEED_DAYS_AHEAD; i++) ahead.push(dateKey(addDays(today, i)));
   for (const t of projectOccurrences(tasks, ahead, todayKey)) add(t);

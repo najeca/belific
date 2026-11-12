@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isLastDay, LAST_DAY } from '../../lib/series';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/theme';
 import { dateKey, formatShortDate, parseDateKey } from '../../lib/kanban';
@@ -170,7 +171,7 @@ export function WrapRow({
     );
   }
   const b = buttonsFor(item);
-  const meta = [showDay && t.dueDate ? formatShortDate(t.dueDate) : '', item.row?.row.time ? formatTime(item.row.row.time) : t.startTime ? formatTime(t.startTime) : '', t.durationMinutes && !item.row?.row.time ? formatMinutes(t.durationMinutes) : item.row?.row.minutes ? formatMinutes(item.row.row.minutes) : '', item.series ? '↻ repeats' : '']
+  const meta = [showDay && t.dueDate ? formatShortDate(t.dueDate) : '', item.row?.row.time ? formatTime(item.row.row.time) : t.startTime ? formatTime(t.startTime) : '', t.durationMinutes && !item.row?.row.time ? formatMinutes(t.durationMinutes) : item.row?.row.minutes ? formatMinutes(item.row.row.minutes) : '', item.series ? '↻ repeats' : '', t.dueDate && isLastDay(t, t.dueDate) ? LAST_DAY : '']
     .filter(Boolean)
     .join(' · ');
   const steps = t.subtasks && t.subtasks.length > 0 && !item.inside ? `${t.subtasks.filter((s) => s.done).length} of ${t.subtasks.length} steps` : '';

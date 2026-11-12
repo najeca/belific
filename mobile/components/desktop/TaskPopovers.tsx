@@ -42,7 +42,7 @@ import HoverPressable from './HoverPressable';
 import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
 import { notifyChanged, openDetail, openOverlay, useNewColorsOk } from './uiStore';
 import { EACH_TIME_NOTE, isMultiTime } from '../../lib/times';
-import { MOVE_THIS_DAY, MOVE_THIS_DAY_NOTE } from '../../lib/series';
+import { END_REPEAT_HERE, END_REPEAT_HERE_NOTE, MOVE_THIS_DAY, MOVE_THIS_DAY_NOTE, ownDay } from '../../lib/series';
 import { formatTime } from '../../lib/data';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
@@ -787,6 +787,19 @@ export function OverflowBody({
                 sub="Hides this day only"
                 onPress={() => void withInside('Skip', () => series.skipDay(), 'day')}
                 a11y="Skip this day"
+              />
+            )}
+            {/* R2: this day becomes the last one; later days are hidden, not deleted (Ctrl+Z puts it back). */}
+            {canSkip && task && ownDay(task) && task.repeatUntil !== ownDay(task) && (
+              <Row
+                label={END_REPEAT_HERE}
+                sub={END_REPEAT_HERE_NOTE}
+                onPress={async () => {
+                  await series.setUntil(ownDay(task));
+                  notifyChanged();
+                  done();
+                }}
+                a11y={END_REPEAT_HERE}
               />
             )}
             <Row label="Delete repeating task" danger onPress={() => setConfirming(true)} a11y="Delete repeating task" />

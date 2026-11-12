@@ -128,6 +128,17 @@ function compareItems(a: ColumnItem, b: ColumnItem): number {
 // Deleted (tombstoned) tasks are never shown.
 //  - projected occurrences (opts.projected, from lib/series.ts) go into their
 //    own day's column, marked projected; they are never in the past
+// R2 (PLAN_repeat_end_and_parts): an OPEN stored day of a repeating task after its end date ('repeatUntil', the last
+// day it happens) is hidden, never deleted; clearing the date brings it back. The day a row stands for is the date in
+// its id (`root:YYYY-MM-DD`), else its Day. Here (the lowest file) so the board and series.ts share one rule.
+export function isAfterEndRow(row: Pick<Task, 'id' | 'dueDate' | 'completed' | 'deletedAt'> & Partial<Pick<Task, 'repeatUntil'>>): boolean {
+  if (row.deletedAt || row.completed || !isDateKey(row.repeatUntil)) return false;
+  const at = row.id.indexOf(':');
+  const fromId = at === -1 ? undefined : row.id.slice(at + 1);
+  const own = isDateKey(fromId) ? fromId : isDateKey(row.dueDate) ? row.dueDate : undefined;
+  return !!own && own > row.repeatUntil;
+}
+
 export function bucketTasks(
   tasks: Task[],
   days: ColumnDay[],
@@ -138,7 +149,7 @@ export function bucketTasks(
   for (const day of days) result.days[day.key] = [];
 
   for (const task of tasks) {
-    if (task.deletedAt) continue;
+    if (task.deletedAt || isAfterEndRow(task)) continue;
     const due = task.dueDate;
     if (isDateKey(due) && due in result.days) result.days[due].push({ task });
   }

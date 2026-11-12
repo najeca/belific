@@ -10,6 +10,8 @@ import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, openPopover } from './Popover';
 import { RoundCheck } from './ui';
 import { notifyChanged, openDetail } from './uiStore';
+import { END_REPEAT_HERE, END_REPEAT_HERE_NOTE, ownDay } from '../../lib/series';
+import { setRepeatUntil } from '../../lib/seriesActions';
 
 // Shifts S3 (PLAN_shifts): what a block with things inside it shows on its Kanban card and in its details window: the
 // summary the grid's header has ("5h of 10h planned, 5h free"), a progress bar with "2 of 7 done", its rows (the blocks
@@ -128,7 +130,7 @@ export function AddInsideButton({ task, projected, anchor }: { task: Task; proje
 // The right click menu of a block: Open, Add inside. (A block in free time has its own menu, HostChips.tsx.)
 export function ShiftMenu({ id, anchor, task, projected }: { id: string; anchor: () => HTMLElement | null; task: Task; projected: boolean }) {
   return (
-    <Popover id={id} anchor={anchor} width={220} label={`${task.title} menu`}>
+    <Popover id={id} anchor={anchor} width={280} label={`${task.title} menu`}>
       <View style={styles.menu} {...({ dataSet: { shiftBlockMenu: task.id } } as object)}>
         <Row
           label="Open"
@@ -147,6 +149,18 @@ export function ShiftMenu({ id, anchor, task, projected }: { id: string; anchor:
           }}
           a11y={`${ADD_INSIDE} ${task.title}`}
         />
+        {/* R2: a repeating day can be made the last one (later days hidden, not deleted; Ctrl+Z puts them back). */}
+        {task.recurrence && !task.completed && ownDay(task) && task.repeatUntil !== ownDay(task) ? (
+          <Row
+            label={END_REPEAT_HERE}
+            sub={END_REPEAT_HERE_NOTE}
+            onPress={() => {
+              closePopover();
+              void setRepeatUntil(task, ownDay(task)).then(() => notifyChanged());
+            }}
+            a11y={END_REPEAT_HERE}
+          />
+        ) : null}
       </View>
     </Popover>
   );

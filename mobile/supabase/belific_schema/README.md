@@ -1,6 +1,6 @@
 # Belific schema files: 001, 002 and 004 ALREADY APPLIED LIVE, DO NOT RUN
 
-> **001, 002 and 004 are applied to the shared project (`vlogfwnmaqorhialcqbr`, "belific landis proload"). Do not run any of them again, and do not run a rollback: they delete data.** 003 and 005 are written but still NOT applied; it waits for Jethro's review and apply. Kept as the record of what was applied and for a rebuild after a restore. Any future change goes in a new numbered file (003, ...), reviewed first. (State per Jethro; not checked by Claude, who has no live access.)
+> **001, 002 and 004 are applied to the shared project (`vlogfwnmaqorhialcqbr`, "belific landis proload"). Do not run any of them again, and do not run a rollback: they delete data.** 003 and 005 are written but still NOT applied; they wait for Jethro's review and apply. Kept as the record of what was applied and for a rebuild after a restore. Any future change goes in a new numbered file (003, ...), reviewed first. (State per Jethro; not checked by Claude, who has no live access.)
 
 | File | Applied | How | What it does |
 |---|---|---|---|

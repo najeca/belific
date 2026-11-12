@@ -8,6 +8,18 @@ G1 to G5 of PLAN_breaks_as_gaps).
 Goal: a repeating task can stop on a chosen date, and a task can hold smaller full tasks ("Parts") with no time needed,
 in words a beginner understands at once.
 
+## Decisions (answered 2026-11-12)
+
+The five questions of section 10 are answered as recommended, with one addition to E3.
+
+- **E1** The chosen day is the last day it happens (the end date is inclusive).
+- **E2** The parent's own estimate wins; the parts' sum is shown as a quiet line and used only when the parent has none. A new part has no estimate.
+- **E3** Add part replaces Add subtask for new items; existing steps keep working with Turn into parts. **Adding parts must be quick:** type a title, press Enter, the box stays open for the next one.
+- **E4** Wrap up Tomorrow splits a task with some parts done the way steps do (done stay today, open go to tomorrow).
+- **E5** The second half of a split series starts a new streak; that is fine for now.
+
+R0 status: file `mobile/supabase/belific_schema/005_repeat_until_and_parts.sql` written with exactly the draft SQL of section 5, **not applied**, no app code changed, no version bump.
+
 ## 0. Today in six lines
 
 Paths below are under `mobile/` (for example `lib/series.ts` is `mobile/lib/series.ts`).

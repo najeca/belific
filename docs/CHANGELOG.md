@@ -8,6 +8,12 @@ to know the current version and recent history.
 
 ---
 
+## R0 (2026-11-12): migration 005 written, NOT applied (PLAN_repeat_end_and_parts)
+
+No app code, no version bump (stays 3.46.0). New `supabase/belific_schema/005_repeat_until_and_parts.sql` (nullable `tasks.repeat_until date` and `tasks.parent_id text`, rollback commented out), a README row, a schema test in `lib/repeatPartsSchema.test.ts`, and decisions E1 to E5 in the plan.
+
+---
+
 ## 3.46.0 — 2026-11-12 (Daily flow, F7: Quick add phrases; PLAN_daily_flow section 10)
 
 **Desktop. No schema change, no migration. The phone is unchanged.**

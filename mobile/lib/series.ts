@@ -411,6 +411,83 @@ export const LAST_DAY = 'Last day';
 export const END_REPEAT_HERE = 'End repeat here';
 export const END_REPEAT_HERE_NOTE = 'This day is the last. Later days are hidden.';
 
+// ---- This and following (R3, PLAN_repeat_end_and_parts) ----
+//
+// A change from one day on, with no new column: the series is SPLIT. The old series ends the day before (its end date,
+// written on every row, so nothing is deleted and done or past days stay with it); a new series starts on that day
+// with a new root id, a copy of the template with the change applied, keeping the old end date. That day's open
+// stored row and every open stored day after it move to the new series (same content, new id, the change applied;
+// the old row becomes a tombstone so it never shows twice). The Quests streak of the new half starts again (E5).
+// null when there is nothing to split: no series, the day is the first day (then it is simply All days), the day
+// is done, or the day is after the end.
+
+export const THIS_AND_FOLLOWING = 'This and following';
+
+// "All days" of a repeating block, for something made on `dayKey` (free time, an item inside): the first day from
+// `todayKey` up to `dayKey` the series shows, so the days between today and the chosen day are included too ("This and
+// following" starts on `dayKey`). `dayKey` when nothing earlier shows.
+export function firstShownFrom(rows: Task[], todayKey: string, dayKey: string): string {
+  if (rows.length === 0 || !isDateKey(todayKey) || !isDateKey(dayKey) || dayKey <= todayKey) return dayKey;
+  const series = seriesOfRows(rootTaskId(rows[0].id), rows);
+  if (!series) return dayKey;
+  for (let d = parseDateKey(todayKey); dateKey(d) < dayKey; d = addDays(d, 1)) {
+    const key = dateKey(d);
+    if (key >= series.startKey && occursOn(series.template, key, series.anchorKey)) return key;
+  }
+  return dayKey;
+}
+
+export interface SplitPlan {
+  writes: Task[];
+  newRoot: Task;
+}
+
+const SPLIT_SKIP = new Set(['id', 'dueDate', 'completed', 'completedAt', 'createdAt', 'updatedAt', 'deletedAt', 'timesDone']);
+
+function withChange(row: Task, fields: Partial<Task>): Task {
+  const next: Task = { ...row };
+  for (const [k, v] of Object.entries(fields)) if (!SPLIT_SKIP.has(k)) (next as unknown as Record<string, unknown>)[k] = v;
+  return next;
+}
+
+export function planSplit(rows: Task[], dayKey: string, fields: Partial<Task>, nowIso: string, newRootId: string, id?: string): SplitPlan | null {
+  if (rows.length === 0 || !isDateKey(dayKey)) return null;
+  const root = rootTaskId(rows[0].id);
+  const series = seriesOfRows(root, rows);
+  if (!series || dayKey <= series.startKey) return null;
+  const end = series.template.repeatUntil;
+  if (isDateKey(end) && dayKey > end) return null;
+  const existing = liveRowFor(rows, dayKey, id);
+  if (existing?.completed) return null;
+  const writes = new Map<string, Task>();
+  const prevKey = dateKey(addDays(parseDateKey(dayKey), -1));
+  for (const r of repeatUntilRows(rows, prevKey, nowIso)) writes.set(r.id, r);
+  const base = existing ?? occurrenceFromTemplate(series.template, dayKey, nowIso);
+  const newRoot: Task = {
+    ...withChange(base, fields),
+    id: newRootId,
+    dueDate: dayKey,
+    repeatUntil: 'repeatUntil' in fields ? fields.repeatUntil : end,
+    completed: false,
+    completedAt: undefined,
+    timesDone: undefined,
+    deletedAt: undefined,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+  if (!newRoot.recurrence) return null;
+  if (existing) writes.set(existing.id, { ...(writes.get(existing.id) ?? existing), deletedAt: nowIso, updatedAt: nowIso });
+  for (const r of rows) {
+    const own = ownDay(r);
+    if (r.deletedAt || r.completed || !own || own <= dayKey || r.id === existing?.id) continue;
+    const carried: Task = { ...withChange(r, fields), id: nextOccurrenceId(newRootId, own), repeatUntil: newRoot.repeatUntil, recurrence: newRoot.recurrence, recurrenceDays: newRoot.recurrenceDays, recurrenceMonthDay: newRoot.recurrenceMonthDay, updatedAt: nowIso };
+    writes.set(carried.id, carried);
+    writes.set(r.id, { ...(writes.get(r.id) ?? r), deletedAt: nowIso, updatedAt: nowIso });
+  }
+  writes.set(newRoot.id, newRoot);
+  return { writes: [...writes.values()], newRoot };
+}
+
 // ---- Ending a series ----
 
 function clearRule(row: Task, nowIso: string): Task {

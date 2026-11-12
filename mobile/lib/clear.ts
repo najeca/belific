@@ -10,6 +10,8 @@
 //     those days; for a list or a label it is the task's next day. "All days" stops the series (day, week: it no longer
 //     repeats and goes back to its list) or deletes it (list, label to Trash). A label is shared by every day of a
 //     series, so taking it off asks nothing.
+//   * R3 (PLAN_repeat_end_and_parts): a day or a week also offers "This and following": the repeat ends the day before
+//     the first of those days it falls on (an end date: that day and every later one are hidden, nothing is deleted).
 //   * A shift takes what is inside it along (shifts.ts insideItemsOf, the day after midnight too), and counts as one.
 import type { Task } from './types.ts';
 import { addDays, dateKey, formatShortDate, parseDateKey } from './kanban.ts';
@@ -26,7 +28,8 @@ export type ClearTarget =
 
 // 'unplan': back to the list (day, week); 'trash': to the Trash (list, label's second button); 'off': the label off.
 export type ClearMode = 'unplan' | 'trash' | 'off';
-export type ClearScope = 'day' | 'all';
+// R3: 'following' (day and week only) ends the repeat the day before: that day and every later one are hidden.
+export type ClearScope = 'day' | 'following' | 'all';
 
 export interface ClearItem {
   task: Task;

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { THIS_AND_FOLLOWING } from '../../lib/series';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
@@ -54,18 +55,18 @@ export function ClearBody({ target, onDone }: { target: ClearTarget; onDone: () 
       {repeating > 0 && (
         <View style={styles.repeat} {...({ dataSet: { clearRepeat: scope } } as object)}>
           <Text style={styles.text}>{repeatNote(repeating)}</Text>
-          {(['day', 'all'] as const).map((s) => (
+          {(target.kind === 'day' || target.kind === 'week' ? (['day', 'following', 'all'] as const) : (['day', 'all'] as const)).map((s) => (
             <Pressable
               key={s}
               onPress={() => setScope(s)}
               style={styles.choice}
               accessibilityRole="radio"
               accessibilityState={{ checked: scope === s }}
-              accessibilityLabel={s === 'day' ? dayWord : 'All days'}
+              accessibilityLabel={s === 'day' ? dayWord : s === 'following' ? THIS_AND_FOLLOWING : 'All days'}
               {...({ 'aria-checked': scope === s, dataSet: { clearScope: s } } as object)}
             >
               <View style={[styles.radio, scope === s && styles.radioOn]}>{scope === s ? <View style={styles.radioDot} /> : null}</View>
-              <Text style={styles.text}>{s === 'day' ? dayWord : 'All days'}</Text>
+              <Text style={styles.text}>{s === 'day' ? dayWord : s === 'following' ? THIS_AND_FOLLOWING : 'All days'}</Text>
             </Pressable>
           ))}
         </View>

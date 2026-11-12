@@ -949,3 +949,9 @@ What: the Repeat until field (No end, a date, a visible Clear), "Mon to Thu, unt
 Files: see CHANGELOG 3.48.0. The vendored calendar feed files are copies again: `belific-calendar-feed` needs a redeploy (Jethro).
 Tests: new repeatUntil.test.ts (11); easConfig changed on purpose; real new p63 (18).
 Gates: tsc clean; mobile `npm test` 1180/1180; desktop 118/118; iOS export plus `check:ios-markers` OK (51 markers, 0 hits); security scan passed. Real checks on the rebuilt web export (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p63 18/18, p54 28/28, p57 27/27, p58 37/37, p60 33/33. cp8d and p26 skip in quiet mode (they need the pointer) and were not run. Full regression NOT run.
+
+## Repeat until and Parts, R3 (2026-11-12): 3.49.0, This and following
+What: "Changes go to: This day only · This and following · All days" in the details of a repeating day (a split: the old series ends the day before, a new one starts that day); This and following in Clear day and Clear week (the repeat ends the day before); a third choice in the Free time scissors and Add inside (This and following from the chosen day; All days now from the first day the block shows from today); one Ctrl+Z each. Fix: the details no longer close when the day they show is replaced.
+Tests: new thisAndFollowing.test.ts (6); easConfig changed on purpose; real new p64 (12); real p54 changed on purpose (three choices in Add inside).
+Gates: tsc clean; mobile `npm test` 1186/1186; desktop 118/118; iOS export plus `check:ios-markers` OK (51 markers, 0 hits); security scan passed. Real checks on the rebuilt web export (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p64 12/12, p63 18/18, p57 27/27, p54 28/28 (after the change on purpose), p53 12/12, p55 20/20, p47 9/9, p49 36/36. Full regression NOT run.
+Check by hand (pointer): the scissors' three choices on a repeating block, and Add inside's "This and following" for a to do (splits the shift).

@@ -195,7 +195,8 @@ export function rowMeta(r: ShiftRow): string {
 // ---- Add inside ----
 
 export const ADD_INSIDE = 'Add inside';
-export type InsideScope = 'day' | 'all';
+// R3: 'following' starts on the shift's day; 'all' on the first day the shift shows from today (series.firstShownFrom).
+export type InsideScope = 'day' | 'following' | 'all';
 export interface InsideForm {
   title: string;
   timed: boolean;
@@ -244,14 +245,15 @@ export const defaultStart = (shift: Pick<Task, 'startTime'>): string => shift.st
 
 // The task a timed item becomes: an ordinary task on the shift's day. For "All days" of a repeating shift it repeats
 // on the same days, from this day on (as the scissors' free time does, blade.ts bladeTask).
-export function insideTask(shift: Pick<Task, 'recurrence' | 'recurrenceDays' | 'recurrenceMonthDay'>, dayKey: string, f: InsideForm): Partial<Task> {
+export function insideTask(shift: Pick<Task, 'recurrence' | 'recurrenceDays' | 'recurrenceMonthDay'> & Partial<Pick<Task, 'repeatUntil'>>, dayKey: string, f: InsideForm): Partial<Task> {
   const base: Partial<Task> = { title: f.title.trim(), dueDate: dayKey, startTime: f.start, durationMinutes: f.length };
-  if (f.scope !== 'all' || !shift.recurrence) return base;
+  if (f.scope === 'day' || !shift.recurrence) return base;
   return {
     ...base,
     recurrence: shift.recurrence,
     ...(shift.recurrenceDays ? { recurrenceDays: [...shift.recurrenceDays] } : {}),
     ...(shift.recurrenceMonthDay !== undefined ? { recurrenceMonthDay: shift.recurrenceMonthDay } : {}),
+    ...(shift.repeatUntil ? { repeatUntil: shift.repeatUntil } : {}),
   };
 }
 

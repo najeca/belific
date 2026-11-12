@@ -2,7 +2,7 @@
 // save (storage.updateTasks), then each repeating task's own write, so one Ctrl+Z restores everything.
 import type { Task } from './types';
 import { loadTasksRaw, updateTasks } from './storage';
-import { deleteSeries, endSeries, skipOccurrence } from './seriesActions';
+import { deleteSeries, endBefore, endSeries, skipOccurrence } from './seriesActions';
 import { patchTask } from './taskActions';
 import { opsForProjected, opsForTask } from './taskOps';
 import { rootTaskId } from './recurrence';
@@ -33,6 +33,15 @@ export async function runClear(target: ClearTarget, mode: ClearMode, scope: Clea
     }
     if (done.has(root)) continue;
     done.add(root);
+    if (scope === 'following' && (target.kind === 'day' || target.kind === 'week')) {
+      // The first day of the target this series falls on (items come in day order): it and every later day are hidden.
+      const first = plan.items
+        .filter((x) => x.series && rootTaskId(x.task.id) === root && x.task.dueDate)
+        .map((x) => x.task.dueDate as string)
+        .sort()[0];
+      if (first) await endBefore(it.task, first);
+      continue;
+    }
     if (mode === 'trash') {
       await deleteSeries(it.task);
       continue;

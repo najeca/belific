@@ -67,17 +67,19 @@ export function bladeCheck(span: [number, number], host: Pick<BladeHost, 'id' | 
   return `Too short: this would leave ${r.pieceMin ?? 0} min (at least ${cutMin})`;
 }
 
-// The Break the cut makes. 'all': the task's repeat rule too, so the break series starts on this day and repeats on
-// the same days as the task from here on (earlier days do not change).
-export type BladeScope = 'day' | 'all';
-export function bladeTask(span: [number, number], dayKey: string, scope: BladeScope, template?: Pick<Task, 'recurrence' | 'recurrenceDays' | 'recurrenceMonthDay'> | null): Partial<Task> {
+// The Break the cut makes. 'following' and 'all': the task's repeat rule too, so the break series starts on `dayKey`
+// and repeats on the same days as the task (earlier days do not change), ending when the task ends (R2: its end date).
+// R3: the caller gives 'all' the first day the task shows from today (series.firstShownFrom), 'following' the day cut.
+export type BladeScope = 'day' | 'following' | 'all';
+export function bladeTask(span: [number, number], dayKey: string, scope: BladeScope, template?: Pick<Task, 'recurrence' | 'recurrenceDays' | 'recurrenceMonthDay'> & Partial<Pick<Task, 'repeatUntil'>> | null): Partial<Task> {
   const base: Partial<Task> = { title: FREE_TIME, cutsBelow: true, dueDate: dayKey, startTime: toTime(span[0]), durationMinutes: span[1] - span[0] };
-  if (scope !== 'all' || !template?.recurrence) return base;
+  if (scope === 'day' || !template?.recurrence) return base;
   return {
     ...base,
     recurrence: template.recurrence,
     ...(template.recurrenceDays ? { recurrenceDays: [...template.recurrenceDays] } : {}),
     ...(template.recurrenceMonthDay !== undefined ? { recurrenceMonthDay: template.recurrenceMonthDay } : {}),
+    ...(template.repeatUntil ? { repeatUntil: template.repeatUntil } : {}),
   };
 }
 

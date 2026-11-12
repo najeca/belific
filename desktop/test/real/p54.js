@@ -13,7 +13,7 @@
 //   - the right click menu of a block on the Calendar has "Add inside" and opens the same form;
 //   - both new rows are ticked in place (no details opened): Lunch's task and the checklist item; the shift itself stays
 //     open; each tick is one Ctrl+Z, and so is each add;
-//   - Clinic repeats, so its form has "This day only" / "All days of Clinic" with All days chosen: a to do added to all
+//   - Clinic repeats, so its form has "This day only" / "This and following" (3.49.0) / "All days of Clinic" with All days chosen: a to do added to all
 //     days shows on tomorrow's Clinic card too, unticked.
 // Runs quiet.
 const fs = require('node:fs');
@@ -201,7 +201,8 @@ async function run() {
   await I.click(`${panel}.querySelector('[data-add-inside="clinic"]')`, 700);
   await C.waitFor(() => I.exists(form), 4000);
   const rep = await I.js(`(() => { const s = ${form}.querySelectorAll('[data-add-inside-scope]'); return [...s].map((e) => [e.getAttribute('data-add-inside-scope'), e.getAttribute('aria-checked'), e.innerText]); })()`);
-  check('Clinic repeats: "This day only" and "All days of Clinic", All days chosen', rep.length === 2 && rep[0][0] === 'day' && rep[0][1] === 'false' && rep[1][0] === 'all' && rep[1][1] === 'true' && rep[1][2] === 'All days of Clinic', JSON.stringify(rep));
+  // 3.49.0 (R3 of PLAN_repeat_end_and_parts): a third choice, "This and following", between the two.
+  check('Clinic repeats: "This day only", "This and following" and "All days of Clinic", All days chosen', rep.length === 3 && rep[0][0] === 'day' && rep[0][1] === 'false' && rep[1][0] === 'following' && rep[1][1] === 'false' && rep[1][2] === 'This and following' && rep[2][0] === 'all' && rep[2][1] === 'true' && rep[2][2] === 'All days of Clinic', JSON.stringify(rep));
   await I.type('Check handover', 250);
   await I.enter([], 1500);
   await I.blur();

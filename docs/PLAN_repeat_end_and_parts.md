@@ -24,6 +24,8 @@ R1 status (3.47.0): both fields sync behind the probe `Caps.repeatParts`; nothin
 
 R2 status (3.48.0): Repeat until built; the server calendar feed needs a redeploy.
 
+R3 status (3.49.0): This and following built (details, Clear day and week, scissors, Add inside).
+
 ## 0. Today in six lines
 
 Paths below are under `mobile/` (for example `lib/series.ts` is `mobile/lib/series.ts`).

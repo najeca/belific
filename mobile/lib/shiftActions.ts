@@ -3,7 +3,9 @@
 import type { Task } from './types';
 import { generateId } from './data';
 import { addTask, deleteTask, loadTasksRaw, updateTask } from './storage';
-import { deleteSeries, materialise, skipOccurrence } from './seriesActions';
+import { deleteSeries, materialise, skipOccurrence, splitFrom } from './seriesActions';
+import { firstShownFrom } from './series';
+import { rootTaskId } from './recurrence';
 import { dateKey } from './kanban';
 import type { DayHostEntry } from './hosting';
 import { opsForProjected, opsForTask } from './taskOps';
@@ -26,12 +28,24 @@ export async function addInside(shift: Task, projected: boolean, f: InsideForm):
   if (!day) return;
   stack.markGesture();
   if (f.timed) {
+    // R3: All days starts on the first day the shift shows from today; This and following on the shift's day.
+    let start = day;
+    if (shift.recurrence && f.scope === 'all') {
+      const root = rootTaskId(shift.id);
+      start = firstShownFrom((await loadTasksRaw()).filter((t) => rootTaskId(t.id) === root), dateKey(new Date()), day);
+    }
     const now = new Date().toISOString();
-    await addTask({ id: generateId(), completed: false, createdAt: now, updatedAt: now, ...insideTask(shift, day, f) } as Task);
+    await addTask({ id: generateId(), completed: false, createdAt: now, updatedAt: now, ...insideTask(shift, start, f) } as Task);
     return;
   }
   const id = generateId();
-  if (shift.recurrence && f.scope === 'all') {
+  // R3: a to do for this and the following days splits the shift (the steps are shared by a series): the new half,
+  // from this day on, has it. On the shift's first day that is every day.
+  if (shift.recurrence && f.scope === 'following') {
+    const row = projected ? shift : ((await latest(shift.id)) ?? shift);
+    if (await splitFrom(shift, { subtasks: insideTodo(row.subtasks, f.title, id) })) return;
+  }
+  if (shift.recurrence && (f.scope === 'all' || f.scope === 'following')) {
     const ops = projected ? opsForProjected(shift) : opsForTask(shift);
     const row = projected ? shift : await latest(shift.id);
     await ops.patch({ subtasks: insideTodo((row ?? shift).subtasks, f.title, id) });

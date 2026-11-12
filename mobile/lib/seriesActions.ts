@@ -1,5 +1,7 @@
 import { addTask, loadTasksRaw, updateTask, updateTasks } from './storage';
 import { stack } from './undoStack';
+import { generateId } from './data';
+import { addDays, parseDateKey } from './kanban';
 import { completeTaskById, patchTask, setTimeDoneById, toggleSubtaskById } from './taskActions';
 import { rootTaskId } from './recurrence';
 import {
@@ -9,6 +11,7 @@ import {
   ownDay,
   planMoveDay,
   planSkip,
+  planSplit,
   planThisDayEdit,
   repeatUntilRows,
   seriesEditTargets,
@@ -139,6 +142,31 @@ export function setRepeatUntil(task: Task, untilKey: string | undefined): Promis
     const { rows } = await rowsOfRoot(task.id);
     stack.markGesture();
     await updateTasks(repeatUntilRows(rows, untilKey, nowIso()));
+  });
+}
+
+// R3, This and following: the change from this day on. The series splits (series.planSplit): the old one ends the day
+// before, a new one starts this day with the change. One batch, one Ctrl+Z. Returns the new first row's id (the details
+// follow it), or null when there was nothing to split (the first day: then the change goes to all days, as before).
+export function splitFrom(task: Task, fields: Partial<Task>): Promise<string | null> {
+  return serial(async () => {
+    const day = ownDay(task);
+    if (!day) return null;
+    const { rows } = await rowsOfRoot(task.id);
+    const plan = planSplit(rows, day, fields, nowIso(), generateId(), task.id);
+    if (!plan) return null;
+    stack.markGesture();
+    await updateTasks(plan.writes);
+    return plan.newRoot.id;
+  });
+}
+
+// R3, Clear tools "This and following" on a day or a week: the series ends the day before `dayKey` (that day and every
+// later one are hidden; nothing is deleted). Part of the Clear's gesture (no new mark).
+export function endBefore(task: Task, dayKey: string): Promise<void> {
+  return serial(async () => {
+    const { rows } = await rowsOfRoot(task.id);
+    await updateTasks(repeatUntilRows(rows, dateKey(addDays(parseDateKey(dayKey), -1)), nowIso()));
   });
 }
 

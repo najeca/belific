@@ -10,7 +10,7 @@ import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, openPopover } from './Popover';
 import { RoundCheck } from './ui';
 import { notifyChanged, openDetail } from './uiStore';
-import { END_REPEAT_HERE, END_REPEAT_HERE_NOTE, ownDay } from '../../lib/series';
+import { END_REPEAT_HERE, END_REPEAT_HERE_NOTE, THIS_AND_FOLLOWING, ownDay } from '../../lib/series';
 import { setRepeatUntil } from '../../lib/seriesActions';
 
 // Shifts S3 (PLAN_shifts): what a block with things inside it shows on its Kanban card and in its details window: the
@@ -262,6 +262,7 @@ function AddInsideForm({ task, projected }: { task: Task; projected: boolean }) 
           <Text style={styles.label}>Repeat?</Text>
           <View style={styles.scopeRow}>
             <ScopeButton on={f.scope === 'day'} text="This day only" scope="day" onPress={() => set({ scope: 'day' })} />
+            <ScopeButton on={f.scope === 'following'} text={THIS_AND_FOLLOWING} scope="following" onPress={() => set({ scope: 'following' })} />
             <ScopeButton on={f.scope === 'all'} text={allDaysOfShift(task.title)} scope="all" onPress={() => set({ scope: 'all' })} />
           </View>
         </>

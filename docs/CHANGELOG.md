@@ -8,6 +8,20 @@ to know the current version and recent history.
 
 ---
 
+## 3.49.0 — 2026-11-12 (Repeat until and Parts, R3: This and following; PLAN_repeat_end_and_parts)
+
+**Desktop. No new column (it uses R2's end date). The phone screens are unchanged.**
+- **The details of a repeating day:** one quiet row "Changes go to: This day only · This and following · All days" (All days chosen, so nothing changes for anyone who does not pick). This day only writes that day alone; **This and following splits the series**: the old one ends the day before (its end date; done and past days stay with it), a new one starts that day with the change, keeping the old end date. That day's open stored row and every open stored day after it move to the new series with their own content (the old rows become tombstones, so nothing shows twice). The details follow the new day. On the first day of a series it is All days. One Ctrl+Z puts it all back. E5: the Quests streak of the new half starts again.
+- **Clear tools:** Clear day and Clear week offer **This and following** beside This day only and All days: the repeat ends the day before the first cleared day it falls on (that day and every later one hidden, nothing deleted). Clear list and Clear label keep their two choices.
+- **The Free time scissors and Add inside** on a repeating block: three choices. This and following repeats from the chosen day on (what All days did before); **All days now starts on the first day the block shows from today**, so the days between today and the chosen day get it too. Both end when the block ends (its end date is copied). A to do with This and following splits the shift (steps are shared by a series); on the shift's first day it is All days.
+- A fix found on the way: the details no longer close when the day they show is replaced (a reload of the old day closed the new one).
+Files: `lib/series.ts` (`planSplit`, `firstShownFrom`, `THIS_AND_FOLLOWING`), `lib/seriesActions.ts` (`splitFrom`, `endBefore`), `lib/clear.ts` and `lib/clearActions.ts` ('following'), `lib/blade.ts` and `lib/shifts.ts` (the scopes, the end date copied), `lib/shiftActions.ts`; `TaskDetailPanel.tsx` (the row), `ClearTools.tsx`, `BladeLayer.tsx`, `ShiftBody.tsx`, `uiStore.ts` (`closeDetailOf`); the vendored feed `series.ts` (copy, no behaviour change for the feed); `app.json` 3.49.0.
+Choices made without asking: the scope row shows only on an open repeating day with a Day (not on a done day); after a split the row starts again at All days (which now means the new half); This and following in Clear tools only for a day or a week (a list or a label has no day to start from).
+Tests changed on purpose: easConfig.test.ts; new thisAndFollowing.test.ts (6); real new p64 (12).
+Gates: see build-progress.
+
+---
+
 ## 3.48.0 — 2026-11-12 (Repeat until and Parts, R2: Repeat until; PLAN_repeat_end_and_parts)
 
 **Desktop. Uses migration 005's `repeat_until` (synced since 3.47.0 once the column exists; kept on the device until then). The phone screens are unchanged; the shared rules mean the phone also stops showing days after an end date set on the desktop.**

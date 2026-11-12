@@ -126,6 +126,11 @@ export function openDetail(taskId: string, focus: DetailFocus = 'title'): void {
 export function closeDetail(): void {
   if (state.detailId) set({ detailId: null, detailFocus: null, detailDraft: null });
 }
+// R3: closes the details only while they still show `taskId` (a reload of a day that was just replaced, by a split
+// that opened the new day, must not close the new one).
+export function closeDetailOf(taskId: string): void {
+  if (state.detailId === taskId) closeDetail();
+}
 
 // 3.23.0: a new task card. The id is a draft id; the details modal keeps the fields in memory and stores the task
 // when it has a title (or on Save). Closing with no title stores nothing.

@@ -7,7 +7,10 @@ import { yToMinutes } from '../../lib/drag';
 import { BLADE_HINT, BLADE_LABEL, FREE_TIME, allDaysOf, bladeCheck, bladeSpan, bladeTask, hostAt, snap5, type BladeHost, type BladeScope, type BladeState } from '../../lib/blade';
 import type { CutEntry } from '../../lib/cuts';
 import { generateId } from '../../lib/data';
-import { addTask } from '../../lib/storage';
+import { addTask, loadTasksRaw } from '../../lib/storage';
+import { firstShownFrom, THIS_AND_FOLLOWING } from '../../lib/series';
+import { rootTaskId } from '../../lib/recurrence';
+import { dateKey } from '../../lib/kanban';
 import { stack } from '../../lib/undoStack';
 import type { Task } from '../../lib/types';
 import { domNode } from './DragProvider';
@@ -33,9 +36,15 @@ const columns = new Map<string, { breaks: CutEntry[]; cutMin: number }>();
 // The cut itself: one Break, one gesture (one undo entry, "created Break").
 export async function bladeCut(dayKey: string, span: [number, number], host: BladeHost | null, scope: BladeScope): Promise<void> {
   setBlade({ mode: 'armed' });
+  // R3: All days starts on the first day the block shows from today; This and following on the day cut.
+  let start = dayKey;
+  if (scope === 'all' && host?.task.recurrence) {
+    const root = rootTaskId(host.task.id);
+    start = firstShownFrom((await loadTasksRaw()).filter((t) => rootTaskId(t.id) === root), dateKey(new Date()), dayKey);
+  }
   stack.markGesture();
   const now = new Date().toISOString();
-  await addTask({ id: generateId(), completed: false, createdAt: now, updatedAt: now, ...bladeTask(span, dayKey, scope, host?.task) } as Task);
+  await addTask({ id: generateId(), completed: false, createdAt: now, updatedAt: now, ...bladeTask(span, start, scope, host?.task) } as Task);
   notifyChanged();
 }
 
@@ -156,6 +165,9 @@ function Ask({ state }: { state: Extract<BladeState, { mode: 'asking' }> }) {
     <View style={[styles.ask, { left: state.x + 8, top: state.y + 8 }]} accessibilityRole="menu" accessibilityLabel="Mark free time" {...({ dataSet: { bladeAsk: state.host.title } } as object)}>
       <Pressable onPress={() => pick('day')} style={styles.choice} accessibilityRole="button" accessibilityLabel="This day only" {...({ dataSet: { bladeChoice: 'day' } } as object)}>
         <Text style={styles.choiceText}>This day only</Text>
+      </Pressable>
+      <Pressable onPress={() => pick('following')} style={styles.choice} accessibilityRole="button" accessibilityLabel={THIS_AND_FOLLOWING} {...({ dataSet: { bladeChoice: 'following' } } as object)}>
+        <Text style={styles.choiceText}>{THIS_AND_FOLLOWING}</Text>
       </Pressable>
       <Pressable
         ref={((n: unknown) => { allRef.current = domNode(n); }) as never}

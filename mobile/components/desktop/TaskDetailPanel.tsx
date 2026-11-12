@@ -5,7 +5,7 @@ import { Colors } from '../../lib/theme';
 import { isDateKey } from '../../lib/kanban';
 import { addSubtask, counterLabel, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { generateId } from '../../lib/data';
-import { endTooEarlyText, idDate, movedCaptionLong, projectOccurrences, seriesOf } from '../../lib/series';
+import { endTooEarlyText, idDate, movedCaptionLong, ownDay, projectOccurrences, seriesOf, THIS_AND_FOLLOWING } from '../../lib/series';
 import { reminderHint, taskRemindersLabel } from '../../lib/reminder';
 import { useDefaultReminders } from './reminderStore';
 import { effectiveListKey } from '../../lib/lists';
@@ -42,11 +42,11 @@ import { repeatLine } from '../../lib/repeat';
 import { rootTaskId } from '../../lib/recurrence';
 import { dateKey, formatDayLabel } from '../../lib/kanban';
 import { movesOneDay, opsForProjected, opsForTask, withoutDay, type TaskOps } from './taskOps';
-import { moveDay } from '../../lib/seriesActions';
+import { moveDay, splitFrom } from '../../lib/seriesActions';
 import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
 import { formatTime } from '../../lib/data';
 import { isMultiTime, MAX_TIMES, addTimeFields, isTimeDone, moveTimeFields, removeTimeFields, suggestNextTime, timesOf, type TimeEdit, type TimeRefusal } from '../../lib/times';
-import { closeDetail, getDetailFocus, isDraftId, notifyChanged, openDetail, useDetailDraft, useDetailId, type NewTaskWhere } from './uiStore';
+import { closeDetail, closeDetailOf, getDetailFocus, isDraftId, notifyChanged, openDetail, useDetailDraft, useDetailId, type NewTaskWhere } from './uiStore';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
@@ -144,7 +144,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     setLabels(l);
     setLists(ls);
     // The task was deleted (here, or on the other device): nothing to show. A new card is not stored yet.
-    if (!found && !isDraftId(id)) closeDetail();
+    if (!found && !isDraftId(id)) closeDetailOf(id);
   }, [id, cutMin]);
   useEffect(() => {
     if (!id) {
@@ -214,7 +214,24 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
     toggleSubtask: async (sid) => void (await draftPatch?.({ subtasks: (task.subtasks ?? []).map((s) => (s.id === sid ? { ...s, done: !s.done } : s)) })),
     remove: async () => closeDetail(),
   };
-  const ops: TaskOps = drafting ? draftOps : projected ? opsForProjected(task) : opsForTask(task);
+  const baseOps: TaskOps = drafting ? draftOps : projected ? opsForProjected(task) : opsForTask(task);
+  // R3: where the changes of a repeating day go. All days is the default (nothing changes for anyone who does not
+  // pick); This day only writes this day alone; This and following splits the series here (the details then follow
+  // the new first day).
+  const [scope, setScope] = useState<ChangeScope>('all');
+  const canScope = !drafting && !!task.recurrence && !task.completed && !!ownDay(task);
+  const ops: TaskOps = !canScope || scope === 'all'
+    ? baseOps
+    : scope === 'day'
+      ? { ...baseOps, patch: baseOps.patchDay }
+      : {
+          ...baseOps,
+          patch: async (fields) => {
+            const id = await splitFrom(task, fields);
+            if (id) openDetail(id);
+            else await baseOps.patch(fields);
+          },
+        };
   const patch = async (fields: Partial<Task>) => {
     if (drafting) {
       await draftPatch?.(fields);
@@ -528,6 +545,9 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
           <RepeatField task={task} ops={ops} onSaved={onSaved} />
         </DetailRow>
 
+        {/* R3: where the changes go, for a repeating day. */}
+        {canScope ? <ScopeRow scope={scope} setScope={setScope} /> : null}
+
         {/* R2: Repeat until, the last day it happens (E1). Later days are hidden, not deleted; Clear brings them back. */}
         {task.recurrence && ops.series ? (
           <DetailRow icon="flag-outline" label="Repeat until">
@@ -825,6 +845,30 @@ function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved
   );
 }
 
+// R3: "Changes go to: This day only · This and following · All days", one quiet row of radio buttons, 14 px or more.
+type ChangeScope = 'day' | 'following' | 'all';
+const SCOPES: Array<[ChangeScope, string]> = [['day', 'This day only'], ['following', THIS_AND_FOLLOWING], ['all', 'All days']];
+function ScopeRow({ scope, setScope }: { scope: ChangeScope; setScope: (s: ChangeScope) => void }) {
+  return (
+    <View style={styles.scopeRow} accessibilityRole="radiogroup" accessibilityLabel="Changes go to" {...({ dataSet: { changeScope: scope } } as object)}>
+      <Text style={styles.plainText}>Changes go to:</Text>
+      {SCOPES.map(([s, text]) => (
+        <Pressable
+          key={s}
+          onPress={() => setScope(s)}
+          style={[styles.scopeChoice, scope === s && styles.scopeOn]}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: scope === s }}
+          accessibilityLabel={text}
+          {...({ 'aria-checked': scope === s, dataSet: { changeScopeChoice: s } } as object)}
+        >
+          <Text style={[styles.scopeText, scope === s && styles.scopeTextOn]}>{text}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 // R2: the Repeat until field. "No end" when empty; a day picker (nothing before the series' first day); a visible
 // Clear button. The date is the last day it happens; later days are hidden, not deleted.
 function RepeatUntilField({ task, start, setUntil, onSaved }: { task: Task; start?: string; setUntil: (k: string | undefined) => Promise<void>; onSaved: () => void }) {
@@ -1052,6 +1096,11 @@ const styles = StyleSheet.create({
   untilClear: { paddingHorizontal: 12, height: 32, borderRadius: 8, borderWidth: 1, borderColor: Colors.borderStrong, justifyContent: 'center' },
   untilClearText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   untilBody: { padding: 8, gap: 6 },
+  scopeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, paddingVertical: 4 },
+  scopeChoice: { paddingHorizontal: 10, height: 32, borderRadius: 8, borderWidth: 1, borderColor: Colors.borderStrong, justifyContent: 'center' },
+  scopeOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  scopeText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  scopeTextOn: { color: Colors.onAccent },
   // A value in a row: 16/700 in the text colour.
   quietText: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   // A hint: 11px, grey (the study's hint size).

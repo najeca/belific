@@ -246,6 +246,8 @@ export interface Task {
   // R4: DISPLAY ONLY, never stored or synced (storage strips it, the sync never names it): a parent with no estimate of
   // its own counts the sum of its parts' estimates (lib/parts.ts withParts, E2).
   partsMinutes?: number;
+  // R5: DISPLAY ONLY, never stored: the day a repeating parent's part is shown for (its tick is that day's row).
+  partDay?: string;
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';

@@ -8,6 +8,23 @@ to know the current version and recent history.
 
 ---
 
+## 3.51.0 — 2026-11-12 (Repeat until and Parts, R5: Parts on repeating parents and across the flows; PLAN_repeat_end_and_parts)
+
+**Desktop. No new column. The phone screens are unchanged (R6).**
+- **A repeating parent's parts repeat with it and start each day unticked.** The part row (its parent is the series root, no Day) is the part's template: its title, notes and estimate apply to every day. A tick on a day is stored as that day's row (`<part id>:<YYYY-MM-DD>`, the parent's id, that day's Day): only that day. The card of a day not ticked reads "0 of 2 done". The last open part completes that day; unticking one reopens it (as steps do). Add part works on a repeating task too.
+- **A day row is history, never a task:** hidden on the board, Calendar, Timebox, Wrap up, Plan my day, Clear tools, Earlier, reminders and the feeds. Undoing the tick that made one unticks it and never tombstones it (a tombstone wins every sync merge, so a re-tick would be lost).
+- **Wrap up Tomorrow (E4):** a task with some parts done and some open offers **Only the 2 parts left to tomorrow**: today keeps the task done with its done parts; a copy of it goes to tomorrow holding the open parts (re-linked, not copied); one save, the row's own Undo. With no part done Tomorrow moves the task and its parts follow (no write). A repeating day never moves.
+- **Plan my day and Plan week:** a task with parts reads "3 parts" beside it; parts are never offered on their own (not in "Add to today", not in the week's lists).
+- **Clear tools:** a task and its parts count once ("1 task has 2 parts, which go with it."); Clear list and Clear label's Trash move them together; Clear day and week send the task back to its list and the parts follow (no write). A repeating series with parts goes to the Trash with its parts.
+- **Delete repeating task** on a series with parts asks: **Delete the task only** (the parts become ordinary tasks in the list) or **Delete the task and its 2 parts** (done day rows stay as history). The Trash shows the series with "With its 2 parts." and Restore brings them back with it.
+- A part of a repeating parent has no tick in its own details (it is ticked on each day); Turn into parts is not offered on a repeating task (its steps stay a checklist); Take out of a repeating parent puts the part in its list.
+Files: `lib/parts.ts` (`isDayRow`, `isSeriesParent`, `partKeyOf`, `partsFor`, `dayRowFor`, `parentTaskOf`, the series-aware index), `lib/partActions.ts` (`setPartDone`, `deleteSeriesWithParts`), `lib/series.ts` (`isGone` hides day rows), `lib/taskActions.ts`, `lib/undoStack.ts`, `lib/wrapUp.ts` (`splitParts`, `partsLeft`, `parts`), `lib/wrapActions.ts` (`wrapParts`), `lib/planDay.ts`, `lib/clear.ts` and `lib/clearActions.ts`, `lib/trash.ts` and `lib/trashActions.ts`, `lib/desktopNotifyCore.ts`, `lib/phoneReminders.ts`, `lib/types.ts` (`partDay`, display only); `TaskDetailPanel.tsx`, `TaskPopovers.tsx`, `PartRows.tsx`, `KanbanPane.tsx`, `WrapUp.tsx`, `PlanMyDay.tsx`, `PlanWeek.tsx`, `ClearTools.tsx`; `app.json` 3.51.0.
+Choices made without asking: Restore of a series with parts brings the parts back under the restored series' root; a part's done day rows of a deleted series stay (history) and are not Trash entries; Analytics still counts a done part (and a day row) as a done task (the plan's "once, under its parent" is not built).
+Tests changed on purpose: wrapUp.test.ts (the buttons object gains `partsLeft`), parts.test.ts (a repeating task can hold parts), easConfig.test.ts; new tests in parts.test.ts (+7); real new p66 (17).
+Gates: see build-progress.
+
+---
+
 ## 3.50.0 — 2026-11-12 (Repeat until and Parts, R4: Parts for ordinary tasks; PLAN_repeat_end_and_parts)
 
 **Desktop. Uses migration 005's `parent_id` (synced since 3.47.0 once the column exists; kept on the device until then). The phone screens are unchanged: there a part shows as an ordinary task in its parent's list (the orphan view), and ticking it syncs back.**

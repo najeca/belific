@@ -8,7 +8,7 @@ import { formatMinutes } from '../../lib/timebox';
 import { taskDuration } from '../../lib/drag';
 import { listTitle } from '../../lib/lists';
 import { loadLists } from '../../lib/storage';
-import { dayItems, earlierItems, type WrapChoice, type WrapItem } from '../../lib/wrapUp';
+import { dayItems, earlierItems, partsCaption, type WrapChoice, type WrapItem } from '../../lib/wrapUp';
 import { addRows, earlierLine, insideText, plannedText, repeatingNotToday } from '../../lib/planDay';
 import { addToday, notToday } from '../../lib/wrapActions';
 import type { Task, TaskList } from '../../lib/types';
@@ -120,6 +120,8 @@ export function metaOf(item: WrapItem, todayKey: string): string {
     t.durationMinutes ? formatMinutes(t.durationMinutes) : '',
     item.series ? '↻ repeats' : '',
     item.inside && item.inside.length > 0 ? insideText(item) : '',
+    // R5: "3 parts" beside a task that has parts (parts are never offered on their own)
+    item.parts ? partsCaption(item.parts) : '',
   ]
     .filter(Boolean)
     .join(' · ');

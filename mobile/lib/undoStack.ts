@@ -190,6 +190,9 @@ function atState(cur: Task | undefined, state: Task | undefined): boolean {
 // Undo of a row the entry CREATED. A day of a repeating task (id root:date) that a drag, a tick or a skip stored
 // goes back to what the series shows there; any other row is deleted (a tombstone).
 function uncreate(cur: Task, rows: Task[], created: Set<string>, nowIso: string): Task {
+  // R5 (Parts): the day row of a part of a repeating parent (`part:day`) is that day's tick. Undoing the tick that made it
+  // unticks it; it is never tombstoned (a tombstone wins every sync merge, so a later tick of the same day would be lost).
+  if (cur.parentId && !cur.deletedAt && idDate(cur.id) !== undefined) return { ...cur, completed: false, completedAt: undefined, updatedAt: nowIso };
   const day = idDate(cur.id);
   if (day) {
     // The series as it was before the entry: without any of the rows the entry created (a changed day and the

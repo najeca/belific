@@ -23,10 +23,10 @@ test('Wrap up lists the day: a shift is one row with its rows; a repeating day h
   assert.deepEqual(items.map((i) => i.key), ['shift', 'gym:2026-11-18', 'boiler'], 'by time, untimed last; free time and the deleted one left out');
   const shift = items[0];
   assert.deepEqual(shift.inside!.map((i) => [i.task.title, i.done, i.series]), [['brief', true, false], ['ring', false, false], ['Order supplies', false, true]]);
-  assert.deepEqual(buttonsFor(shift.inside![1]), { tomorrow: true, list: true, letGo: true, stepsLeft: 0 });
-  assert.deepEqual(buttonsFor(shift.inside![2]), { tomorrow: false, list: false, letGo: false, stepsLeft: 0 }, 'a to do: its tick only');
-  assert.deepEqual(buttonsFor(items[1]), { tomorrow: false, list: false, letGo: true, stepsLeft: 0 }, 'a repeating day never moves');
-  assert.deepEqual(buttonsFor(shift.inside![0]), { tomorrow: false, list: false, letGo: false, stepsLeft: 0 }, 'done');
+  assert.deepEqual(buttonsFor(shift.inside![1]), { tomorrow: true, list: true, letGo: true, stepsLeft: 0, partsLeft: 0 });
+  assert.deepEqual(buttonsFor(shift.inside![2]), { tomorrow: false, list: false, letGo: false, stepsLeft: 0, partsLeft: 0 }, 'a to do: its tick only');
+  assert.deepEqual(buttonsFor(items[1]), { tomorrow: false, list: false, letGo: true, stepsLeft: 0, partsLeft: 0 }, 'a repeating day never moves');
+  assert.deepEqual(buttonsFor(shift.inside![0]), { tomorrow: false, list: false, letGo: false, stepsLeft: 0, partsLeft: 0 }, 'done');
 });
 
 test('steps: only the steps left go to tomorrow, today keeps the ticked ones and is done', () => {

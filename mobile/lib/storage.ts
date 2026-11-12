@@ -480,8 +480,8 @@ export async function saveTasks(tasks: Task[]): Promise<void> {
 
 // R4: what the screens add for display (a parent's parts total) is never stored.
 function stored(t: Task): Task {
-  if (!('partsMinutes' in t)) return t;
-  const { partsMinutes: _p, ...rest } = t;
+  if (!('partsMinutes' in t) && !('partDay' in t)) return t;
+  const { partsMinutes: _p, partDay: _d, ...rest } = t;
   return rest as Task;
 }
 

@@ -8,7 +8,7 @@ import { formatTime } from '../../lib/data';
 import { listTitle } from '../../lib/lists';
 import { loadLists } from '../../lib/storage';
 import { weekToPlan } from '../../lib/planEntry';
-import { dayItems, type WrapItem } from '../../lib/wrapUp';
+import { dayItems, partsCaption, type WrapItem } from '../../lib/wrapUp';
 import { addRows, dayOpen, dayTotalText, lastWeekCount, lastWeekLine } from '../../lib/planDay';
 import { addToday } from '../../lib/wrapActions';
 import type { Task, TaskList } from '../../lib/types';
@@ -185,9 +185,9 @@ function DayItem({ item }: { item: WrapItem }) {
         {t.title}
         {item.series ? ' ↻' : ''}
       </Text>
-      {time || (t.dueDate && isLastDay(t, t.dueDate)) ? (
+      {time || item.parts || (t.dueDate && isLastDay(t, t.dueDate)) ? (
         <Text style={wrap.meta} {...({ dataSet: { weekLastDay: t.dueDate && isLastDay(t, t.dueDate) ? '1' : '0' } } as object)}>
-          {[time, t.dueDate && isLastDay(t, t.dueDate) ? LAST_DAY : ''].filter(Boolean).join(' · ')}
+          {[time, t.dueDate && isLastDay(t, t.dueDate) ? LAST_DAY : '', item.parts ? partsCaption(item.parts) : ''].filter(Boolean).join(' · ')}
         </Text>
       ) : null}
     </View>

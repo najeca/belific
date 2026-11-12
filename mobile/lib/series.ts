@@ -375,8 +375,9 @@ export const isAfterEnd = isAfterEndRow;
 
 // Not shown on any day: a tombstone, or an open day after the end. Every place that turns stored rows into a
 // day's tasks uses this instead of `deletedAt` alone.
-export function isGone(row: Pick<Task, 'id' | 'dueDate' | 'completed' | 'deletedAt'> & Partial<Pick<Task, 'repeatUntil'>>): boolean {
-  return !!row.deletedAt || isAfterEnd(row);
+export function isGone(row: Pick<Task, 'id' | 'dueDate' | 'completed' | 'deletedAt'> & Partial<Pick<Task, 'repeatUntil' | 'parentId'>>): boolean {
+  // R5: a day row of a part of a repeating task (`part:YYYY-MM-DD`, parentId) is that day's tick, history: never a task.
+  return !!row.deletedAt || isAfterEnd(row) || (!!row.parentId && idDate(row.id) !== undefined);
 }
 
 // The rows to write for a new end date (a day key) or none (undefined): every row with a rule whose value

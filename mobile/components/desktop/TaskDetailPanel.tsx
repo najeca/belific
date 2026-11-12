@@ -35,8 +35,8 @@ import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { MonthGrid } from './ui';
-import { ADD_PART, CHECKLIST, PARTS, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, indexById, parentOf, partOfText, partsAddUp, partsOf, partsProgress, takeOutText } from '../../lib/parts';
-import { addPart, convertSteps, deleteWithParts, takeOut } from '../../lib/partActions';
+import { ADD_PART, CHECKLIST, PARTS, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, isSeriesParent, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
+import { addPart, convertSteps, deleteWithParts, setPartDone, takeOut } from '../../lib/partActions';
 import { LabelBody, MoveToDayBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import { labelColor } from '../../lib/labelColors';
 import StreakLine from './StreakLine';
@@ -145,8 +145,8 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     setSeriesStart(found?.recurrence ? seriesOf(tasks, rootTaskId(found.id))?.startKey : undefined);
     setLinks(found && found.dueDate ? hostLinks(tasks, found.dueDate, dateKey(new Date())) : []);
     setFit(found ? fitInsideFor(tasks, found, dateKey(new Date())) : null);
-    setParts(found ? partsOf(tasks, found.id) : []);
-    setPartOf(found ? parentOf(found, indexById(tasks)) : undefined);
+    setParts(found ? partsFor(tasks, found) : []);
+    setPartOf(found ? parentTaskOf(found, tasks) : undefined);
     setShift(found && found.dueDate && !found.cutsBelow ? shiftsOfDay(tasks, found.dueDate, dateKey(new Date()), cutMin).byTask.get(found.id) ?? null : null);
     setLabels(l);
     setLists(ls);
@@ -373,8 +373,8 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
   };
   const listKey = effectiveListKey(task, lists);
   const subtasks = task.subtasks ?? [];
-  // R4: parts on an ordinary task (not repeating: R5; not a part; not free time). The old checklist shows only when the
-  // task already has steps; a repeating task keeps "Add subtask" until R5; a part has neither.
+  // R4/R5: parts on a task, repeating or not (not a part, not free time). The old checklist shows only when the task
+  // already has steps; a part has neither.
   const partsHere = !drafting && !partOf && canHaveParts(task);
   const showSteps = !partOf && (!partsHere || subtasks.length > 0);
 
@@ -382,7 +382,8 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
     <View style={[styles.panel, dark ? styles.panelDark : styles.panelSlab]} accessibilityLabel="Task details" {...({ role: 'dialog', 'aria-modal': true, dataSet: { detailPanel: '1' } } as object)}>
       <PaneBand />
       <View style={styles.header}>
-        {!drafting && !task.cutsBelow && (
+        {/* R5: a part of a repeating parent is ticked on each day (in the parent's card or Parts list), not here. */}
+        {!drafting && !task.cutsBelow && !(partOf && isSeriesParent(partOf)) && (
         <Pressable
           // Completing goes through setTaskCompleted (subtasks, repeats), not a bare patch.
           onPress={() => ops.setCompleted(!task.completed).then(onSaved)}
@@ -645,7 +646,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
             <Text style={styles.sectionLabel} accessibilityRole="header">
               {partsHere ? CHECKLIST : 'Subtasks'}  {counterLabel(task.subtasks)}
             </Text>
-            {partsHere ? (
+            {partsHere && !task.recurrence ? (
               <Pressable
                 onPress={async () => {
                   await convertSteps(task);
@@ -751,7 +752,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
           />
         )}
         {/* R4: a task with parts asks "the task only" or "the task and its N parts", two visible buttons. */}
-        {confirming && !asking && parts.length > 0 && (
+        {confirming && !asking && parts.length > 0 && !task.recurrence && (
           <View style={styles.partsDelete} {...({ dataSet: { partsDelete: String(parts.length) } } as object)}>
             <Text style={styles.plainText}>This task has {parts.length === 1 ? '1 part' : `${parts.length} parts`}.</Text>
             {(['only', 'all'] as const).map((c) => (
@@ -775,7 +776,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
             </Pressable>
           </View>
         )}
-        {confirming && !asking && parts.length === 0 && (
+        {confirming && !asking && (parts.length === 0 || !!task.recurrence) && (
           <View style={styles.confirm}>
             <Text style={styles.muted}>Delete this task?</Text>
             <Pressable
@@ -940,7 +941,7 @@ function PartsSection({ parent, parts, onSaved }: { parent: Task; parts: Task[];
         {parts.map((p) => (
           <View key={p.id} style={styles.subRow} {...({ dataSet: { partRow: p.id } } as object)}>
             <Pressable
-              onPress={() => opsForTask(p).setCompleted(!p.completed).then(() => { notifyChanged(); onSaved(); })}
+              onPress={() => setPartDone(parent, p, !p.completed).then(() => { notifyChanged(); onSaved(); })}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: p.completed }}
               accessibilityLabel={p.completed ? `Untick ${p.title}` : `Tick ${p.title}`}

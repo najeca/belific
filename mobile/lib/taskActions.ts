@@ -1,5 +1,5 @@
 import { addTask, deleteBrainDumpItem, loadTasksRaw, updateTask, updateTasks } from './storage';
-import { indexById, parentDoneWrites, parentOf, partTickWrites, partsOf } from './parts';
+import { indexById, parentDoneWrites, parentOf, partTickWrites, partsFor, partsOf } from './parts';
 import { createDumpConverter } from './dumpConvert';
 import { toggleSubtask, withAllDone } from './subtasks';
 import { generateId } from './data';
@@ -41,7 +41,8 @@ export function setTaskCompleted(task: Task, completed: boolean, keepTimes = fal
     // R4, Parts (the same rules as steps): completing a parent ticks its open parts; ticking the last open part
     // completes the parent; unticking a part of a done parent reopens it. Same gesture, so one Ctrl+Z.
     const raw = await loadTasksRaw();
-    if (completed) await updateTasks(parentDoneWrites(partsOf(raw, task.id), done.completedAt as string));
+    // (a repeating parent's parts are that day's: their ticks are day rows, parts.partsFor)
+    if (completed) await updateTasks(parentDoneWrites(partsFor(raw, done), done.completedAt as string));
     const parent = parentOf(done, indexById(raw));
     if (parent) {
       const parts = partsOf(raw, parent.id).map((p) => (p.id === done.id ? task : p));

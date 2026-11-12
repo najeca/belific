@@ -6,7 +6,7 @@ import { Colors } from '../../lib/theme';
 import { radius } from '../../lib/tokens';
 import { dateKey } from '../../lib/kanban';
 import { loadTasksRaw } from '../../lib/storage';
-import { clearButton, clearExplain, clearQuestion, clearedText, defaultMode, labelTrashButton, planClear, repeatNote, shiftNote, weekOf, type ClearMode, type ClearPlan, type ClearScope, type ClearTarget } from '../../lib/clear';
+import { clearButton, clearExplain, clearQuestion, clearedText, defaultMode, labelTrashButton, planClear, repeatNote, shiftNote, weekOf, type ClearMode, type ClearPlan, type ClearScope, type ClearTarget, partsNote } from '../../lib/clear';
 import { runClear } from '../../lib/clearActions';
 import Popover, { Row, closePopover, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { notifyChanged, offerUndo } from './uiStore';
@@ -52,6 +52,7 @@ export function ClearBody({ target, onDone }: { target: ClearTarget; onDone: () 
       </Text>
       {plan.count > 0 && <Text style={styles.text}>{clearExplain(target, mode)}</Text>}
       {plan.count > 0 && shiftNote(plan) ? <Text style={styles.text}>{shiftNote(plan)}</Text> : null}
+      {plan.count > 0 && partsNote(plan, mode) ? <Text style={styles.text} {...({ dataSet: { clearParts: String(plan.parts) } } as object)}>{partsNote(plan, mode)}</Text> : null}
       {repeating > 0 && (
         <View style={styles.repeat} {...({ dataSet: { clearRepeat: scope } } as object)}>
           <Text style={styles.text}>{repeatNote(repeating)}</Text>

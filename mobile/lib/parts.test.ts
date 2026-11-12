@@ -115,9 +115,9 @@ test('steps into parts: same titles, ticks and order; the checklist emptied', ()
   assert.deepEqual(partsOf([plan.parent, ...plan.parts], 'upper').map((p) => p.title), ['Warm up', 'Stretch'], 'the order holds');
 });
 
-test('who can have parts (R4): an ordinary task; not a repeating one (R5), not a part, not free time', () => {
+test('who can have parts: a task, repeating or not (R5); not a part, not free time', () => {
   assert.equal(canHaveParts(upper), true);
-  assert.equal(canHaveParts({ ...upper, recurrence: 'daily' }), false);
+  assert.equal(canHaveParts({ ...upper, recurrence: 'daily' }), true, 'R5: a repeating task can hold parts');
   assert.equal(canHaveParts(bench), false);
   assert.equal(canHaveParts({ ...upper, cutsBelow: true }), false);
 });
@@ -147,4 +147,92 @@ test('the Trash: the parts deleted with their parent are one entry with it ("Wit
   assert.equal(entries[0].title, 'Upper day');
   assert.equal(entries[0].note, 'With its 3 parts.');
   assert.equal(partsDeletedWith(entries[0].row, rows).length, 3);
+});
+
+// ---- R5: repeating parents and the flows ----
+import { dayRowFor, parentTaskOf, partsFor, isDayRow, partKeyOf } from './parts.ts';
+import { isGone } from './series.ts';
+import { buttonsFor, splitParts, dayItems, partsButton } from './wrapUp.ts';
+import { oneOffRows, partsNote, planClear } from './clear.ts';
+import { partsDeletedWithSeries } from './trash.ts';
+
+const camp = (extra: Partial<Task> = {}): Task => ({ id: 'camp', title: 'Upper day', dueDate: '2026-11-09', startTime: '18:00', durationMinutes: 60, recurrence: 'weekly', recurrenceDays: ['Mon', 'Thu'], completed: false, createdAt: 'c', updatedAt: 'u', ...extra });
+const sp = (id: string, extra: Partial<Task> = {}): Task => T(id, { title: id, parentId: 'camp', durationMinutes: 10, createdAt: `2026-11-01T07:00:0${id.length}.000Z`, ...extra });
+
+test('R5: a repeating parent\'s parts repeat each day and reset: a tick is that day\'s row only', () => {
+  const tpl = [sp('b'), sp('sh')];
+  const day16 = camp({ id: 'camp:2026-11-16', dueDate: '2026-11-16' });
+  const dayRow = dayRowFor(tpl[0], '2026-11-12', true, 'now');
+  assert.equal(dayRow.id, 'b:2026-11-12');
+  const rows = [camp(), day16, ...tpl, dayRow];
+  const thu = partsFor(rows, camp({ id: 'camp:2026-11-12', dueDate: '2026-11-12' }));
+  assert.deepEqual(thu.map((p) => [p.id, p.completed, p.partDay]), [['b', true, '2026-11-12'], ['sh', false, '2026-11-12']]);
+  const mon = partsFor(rows, day16);
+  assert.deepEqual(mon.map((p) => [p.id, p.completed]), [['b', false], ['sh', false]], 'the next day starts unticked');
+  assert.equal(partKeyOf(day16), 'camp');
+  assert.ok(isDayRow(dayRow) && isGone(dayRow), 'a day row is history, never a task');
+  assert.deepEqual(withParts(rows).map((t) => t.id), ['camp', 'camp:2026-11-16'], 'parts and day rows are not tasks of their own');
+});
+
+test('R5: parts stay with the series when its root row is a tombstone; the parent a part shows under is the latest live day', () => {
+  const rows = [camp({ deletedAt: 'x' }), camp({ id: 'camp:2026-11-12', dueDate: '2026-11-12' }), sp('b')];
+  assert.deepEqual(partsOf(rows, 'camp').map((p) => p.id), ['b']);
+  assert.equal(parentTaskOf(rows[2], rows)?.id, 'camp:2026-11-12');
+  assert.ok(withParts([camp({ deletedAt: 'x' }), sp('b')]).some((t) => t.id === 'b'), 'no live series left: the orphan rule');
+});
+
+test('R5, E4: Wrap up Tomorrow with some parts done splits the task like steps; none done moves it whole; a repeating day never moves', () => {
+  const up = T('up', { title: 'Upper day', dueDate: '2026-11-12' });
+  const ps = [{ ...bench, completed: true }, shoulders, back];
+  const rows = [up, ...ps.map((p) => ({ ...p, parentId: 'up' }))];
+  const item = dayItems(rows, '2026-11-12', '2026-11-12', 15)[0];
+  assert.deepEqual(item.parts, { done: 1, total: 3 });
+  assert.equal(buttonsFor(item).partsLeft, 2);
+  assert.equal(partsButton(2), 'Only the 2 parts left to tomorrow');
+  const plan = splitParts(up, partsOf([up, ...ps.map((p) => ({ ...p, parentId: 'up' }))], 'up'), '2026-11-13', 'copy1', 'now');
+  assert.equal(plan.today.completed, true);
+  assert.equal(plan.copy.dueDate, '2026-11-13');
+  assert.equal(plan.copy.completed, false);
+  assert.deepEqual(plan.moved.map((p) => [p.title, p.parentId]), [['Shoulders', 'copy1'], ['Back', 'copy1']], 'the open parts are re-linked, not copied');
+  const none = dayItems([up, ...[bench, shoulders, back].map((p) => ({ ...p, parentId: 'up' }))], '2026-11-12', '2026-11-12', 15)[0];
+  assert.equal(buttonsFor(none).partsLeft, 0, 'none done: Tomorrow moves the task and its parts follow with no write');
+  const rep = dayItems([camp({ dueDate: '2026-11-12' }), sp('b')], '2026-11-12', '2026-11-12', 15)[0];
+  assert.deepEqual(rep.parts, { done: 0, total: 1 });
+  assert.equal(buttonsFor(rep).tomorrow, false);
+});
+
+test('R5: Clear tools: a task and its parts count once; to the Trash they go together; day and week clear no part on its own', () => {
+  const up = T('up', { title: 'Upper day', listKey: 'gym' });
+  const ps = [T('p1', { parentId: 'up', listKey: 'gym' }), T('p2', { parentId: 'up', listKey: 'gym' })];
+  const plan = planClear([up, ...ps], { kind: 'list', listKey: 'gym', name: 'Gym' }, '2026-11-12');
+  assert.equal(plan.count, 1, 'counted as one');
+  assert.deepEqual([plan.withParts, plan.parts], [1, 2]);
+  assert.equal(partsNote(plan, 'trash'), '1 task has 2 parts, which go with it.');
+  const rows = oneOffRows(plan, 'trash', 'now');
+  assert.deepEqual(rows.map((r) => r.id).sort(), ['p1', 'p2', 'up']);
+  assert.ok(rows.every((r) => r.deletedAt === 'now'));
+  const day = planClear([T('d', { dueDate: '2026-11-12' }), T('dp', { parentId: 'd' })], { kind: 'day', dayKey: '2026-11-12' }, '2026-11-12');
+  assert.equal(day.count, 1);
+  assert.deepEqual(oneOffRows(day, 'unplan', 'now').map((r) => r.id), ['d'], 'the parts go with it, no write');
+});
+
+test('R5: the Trash: the parts deleted with a repeating series are in its entry', () => {
+  const T1 = '2026-11-12T10:00:00.000Z';
+  const T0 = '2026-11-01T10:00:00.000Z';
+  const gone = (t: Task, at: string): Task => ({ ...t, recurrence: undefined, recurrenceDays: undefined, deletedAt: at, updatedAt: at });
+  const rows = [gone(camp(), T1), gone(camp({ id: 'camp:2026-11-12', dueDate: '2026-11-12' }), T1), gone(sp('b'), T1), gone(sp('old'), T0)];
+  assert.deepEqual(partsDeletedWithSeries(rows[1], rows).map((p) => p.id), ['b']);
+  assert.equal(trashEntries(rows, Date.parse(T1) + 1000).filter((e) => e.title === 'b').length, 0, 'not an entry of its own');
+});
+
+test('R5: undoing the tick that created a part\'s day row unticks it, never a tombstone (a re-tick must survive a sync)', () => {
+  const tpl = sp('b');
+  const row = dayRowFor(tpl, '2026-11-12', true, '2026-11-12T10:00:00.000Z');
+  const entry = { changes: [{ id: row.id, after: row }], label: 'ticked', gesture: 1, lastAt: 0 };
+  const plan = planStep(entry, [camp(), tpl, row], '2026-11-12T10:00:05.000Z', 'undo');
+  assert.equal(plan.writes.length, 1);
+  assert.equal(plan.writes[0].deletedAt, undefined);
+  assert.equal(plan.writes[0].completed, false);
+  const again = planStep({ ...entry, written: plan.written }, [camp(), tpl, plan.writes[0]], '2026-11-12T10:00:09.000Z', 'redo');
+  assert.equal(again.writes[0].completed, true);
 });

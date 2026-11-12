@@ -10,7 +10,7 @@
 import type { Task, TaskList } from './types.ts';
 import { addDays, dateKey, parseDateKey } from './kanban.ts';
 import { isGone, projectOccurrences } from './series.ts';
-import { withParts, withPartsOf } from './parts.ts';
+import { partsFor, withParts, withPartsOf } from './parts.ts';
 import { rootTaskId } from './recurrence.ts';
 import { isSeriesRow } from './rollover.ts';
 import { tasksInList } from './lists.ts';
@@ -19,7 +19,13 @@ import { formatMinutes } from './timebox.ts';
 import { earlierItems } from './wrapUp.ts';
 import type { WrapItem } from './wrapUp.ts';
 
-const item = (task: Task, projected: boolean): WrapItem => ({ key: task.id, task, projected, series: projected || isSeriesRow(task), done: !!task.completed });
+// R5: a task with parts says so ("3 parts"); `raw` is where its parts are looked up.
+const item = (task: Task, projected: boolean, raw?: Task[]): WrapItem => {
+  const it: WrapItem = { key: task.id, task, projected, series: projected || isSeriesRow(task), done: !!task.completed };
+  const ps = raw ? partsFor(raw, task) : [];
+  if (ps.length > 0) it.parts = { done: ps.filter((p) => p.completed).length, total: ps.length };
+  return it;
+};
 
 // The tasks of a list (undefined: Brain Dump) that have no Day and are not done, oldest first as the list shows them.
 export function addRows(raw: Task[], listKey: string | undefined, lists: Array<Pick<TaskList, 'key' | 'deletedAt'>>): WrapItem[] {
@@ -27,7 +33,7 @@ export function addRows(raw: Task[], listKey: string | undefined, lists: Array<P
   const live = withParts(raw).filter((t) => !isGone(t));
   return tasksInList(live, listKey, lists)
     .filter((t) => !t.completed && !t.dueDate && !t.cutsBelow && !t.recurrence)
-    .map((t) => item(t, false));
+    .map((t) => item(t, false, raw));
 }
 
 // How far ahead a repeating task's next day is looked for.
@@ -42,8 +48,8 @@ export function repeatingNotToday(raw: Task[], todayKey: string): WrapItem[] {
   const onToday = new Set([...shown, ...live].filter((t) => t.dueDate === todayKey && isSeriesRow(t)).map((t) => rootTaskId(t.id)));
   const next = new Map<string, WrapItem>();
   const candidates = [
-    ...shown.map((t) => item(t, true)),
-    ...live.filter((t) => isSeriesRow(t) && !t.completed && !!t.dueDate && t.dueDate > todayKey).map((t) => item(t, false)),
+    ...shown.map((t) => item(t, true, raw)),
+    ...live.filter((t) => isSeriesRow(t) && !t.completed && !!t.dueDate && t.dueDate > todayKey).map((t) => item(t, false, raw)),
   ];
   for (const c of candidates) {
     if (c.task.cutsBelow) continue;

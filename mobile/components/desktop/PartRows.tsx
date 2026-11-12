@@ -7,7 +7,7 @@ import { Colors } from '../../lib/theme';
 import type { Task } from '../../lib/types';
 import { partsProgress } from '../../lib/parts';
 import { formatMinutes } from '../../lib/timebox';
-import { opsForTask } from '../../lib/taskOps';
+import { setPartDone } from '../../lib/partActions';
 import { RoundCheck } from './ui';
 import { notifyChanged, openDetail } from './uiStore';
 
@@ -32,7 +32,7 @@ export default function PartRows({ parent, parts }: { parent: Task; parts: Task[
       {shown.map((p) => (
         <View key={p.id} style={styles.row} {...({ dataSet: { cardPart: p.id } } as object)}>
           <Pressable
-            onPress={() => void opsForTask(p).setCompleted(!p.completed).then(() => notifyChanged())}
+            onPress={() => void setPartDone(parent, p, !p.completed).then(() => notifyChanged())}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: p.completed }}
             accessibilityLabel={p.completed ? `Untick ${p.title}` : `Tick ${p.title}`}

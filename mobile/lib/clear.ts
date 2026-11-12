@@ -19,6 +19,7 @@ import { isGone, projectOccurrences } from './series.ts';
 import { rootTaskId } from './recurrence.ts';
 import { isSeriesRow } from './rollover.ts';
 import { insideItemsOf } from './shifts.ts';
+import { partIndex, partsOf } from './parts.ts';
 
 export type ClearTarget =
   | { kind: 'day'; dayKey: string }
@@ -41,6 +42,8 @@ export interface ClearItem {
   inside: boolean;
   // List and label, a repeating task: the day "This day only" acts on (its next open day from today).
   next?: { task: Task; projected: boolean };
+  // R5: the task's parts (a one off task): they go with it (to the Trash with it, back to the list with it, no write).
+  parts?: Task[];
 }
 
 export interface ClearPlan {
@@ -50,6 +53,9 @@ export interface ClearPlan {
   shifts: number;
   inside: number;
   repeating: number;
+  // R5: how many tasks have parts, and how many parts that is (counted with their tasks, never on their own).
+  withParts: number;
+  parts: number;
 }
 
 export const defaultMode = (t: ClearTarget): ClearMode => (t.kind === 'list' ? 'trash' : t.kind === 'label' ? 'off' : 'unplan');
@@ -87,9 +93,12 @@ export function planClear(tasks: Task[], target: ClearTarget, todayKey: string, 
     for (const t of projectOccurrences(tasks, days, todayKey)) add(t, true);
   } else {
     const roots = new Set<string>();
+    // R5: a part is a row in its parent's card, never an item of its own (it goes with its parent).
+    const shownParts = new Set<string>();
+    for (const list of partIndex(tasks).values()) for (const p of list) shownParts.add(p.id);
     for (const t of tasks) {
       const hit = target.kind === 'list' ? t.listKey === target.listKey : t.projectKey === target.labelKey;
-      if (!hit || !open(t)) continue;
+      if (!hit || !open(t) || shownParts.has(t.id)) continue;
       if (isSeriesRow(t)) {
         // One row per series: the latest stored live row stands for it (its next day is worked out below).
         const root = rootTaskId(t.id);
@@ -121,7 +130,10 @@ export function planClear(tasks: Task[], target: ClearTarget, todayKey: string, 
     }
   }
   const inside = items.filter((i) => i.inside).length;
-  return { items, count: items.length - inside, shifts, inside, repeating: items.filter((i) => i.series && !i.inside).length };
+  for (const it of items) if (!it.series && !it.projected) it.parts = partsOf(tasks, it.task.id);
+  const withParts = items.filter((i) => i.parts && i.parts.length > 0 && !i.inside).length;
+  const parts = items.reduce((n, i) => n + (i.parts && !i.inside ? i.parts.length : 0), 0);
+  return { items, count: items.length - inside, shifts, inside, repeating: items.filter((i) => i.series && !i.inside).length, withParts, parts };
 }
 
 // ---- words ----
@@ -167,14 +179,24 @@ export const clearedText = (mode: ClearMode, n: number): string => (mode === 'tr
 
 // The rows the batch save writes for the one off tasks (stored, not a series).
 export function oneOffRows(plan: ClearPlan, mode: ClearMode, nowIso: string): Task[] {
-  return plan.items
+  // R5: to the Trash, a task takes its parts with it (one entry, "With its 3 parts", restored together).
+  const withPartRows = mode === 'trash' ? plan.items.filter((i) => !i.series && !i.projected).flatMap((i) => (i.parts ?? []).map((p) => ({ ...p, deletedAt: nowIso }))) : [];
+  return [...plan.items
     .filter((i) => !i.series && !i.projected)
     .map((i) => {
       if (mode === 'trash') return { ...i.task, deletedAt: nowIso };
       if (mode === 'off') return i.inside ? i.task : { ...i.task, projectKey: undefined };
       return { ...i.task, dueDate: undefined, startTime: undefined, extraTimes: undefined, timesDone: undefined };
     })
-    .filter((t, k, all) => all.indexOf(t) === k && (mode !== 'off' || t.projectKey === undefined));
+    .filter((t, k, all) => all.indexOf(t) === k && (mode !== 'off' || t.projectKey === undefined)), ...withPartRows];
+}
+
+// R5: "Upper day has 3 parts, which go with it." (a one off task's parts; nothing when there are none)
+export function partsNote(plan: Pick<ClearPlan, 'withParts' | 'parts'>, mode: ClearMode): string | null {
+  if (plan.withParts === 0 || mode === 'off') return null;
+  const who = plan.withParts === 1 ? '1 task has' : `${plan.withParts} tasks have`;
+  const n = plan.parts === 1 ? '1 part' : `${plan.parts} parts`;
+  return `${who} ${n}, which go with ${plan.withParts === 1 ? 'it' : 'them'}.`;
 }
 
 // The week of a day: Monday to Sunday.

@@ -26,7 +26,9 @@ R2 status (3.48.0): Repeat until built; the server calendar feed needs a redeplo
 
 R3 status (3.49.0): This and following built (details, Clear day and week, scissors, Add inside).
 
-R4 status (3.50.0): Parts for ordinary tasks built. R5 not started.
+R4 status (3.50.0): Parts for ordinary tasks built.
+
+R5 status (3.51.0): Parts on repeating parents and across the flows built. R6 (the phone) next.
 
 ## 0. Today in six lines
 

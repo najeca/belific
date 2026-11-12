@@ -10,7 +10,7 @@ import FilterButton from './FilterButton';
 import { filterTasks, type TaskFilter } from '../../lib/taskFilter';
 import { opsForProjected, opsForTask } from './taskOps';
 import { projectOccurrences } from '../../lib/series';
-import { partIndexOf, withParts } from '../../lib/parts';
+import { partsFor, withParts } from '../../lib/parts';
 import PartRows from './PartRows';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { domNode, useDrag } from './DragProvider';
@@ -329,10 +329,10 @@ export default function KanbanPane({
                 listName={listNameOf(task, lists)}
                 during={hosts.during.get(task.id)}
                 inside={
-                  shifts?.byTask.has(task.id) || partIndexOf(tasks).has(task.id) ? (
+                  shifts?.byTask.has(task.id) || partsFor(tasks, task).length > 0 ? (
                     <>
                       {shifts?.byTask.has(task.id) ? <ShiftBody info={shifts.byTask.get(task.id)!} anchor={() => document.querySelector<HTMLElement>(`[data-task-card="${task.id.replace(/"/g, '')}"]`)} compact /> : null}
-                      {partIndexOf(tasks).has(task.id) ? <PartRows parent={task} parts={partIndexOf(tasks).get(task.id)!} /> : null}
+                      {partsFor(tasks, task).length > 0 ? <PartRows parent={task} parts={partsFor(tasks, task)} /> : null}
                     </>
                   ) : undefined
                 }

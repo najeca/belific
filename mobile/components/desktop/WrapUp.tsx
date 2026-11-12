@@ -10,8 +10,8 @@ import { isEditableTarget } from '../../lib/editable';
 import { loadTasksRaw } from '../../lib/storage';
 import { stack, type UndoEntry } from '../../lib/undoStack';
 import { undoEntry } from '../../lib/undoActions';
-import { buttonsFor, choiceText, dayItems, stepsButton, tomorrowText, type WrapChoice, type WrapItem } from '../../lib/wrapUp';
-import { wrapLetGo, wrapMove, wrapSteps, wrapTick, wrapToList } from '../../lib/wrapActions';
+import { buttonsFor, choiceText, dayItems, partsButton, partsCaption, stepsButton, tomorrowText, type WrapChoice, type WrapItem } from '../../lib/wrapUp';
+import { wrapLetGo, wrapMove, wrapParts, wrapSteps, wrapTick, wrapToList } from '../../lib/wrapActions';
 import type { Task } from '../../lib/types';
 import { useCutMin } from './cutStore';
 import { runRedo, runUndo } from './useUndoRedo';
@@ -171,7 +171,7 @@ export function WrapRow({
     );
   }
   const b = buttonsFor(item);
-  const meta = [showDay && t.dueDate ? formatShortDate(t.dueDate) : '', item.row?.row.time ? formatTime(item.row.row.time) : t.startTime ? formatTime(t.startTime) : '', t.durationMinutes && !item.row?.row.time ? formatMinutes(t.durationMinutes) : item.row?.row.minutes ? formatMinutes(item.row.row.minutes) : '', item.series ? '↻ repeats' : '', t.dueDate && isLastDay(t, t.dueDate) ? LAST_DAY : '']
+  const meta = [showDay && t.dueDate ? formatShortDate(t.dueDate) : '', item.row?.row.time ? formatTime(item.row.row.time) : t.startTime ? formatTime(t.startTime) : '', t.durationMinutes && !item.row?.row.time ? formatMinutes(t.durationMinutes) : item.row?.row.minutes ? formatMinutes(item.row.row.minutes) : '', item.series ? '↻ repeats' : '', t.dueDate && isLastDay(t, t.dueDate) ? LAST_DAY : '', item.parts ? partsCaption(item.parts) : '']
     .filter(Boolean)
     .join(' · ');
   const steps = t.subtasks && t.subtasks.length > 0 && !item.inside ? `${t.subtasks.filter((s) => s.done).length} of ${t.subtasks.length} steps` : '';
@@ -199,6 +199,12 @@ export function WrapRow({
           <Btn text={stepsButton(b.stepsLeft)} a11y={`${stepsButton(b.stepsLeft)}, ${t.title}`} id="steps" item={item} onPress={() => onChoose(item, 'steps')} />
         </View>
       )}
+      {/* R5, E4: some parts done, some not: only the parts left go to tomorrow. */}
+      {b.partsLeft > 0 && (
+        <View style={styles.stepsRow}>
+          <Btn text={partsButton(b.partsLeft)} a11y={`${partsButton(b.partsLeft)}, ${t.title}`} id="parts" item={item} onPress={() => onChoose(item, 'parts')} />
+        </View>
+      )}
     </View>
   );
 }
@@ -218,6 +224,7 @@ export function runChoice(item: WrapItem, choice: WrapChoice, todayKey: string):
   if (choice === 'today') return wrapMove(item, todayKey);
   if (choice === 'list') return wrapToList(item);
   if (choice === 'steps') return wrapSteps(item, tomorrow);
+  if (choice === 'parts') return wrapParts(item, tomorrow);
   return wrapLetGo(item);
 }
 

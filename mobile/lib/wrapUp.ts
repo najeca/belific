@@ -15,7 +15,7 @@
 //     inside rows under it. Tick all marks them all done on their own days. Before 14:00 a row also has Today.
 import type { Task } from './types.ts';
 import { isGone, projectOccurrences } from './series.ts';
-import { withPartsOf } from './parts.ts';
+import { partsFor, withPartsOf } from './parts.ts';
 import { isSeriesRow } from './rollover.ts';
 import { shiftsOfDay, insideItemsOf, type ShiftRow } from './shifts.ts';
 import { withAllDone } from './subtasks.ts';
@@ -38,6 +38,8 @@ export interface WrapItem {
   inside?: WrapItem[];
   // A row of a shift (timed or a to do): ticked through the shift (shiftActions.tickRow).
   row?: { shift: Task; projected: boolean; row: ShiftRow };
+  // R5: the task has parts ("3 parts" beside it; Tomorrow splits them when some are done, like steps, E4).
+  parts?: { done: number; total: number };
 }
 
 const startOf = (t: Task) => toMinutes(t.startTime) ?? 24 * 60;
@@ -54,6 +56,8 @@ export function dayItems(raw: Task[], dayKey: string, todayKey: string, cutMin: 
     if (seen.has(task.id) || shifts.hidden.has(task.id)) continue;
     seen.add(task.id);
     const item: WrapItem = { key: task.id, task, projected, series: projected || isSeriesRow(task), done: !!task.completed };
+    const ps = partsFor(raw, task);
+    if (ps.length > 0) item.parts = { done: ps.filter((p) => p.completed).length, total: ps.length };
     const info = shifts.byTask.get(task.id);
     if (info) {
       item.inside = info.rows
@@ -77,10 +81,12 @@ export interface WrapButtons {
   letGo: boolean;
   // "Only the 3 steps left to tomorrow": how many steps are left (0: not offered).
   stepsLeft: number;
+  // R5, E4: "Only the 2 parts left to tomorrow" (some parts done, some not, a one off task).
+  partsLeft: number;
 }
 
 export function buttonsFor(item: WrapItem): WrapButtons {
-  const none = { tomorrow: false, list: false, letGo: false, stepsLeft: 0 };
+  const none = { tomorrow: false, list: false, letGo: false, stepsLeft: 0, partsLeft: 0 };
   if (item.done) return none;
   // A shift's to do: its tick only (it goes with the shift).
   if (item.row && item.row.row.kind === 'todo') return none;
@@ -88,20 +94,25 @@ export function buttonsFor(item: WrapItem): WrapButtons {
   const steps = item.task.subtasks ?? [];
   const ticked = steps.filter((s) => s.done).length;
   const left = steps.length - ticked;
-  return { tomorrow: true, list: true, letGo: true, stepsLeft: !item.inside && ticked > 0 && left > 0 ? left : 0 };
+  const pd = item.parts ? item.parts.done : 0;
+  const pl = item.parts ? item.parts.total - item.parts.done : 0;
+  return { tomorrow: true, list: true, letGo: true, stepsLeft: !item.inside && ticked > 0 && left > 0 ? left : 0, partsLeft: !item.inside && pd > 0 && pl > 0 ? pl : 0 };
 }
 
+export const partsButton = (n: number): string => (n === 1 ? 'Only the 1 part left to tomorrow' : `Only the ${n} parts left to tomorrow`);
+export const partsCaption = (p: { done: number; total: number }): string => (p.total === 1 ? '1 part' : `${p.total} parts`);
 export const stepsButton = (n: number): string => (n === 1 ? 'Only the 1 step left to tomorrow' : `Only the ${n} steps left to tomorrow`);
 
 // What a decided row folds to ("Tomorrow · Undo").
 // F4: 'notToday' (Plan my day's untick of a one off task: back to its list), 'skipToday' (of a repeating day), 'addToday'.
-export type WrapChoice = 'tomorrow' | 'list' | 'letGo' | 'skip' | 'steps' | 'today' | 'done' | 'notToday' | 'skipToday' | 'addToday' | 'put';
+export type WrapChoice = 'tomorrow' | 'list' | 'letGo' | 'skip' | 'steps' | 'parts' | 'today' | 'done' | 'notToday' | 'skipToday' | 'addToday' | 'put';
 export function choiceText(c: WrapChoice): string {
   if (c === 'tomorrow') return 'Tomorrow';
   if (c === 'list') return 'Back to its list';
   if (c === 'letGo') return 'Let go, in the Trash';
   if (c === 'skip') return 'Let go for today, it repeats';
   if (c === 'steps') return 'The steps left go to tomorrow';
+  if (c === 'parts') return 'The parts left go to tomorrow';
   if (c === 'today') return 'Today';
   if (c === 'notToday') return 'Not today, back to its list';
   if (c === 'skipToday') return 'Skipped today, it repeats';
@@ -117,6 +128,15 @@ export function splitSteps(t: Task, tomorrowKey: string, newId: string, nowIso: 
   const { completedAt: _c, timesDone: _d, timerStartedAt: _r, deletedAt: _x, actualMinutes: _a, ...rest } = t;
   const copy: Task = { ...rest, id: newId, dueDate: tomorrowKey, subtasks: steps.filter((s) => !s.done), completed: false, createdAt: nowIso, updatedAt: nowIso };
   return [today, copy];
+}
+
+// R5, E4: the parts split, as steps: today keeps the parent DONE with its done parts; a copy of the parent on tomorrow
+// (a new id) holds the open parts, re-linked to it (not copied). [today's parent, tomorrow's copy, the open parts re-linked].
+export function splitParts(t: Task, parts: Task[], tomorrowKey: string, newId: string, nowIso: string): { today: Task; copy: Task; moved: Task[] } {
+  const today: Task = { ...t, completed: true, completedAt: nowIso, timesDone: wholeTaskTimesDone(t, true) };
+  const { completedAt: _c, timesDone: _d, timerStartedAt: _r, deletedAt: _x, actualMinutes: _a, ...rest } = t;
+  const copy: Task = { ...rest, id: newId, dueDate: tomorrowKey, completed: false, createdAt: nowIso, updatedAt: nowIso };
+  return { today, copy, moved: parts.filter((p) => !p.completed).map((p) => ({ ...p, parentId: newId })) };
 }
 
 // Done on its own day (Earlier's Tick all): the steps and every time ticked too, as a tick does.

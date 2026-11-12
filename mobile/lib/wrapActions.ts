@@ -10,7 +10,8 @@ import { tickRow } from './shiftActions';
 import { carryToDay } from './breakCarry';
 import { isSeriesRow } from './rollover';
 import { stack, type UndoEntry } from './undoStack';
-import { doneOnOwnDay, splitSteps, type WrapItem } from './wrapUp';
+import { doneOnOwnDay, splitParts, splitSteps, type WrapItem } from './wrapUp';
+import { partsOf } from './parts';
 
 async function gesture(run: () => Promise<void>): Promise<UndoEntry | undefined> {
   stack.markGesture();
@@ -60,6 +61,17 @@ export const wrapSteps = (item: WrapItem, tomorrowKey: string) =>
     const t = await fresh(item.task.id);
     if (!t || t.completed || isSeriesRow(t)) return;
     await updateTasks(splitSteps(t, tomorrowKey, generateId(), new Date().toISOString()));
+  });
+
+// R5, E4: only the parts left to tomorrow: today's parent done with its done parts, a copy of it on tomorrow holding the
+// open parts (re-linked), one save, one Ctrl+Z.
+export const wrapParts = (item: WrapItem, tomorrowKey: string) =>
+  gesture(async () => {
+    const raw = await loadTasksRaw();
+    const t = raw.find((x) => x.id === item.task.id && !x.deletedAt);
+    if (!t || t.completed || isSeriesRow(t)) return;
+    const plan = splitParts(t, partsOf(raw, t.id), tomorrowKey, generateId(), new Date().toISOString());
+    await updateTasks([plan.today, plan.copy, ...plan.moved]);
   });
 
 // Earlier's Tick all: every one done on its own day, in one save.

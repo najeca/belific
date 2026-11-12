@@ -7,6 +7,8 @@ import { patchTask } from './taskActions';
 import { opsForProjected, opsForTask } from './taskOps';
 import { rootTaskId } from './recurrence';
 import { stack } from './undoStack';
+import { partsOf } from './parts';
+import { deleteSeriesWithParts } from './partActions';
 import { oneOffRows, planClear, type ClearMode, type ClearScope, type ClearTarget } from './clear';
 
 export async function runClear(target: ClearTarget, mode: ClearMode, scope: ClearScope, todayKey: string): Promise<number> {
@@ -43,7 +45,9 @@ export async function runClear(target: ClearTarget, mode: ClearMode, scope: Clea
       continue;
     }
     if (mode === 'trash') {
-      await deleteSeries(it.task);
+      // R5: a series with parts goes with them (the parts' templates to the Trash too, not left as loose tasks).
+      if (partsOf(await loadTasksRaw(), root).length > 0) await deleteSeriesWithParts(it.task, 'all');
+      else await deleteSeries(it.task);
       continue;
     }
     // All days, back to the list: the series stops repeating, and its latest open row loses its Day and time.

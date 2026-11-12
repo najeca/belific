@@ -29,7 +29,7 @@
 // cleared when it was deleted and cannot be recovered; set Repeat again.
 import type { Project, Task, TaskList } from './types.ts';
 import { rootTaskId } from './recurrence.ts';
-import { ownDay } from './series.ts';
+import { idDate, ownDay } from './series.ts';
 
 export const TRASH_DAYS = 30;
 const DAY_MS = 86400000;
@@ -103,6 +103,12 @@ export function partsDeletedWith(row: Pick<Task, 'id' | 'deletedAt'>, tasks: Tas
   if (!row.deletedAt) return [];
   return tasks.filter((t) => t.parentId === row.id && t.deletedAt === row.deletedAt && isDeleteEvent(t));
 }
+// R5: the parts deleted together with a repeating series (same moment, pointing at its root).
+export function partsDeletedWithSeries(entryRow: Task, tasks: Task[]): Task[] {
+  const root = rootTaskId(entryRow.id);
+  const moments = new Set(tasks.filter((r) => !r.parentId && rootTaskId(r.id) === root && isDeleteEvent(r)).map((r) => r.deletedAt));
+  return tasks.filter((t) => t.parentId === root && !(idDate(t.id) !== undefined) && isDeleteEvent(t) && moments.has(t.deletedAt));
+}
 export const withPartsNote = (n: number): string => (n === 1 ? 'With its part.' : `With its ${n} parts.`);
 
 export function trashEntries(tasks: Task[], nowMs: number): TrashEntry[] {
@@ -111,9 +117,12 @@ export function trashEntries(tasks: Task[], nowMs: number): TrashEntry[] {
   const byId = new Map(tasks.map((t) => [t.id, t]));
   for (const t of tasks) {
     if (!isDeleteEvent(t)) continue;
-    // R4: a part deleted with its parent is in the parent's entry.
+    // R4: a part deleted with its parent is in the parent's entry. R5: a day row of a part is history, never an entry; a
+    // part deleted with a repeating parent is in the series' entry.
+    if (t.parentId && idDate(t.id) !== undefined) continue;
     const parent = t.parentId ? byId.get(t.parentId) : undefined;
     if (parent && parent.deletedAt === t.deletedAt && isDeleteEvent(parent)) continue;
+    if (t.parentId && tasks.some((r) => r.deletedAt === t.deletedAt && !r.parentId && rootTaskId(r.id) === t.parentId && isDeleteEvent(r))) continue;
     const at = ms(t.deletedAt);
     if (at < cutoff || at > nowMs + DAY_MS) continue;
     const root = rootTaskId(t.id);
@@ -128,8 +137,8 @@ export function trashEntries(tasks: Task[], nowMs: number): TrashEntry[] {
     if (!series && isMergedInto(row, tasks)) {
       out.push({ kind: 'merged', row, title: row.title, deletedAt: row.deletedAt as string, count: 1, restorable: false, note: MERGED_NOTE });
     } else {
-      const parts = series ? 0 : partsDeletedWith(row, tasks).length;
-      out.push({ kind: series ? 'series' : 'task', row, title: row.title, deletedAt: row.deletedAt as string, count: rows.length, restorable: true, ...(series ? { note: SERIES_NOTE } : parts > 0 ? { note: withPartsNote(parts) } : {}) });
+      const parts = series ? partsDeletedWithSeries(row, tasks).length : partsDeletedWith(row, tasks).length;
+      out.push({ kind: series ? 'series' : 'task', row, title: row.title, deletedAt: row.deletedAt as string, count: rows.length, restorable: true, ...(series ? { note: parts > 0 ? `${SERIES_NOTE} ${withPartsNote(parts)}` : SERIES_NOTE } : parts > 0 ? { note: withPartsNote(parts) } : {}) });
     }
   }
   return out.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt) || a.row.id.localeCompare(b.row.id));

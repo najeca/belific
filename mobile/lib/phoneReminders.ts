@@ -10,7 +10,7 @@
 // iOS keeps at most 64 pending notifications per app, so the phone plans a rolling window (14 days)
 // and keeps the soonest `limit` of them.
 import type { Task } from './types.ts';
-import { isAfterEnd, projectOccurrences } from './series.ts';
+import { idDate, isAfterEnd, projectOccurrences } from './series.ts';
 import { effectiveReminders, DEFAULT_REMINDERS } from './reminder.ts';
 import { doneTimesOf, timesOf } from './times.ts';
 import { localMs } from './desktopNotifyCore.ts';
@@ -49,7 +49,7 @@ export function planTaskReminders(input: { tasks: Task[]; now: number; defaults?
   const horizon = now + (input.days ?? REMINDER_WINDOW_DAYS) * 24 * 60 * 60 * 1000;
   const out: PlannedReminder[] = [];
   const add = (t: Task) => {
-    if (t.completed || t.deletedAt || isAfterEnd(t) || !t.dueDate || !t.startTime || !window.has(t.dueDate)) return;
+    if (t.completed || t.deletedAt || isAfterEnd(t) || (!!t.parentId && idDate(t.id) !== undefined) || !t.dueDate || !t.startTime || !window.has(t.dueDate)) return;
     const done = new Set(doneTimesOf(t));
     timesOf(t).forEach((time, i) => {
       if (done.has(time)) return;

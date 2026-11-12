@@ -1,5 +1,8 @@
 import type { NotifyPayload } from './kv';
-import { isAfterEnd, projectOccurrences } from './series.ts';
+import { idDate, isAfterEnd, projectOccurrences } from './series.ts';
+
+// R5: a day row of a part (`part:YYYY-MM-DD` with a parent) is that day's tick, never a task to remind about.
+const isDayRow = (t: { id: string; parentId?: string }): boolean => !!t.parentId && idDate(t.id) !== undefined;
 import { normalizeReminders } from './reminder.ts';
 import { doneTimesOf, timesOf } from './times.ts';
 import { isQuickReminder } from './quickReminder.ts';
@@ -40,6 +43,8 @@ interface TaskLike {
   deletedAt?: string;
   // R2: an open day after its series' end date is hidden (no reminder).
   repeatUntil?: string;
+  // R5: a day row of a part is that day's tick, not a task.
+  parentId?: string;
   // F6: 0 with a Day and a time is a quick reminder.
   durationMinutes?: number;
 }
@@ -72,7 +77,7 @@ export function buildNotifyPayload(events: EventLike[], tasks: TaskLike[], now: 
   }
   const windowDays = new Set(windowList);
   const add = (t: TaskLike) => {
-    if (t.completed || t.deletedAt || !t.dueDate || isAfterEnd(t)) return;
+    if (t.completed || t.deletedAt || !t.dueDate || isAfterEnd(t) || isDayRow(t)) return;
     if (t.startTime) {
       // One entry per time that is still to do (the first has no `slot`, so its reminders keep their keys).
       const times = timesOf(t);

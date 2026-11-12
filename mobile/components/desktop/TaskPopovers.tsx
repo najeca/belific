@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { deleteAllText, deleteOnlyText, partsOf } from '../../lib/parts';
-import { deleteWithParts } from '../../lib/partActions';
+import { deleteSeriesWithParts, deleteWithParts } from '../../lib/partActions';
+import { rootTaskId } from '../../lib/recurrence';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
@@ -760,13 +761,42 @@ export function OverflowBody({
     // 3.2.0: the day picker opens inside this popover (only one popover is open at a time).
     if (moving && task) return <MoveToDayBody task={task} ops={ops} done={done} />;
     if (duringBreak && task) return <DuringBreakBody task={task} ops={ops} done={done} />;
+    if (partsAsk !== null && task) {
+      return (
+        <View style={[styles.list, styles.partsAsk]} {...({ dataSet: { menuPartsDelete: String(partsAsk) } } as object)}>
+          <Text style={styles.partsAskText}>This repeating task has {partsAsk === 1 ? '1 part' : `${partsAsk} parts`}.</Text>
+          {(['only', 'all'] as const).map((c) => (
+            <Row
+              key={c}
+              label={c === 'only' ? deleteOnlyText : deleteAllText(partsAsk)}
+              onPress={async () => {
+                await deleteSeriesWithParts(task, c);
+                notifyChanged();
+                done();
+              }}
+              a11y={c === 'only' ? deleteOnlyText : deleteAllText(partsAsk)}
+            />
+          ))}
+          <Row label="Cancel" onPress={() => setPartsAsk(null)} a11y="Cancel delete repeating task" />
+        </View>
+      );
+    }
     return (
       <View style={styles.list}>
         {confirming ? (
           <View style={styles.confirm}>
             <Text style={styles.muted}>Delete this repeating task?</Text>
             <Pressable
-              onPress={() => void withInside('Delete', () => series.deleteSeries(), 'series')}
+              onPress={async () => {
+                // R5: a series with parts asks "the task only" or "the task and its N parts".
+                const n = task ? partsOf(await loadTasksRaw(), rootTaskId(task.id)).length : 0;
+                if (n > 0) {
+                  setConfirming(false);
+                  setPartsAsk(n);
+                  return;
+                }
+                void withInside('Delete', () => series.deleteSeries(), 'series');
+              }}
               accessibilityRole="button"
               accessibilityLabel="Confirm delete repeating task"
             >
@@ -813,7 +843,7 @@ export function OverflowBody({
     );
   }
   if (duringBreak && task) return <DuringBreakBody task={task} ops={ops} done={done} />;
-  if (partsAsk !== null && task) {
+  if (partsAsk !== null && task && !series) {
     return (
       <View style={[styles.list, styles.partsAsk]} {...({ dataSet: { menuPartsDelete: String(partsAsk) } } as object)}>
         <Text style={styles.partsAskText}>This task has {partsAsk === 1 ? '1 part' : `${partsAsk} parts`}.</Text>

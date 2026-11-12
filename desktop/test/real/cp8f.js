@@ -122,7 +122,7 @@ async function run() {
   const cardText = (title) => js(`(() => { const el = ${q(cardSel(title))}; return el ? el.innerText : ''; })()`);
   const chipText = (title) => js(`(() => { const el = ${inCard(title, '[aria-label^="Duration of"]')}; return el ? el.innerText.trim() : null; })()`);
   const chipLabel = (title) => js(`(() => { const el = ${inCard(title, '[aria-label^="Duration of"]')}; return el ? el.getAttribute('aria-label') : null; })()`);
-  const expanded = (title) => exists(inCard(title, '[aria-label^="Add subtask to"]'));
+  const expanded = (title) => exists(inCard(title, '[aria-label^="Add a part to"]'));
   const expand = async (title) => {
     if (!(await expanded(title))) await click(inCard(title, '[aria-label^="Subtasks"]'));
     await C.waitFor(() => expanded(title), 5000);

@@ -152,14 +152,17 @@ next lin`, 6000).catch(() => {});
 next lin` && !(await modalOpen()), JSON.stringify(taskNamed('Alpha').notes));
   check('no drag started while typing', await noDrag());
 
-  // ---- Add subtask: spaces and Enter ----
-  await openModal('Alpha');
-  await click(inModal('[aria-label^="Add subtask to"]'));
-  await type('second subtask here');
-  check('Add subtask: spaces typed, details still open', (await activeValue()) === 'second subtask here' && (await modalOpen()), `${JSON.stringify(await activeValue())} ${await js('document.activeElement && document.activeElement.getAttribute("aria-label")')}`);
+  // ---- Add part: spaces and Enter (3.50.0, R4, E3: Add part replaces Add subtask on a task with no steps; Bravo has none) ----
+  const partsOfB = () => read('belific_tasks').filter((x) => !x.deletedAt && x.parentId === taskNamed('Bravo').id);
+  await openModal('Bravo');
+  await click(inModal('[aria-label^="Add a part to"]'));
+  await type('second part here');
+  check('Add part: spaces typed, details still open', (await activeValue()) === 'second part here' && (await modalOpen()), `${JSON.stringify(await activeValue())} ${await js('document.activeElement && document.activeElement.getAttribute("aria-label")')}`);
   await press('Return');
-  await C.waitFor(() => (taskNamed('Alpha').subtasks || []).length === 2, 6000).catch(() => {});
-  check('Add subtask: Enter adds it and keeps the field ready', (taskNamed('Alpha').subtasks || []).map((s) => s.title).join('|') === 'first sub|second subtask here' && (await activeValue()) === '' && (await modalOpen()));
+  await C.waitFor(() => partsOfB().length === 1, 6000).catch(() => {});
+  check('Add part: Enter adds it and keeps the field ready', partsOfB().map((s) => s.title).join('|') === 'second part here' && (await activeValue()) === '' && (await modalOpen()));
+  await closeModal();
+  await openModal('Alpha');
 
   // ---- Subtask title edit ----
   await click(inModal('[aria-label="Rename subtask first sub"]'));

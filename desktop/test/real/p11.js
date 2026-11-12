@@ -129,8 +129,8 @@ async function run() {
   check('1: in a short window the modal fits and scrolls inside itself', fit.top >= 0 && fit.bottom <= fit.vh && fit.scrolls, JSON.stringify(fit));
   await I.js(`(() => { const p = ${panel}; const sc = [...p.querySelectorAll('div')].find((d) => d.scrollHeight > d.clientHeight + 4 && getComputedStyle(d).overflowY !== 'visible'); if (sc) sc.scrollTop = sc.scrollHeight; })()`);
   await C.sleep(300);
-  const lastSeen = await I.js(`(() => { const el = ${panel}.querySelector('[aria-label="Add subtask to Modal task"]'); const r = el.getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; })()`);
-  check('1: the last field (Add subtask) can be scrolled into view', lastSeen);
+  const lastSeen = await I.js(`(() => { const el = ${panel}.querySelector('[aria-label="Add a part to Modal task"]'); const r = el.getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; })()`);
+  check('1: the Parts field (Add part, 3.50.0) can be scrolled into view', lastSeen);
   await closeModal();
   win.setSize(1440, 900);
   await C.sleep(600);

@@ -301,28 +301,30 @@ async function run() {
   await click(q('[aria-label="Filter"]'));
   await click(inPopover('[aria-label="Show complete"]'));
   await key('Escape');
-  check('a card with no subtasks shows no counter', !(await js(`/\\d\\/\\d/.test(${q(cardSel('Charlie'))}.innerText)`)));
+  check('a card with no parts shows no counter', !(await js(`/\\d\\/\\d/.test(${q(cardSel('Charlie'))}.innerText)`)));
   await openModal('Charlie');
-  await click(inModal('[aria-label^="Add subtask to"]'));
+  // 3.50.0 (R4 of PLAN_repeat_end_and_parts, E3): Add part replaces Add subtask on an ordinary task with no steps.
+  const partsOf = (title) => read('belific_tasks').filter((t) => !t.deletedAt && t.parentId === taskNamed(title).id);
+  await click(inModal('[aria-label^="Add a part to"]'));
   await typeText('one');
   await key('Return');
   await typeText('two');
   await key('Return');
-  await waitTask('Charlie', (t) => (t.subtasks || []).length === 2);
-  check('Enter adds a subtask and keeps the field ready for the next', (taskNamed('Charlie').subtasks || []).map((s) => s.title).join(',') === 'one,two');
-  check('the card shows 0/2', (await js(`${q(cardSel('Charlie'))}.innerText`)).includes('0/2'));
-  await shot('details-subtasks');
+  await C.waitFor(() => partsOf('Charlie').length === 2, 8000);
+  check('Enter adds a part and keeps the field ready for the next', partsOf('Charlie').map((s) => s.title).join(',') === 'one,two');
+  check('the card shows 0 of 2 done', (await js(`${q(cardSel('Charlie'))}.innerText`)).includes('0 of 2 done'));
+  await shot('details-parts');
   await click(inModal('[aria-label="Tick one"]'));
-  await waitTask('Charlie', (t) => t.subtasks.some((s) => s.done));
-  check('ticking one subtask leaves the task open', !taskNamed('Charlie').completed);
+  await C.waitFor(() => partsOf('Charlie').some((s) => s.completed), 8000);
+  check('ticking one part leaves the task open', !taskNamed('Charlie').completed);
   await click(inModal('[aria-label="Tick two"]'));
   await waitTask('Charlie', (t) => t.completed === true);
-  check('ticking the last subtask completes the task', taskNamed('Charlie').completed === true);
+  check('ticking the last part completes the task', taskNamed('Charlie').completed === true);
   await click(inModal('[aria-label="Untick one"]'));
   await waitTask('Charlie', (t) => t.completed === false);
-  check('unticking a subtask of a completed task reopens it', taskNamed('Charlie').completed === false);
+  check('unticking a part of a completed task reopens it', taskNamed('Charlie').completed === false);
   await closeModal();
-  check('no overlay is left after editing subtasks', await noNewOverlay());
+  check('no overlay is left after editing parts', await noNewOverlay());
 
   // ---- 6. a Timebox block opens the same details ----
   await click(q('[data-block-id="p"]'));

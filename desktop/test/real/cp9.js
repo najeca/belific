@@ -470,7 +470,7 @@ async function run() {
 
   // ======== D. Keyboard route for cards ========
   const cardSel = (title) => `[aria-label="Task ${title}"]:not([data-block-id])`;
-  const expanded = (title) => exists(q(`${cardSel(title)} [aria-label^="Add subtask to"]`));
+  const expanded = (title) => exists(q(`${cardSel(title)} [aria-label^="Add a part to"]`));
   // Put the keyboard at the very start, then Tab until a card has focus.
   await js('document.activeElement && document.activeElement.blur()');
   let onCard = null;

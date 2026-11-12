@@ -23,7 +23,7 @@ export async function duplicateTaskById(id: string): Promise<Task | null> {
 // optionally a label and, on a Day, a time. Returns null for blank text.
 export async function createTaskIn(
   title: string,
-  where: { listKey?: string; dueDate?: string; startTime?: string; projectKey?: string; durationMinutes?: number } = {},
+  where: { listKey?: string; dueDate?: string; startTime?: string; projectKey?: string; durationMinutes?: number; recurrence?: Task['recurrence']; recurrenceDays?: Task['recurrenceDays'] } = {},
 ): Promise<Task | null> {
   const base = newThought(generateId(), title, new Date().toISOString());
   if (!base) return null;
@@ -35,6 +35,11 @@ export async function createTaskIn(
   if (where.durationMinutes && where.durationMinutes > 0) task.durationMinutes = Math.round(where.durationMinutes);
   // F6: 0 with a Day and a time is a quick reminder (lib/quickReminder.ts); without a time it means nothing.
   else if (where.durationMinutes === 0 && task.startTime) task.durationMinutes = 0;
+  // F7: a repeat typed in Quick capture ("gym Mon Wed 6pm"): the rule and its days, on the first of them.
+  if (where.dueDate && where.recurrence) {
+    task.recurrence = where.recurrence;
+    if (where.recurrenceDays && where.recurrenceDays.length > 0) task.recurrenceDays = [...where.recurrenceDays];
+  }
   await addTask(task);
   return task;
 }

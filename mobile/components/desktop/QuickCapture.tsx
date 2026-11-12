@@ -6,12 +6,15 @@ import { listTitle, resolveSelectedList } from '../../lib/lists';
 import { createTaskIn } from '../../lib/taskCommands';
 import { loadLists } from '../../lib/storage';
 import { reminderDay, reminderWhen } from '../../lib/quickReminder';
+import { KEEP_AS_TEXT, parseQuick, previewText, quickFields, understoodText } from '../../lib/quickParse';
 import { toMinutes, toTime } from '../../lib/timebox';
 import type { TaskList } from '../../lib/types';
 import { closeOverlay, getSelectedList, notifyChanged } from './uiStore';
 import { IconHeading } from './ui';
 import PaletteSwitch from './PaletteSwitch';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
+import { pressStyle } from './pressStyle';
+import { outlinedBtn, outlinedBtnHover, compactBtnText } from './ui';
 
 // Quick capture (Q, and T for today; build plan phase 3). One box over the home
 // screen, wherever the keyboard focus was, whichever panes are open: type, press
@@ -45,6 +48,8 @@ export default function QuickCapture({ mode }: { mode: 'list' | 'today' }) {
   const [lists, setLists] = useState<TaskList[]>([]);
   const [added, setAdded] = useState(0);
   const [remind, setRemind] = useState(false);
+  // F7: the person chose to keep the words as they are (until the box is emptied or something is added).
+  const [plain, setPlain] = useState(false);
   const [time, setTime] = useState(() => nextHalfHour(new Date()));
   const input = useRef<TextInput>(null);
 
@@ -64,19 +69,25 @@ export default function QuickCapture({ mode }: { mode: 'list' | 'today' }) {
   const todayKey = dateKey(now);
   const remindDay = reminderDay(time, now, todayKey, dateKey(addDays(now, 1)));
   const timeOk = toMinutes(time) !== null;
+  // F7: simple phrases at the end of the text (lib/quickParse.ts). Not while "Remind me" is on (that has its own time).
+  const read = remind || plain ? null : parseQuick(text, now);
+  const understood = read && read.found ? read : null;
 
   async function submit(keepOpen: boolean) {
-    const title = text.trim();
+    const title = understood ? understood.title : text.trim();
     if (!title) return;
     if (remind) {
       if (!timeOk) return;
       await createTaskIn(title, { dueDate: remindDay, startTime: time, durationMinutes: 0 });
     } else {
-      await createTaskIn(title, mode === 'today' ? { dueDate: todayKey } : { listKey: selected });
+      // F7: what was understood fills the Day, time, length and repeat; a Day typed in Q keeps the list too.
+      const fields = understood ? quickFields(understood, now) : {};
+      await createTaskIn(title, { ...(mode === 'today' ? { dueDate: todayKey } : { listKey: selected }), ...fields });
     }
     notifyChanged();
     if (keepOpen) {
       setText('');
+      setPlain(false);
       setAdded((n) => n + 1);
       input.current?.focus();
     } else {
@@ -104,7 +115,10 @@ export default function QuickCapture({ mode }: { mode: 'list' | 'today' }) {
           ref={input}
           style={styles.input}
           value={text}
-          onChangeText={setText}
+          onChangeText={(v) => {
+            setText(v);
+            if (!v.trim()) setPlain(false);
+          }}
           placeholder={remind ? 'What should I remind you of?' : 'What needs doing?'}
           placeholderTextColor={Colors.textSecondary}
           onKeyPress={(e) => {
@@ -138,6 +152,22 @@ export default function QuickCapture({ mode }: { mode: 'list' | 'today' }) {
             {reminderWhen(time, remindDay, todayKey)}. No length: it only reminds you.
           </Text>
         )}
+        {understood && (
+          <View style={styles.understood} {...({ dataSet: { quickPreview: '1' } } as object)}>
+            <Text style={styles.understoodText} numberOfLines={2} {...({ dataSet: { quickPreviewText: '1' } } as object)}>
+              {understoodText(previewText(understood, now))}
+            </Text>
+            <Pressable
+              onPress={() => setPlain(true)}
+              style={pressStyle(({ hovered }) => [styles.keepBtn, hovered && outlinedBtnHover])}
+              accessibilityRole="button"
+              accessibilityLabel={KEEP_AS_TEXT}
+              {...({ dataSet: { quickKeep: '1' } } as object)}
+            >
+              <Text style={compactBtnText}>{KEEP_AS_TEXT}</Text>
+            </Pressable>
+          </View>
+        )}
         <Text style={styles.hint}>
           Enter adds it. Shift+Enter adds it and keeps this open. Escape closes.
           {added > 0 ? `  ${added} added.` : ''}
@@ -155,5 +185,8 @@ const styles = StyleSheet.create({
   remindRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 40 },
   remindLabel: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   when: { fontSize: 14, color: Colors.textSecondary },
+  understood: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
+  understoodText: { flexShrink: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  keepBtn: { ...outlinedBtn, height: 32, paddingHorizontal: 12 } as object,
   hint: { fontSize: 12, color: Colors.textSecondary },
 });

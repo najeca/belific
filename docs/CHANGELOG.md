@@ -8,6 +8,20 @@ to know the current version and recent history.
 
 ---
 
+## 3.46.0 — 2026-11-12 (Daily flow, F7: Quick add phrases; PLAN_daily_flow section 10)
+
+**Desktop. No schema change, no migration. The phone is unchanged.**
+- **Quick capture understands simple phrases** (`lib/quickParse.ts`, pure, with tests), only at the END of the text, UK date order, 24 hour or am and pm, case does not matter:
+  - **a day:** today, tomorrow, a weekday ("Mon", "Monday": the next one, never today), "next Mon" (that day of next week), "12 Nov" (the next 12 November);
+  - **a time:** 9am, 6:30pm, 6 pm, 18:00, 9:30. A bare number is never a time ("ring 9 people");
+  - **a length:** 1h, 30m, 1h 30m, 1h30m, 45 min, for 45 min;
+  - **a repeat:** two or more weekdays ("Mon Wed", "Mon and Wed"), "every Mon", "every Mon Wed", "every day".
+  Each kind is read once, in any order ("gym Mon Wed 6pm 1h"). "at", "on" and "for" in front of a phrase go with it. At least one word always stays in the title, and a phrase in the middle ("Monday meeting notes", "the 1h video") is never read. Anything not understood stays in the title. Not worth building, as the plan says: "in 3 days", months in words beyond "12 Nov", ranges, labels typed with symbols.
+- **The preview:** one line under the box, "Understood: Tomorrow · 9:00am" or "Understood: Mon, Wed · 6:00pm · 1h · repeats", with a visible **Keep it as plain text** button (14 px, nothing red). It saves the words as typed; it stays on until the box is emptied or something is added.
+- **What is saved:** the title without the phrase, the Day, the time, the length (an estimate) and the repeat. A repeat starts on the next of its days after today ("every day" starts today, or tomorrow when its time has passed). A time with no day is today. In Q a Day typed keeps the list too; in T a phrase day overrides today. Enter closes the box and Shift+Enter keeps it open, as before.
+- **Not read** while the Remind me switch (F6) is on: a reminder has its own time field. With no phrase in the text nothing changes and no line shows.
+- **Tests:** new quickParse.test.ts (9: the two examples, days, times, lengths, repeats, edge cases including "ring 9 people", "Monday meeting notes" and "the 1h video", the title rule, any order, the fields and the preview); easConfig.test.ts (version); real: new p62 (19 checks, on a fixed clock).
+
 ## 3.45.0 — 2026-11-11 (Daily flow, F6: quick reminders; PLAN_daily_flow section 9, D4)
 
 **Desktop. No schema change, no migration: a quick reminder is a timed task with 0 minutes (D4). The phone's screens are unchanged.**

@@ -1,5 +1,5 @@
-// Run with `npm test` from mobile/. Migration 005 (Repeat until, and Parts, NOT APPLIED):
-// the file is additive only, keeps its rollback as comments, and says it is not applied.
+// Run with `npm test` from mobile/. Migration 005 (Repeat until, and Parts; applied by Jethro after R0):
+// the file is additive only, keeps its rollback as comments, and is kept exactly as reviewed (its header still says NOT APPLIED).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -30,8 +30,8 @@ test('005 keeps the rollback commented out, never as live code', () => {
   assert.ok(!/^drop /im.test(sql) && !/^alter table belific\.tasks drop/im.test(sql));
 });
 
-test('the README lists 005 as not applied, and 004 is untouched as applied', () => {
+test('the README lists 005 as applied (Jethro, after R0), and 004 is untouched as applied', () => {
   const readme = fs.readFileSync(path.join(DIR, 'README.md'), 'utf8');
-  assert.match(readme, /005_repeat_until_and_parts\.sql.*NOT APPLIED/);
+  assert.match(readme, /005_repeat_until_and_parts\.sql.*APPLIED \(reported by Jethro on 2026-11-12/);
   assert.match(readme, /004_part_b\.sql.*APPLIED 2026-10-21/);
 });

@@ -234,6 +234,15 @@ export interface Task {
   // none ticked. `completed` true always means every time is done, whatever this holds.
   // Synced as times_done (jsonb); never copied to another day of a series.
   timesDone?: string[];
+  // Repeat until (migration 005, PLAN_repeat_end_and_parts): the last day ('YYYY-MM-DD',
+  // inclusive, E1) a repeating task happens. Absent = no end. Synced as repeat_until (date);
+  // kept locally while the server lacks the column (lib/syncCore.ts, caps.repeatParts).
+  // Stored and synced only from R1; nothing reads it yet (R2).
+  repeatUntil?: string;
+  // Parts (migration 005): the id of the task this one is a part of (a repeating parent: its
+  // root id). Absent = not a part. Synced as parent_id (text), with the same caps. Nothing
+  // reads it yet (R4).
+  parentId?: string;
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';

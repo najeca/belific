@@ -177,6 +177,9 @@ export interface Caps {
   // Migration 004, Part C half (the same unapplied file): tasks.extra_times and tasks.times_done.
   // Checked on its own so Part B's and Part C's sync switch on independently.
   partC?: boolean;
+  // Migration 005 (belific_schema/005_repeat_until_and_parts.sql): tasks.repeat_until and
+  // tasks.parent_id. One transaction, so both or neither; probed together.
+  repeatParts?: boolean;
 }
 
 export const NO_CAPS: Caps = { serverUpdatedAt: false, taskPipeline: false };
@@ -202,6 +205,9 @@ export const TASK_PARTB_FIELDS = ['cutsBelow', 'reminders'] as const;
 // Local fields that wait for the Part C columns of migration 004: never sent, and kept on pull, until the probe sees both.
 export const TASK_PARTC_FIELDS = ['extraTimes', 'timesDone'] as const;
 
+// Local fields that wait for migration 005: never sent, and kept on pull, until the probe sees both columns.
+export const TASK_REPEAT_PARTS_FIELDS = ['repeatUntil', 'parentId'] as const;
+
 export function preserveFieldsFor(table: TimestampedTable, caps: Caps): string[] {
   if (table === 'tasks') {
     return [
@@ -210,6 +216,7 @@ export function preserveFieldsFor(table: TimestampedTable, caps: Caps): string[]
       ...(caps.planner ? [] : TASK_PLANNER_FIELDS),
       ...(caps.partB ? [] : TASK_PARTB_FIELDS),
       ...(caps.partC ? [] : TASK_PARTC_FIELDS),
+      ...(caps.repeatParts ? [] : TASK_REPEAT_PARTS_FIELDS),
     ];
   }
   if (table === 'projects') {
@@ -243,6 +250,12 @@ export function hasPartBValues(table: TimestampedTable, row: Record<string, unkn
 export function hasPartCValues(table: TimestampedTable, row: Record<string, unknown>): boolean {
   if (table !== 'tasks') return false;
   return Array.isArray(row.extraTimes) || Array.isArray(row.timesDone);
+}
+
+// A local task that carries values only migration 005 can store (queued again once it appears).
+export function hasRepeatPartsValues(table: TimestampedTable, row: Record<string, unknown>): boolean {
+  if (table !== 'tasks') return false;
+  return sanitizeDateOnly(row.repeatUntil) !== null || sanitizeId(row.parentId) !== null;
 }
 
 // A local row that carries values the server could not store before
@@ -511,6 +524,22 @@ export function sanitizeEmoji(v: unknown): string | null {
   const s = v.trim();
   return s.length > 0 && s.length <= MAX_EMOJI_LENGTH ? s : null;
 }
+// Migration 005, repeat_until (a Postgres date): a real calendar day 'YYYY-MM-DD' or NULL.
+// The round trip check keeps '2026-02-30' out (the server would refuse it and fail the whole batch).
+// A value read back from the server is the same plain string.
+export function sanitizeDateOnly(v: unknown): string | null {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const [y, m, d] = v.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d && y >= 1000 ? v : null;
+}
+
+// Migration 005, parent_id: a task id (a repeating parent's root id), non-empty and of a sane length.
+export const MAX_ID_LENGTH = 200;
+export function sanitizeId(v: unknown): string | null {
+  return typeof v === 'string' && v.length > 0 && v.length <= MAX_ID_LENGTH ? v : null;
+}
+
 export function sanitizeKey(v: unknown): string | null {
   return typeof v === 'string' && v.length > 0 && v.length <= 80 ? v : null;
 }
@@ -648,6 +677,12 @@ export function taskToRemote(t: Task, caps: Caps): Remote {
     row.extra_times = sanitizeExtraTimes(t.extraTimes);
     row.times_done = sanitizeTimesDone(t.timesDone);
   }
+  if (caps.repeatParts) {
+    row.repeat_until = sanitizeDateOnly(t.repeatUntil);
+    // A task is never a part of itself (a loop the app would never draw).
+    const parent = sanitizeId(t.parentId);
+    row.parent_id = parent !== null && parent !== t.id ? parent : null;
+  }
   return withDeleted(row, t.deletedAt);
 }
 export function taskFromRemote(r: Remote): Task {
@@ -676,6 +711,11 @@ export function taskFromRemote(r: Remote): Task {
     reminders: sanitizeReminders(r.reminders) ?? undefined,
     extraTimes: sanitizeExtraTimes(r.extra_times) ?? undefined,
     timesDone: sanitizeTimesDone(r.times_done) ?? undefined,
+    repeatUntil: sanitizeDateOnly(r.repeat_until) ?? undefined,
+    parentId: (() => {
+      const parent = sanitizeId(r.parent_id);
+      return parent !== null && parent !== String(r.id) ? parent : undefined;
+    })(),
     origin: opt(r, 'origin'),
     updatedAt: String(r.updated_at),
     deletedAt: opt(r, 'deleted_at'),

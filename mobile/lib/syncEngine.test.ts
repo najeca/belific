@@ -16,6 +16,7 @@ const EXTRA_COLUMNS = ['subtasks', 'reminder_minutes'];
 const PLANNER_COLUMNS = ['actual_minutes', 'timer_started_at', 'list_key', 'emoji'];
 const PARTB_COLUMNS = ['cuts_below', 'reminders'];
 const PARTC_COLUMNS = ['extra_times', 'times_done'];
+const REPEAT_PARTS_COLUMNS = ['repeat_until', 'parent_id'];
 const PLANNER_TABLES: AnyTable[] = ['lists', 'user_settings'];
 const PIPELINE_COLUMNS = ['duration_minutes', 'start_time', 'recurrence', 'recurrence_days', 'recurrence_month_day', 'color_key'];
 
@@ -111,6 +112,10 @@ class FakeServer {
         // The Part C half of 004 (probed on its own): the same strictness.
         if (!this.caps.partC && t === 'tasks') {
           for (const r of rows) for (const c of PARTC_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
+        }
+        // Migration 005 (probed on its own): the same strictness.
+        if (!this.caps.repeatParts && t === 'tasks') {
+          for (const r of rows) for (const c of REPEAT_PARTS_COLUMNS) if (c in r) throw new Error(`Could not find the '${c}' column`);
         }
         for (const r of rows) {
           const key = this.pk(t, r);
@@ -984,4 +989,88 @@ test('004 Part B and Part C switch on independently, in either order', async () 
     assert.deepEqual(server.get('tasks', 't1')?.times_done, ['11:00']);
     assert.equal(desk.data.outbox.entries.length, 0);
   }
+});
+
+// ---- Migration 005 (repeat_until, parent_id): Repeat until and Parts, R1 ----
+
+const ALL_BEFORE_005: Caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true, partB: true, partC: true };
+const ENDING = { dueDate: '2026-11-16', startTime: '18:00', durationMinutes: 75, recurrence: 'weekly', recurrenceDays: ['Mon', 'Tue', 'Wed', 'Thu'], repeatUntil: '2026-12-17' };
+
+test('005 columns absent: repeat_until and parent_id are never sent, everything else syncs, and both are kept locally through pulls', async () => {
+  const server = new FakeServer();
+  server.caps = ALL_BEFORE_005;
+  const desk = makeDevice(server);
+  await desk.put('tasks', task('p', 'Upper day', ENDING));
+  await desk.put('tasks', task('c', 'Bench press', { parentId: 'p', notes: '4 sets' }));
+  await desk.engine.sync();
+  assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
+  for (const id of ['p', 'c']) for (const col of REPEAT_PARTS_COLUMNS) assert.ok(!(col in server.get('tasks', id)!), `${col} not sent`);
+  assert.equal(server.get('tasks', 'c')?.notes, '4 sets', 'the rest of the row syncs');
+  assert.equal(desk.data.outbox.entries.length, 0, 'nothing is stuck in the outbox');
+  await assert.rejects(server.adapter('u1').upsert('tasks', [{ user_id: 'u1', id: 'x', parent_id: 'p' }]), /parent_id/);
+  // another client renames both on the server: the local values survive the pull
+  const later = new Date(Date.now() + 1000).toISOString();
+  server.legacyUpsert('tasks', { ...server.get('tasks', 'p'), title: 'Upper day (renamed)', updated_at: later });
+  server.legacyUpsert('tasks', { ...server.get('tasks', 'c'), title: 'Bench (renamed)', updated_at: later });
+  await desk.engine.sync();
+  assert.equal(desk.row('tasks', 'p')?.title, 'Upper day (renamed)');
+  assert.equal(desk.row('tasks', 'p')?.repeatUntil, '2026-12-17');
+  assert.equal(desk.row('tasks', 'c')?.title, 'Bench (renamed)');
+  assert.equal(desk.row('tasks', 'c')?.parentId, 'p');
+});
+
+test('005 columns appear later: rows holding the values are queued once, a second computer gets the end date and the parent link, and clearing them reaches everyone', async () => {
+  const server = new FakeServer();
+  server.caps = ALL_BEFORE_005;
+  const desk = makeDevice(server);
+  await desk.put('tasks', task('p', 'Upper day', ENDING));
+  await desk.put('tasks', task('c', 'Bench press', { parentId: 'p' }));
+  await desk.put('tasks', task('plain', 'Plain', { dueDate: '2026-11-16' }));
+  await desk.engine.sync();
+  const callsBefore = server.calls;
+  server.caps = { ...ALL_BEFORE_005, repeatParts: true };
+  await desk.engine.sync();
+  assert.equal(desk.engine.getStatus().state, 'idle', desk.engine.getStatus().lastError ?? '');
+  assert.ok(server.calls > callsBefore);
+  assert.equal(desk.data.outbox.entries.length, 0);
+  assert.equal(server.get('tasks', 'p')?.repeat_until, '2026-12-17');
+  assert.equal(server.get('tasks', 'c')?.parent_id, 'p');
+  assert.equal(server.get('tasks', 'plain')?.repeat_until, undefined, 'a row with neither value is not queued again');
+  const other = makeDevice(server);
+  await other.engine.sync();
+  assert.equal(other.row('tasks', 'p')?.repeatUntil, '2026-12-17');
+  assert.equal(other.row('tasks', 'c')?.parentId, 'p');
+  assert.equal(other.row('tasks', 'plain')?.repeatUntil, undefined);
+  assert.equal(other.row('tasks', 'plain')?.parentId, undefined);
+  // clearing the end date and taking the part out reach the other computer
+  await desk.put('tasks', { ...desk.row('tasks', 'p')!, repeatUntil: undefined, updatedAt: new Date().toISOString() });
+  await desk.put('tasks', { ...desk.row('tasks', 'c')!, parentId: undefined, updatedAt: new Date().toISOString() });
+  await desk.engine.sync();
+  assert.equal(server.get('tasks', 'p')?.repeat_until, null);
+  assert.equal(server.get('tasks', 'c')?.parent_id, null);
+  await other.engine.sync();
+  assert.equal(other.row('tasks', 'p')?.repeatUntil, undefined);
+  assert.equal(other.row('tasks', 'c')?.parentId, undefined);
+});
+
+test('005 older build safety: a build that does not know the columns edits the rows and never erases repeat_until or parent_id', async () => {
+  const server = new FakeServer();
+  server.caps = { ...ALL_BEFORE_005, repeatParts: true };
+  const desk = makeDevice(server);
+  await desk.put('tasks', task('p', 'Upper day', ENDING));
+  await desk.put('tasks', task('c', 'Bench press', { parentId: 'p' }));
+  await desk.engine.sync();
+  // an older build (the iPhone, or a desktop before 3.47.0) names only the columns it knows
+  const { repeat_until: _ru, parent_id: _pi, ...oldP } = server.get('tasks', 'p')!;
+  const { repeat_until: _ru2, parent_id: _pi2, ...oldC } = server.get('tasks', 'c')!;
+  const later = new Date(Date.now() + 1000).toISOString();
+  await server.adapter('u1').upsert('tasks', [{ ...oldP, title: 'Upper day (phone)', updated_at: later }]);
+  await server.adapter('u1').upsert('tasks', [{ ...oldC, completed: true, completed_at: later, updated_at: later }]);
+  assert.equal(server.get('tasks', 'p')?.repeat_until, '2026-12-17', 'the end date survives an older build');
+  assert.equal(server.get('tasks', 'c')?.parent_id, 'p', 'the parent link survives an older build');
+  await desk.engine.sync();
+  assert.equal(desk.row('tasks', 'p')?.title, 'Upper day (phone)');
+  assert.equal(desk.row('tasks', 'p')?.repeatUntil, '2026-12-17');
+  assert.equal(desk.row('tasks', 'c')?.completed, true);
+  assert.equal(desk.row('tasks', 'c')?.parentId, 'p');
 });

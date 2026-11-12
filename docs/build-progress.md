@@ -937,3 +937,9 @@ Not in this phase: nothing is left of PLAN_daily_flow F1 to F7; the phone phase 
 
 ## Repeat until and Parts, R0 (2026-11-12): migration 005 written, NOT applied
 Files: new `supabase/belific_schema/005_repeat_until_and_parts.sql`, `lib/repeatPartsSchema.test.ts`; README row; decisions E1 to E5 in `docs/PLAN_repeat_end_and_parts.md`. No app code, no version bump (3.46.0). Next: Jethro reviews and applies 005, then R1 (sync).
+
+## Repeat until and Parts, R1 (2026-11-12): 3.47.0, sync for repeat_until and parent_id
+Files: `lib/types.ts` (+ vendored feed `types.ts`, types only), `lib/syncCore.ts` (`TASK_REPEAT_PARTS_FIELDS`, `hasRepeatPartsValues`, `sanitizeDateOnly`, `sanitizeId`, mappers), `lib/syncServer.ts` (probe `repeatParts`), `lib/syncEngine.ts` (queue on first sight); README marks 005 applied; `app.json` 3.47.0.
+Tests: new repeatParts.test.ts (6); syncEngine +3 (absent, appear later, older build safety); schemaProfile +1; syncCore, repeatPartsSchema, easConfig changed on purpose.
+Gates: tsc clean; mobile 1169/1169; desktop 118/118; iOS markers OK (51, 0 hits); security scan passed. No real checks (none touch sync). Full regression NOT run.
+Next: R2 (Repeat until on screen, including the vendored feed `series.ts` and its redeploy).

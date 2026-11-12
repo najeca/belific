@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 3.47.0 — 2026-11-12 (Repeat until and Parts, R1: sync for repeat_until and parent_id; PLAN_repeat_end_and_parts)
+
+**Sync only. Nothing visible changes. Migration 005 is applied (Jethro, after R0); the file is unchanged.**
+- `Task` gains `repeatUntil` ('YYYY-MM-DD', the last day, E1) and `parentId` (the parent's id). Nothing reads them yet (R2, R4).
+- Sync: new probe `Caps.repeatParts` (both columns or neither). Until it is on, the two fields are never sent and are kept on the device through pulls; when it first appears, every task holding a value is queued once. Sent as NULL when unset. `sanitizeDateOnly` keeps a bad day ('2026-02-30') away from the `date` column, `sanitizeId` caps an id at 200 characters, and a task is never its own part.
+- Older builds never name the columns, so an upsert from them leaves `repeat_until` and `parent_id` as they were (tested).
+Files: `lib/types.ts` (and the byte for byte vendored copy in `supabase/functions/belific-calendar-feed/vendor/types.ts`, types only, no redeploy needed; the vendored `series.ts` waits for R2), `lib/syncCore.ts`, `lib/syncServer.ts`, `lib/syncEngine.ts`; `supabase/belific_schema/README.md` (005 marked applied); `app.json` 3.47.0.
+Tests changed on purpose: syncCore.test.ts (the kept field list), schemaProfile.test.ts (the probe result, +1 test), syncEngine.test.ts (strict fake for 005, +3 tests), repeatPartsSchema.test.ts (README says applied), easConfig.test.ts; new repeatParts.test.ts (6).
+Gates: tsc clean; mobile `npm test` 1169/1169; desktop 118/118; iOS export plus `check:ios-markers` OK (51 markers, 0 hits); security scan passed. No real check exercises sync, so none were run. The full regression was NOT run.
+Check by hand: after this build syncs once, the probe has `repeatParts: true` (nothing to see on screen).
+
+---
+
 ## R0 (2026-11-12): migration 005 written, NOT applied (PLAN_repeat_end_and_parts)
 
 No app code, no version bump (stays 3.46.0). New `supabase/belific_schema/005_repeat_until_and_parts.sql` (nullable `tasks.repeat_until date` and `tasks.parent_id text`, rollback commented out), a README row, a schema test in `lib/repeatPartsSchema.test.ts`, and decisions E1 to E5 in the plan.

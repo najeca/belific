@@ -22,6 +22,7 @@ import {
   hasPlannerValues,
   hasPartBValues,
   hasPartCValues,
+  hasRepeatPartsValues,
   maxServerTime,
   mergeCompletions,
   mergeRows,
@@ -165,7 +166,8 @@ export function createSyncEngine(deps: {
     const plannerAppeared = !!next.planner && !!prev && !prev.planner;
     const partBAppeared = !!next.partB && !!prev && !prev.partB;
     const partCAppeared = !!next.partC && !!prev && !prev.partC;
-    if (pipelineAppeared || extrasAppeared || plannerAppeared || partBAppeared || partCAppeared) {
+    const repeatPartsAppeared = !!next.repeatParts && !!prev && !prev.repeatParts;
+    if (pipelineAppeared || extrasAppeared || plannerAppeared || partBAppeared || partCAppeared || repeatPartsAppeared) {
       await local.withLock(async () => {
         const items: Array<{ table: TimestampedTable; key: string; op: 'upsert'; row: Record<string, unknown> }> = [];
         for (const table of ['tasks', 'projects'] as const) {
@@ -176,7 +178,8 @@ export function createSyncEngine(deps: {
               (extrasAppeared && hasExtrasValues(table, row)) ||
               (plannerAppeared && hasPlannerValues(table, row)) ||
               (partBAppeared && hasPartBValues(table, row)) ||
-              (partCAppeared && hasPartCValues(table, row))
+              (partCAppeared && hasPartCValues(table, row)) ||
+              (repeatPartsAppeared && hasRepeatPartsValues(table, row))
             ) {
               items.push({ table, key: spec.keyOf(row), op: 'upsert', row });
             }

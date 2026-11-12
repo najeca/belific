@@ -323,11 +323,13 @@ test('002 gating: the new tables wait for the planner capability; old fields are
   assert.equal(tableReady('lists', { ...old, planner: true }), true);
   // 2.30.0: the two migration 004 fields are kept locally as well until partB appears (partB.test.ts)
   // 2.35.0 (Part C): and the two Part C fields (extraTimes, timesDone) until partC appears (partC.test.ts)
-  assert.deepEqual(preserveFieldsFor('tasks', old), ['actualMinutes', 'timerStartedAt', 'listKey', 'emoji', 'cutsBelow', 'reminders', 'extraTimes', 'timesDone']);
+  // 3.47.0 (R1): and the two migration 005 fields (repeatUntil, parentId) until repeatParts appears (repeatParts.test.ts)
+  assert.deepEqual(preserveFieldsFor('tasks', old), ['actualMinutes', 'timerStartedAt', 'listKey', 'emoji', 'cutsBelow', 'reminders', 'extraTimes', 'timesDone', 'repeatUntil', 'parentId']);
   assert.deepEqual(preserveFieldsFor('projects', old), ['emoji']);
-  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true }), ['cutsBelow', 'reminders', 'extraTimes', 'timesDone']);
-  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true, partB: true }), ['extraTimes', 'timesDone']);
-  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true, partB: true, partC: true }), []);
+  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true }), ['cutsBelow', 'reminders', 'extraTimes', 'timesDone', 'repeatUntil', 'parentId']);
+  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true, partB: true }), ['extraTimes', 'timesDone', 'repeatUntil', 'parentId']);
+  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true, partB: true, partC: true }), ['repeatUntil', 'parentId']);
+  assert.deepEqual(preserveFieldsFor('tasks', { ...old, planner: true, partB: true, partC: true, repeatParts: true }), []);
   assert.equal(hasPlannerValues('tasks', { actualMinutes: 0 }), true);
   assert.equal(hasPlannerValues('tasks', { title: 'x' }), false);
   assert.equal(hasPlannerValues('lists', { emoji: 'E' }), false);

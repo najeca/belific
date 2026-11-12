@@ -68,7 +68,7 @@ export function createSupabaseServer(
     // Which migrations the server has: both work before and after (see
     // docs/sessions/2026-10-06-cp5.md, "before and after the migrations").
     async probe(): Promise<Caps> {
-      const [serverUpdatedAt, taskCols, projectCols, subtasksCol, reminderCol, cutsCol, remindersCol, extraTimesCol, timesDoneCol, ...planner] = await Promise.all([
+      const [serverUpdatedAt, taskCols, projectCols, subtasksCol, reminderCol, cutsCol, remindersCol, extraTimesCol, timesDoneCol, repeatUntilCol, parentIdCol, ...planner] = await Promise.all([
         columnExists('tasks', 'server_updated_at'),
         columnExists('tasks', 'duration_minutes'),
         columnExists('projects', 'color_key'),
@@ -80,6 +80,9 @@ export function createSupabaseServer(
         // The Part C half of the same migration (NOT APPLIED): both columns or neither, checked on its own.
         columnExists('tasks', 'extra_times'),
         columnExists('tasks', 'times_done'),
+        // Migration 005 (Repeat until and Parts): one transaction, both columns or neither.
+        columnExists('tasks', 'repeat_until'),
+        columnExists('tasks', 'parent_id'),
         // Migration 002 runs in one transaction; one probe per table it changes.
         columnExists('tasks', 'actual_minutes'),
         columnExists('projects', 'emoji'),
@@ -93,6 +96,7 @@ export function createSupabaseServer(
         planner: planner.every(Boolean),
         partB: cutsCol && remindersCol,
         partC: extraTimesCol && timesDoneCol,
+        repeatParts: repeatUntilCol && parentIdCol,
       };
     },
     async selectPage(table: AnyTable, q: PageQuery): Promise<Record<string, unknown>[]> {

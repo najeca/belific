@@ -18,7 +18,7 @@ The five questions of section 10 are answered as recommended, with one addition 
 - **E4** Wrap up Tomorrow splits a task with some parts done the way steps do (done stay today, open go to tomorrow).
 - **E5** The second half of a split series starts a new streak; that is fine for now.
 
-R0 status: file `mobile/supabase/belific_schema/005_repeat_until_and_parts.sql` written with exactly the draft SQL of section 5; no app code changed, no version bump. Jethro applied 005 after R0.
+R0 status: file `mobile/supabase/belific_schema/005_repeat_until_and_parts.sql` written with exactly the draft SQL of section 5; no app code changed, no version bump. 005 is still NOT applied in the README until Jethro confirms it.
 
 R1 status (3.47.0): both fields sync behind the probe `Caps.repeatParts`; nothing visible.
 

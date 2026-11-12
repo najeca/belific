@@ -10,6 +10,7 @@
 import type { Task, TaskList } from './types.ts';
 import { addDays, dateKey, parseDateKey } from './kanban.ts';
 import { isGone, projectOccurrences } from './series.ts';
+import { withParts, withPartsOf } from './parts.ts';
 import { rootTaskId } from './recurrence.ts';
 import { isSeriesRow } from './rollover.ts';
 import { tasksInList } from './lists.ts';
@@ -22,7 +23,8 @@ const item = (task: Task, projected: boolean): WrapItem => ({ key: task.id, task
 
 // The tasks of a list (undefined: Brain Dump) that have no Day and are not done, oldest first as the list shows them.
 export function addRows(raw: Task[], listKey: string | undefined, lists: Array<Pick<TaskList, 'key' | 'deletedAt'>>): WrapItem[] {
-  const live = raw.filter((t) => !isGone(t));
+  // R4: a part is offered with its parent, never on its own.
+  const live = withParts(raw).filter((t) => !isGone(t));
   return tasksInList(live, listKey, lists)
     .filter((t) => !t.completed && !t.dueDate && !t.cutsBelow && !t.recurrence)
     .map((t) => item(t, false));
@@ -67,7 +69,7 @@ export function insideText(it: WrapItem): string {
 // "Planned 11h 15m": today's planned time, a shift once (S1); free time does not count.
 export function plannedText(raw: Task[], todayKey: string, cutMin: number, nowMs: number): string {
   const all = [...raw.filter((t) => !isGone(t) && t.dueDate === todayKey), ...projectOccurrences(raw, [todayKey], todayKey)];
-  const est = totalsOf(all, nowMs, cutMin).estimate;
+  const est = totalsOf(withPartsOf(all, raw), nowMs, cutMin).estimate;
   return est > 0 ? `Planned ${formatMinutes(est)}` : 'Nothing has a length yet.';
 }
 
@@ -76,7 +78,7 @@ export function plannedText(raw: Task[], todayKey: string, cutMin: number, nowMs
 // A day's planned total for its column: a shift counts at its own length, once (S1); "—" when nothing has a length.
 export function dayTotalText(raw: Task[], dayKey: string, todayKey: string, cutMin: number, nowMs: number): string {
   const all = [...raw.filter((t) => !isGone(t) && t.dueDate === dayKey), ...projectOccurrences(raw, [dayKey], todayKey)];
-  const est = totalsOf(all, nowMs, cutMin).estimate;
+  const est = totalsOf(withPartsOf(all, raw), nowMs, cutMin).estimate;
   return est > 0 ? formatMinutes(est) : '—';
 }
 

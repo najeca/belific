@@ -8,6 +8,25 @@ to know the current version and recent history.
 
 ---
 
+## 3.50.0 — 2026-11-12 (Repeat until and Parts, R4: Parts for ordinary tasks; PLAN_repeat_end_and_parts)
+
+**Desktop. Uses migration 005's `parent_id` (synced since 3.47.0 once the column exists; kept on the device until then). The phone screens are unchanged: there a part shows as an ordinary task in its parent's list (the orphan view), and ticking it syncs back.**
+- **Parts:** a full task inside another task, with no time needed: its own title, notes, estimate and tick. The details of an ordinary task have a **Parts** section with one visible **Add part** button: type a name, press Enter, and the box stays open for the next (E3). Each part row: a tick that works in place, its name, its estimate, **Open**.
+- **A part's details:** "Part of Upper day" at the top with **Open Upper day** and **Take out of Upper day** (it becomes an ordinary task on the parent's Day and list). No Day, time, label, repeat or list rows: those are the parent's.
+- **On the board:** parts are rows in the parent's card with in place ticks, a bar and "2 of 5 done" (more than five: "3 more", which opens the details); never cards of their own, and not in the left lists.
+- **Totals count once (E2):** the parent's own estimate wins; with none, its estimate is the sum of its parts' (shown as the parent's in every day total, never stored); "Parts add up to 1h 15m." in the details when the parent has its own. A new part has no estimate.
+- **Ticks:** the last open part completes the parent; unticking one reopens a done parent; completing the parent ticks every part (as steps do).
+- **Delete** a task with parts asks, with visible buttons: **Delete the task only** (its parts become ordinary tasks on its Day and list) or **Delete the task and its 3 parts** (to the Trash together: one Trash entry, "With its 3 parts.", and Restore brings them back together). Also in the card's menu.
+- **Steps:** E3: Add part replaces Add subtask on an ordinary task. A task that already has steps keeps them under a small **Checklist** heading with **Turn into parts** (same names, ticks and order; the checklist emptied). A repeating task keeps Add subtask until R5; a shift's to dos stay a checklist.
+- **The orphan rule:** a part whose parent is missing, in the Trash or itself a part shows as an ordinary task; restoring the parent puts it back.
+- **Undo:** every gesture (add, tick, take out, turn into parts, delete either way) is one Ctrl+Z. A fix on the way: undoing a delete brings the parent back under a new id (a tombstone is never cleared), and its parts now follow it.
+Files: new `lib/parts.ts`, `lib/partActions.ts`, `components/desktop/PartRows.tsx`; `lib/types.ts` (`partsMinutes`, display only, and the vendored copy), `lib/storage.ts` (never stores it), `lib/taskTotals.ts` (`estimateOf`), `lib/taskActions.ts` (the tick rules), `lib/undoStack.ts` (parts follow a revived parent), `lib/trash.ts` and `lib/trashActions.ts` (one entry, restored together), `lib/planDay.ts` and `lib/wrapUp.ts` (totals; Plan my day's list leaves parts out); `TaskDetailPanel.tsx`, `TaskPopovers.tsx`, `KanbanPane.tsx`, `BrainDumpPane.tsx`, `CalendarPane.tsx`, `TimeboxPane.tsx`, `LabelsPage.tsx`; `app.json` 3.50.0.
+Choices made without asking: "Add part" is not offered on a repeating task, a part, or free time (R5 adds repeating parents); a parent with no estimate of its own takes the parts' sum in totals but its block on the Timebox keeps its own length (the plan's taller block is left for R5); the Checklist of an ordinary task has no add box any more (Turn into parts, or Add part); the parts are found by the parent's id, so a parent restored from the Trash or by undo under a new id takes them along.
+Tests changed on purpose: easConfig.test.ts; new parts.test.ts (12); real new p65 (26).
+Gates: see build-progress.
+
+---
+
 ## 3.49.0 — 2026-11-12 (Repeat until and Parts, R3: This and following; PLAN_repeat_end_and_parts)
 
 **Desktop. No new column (it uses R2's end date). The phone screens are unchanged.**

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { withParts } from '../../lib/parts';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
@@ -67,7 +68,8 @@ export default function BrainDumpPane({
   const isTarget = !!drag && drag.mode === 'move' && drag.item.kind !== 'row' && drag.target?.kind === 'left';
 
   const reload = useCallback(() => {
-    loadTasks().then(setTasks);
+    // R4: a part is a row in its parent's card, never in a list of its own (the orphan rule decides).
+    loadTasks().then((t) => setTasks(withParts(t)));
     loadTasksRaw().then(setRaw);
     loadBrainDumpItems().then(setDumpItems);
     loadLabels().then(setProjects);

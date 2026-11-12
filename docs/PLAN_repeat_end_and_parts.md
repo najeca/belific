@@ -26,6 +26,8 @@ R2 status (3.48.0): Repeat until built; the server calendar feed needs a redeplo
 
 R3 status (3.49.0): This and following built (details, Clear day and week, scissors, Add inside).
 
+R4 status (3.50.0): Parts for ordinary tasks built. R5 not started.
+
 ## 0. Today in six lines
 
 Paths below are under `mobile/` (for example `lib/series.ts` is `mobile/lib/series.ts`).

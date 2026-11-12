@@ -1,4 +1,5 @@
-import { addTask, deleteBrainDumpItem, loadTasksRaw, updateTask } from './storage';
+import { addTask, deleteBrainDumpItem, loadTasksRaw, updateTask, updateTasks } from './storage';
+import { indexById, parentDoneWrites, parentOf, partTickWrites, partsOf } from './parts';
 import { createDumpConverter } from './dumpConvert';
 import { toggleSubtask, withAllDone } from './subtasks';
 import { generateId } from './data';
@@ -37,6 +38,15 @@ export function setTaskCompleted(task: Task, completed: boolean, keepTimes = fal
       ...(keepTimes ? {} : { timesDone: wholeTaskTimesDone(task, completed) }),
     };
     await updateTask(done);
+    // R4, Parts (the same rules as steps): completing a parent ticks its open parts; ticking the last open part
+    // completes the parent; unticking a part of a done parent reopens it. Same gesture, so one Ctrl+Z.
+    const raw = await loadTasksRaw();
+    if (completed) await updateTasks(parentDoneWrites(partsOf(raw, task.id), done.completedAt as string));
+    const parent = parentOf(done, indexById(raw));
+    if (parent) {
+      const parts = partsOf(raw, parent.id).map((p) => (p.id === done.id ? task : p));
+      await updateTasks(partTickWrites(parent, parts, done.id, completed, done.completedAt ?? new Date().toISOString()).filter((r) => r.id !== done.id));
+    }
     // The next occurrence copies the subtasks, all unticked (from the ticked or
     // unticked list alike). A repeating task is a series whose next days are
     // only SHOWN (lib/series.ts, decision 023), so nothing is created when a

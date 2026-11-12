@@ -1,4 +1,5 @@
 import { isHomeActive } from './viewActive';
+import { withParts } from '../../lib/parts';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -176,8 +177,8 @@ export default function TimeboxPane({
   const reload = useCallback(() => {
     loadCustomEvents().then(setEvents);
     loadCustomCategories().then(setCategories);
-    // Raw rows, tombstones included, so a skipped day blocks its projection.
-    loadTasksRaw().then(setTasks);
+    // Raw rows, tombstones included, so a skipped day blocks its projection. R4: a parent counts its parts' estimates.
+    loadTasksRaw().then((t) => setTasks(withParts(t)));
     loadLabels().then(setLabels);
     loadLists().then(setLists);
   }, []);

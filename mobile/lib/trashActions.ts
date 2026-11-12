@@ -1,5 +1,5 @@
 import { addTask, loadListsRaw, loadProjectsRaw, loadTasksRaw, updateTask } from './storage';
-import { planRestore, trashEntries, type TrashEntry } from './trash';
+import { partsDeletedWith, planRestore, trashEntries, type TrashEntry } from './trash';
 
 // The Trash and Restore, on the desktop (build plan phase 6). The rules are pure
 // (trash.ts). Restore reads the LATEST stored rows, makes the new task (if it is
@@ -20,6 +20,14 @@ export function restoreFromTrash(entry: TrashEntry): Promise<{ restoredId: strin
     if (!plan) return null;
     if (plan.create) await addTask(plan.create);
     await updateTask(plan.touch);
+    // R4: the parts deleted with it come back with it, under the restored task.
+    const now = new Date().toISOString();
+    for (const part of partsDeletedWith(entry.row, tasks)) {
+      const p = planRestore(part, await loadTasksRaw(), labels, lists, now);
+      if (!p) continue;
+      if (p.create) await addTask({ ...p.create, parentId: plan.restoredId });
+      await updateTask(p.touch);
+    }
     return { restoredId: plan.restoredId, created: !!plan.create };
   });
   chain = run.catch(() => undefined);

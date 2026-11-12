@@ -97,11 +97,23 @@ function latest(rows: Task[]): Task {
   )[0];
 }
 
+// R4 (Parts): the parts deleted together with `row` ("Delete the task and its N parts"): tombstones that point at it and
+// were deleted at the same moment. They are one Trash entry with their parent, and Restore brings them back with it.
+export function partsDeletedWith(row: Pick<Task, 'id' | 'deletedAt'>, tasks: Task[]): Task[] {
+  if (!row.deletedAt) return [];
+  return tasks.filter((t) => t.parentId === row.id && t.deletedAt === row.deletedAt && isDeleteEvent(t));
+}
+export const withPartsNote = (n: number): string => (n === 1 ? 'With its part.' : `With its ${n} parts.`);
+
 export function trashEntries(tasks: Task[], nowMs: number): TrashEntry[] {
   const cutoff = nowMs - TRASH_DAYS * DAY_MS;
   const groups = new Map<string, Task[]>();
+  const byId = new Map(tasks.map((t) => [t.id, t]));
   for (const t of tasks) {
     if (!isDeleteEvent(t)) continue;
+    // R4: a part deleted with its parent is in the parent's entry.
+    const parent = t.parentId ? byId.get(t.parentId) : undefined;
+    if (parent && parent.deletedAt === t.deletedAt && isDeleteEvent(parent)) continue;
     const at = ms(t.deletedAt);
     if (at < cutoff || at > nowMs + DAY_MS) continue;
     const root = rootTaskId(t.id);
@@ -116,7 +128,8 @@ export function trashEntries(tasks: Task[], nowMs: number): TrashEntry[] {
     if (!series && isMergedInto(row, tasks)) {
       out.push({ kind: 'merged', row, title: row.title, deletedAt: row.deletedAt as string, count: 1, restorable: false, note: MERGED_NOTE });
     } else {
-      out.push({ kind: series ? 'series' : 'task', row, title: row.title, deletedAt: row.deletedAt as string, count: rows.length, restorable: true, ...(series ? { note: SERIES_NOTE } : {}) });
+      const parts = series ? 0 : partsDeletedWith(row, tasks).length;
+      out.push({ kind: series ? 'series' : 'task', row, title: row.title, deletedAt: row.deletedAt as string, count: rows.length, restorable: true, ...(series ? { note: SERIES_NOTE } : parts > 0 ? { note: withPartsNote(parts) } : {}) });
     }
   }
   return out.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt) || a.row.id.localeCompare(b.row.id));

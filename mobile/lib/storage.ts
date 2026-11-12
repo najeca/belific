@@ -478,10 +478,17 @@ export async function saveTasks(tasks: Task[]): Promise<void> {
   }
 }
 
+// R4: what the screens add for display (a parent's parts total) is never stored.
+function stored(t: Task): Task {
+  if (!('partsMinutes' in t)) return t;
+  const { partsMinutes: _p, ...rest } = t;
+  return rest as Task;
+}
+
 export function addTask(task: Task): Promise<void> {
   return storageLock.run(async () => {
     const existing = await loadTasksRaw();
-    const stamped = { ...task, updatedAt: new Date().toISOString() };
+    const stamped = { ...stored(task), updatedAt: new Date().toISOString() };
     await saveTasks([...existing, stamped]);
     await queueRows('tasks', [stamped]);
     undoStack.record(undefined, stamped, Date.now());
@@ -491,7 +498,7 @@ export function addTask(task: Task): Promise<void> {
 export function updateTask(updated: Task): Promise<void> {
   return storageLock.run(async () => {
     const existing = await loadTasksRaw();
-    const stamped = { ...updated, updatedAt: new Date().toISOString() };
+    const stamped = { ...stored(updated), updatedAt: new Date().toISOString() };
     await saveTasks(existing.map((t) => (t.id === updated.id ? stamped : t)));
     await queueRows('tasks', [stamped]);
     undoStack.record(existing.find((t) => t.id === updated.id), stamped, Date.now());
@@ -510,7 +517,7 @@ export function updateTasks(rows: Task[]): Promise<void> {
     const now = new Date().toISOString();
     const stamped = rows.map((r) => {
       const was = byId.get(r.id);
-      const row: Task = { ...r, updatedAt: now };
+      const row: Task = { ...stored(r), updatedAt: now };
       if (r.deletedAt && !was?.deletedAt) row.deletedAt = now;
       return row;
     });

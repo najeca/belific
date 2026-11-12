@@ -318,6 +318,21 @@ export function planStep(entry: UndoEntry, current: Task[], nowIso: string, dir:
     put(ruled);
     for (const [k, v] of written) if (v.id === id) written.set(k, ruled);
   }
+  // R4 (Parts): a parent that comes back under a new id (its tombstone can never be cleared) takes its parts with it:
+  // every part written by this step that points at the old id points at the new one, so they stay together.
+  const movedTo = new Map<string, string>();
+  for (const [oldId, row] of written) if (row.id !== oldId && !row.deletedAt) movedTo.set(oldId, row.id);
+  if (movedTo.size > 0) {
+    for (let i = 0; i < writes.length; i++) {
+      const w = writes[i];
+      const to = w.parentId ? movedTo.get(w.parentId) : undefined;
+      if (!to || w.deletedAt) continue;
+      const fixed: Task = { ...w, parentId: to };
+      writes[i] = fixed;
+      rows.set(fixed.id, fixed);
+      for (const [k, v] of written) if (v.id === fixed.id) written.set(k, fixed);
+    }
+  }
   return { writes, skipped, written };
 }
 

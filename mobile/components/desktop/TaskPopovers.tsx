@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { deleteAllText, deleteOnlyText, partsOf } from '../../lib/parts';
+import { deleteWithParts } from '../../lib/partActions';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
@@ -674,6 +676,8 @@ export function OverflowBody({
   const [duringBreak, setDuringBreak] = useState(false);
   // Shifts S4: skipping or deleting a task with blocks inside it asks "the shift only" or "the shift and its N items".
   const [asking, setAsking] = useState<{ verb: 'Delete' | 'Skip'; items: DayHostEntry[]; own: () => Promise<void>; scope: 'day' | 'series' } | null>(null);
+  // R4: a task with parts asks "the task only" or "the task and its N parts".
+  const [partsAsk, setPartsAsk] = useState<number | null>(null);
   const feats = useFeatures();
   // Runs `own` at once when nothing is inside; otherwise asks first. Either way it is one gesture (one Ctrl+Z).
   const withInside = async (verb: 'Delete' | 'Skip', own: () => Promise<void>, scope: 'day' | 'series') => {
@@ -809,13 +813,41 @@ export function OverflowBody({
     );
   }
   if (duringBreak && task) return <DuringBreakBody task={task} ops={ops} done={done} />;
+  if (partsAsk !== null && task) {
+    return (
+      <View style={[styles.list, styles.partsAsk]} {...({ dataSet: { menuPartsDelete: String(partsAsk) } } as object)}>
+        <Text style={styles.partsAskText}>This task has {partsAsk === 1 ? '1 part' : `${partsAsk} parts`}.</Text>
+        {(['only', 'all'] as const).map((c) => (
+          <Row
+            key={c}
+            label={c === 'only' ? deleteOnlyText : deleteAllText(partsAsk)}
+            onPress={async () => {
+              await deleteWithParts(task, c);
+              notifyChanged();
+              done();
+            }}
+            a11y={c === 'only' ? deleteOnlyText : deleteAllText(partsAsk)}
+          />
+        ))}
+        <Row label="Cancel" onPress={() => setPartsAsk(null)} a11y="Cancel delete task" />
+      </View>
+    );
+  }
   return (
     <View style={styles.list}>
       {confirming ? (
         <View style={styles.confirm}>
           <Text style={styles.muted}>Delete?</Text>
           <Pressable
-            onPress={() => void withInside('Delete', () => ops.remove(), 'day')}
+            onPress={async () => {
+              const n = task ? partsOf(await loadTasksRaw(), task.id).length : 0;
+              if (n > 0) {
+                setConfirming(false);
+                setPartsAsk(n);
+                return;
+              }
+              void withInside('Delete', () => ops.remove(), 'day');
+            }}
             accessibilityRole="button"
             accessibilityLabel="Confirm delete task"
           >
@@ -888,6 +920,8 @@ const styles = StyleSheet.create({
   link: { fontSize: 13, fontWeight: '600', color: Colors.accentText },
   linkOn: { textDecorationLine: 'underline' },
   danger: { fontSize: 13, fontWeight: '600', color: Colors.danger },
+  partsAsk: { gap: 4, paddingTop: 6 },
+  partsAskText: { fontSize: 14, color: Colors.textSecondary, paddingHorizontal: 10 },
   footer: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 4 },
   applyBtn: { paddingHorizontal: 16, height: 32, borderRadius: 10, backgroundColor: Colors.accent, justifyContent: 'center' },
   applyText: { fontSize: 13, fontWeight: '600', color: Colors.onAccent },

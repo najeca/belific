@@ -15,7 +15,7 @@ import { addTask, loadLists, loadTasksRaw } from '../../lib/storage';
 import { DETAILS_LONGER, hostLinks, type HostLink } from '../../lib/hosting';
 import { breakRefusal } from '../../lib/hostActions';
 import { carryBreaks } from '../../lib/breakCarry';
-import { toMinutes } from '../../lib/timebox';
+import { formatMinutes, toMinutes } from '../../lib/timebox';
 import { taskDuration } from '../../lib/drag';
 import { isQuickReminder, REMINDER_NOTE } from '../../lib/quickReminder';
 import { DuringBreak, InsideBreak } from './HostDetails';
@@ -35,6 +35,8 @@ import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { MonthGrid } from './ui';
+import { ADD_PART, CHECKLIST, PARTS, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, indexById, parentOf, partOfText, partsAddUp, partsOf, partsProgress, takeOutText } from '../../lib/parts';
+import { addPart, convertSteps, deleteWithParts, takeOut } from '../../lib/partActions';
 import { LabelBody, MoveToDayBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import { labelColor } from '../../lib/labelColors';
 import StreakLine from './StreakLine';
@@ -86,6 +88,9 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
   const [fit, setFit] = useState<ReturnType<typeof fitInsideFor>>(null);
   // Shifts S3: what is inside this task on its day (the same summary, progress and rows as its Kanban card).
   const [shift, setShift] = useState<ShiftInfo | null>(null);
+  // R4: the task's parts, and the parent when the task is a part (the orphan rule decides).
+  const [parts, setParts] = useState<Task[]>([]);
+  const [partOf, setPartOf] = useState<Task | undefined>(undefined);
   // R2: the first day of the series (an end date can not be before it).
   const [seriesStart, setSeriesStart] = useState<string | undefined>(undefined);
   const cutMin = useCutMin();
@@ -140,6 +145,8 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     setSeriesStart(found?.recurrence ? seriesOf(tasks, rootTaskId(found.id))?.startKey : undefined);
     setLinks(found && found.dueDate ? hostLinks(tasks, found.dueDate, dateKey(new Date())) : []);
     setFit(found ? fitInsideFor(tasks, found, dateKey(new Date())) : null);
+    setParts(found ? partsOf(tasks, found.id) : []);
+    setPartOf(found ? parentOf(found, indexById(tasks)) : undefined);
     setShift(found && found.dueDate && !found.cutsBelow ? shiftsOfDay(tasks, found.dueDate, dateKey(new Date()), cutMin).byTask.get(found.id) ?? null : null);
     setLabels(l);
     setLists(ls);
@@ -185,7 +192,7 @@ export default function TaskDetailPanel({ refreshKey }: { refreshKey: number }) 
     <View style={styles.layer} {...({ dataSet: { detailLayer: '1' } } as object)}>
       <Pressable style={styles.scrim} onPress={closeDetail} accessibilityLabel="Close the task details" {...({ tabIndex: -1 } as object)} />
       <View style={styles.centre} pointerEvents="box-none">
-        <Panel key={shown.id} task={shown} projected={projected} labels={labels} lists={lists} links={links} fit={fit} shift={shift} seriesStart={seriesStart} draftPatch={task ? undefined : patchDraft} onSaved={() => { if (task) { notifyChanged(); reload(); } }} />
+        <Panel key={shown.id} task={shown} projected={projected} labels={labels} lists={lists} links={links} fit={fit} shift={shift} seriesStart={seriesStart} parts={parts} partOf={partOf} draftPatch={task ? undefined : patchDraft} onSaved={() => { if (task) { notifyChanged(); reload(); } }} />
       </View>
     </View>
   );
@@ -203,7 +210,7 @@ function blankDraft(id: string, where: NewTaskWhere): Task {
   return t;
 }
 
-function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; fit?: ReturnType<typeof fitInsideFor>; shift?: ShiftInfo | null; seriesStart?: string; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
+function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart, parts = [], partOf, onSaved, draftPatch }: { task: Task; projected: boolean; labels: Project[]; lists: TaskList[]; links: HostLink[]; fit?: ReturnType<typeof fitInsideFor>; shift?: ShiftInfo | null; seriesStart?: string; parts?: Task[]; partOf?: Task; onSaved: () => void; draftPatch?: (fields: Partial<Task>) => Promise<void> }) {
   const drafting = !!draftPatch;
   const dark = useResolvedTheme() === 'dark';
   const draftOps: TaskOps = {
@@ -366,6 +373,10 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
   };
   const listKey = effectiveListKey(task, lists);
   const subtasks = task.subtasks ?? [];
+  // R4: parts on an ordinary task (not repeating: R5; not a part; not free time). The old checklist shows only when the
+  // task already has steps; a repeating task keeps "Add subtask" until R5; a part has neither.
+  const partsHere = !drafting && !partOf && canHaveParts(task);
+  const showSteps = !partOf && (!partsHere || subtasks.length > 0);
 
   return (
     <View style={[styles.panel, dark ? styles.panelDark : styles.panelSlab]} accessibilityLabel="Task details" {...({ role: 'dialog', 'aria-modal': true, dataSet: { detailPanel: '1' } } as object)}>
@@ -418,6 +429,8 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {projected && <SeriesNote />}
+        {/* R4: a part says whose part it is, with a way back and a way out. */}
+        {partOf ? <PartOfLine part={task} parent={partOf} onSaved={onSaved} /> : null}
         {movedCaptionLong(task) ? (
           <Text style={styles.quietSub} {...({ dataSet: { detailMoved: '1' } } as object)}>
             ↪ {movedCaptionLong(task)}
@@ -432,6 +445,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
         ) : null}
         <InsideBreak links={links.filter((l) => l.brk.full.id === task.id)} labels={labels} />
         <DuringBreak links={links.filter((l) => l.guest.full.id === task.id)} labels={labels} />
+        {!partOf && (<>
         <DetailRow icon="calendar-outline" label="Task date">
           <View style={styles.row}>
             <input
@@ -518,6 +532,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
             </Text>
           ) : null}
         </DetailRow>
+        </>)}
 
         <DetailRow icon="hourglass-outline" label="Estimated time">
           <DurationSelect id={`${task.id}:estimate`} label="Estimated time" value={isQuickReminder(task) ? undefined : task.durationMinutes} onChange={(m) => patch({ durationMinutes: m })} />
@@ -529,6 +544,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
           )}
         </DetailRow>
 
+        {!partOf && (<>
         <DetailRow icon="pricetag-outline" label="Label">
           <LabelField task={task} labels={labels} ops={ops} onSaved={onSaved} />
         </DetailRow>
@@ -595,6 +611,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
         <DetailRow icon="list-outline" label="List">
           <ListPick lists={lists} value={listKey} onChange={(key) => patch({ listKey: key })} />
         </DetailRow>
+        </>)}
 
         <View style={styles.divider} />
         <View style={styles.section}>
@@ -617,13 +634,32 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
           />
         </View>
 
+        {/* R4: Parts (an ordinary task that is not a part). E3: Add part replaces Add subtask for new items; steps a
+            task already has stay under a small "Checklist" heading, with "Turn into parts". */}
+        {partsHere ? <PartsSection parent={task} parts={parts} onSaved={onSaved} /> : null}
+        {showSteps && (<>
         <View style={styles.divider} />
         <View style={styles.section}>
           <View style={styles.sectionHead}>
             <Ionicons name="checkbox-outline" size={16} color={Colors.textSecondary} />
             <Text style={styles.sectionLabel} accessibilityRole="header">
-              Subtasks  {counterLabel(task.subtasks)}
+              {partsHere ? CHECKLIST : 'Subtasks'}  {counterLabel(task.subtasks)}
             </Text>
+            {partsHere ? (
+              <Pressable
+                onPress={async () => {
+                  await convertSteps(task);
+                  notifyChanged();
+                  onSaved();
+                }}
+                style={styles.partBtn}
+                accessibilityRole="button"
+                accessibilityLabel={TURN_INTO_PARTS}
+                {...({ dataSet: { turnIntoParts: '1' } } as object)}
+              >
+                <Text style={styles.partBtnText}>{TURN_INTO_PARTS}</Text>
+              </Pressable>
+            ) : null}
           </View>
           {subtasks.map((s) => (
             <View key={s.id} style={styles.subRow} {...({ dataSet: { subRow: s.id } } as object)}>
@@ -662,6 +698,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
               </Pressable>
             </View>
           ))}
+          {!partsHere && (
           <View style={styles.subRow}>
             <Ionicons name="add" size={18} color={Colors.textSecondary} />
             <TextInput
@@ -676,7 +713,9 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
               accessibilityLabel={`Add subtask to ${task.title}`}
             />
           </View>
+          )}
         </View>
+        </>)}
 
         {feats.templates && tplOpen && (
           <View style={styles.row} accessibilityLabel="Save as template form">
@@ -711,7 +750,32 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
             onCancel={() => setAsking(null)}
           />
         )}
-        {confirming && !asking && (
+        {/* R4: a task with parts asks "the task only" or "the task and its N parts", two visible buttons. */}
+        {confirming && !asking && parts.length > 0 && (
+          <View style={styles.partsDelete} {...({ dataSet: { partsDelete: String(parts.length) } } as object)}>
+            <Text style={styles.plainText}>This task has {parts.length === 1 ? '1 part' : `${parts.length} parts`}.</Text>
+            {(['only', 'all'] as const).map((c) => (
+              <Pressable
+                key={c}
+                onPress={async () => {
+                  await deleteWithParts(task, c);
+                  closeDetail();
+                  notifyChanged();
+                }}
+                style={styles.partBtn}
+                accessibilityRole="button"
+                accessibilityLabel={c === 'only' ? deleteOnlyText : deleteAllText(parts.length)}
+                {...({ dataSet: { partsDeleteChoice: c } } as object)}
+              >
+                <Text style={styles.partBtnText}>{c === 'only' ? deleteOnlyText : deleteAllText(parts.length)}</Text>
+              </Pressable>
+            ))}
+            <Pressable onPress={() => setConfirming(false)} style={styles.partBtn} accessibilityRole="button" accessibilityLabel="Cancel delete task">
+              <Text style={styles.partBtnText}>Cancel</Text>
+            </Pressable>
+          </View>
+        )}
+        {confirming && !asking && parts.length === 0 && (
           <View style={styles.confirm}>
             <Text style={styles.muted}>Delete this task?</Text>
             <Pressable
@@ -842,6 +906,111 @@ function RepeatField({ task, ops, onSaved }: { task: Task; ops: TaskOps; onSaved
         <RepeatBody task={task} ops={wrapped} done={() => closePopover(true)} />
       </Popover>
     </>
+  );
+}
+
+// R4: the Parts section of a task. One visible "Add part" button and a box: type a name, Enter, and the box stays open
+// for the next (as Quick capture does). Each part: a tick that works in place, its name, its estimate, Open.
+function PartsSection({ parent, parts, onSaved }: { parent: Task; parts: Task[]; onSaved: () => void }) {
+  const [text, setText] = useState('');
+  const inputRef = useRef<TextInput | null>(null);
+  const progress = partsProgress(parts);
+  const addUp = partsAddUp(parent, parts, formatMinutes);
+  const add = async () => {
+    const made = await addPart(parent, text);
+    if (made) {
+      setText('');
+      notifyChanged();
+      onSaved();
+    }
+    inputRef.current?.focus();
+  };
+  return (
+    <>
+      <View style={styles.divider} />
+      <View style={styles.section} {...({ dataSet: { partsSection: String(parts.length) } } as object)}>
+        <View style={styles.sectionHead}>
+          <Ionicons name="layers-outline" size={16} color={Colors.textSecondary} />
+          <Text style={styles.sectionLabel} accessibilityRole="header">
+            {PARTS}
+          </Text>
+          {parts.length > 0 ? <Text style={styles.plainText} {...({ dataSet: { partsDone: progress.text } } as object)}>{progress.text}</Text> : null}
+        </View>
+        {parts.length > 0 ? <PartsBar done={progress.done} total={progress.total} /> : null}
+        {parts.map((p) => (
+          <View key={p.id} style={styles.subRow} {...({ dataSet: { partRow: p.id } } as object)}>
+            <Pressable
+              onPress={() => opsForTask(p).setCompleted(!p.completed).then(() => { notifyChanged(); onSaved(); })}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: p.completed }}
+              accessibilityLabel={p.completed ? `Untick ${p.title}` : `Tick ${p.title}`}
+              {...({ dataSet: { partTick: p.id } } as object)}
+            >
+              <RoundCheck done={p.completed} size={18} />
+            </Pressable>
+            <Text style={[styles.subText, p.completed && styles.subDone]} numberOfLines={2}>
+              {p.title}
+            </Text>
+            {p.durationMinutes ? <Text style={styles.plainText}>{formatMinutes(p.durationMinutes)}</Text> : null}
+            <Pressable onPress={() => openDetail(p.id)} style={styles.partBtn} accessibilityRole="button" accessibilityLabel={`Open ${p.title}`} {...({ dataSet: { partOpen: p.id } } as object)}>
+              <Text style={styles.partBtnText}>Open</Text>
+            </Pressable>
+          </View>
+        ))}
+        <View style={styles.subRow}>
+          <TextInput
+            ref={inputRef as never}
+            style={[styles.input, styles.subInput]}
+            value={text}
+            onChangeText={setText}
+            onSubmitEditing={() => void add()}
+            blurOnSubmit={false}
+            placeholder="Name of the part"
+            placeholderTextColor={Colors.textSecondary}
+            accessibilityLabel={`Add a part to ${parent.title}`}
+            {...({ dataSet: { partInput: '1' } } as object)}
+          />
+          <Pressable onPress={() => void add()} style={styles.partBtn} accessibilityRole="button" accessibilityLabel={ADD_PART} {...({ dataSet: { addPart: '1' } } as object)}>
+            <Text style={styles.partBtnText}>{ADD_PART}</Text>
+          </Pressable>
+        </View>
+        {addUp ? <Text style={styles.plainText} {...({ dataSet: { partsAddUp: '1' } } as object)}>{addUp}</Text> : null}
+      </View>
+    </>
+  );
+}
+
+export function PartsBar({ done, total }: { done: number; total: number }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <View style={styles.partsBar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: total, now: done }} {...({ dataSet: { partsBar: `${done}/${total}` } } as object)}>
+      <View style={[styles.partsBarFill, { width: `${pct}%` }]} />
+    </View>
+  );
+}
+
+// R4: "Part of Upper day" at the top of a part's details, with Open (back to it) and "Take out of Upper day".
+function PartOfLine({ part, parent, onSaved }: { part: Task; parent: Task; onSaved: () => void }) {
+  return (
+    <View style={styles.scopeRow} {...({ dataSet: { partOf: parent.id } } as object)}>
+      <Text style={styles.plainText}>{partOfText(parent.title)}</Text>
+      <Pressable onPress={() => openDetail(parent.id)} style={styles.partBtn} accessibilityRole="button" accessibilityLabel={`Open ${parent.title}`} {...({ dataSet: { partParent: parent.id } } as object)}>
+        <Text style={styles.partBtnText}>Open {parent.title}</Text>
+      </Pressable>
+      <Pressable
+        onPress={async () => {
+          await takeOut(part);
+          notifyChanged();
+          onSaved();
+        }}
+        style={styles.partBtn}
+        accessibilityRole="button"
+        accessibilityLabel={takeOutText(parent.title)}
+        {...({ dataSet: { takeOut: part.id } } as object)}
+      >
+        <Text style={styles.partBtnText}>{takeOutText(parent.title)}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -1096,6 +1265,11 @@ const styles = StyleSheet.create({
   untilClear: { paddingHorizontal: 12, height: 32, borderRadius: 8, borderWidth: 1, borderColor: Colors.borderStrong, justifyContent: 'center' },
   untilClearText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   untilBody: { padding: 8, gap: 6 },
+  partBtn: { paddingHorizontal: 10, height: 32, borderRadius: 8, borderWidth: 1, borderColor: Colors.borderStrong, justifyContent: 'center' },
+  partBtnText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  partsBar: { height: 6, borderRadius: 3, backgroundColor: Colors.borderStrong, overflow: 'hidden', marginVertical: 4 },
+  partsBarFill: { height: 6, borderRadius: 3, backgroundColor: Colors.accent },
+  partsDelete: { gap: 8, paddingVertical: 6, alignItems: 'flex-start' },
   scopeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, paddingVertical: 4 },
   scopeChoice: { paddingHorizontal: 10, height: 32, borderRadius: 8, borderWidth: 1, borderColor: Colors.borderStrong, justifyContent: 'center' },
   scopeOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },

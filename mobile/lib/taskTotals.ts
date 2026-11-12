@@ -29,8 +29,11 @@ export function lengthOf(task: Pick<Task, 'durationMinutes'>): number {
 }
 
 // The estimate that counts in a total: a Break is a free gap, not work, so it has none (PLAN_breaks_as_gaps, P1).
-export function estimateOf(task: Pick<Task, 'durationMinutes'> & Partial<Pick<Task, 'cutsBelow'>>): number {
-  return isBreak(task) ? 0 : lengthOf(task);
+// R4 (E2): a parent with no estimate of its own counts its parts' estimates (`partsMinutes`, display only).
+export function estimateOf(task: Pick<Task, 'durationMinutes'> & Partial<Pick<Task, 'cutsBelow' | 'partsMinutes'>>): number {
+  if (isBreak(task)) return 0;
+  const own = lengthOf(task);
+  return own > 0 ? own : lengthOf({ durationMinutes: task.partsMinutes });
 }
 
 export function actualOf(task: Pick<Task, 'actualMinutes' | 'timerStartedAt'>, nowMs: number): number {

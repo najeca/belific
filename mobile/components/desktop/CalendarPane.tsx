@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { withParts } from '../../lib/parts';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { domNode, useDrag } from './DragProvider';
 import TimeBlock, { SlotPreview } from './TimeBlock';
@@ -185,8 +186,9 @@ export default function CalendarPane({
   const tint = useTint();
 
   const reload = useCallback(() => {
-    // Raw rows, tombstones included: a skipped day of a series blocks its projection.
-    loadTasksRaw().then(setTasks);
+    // Raw rows, tombstones included: a skipped day of a series blocks its projection. R4: a parent with no estimate of its
+    // own counts its parts' (parts have no Day, so they are never on the Calendar).
+    loadTasksRaw().then((t) => setTasks(withParts(t)));
     loadCustomEvents().then(setEvents);
     loadCustomCategories().then(setCategories);
     loadLabels().then(setLabels);

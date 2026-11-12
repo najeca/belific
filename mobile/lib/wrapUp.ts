@@ -15,6 +15,7 @@
 //     inside rows under it. Tick all marks them all done on their own days. Before 14:00 a row also has Today.
 import type { Task } from './types.ts';
 import { isGone, projectOccurrences } from './series.ts';
+import { withPartsOf } from './parts.ts';
 import { isSeriesRow } from './rollover.ts';
 import { shiftsOfDay, insideItemsOf, type ShiftRow } from './shifts.ts';
 import { withAllDone } from './subtasks.ts';
@@ -162,6 +163,6 @@ export function tomorrowText(raw: Task[], tomorrowKey: string, todayKey: string,
   const items = dayItems(raw, tomorrowKey, todayKey, cutMin).filter((i) => !isQuickReminder(i.task));
   if (items.length === 0) return 'Tomorrow so far: nothing planned yet.';
   const all = [...raw.filter((t) => !isGone(t) && t.dueDate === tomorrowKey), ...projectOccurrences(raw, [tomorrowKey], todayKey)];
-  const est = totalsOf(all, nowMs, cutMin).estimate;
+  const est = totalsOf(withPartsOf(all, raw), nowMs, cutMin).estimate;
   return `Tomorrow so far: ${tasksWord(items.length)}${est > 0 ? `, ${formatMinutes(est)}` : ''}`;
 }

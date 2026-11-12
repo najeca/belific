@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { withParts } from '../../lib/parts';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { ClearBody } from './ClearTools';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +38,7 @@ export default function LabelsPage({ onChanged }: { onChanged: () => void }) {
   const reload = useCallback(async () => {
     const [l, t] = await Promise.all([loadLabels(), loadTasks()]);
     setLabels(l);
-    setTasks(t);
+    setTasks(withParts(t));
     setLoaded(true);
   }, []);
   useEffect(() => {

@@ -10,6 +10,8 @@ import FilterButton from './FilterButton';
 import { filterTasks, type TaskFilter } from '../../lib/taskFilter';
 import { opsForProjected, opsForTask } from './taskOps';
 import { projectOccurrences } from '../../lib/series';
+import { partIndexOf, withParts } from '../../lib/parts';
+import PartRows from './PartRows';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import { domNode, useDrag } from './DragProvider';
 import usePaneScroll from './usePaneScroll';
@@ -219,7 +221,8 @@ export default function KanbanPane({
   // 3.10.0: which tasks are during a break and how many each break has (the cards' caption and pill).
   const hosts = useMemo(() => hostIndex(tasks, days.map((d) => d.key), todayKey), [tasks, days, todayKey]);
   // The filter (labels, no label, show complete) applies to tasks only.
-  const shownTasks = useMemo(() => filterTasks(tasks, filter), [tasks, filter]);
+  // R4: parts are rows in their parent's card, never cards of their own (lib/parts.ts withParts, the orphan rule).
+  const shownTasks = useMemo(() => filterTasks(withParts(tasks), filter), [tasks, filter]);
   // Repeating series show on every matching day from today forward without
   // storing anything (decision 023).
   const projected = useMemo(() => filterTasks(projectOccurrences(tasks, days.map((d) => d.key), todayKey), filter), [tasks, days, todayKey, filter]);
@@ -325,7 +328,14 @@ export default function KanbanPane({
                 listEmoji={listEmojiOf(task, lists)}
                 listName={listNameOf(task, lists)}
                 during={hosts.during.get(task.id)}
-                inside={shifts?.byTask.has(task.id) ? <ShiftBody info={shifts.byTask.get(task.id)!} anchor={() => document.querySelector<HTMLElement>(`[data-task-card="${task.id.replace(/"/g, '')}"]`)} compact /> : undefined}
+                inside={
+                  shifts?.byTask.has(task.id) || partIndexOf(tasks).has(task.id) ? (
+                    <>
+                      {shifts?.byTask.has(task.id) ? <ShiftBody info={shifts.byTask.get(task.id)!} anchor={() => document.querySelector<HTMLElement>(`[data-task-card="${task.id.replace(/"/g, '')}"]`)} compact /> : null}
+                      {partIndexOf(tasks).has(task.id) ? <PartRows parent={task} parts={partIndexOf(tasks).get(task.id)!} /> : null}
+                    </>
+                  ) : undefined
+                }
                 variant="card"
                 todayKey={todayKey}
                 onChanged={onChanged}

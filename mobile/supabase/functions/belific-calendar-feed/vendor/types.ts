@@ -243,6 +243,9 @@ export interface Task {
   // root id). Absent = not a part. Synced as parent_id (text), with the same caps. Nothing
   // reads it yet (R4).
   parentId?: string;
+  // R4: DISPLAY ONLY, never stored or synced (storage strips it, the sync never names it): a parent with no estimate of
+  // its own counts the sum of its parts' estimates (lib/parts.ts withParts, E2).
+  partsMinutes?: number;
   // Set once, at creation, when promoted from a Brain Dump item — same
   // pattern as CustomEvent.origin, rendered as a small 🧠 indicator.
   origin?: 'dump';

@@ -955,3 +955,10 @@ What: "Changes go to: This day only · This and following · All days" in the de
 Tests: new thisAndFollowing.test.ts (6); easConfig changed on purpose; real new p64 (12); real p54 changed on purpose (three choices in Add inside).
 Gates: tsc clean; mobile `npm test` 1186/1186; desktop 118/118; iOS export plus `check:ios-markers` OK (51 markers, 0 hits); security scan passed. Real checks on the rebuilt web export (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p64 12/12, p63 18/18, p57 27/27, p54 28/28 (after the change on purpose), p53 12/12, p55 20/20, p47 9/9, p49 36/36. Full regression NOT run.
 Check by hand (pointer): the scissors' three choices on a repeating block, and Add inside's "This and following" for a to do (splits the shift).
+
+## Repeat until and Parts, R4 (2026-11-12): 3.50.0, Parts for ordinary tasks
+What: Add part with quick entry (type, Enter, next); part rows with in place ticks, a bar and "2 of 5 done" on the card, never cards of their own; totals once with the parent's own estimate winning (E2); a part's details ("Part of", Take out); delete "the task only" or "the task and its N parts" (details and card menu; one Trash entry, restored together); Checklist with Turn into parts (E3); one Ctrl+Z each. Fix: undoing a delete keeps the parts with their revived parent.
+Tests: new parts.test.ts (12); easConfig changed on purpose; real new p65 (26).
+Gates: tsc clean; mobile `npm test` 1198/1198; desktop 118/118; iOS export plus `check:ios-markers` OK (51 markers, 0 hits); security scan passed. Real checks on the rebuilt web export (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p65 26/26, p63 18/18, p64 12/12, p54 28/28, p57 27/27, p58 37/37, p60 33/33, p5 20/20, p22 56/56, p27 86/86, p61 27/27, p62 19/19. Full regression NOT run.
+Known to need updating at the next full regression (pointer only, not run): cp8b, cp8c, cp8f, cp9, p10 and p11 type into "Add subtask" on an ordinary task, which is now "Add part" (E3, on purpose).
+Not in R4 (R5): parts of a repeating parent, Wrap up Tomorrow split, Clear tools counting a parent with its parts, the parent's taller Timebox block from its parts, the phone.

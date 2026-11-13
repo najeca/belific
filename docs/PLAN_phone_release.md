@@ -174,3 +174,18 @@ Phases 3 and 4 can be built while phase 1's build is in TestFlight, but nothing 
 3. **What does Delete Account do, given the login is shared with Landis and Proload?** *Default:* delete all Belific data, revoke the Apple token, and delete the login itself only when it has no Landis or Proload data; otherwise say plainly, in the alert and on the privacy page, "Your Belific data is deleted. Your sign in stays because you also use it for Landis or Proload." This meets Apple's rule for Belific's own account and does not break the other apps.
 4. **Which contact email for the privacy page, terms and support URL?** *Default:* a new address just for Belific (for example a `belific@` alias), not your personal email, since the repo and pages are public.
 5. **Screenshots: a real large iPhone, or rendered?** *Default:* take them on a real 6.9 inch class iPhone (yours, or borrowed) from the TestFlight build. Only if none is available: render them from the phone harness at 440 x 956 at 3x (1320 x 2868), and check they match the real app closely, since Apple rejects screenshots that do not show the app as it is.
+
+## Answers recorded 2026-11-13 (Phase 1 preflight)
+
+1. **Live on the App Store: 2.18.1 (Ready for Distribution).** 2.27.1 build 1 sits in TestFlight and has never been installed on the phone; it expires 65 days after upload. `docs/CURRENT_TRUTH.md` (which says 2.1.0) is out of date.
+2. **Standing rule:** TestFlight on Jethro's own iPhone replaces the local Mac test. Nothing goes for App Store review until the section 4 hand test passes on that exact build.
+3. **Delete Account:** deletes Belific data, revokes the Apple token, and deletes the login only if Landis and Proload have no data on it; otherwise it says so plainly (wording in the default of question 3).
+4. **Contact email:** a new Belific only address, to be given later. Until then the privacy page, terms and support page keep their placeholder.
+5. **Screenshots:** from a real 6.9 inch iPhone if one is available, otherwise rendered from the PC (440 x 956 at 3x) as the fallback.
+
+### Preflight results (3.53.1, build "1")
+
+- Gates green: typecheck, 1207 unit tests, iOS export plus marker check (49 markers, 0 hits), security scan.
+- `mobile/eas.json`: added `cli.appVersionSource: "local"` (the CLI warned it was unset; "local" was already the default, so behaviour is unchanged and `ios.buildNumber` in `app.json` is the one used).
+- EAS plan: Free, 15 iOS builds a month, 0 used this cycle (resets 1 Dec). iOS concurrency 1.
+- eas-cli on this PC is 27.9.0 (latest), signed in as `jetmakes`.

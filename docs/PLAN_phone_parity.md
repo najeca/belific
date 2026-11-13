@@ -412,3 +412,13 @@ for Inter 800.
 4. **Email sign in by a 6 digit code rather than a link?** *Default:* yes, a code (no deep link, nothing added to the
    shared project's redirect list).
 5. **"Smaller tasks" on the desktop too, in the same phase?** *Default:* yes, one shared wording change.
+
+## Decisions (Jethro, 2026-11-13, final)
+
+1. **Sample events come off Today** (the starter events from `lib/data.ts`).
+2. **Presets:** lists Home, Work, Shopping; labels Health, Money, Family (as in item 6).
+3. **The Plan button is on Today only.**
+4. **Email sign in is dropped for now:** Google and Apple only. Changing the shared Supabase email template would
+   affect Landis and Proload. Item A's email parts (the third button, the code entry, the custom SMTP sender) are out of
+   scope until this is decided again.
+5. **"Smaller tasks" replaces "Parts" on desktop and phone at the same time** (one shared wording change, phase 3).

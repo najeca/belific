@@ -4,6 +4,7 @@ import {
   deleteSeries,
   setRepeatUntil,
   editRepeatingTime,
+  editThisDay,
   endSeries,
   moveDay,
   patchRepeatingDay,
@@ -69,7 +70,9 @@ export function opsForTask(task: Task): TaskOps {
         ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
         : repeating && isTimeEdit(fields)
           ? editRepeatingTime(task, false, fields, 'day').then(() => undefined)
-          : patchTask(task.id, fields),
+          : repeating && dayOnlyEdit(fields)
+            ? editThisDay(task, fields).then(() => undefined)
+            : patchTask(task.id, fields),
     setCompleted: (done) => completeTaskById(task.id, done),
     setTimeDone: (time, done) => setTimeDoneById(task.id, time, done),
     toggleSubtask: (sid) => toggleSubtaskById(task.id, sid),
@@ -88,6 +91,12 @@ export function opsForTask(task: Task): TaskOps {
 const RULE_KEYS = ['recurrence', 'recurrenceDays', 'recurrenceMonthDay'] as const;
 export function movesOneDay(task: Task, fields: Partial<Task>): boolean {
   return isDateKey(fields.dueDate) && fields.dueDate !== task.dueDate && !RULE_KEYS.some((k) => k in fields);
+}
+// 3.53.1: a "This day only" edit (a title, notes, steps, Free time...) on a repeating day goes through
+// seriesActions.editThisDay, so it never reaches the template the later days are drawn from (on the series' first day
+// or a day stored ahead, the next day is stored as the series was and carries it on). A rule change or a tick is not one.
+function dayOnlyEdit(fields: Partial<Task>): boolean {
+  return !RULE_KEYS.some((k) => k in fields) && !('repeatUntil' in fields) && !('completed' in fields) && !('deletedAt' in fields) && !('dueDate' in fields);
 }
 export function withoutDay(fields: Partial<Task>): Partial<Task> {
   const { dueDate: _day, ...rest } = fields;
@@ -112,7 +121,9 @@ export function opsForProjected(task: Task): TaskOps {
         ? moveDay(task, fields.dueDate as string, withoutDay(fields)).then(() => undefined)
         : isTimeEdit(fields)
           ? editRepeatingTime(task, true, fields, 'day').then(() => undefined)
-          : patchSeries(task, fields),
+          : dayOnlyEdit(fields)
+            ? editThisDay(task, fields).then(() => undefined)
+            : patchSeries(task, fields),
     setCompleted: (done) => completeProjected(task, done),
     setTimeDone: (time, done) => tickTimeProjected(task, time, done),
     toggleSubtask: (sid) => toggleProjectedSubtask(task, sid),

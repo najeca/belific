@@ -367,3 +367,23 @@ test('an older client (2.18.1 rules: a row takes its id day and its Day) also hi
   assert.ok(oldTaken.has(SAT) && oldTaken.has(FRI));
   assert.equal(moved.recurrence, 'weekly');
 });
+
+// ---- 3.53.1: a to do added "This day only" on a repeating shift's FIRST day ----
+
+test('A to do This day only on the first day stays on that day; the template the later days are drawn from keeps none', async () => {
+  const { wideTargets } = await import('./seriesWide.ts');
+  const first = { ...shift()[0], dueDate: SAT, subtasks: [] };
+  const rows0 = [first];
+  const todo = { id: 'c1', title: 'Call other departments', done: false };
+  const plan = planThisDayEdit(rows0, SAT, { subtasks: [todo] }, NOW, first.id);
+  // The first row is the template: the next day is stored as the series was, and carries it on.
+  assert.deepEqual(plan!.writes.map((w) => [w.row.id, w.isNew]), [[first.id, false], [`w:${SUN}`, true]]);
+  const rows = apply(rows0, plan);
+  assert.deepEqual(rows.find((r) => r.id === first.id)!.subtasks!.map((s) => s.title), ['Call other departments']);
+  assert.equal(seriesOf(rows, 'w')!.template.id, `w:${SUN}`);
+  assert.deepEqual(rows.find((r) => r.id === `w:${SUN}`)!.subtasks ?? [], []);
+  for (const t of projectOccurrences(rows, DAYS, TODAY)) assert.deepEqual(t.subtasks ?? [], [], t.dueDate);
+  // All days afterwards reaches every day (each day's own list, so the first day's own to do is not copied).
+  const targets = wideTargets(rows, TODAY).map((r) => r.id).sort();
+  assert.deepEqual(targets, [first.id, `w:${SUN}`].sort());
+});

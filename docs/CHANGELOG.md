@@ -8,6 +8,19 @@ to know the current version and recent history.
 
 ---
 
+## 3.53.1 — 2026-11-13 (Fix: "This day only" on the first day of a repeating shift)
+
+**Desktop and phone. No new column, no database change.**
+- **Bug:** a to do added with Add inside, "This day only", on the first day of a repeating shift was written to that stored row, which is also the template the later days are drawn from, so the next days showed it too (the same for a day stored ahead, the latest stored row).
+- **Fix:** "This day only" now goes through `seriesActions.editThisDay` (`series.planThisDayEdit`): the day's own row gets the to do, and when that row is the template the next day is stored as the series was and carries the series on, so the later days never see it. "All days" now adds the to do to each day's own checklist (the template and every stored day, `seriesWide.wideTargets`), so a day's own to do is never copied to the others.
+- **Same problem, also fixed:** the desktop details with "Changes go to: This day only" (`taskOps.patchDay`): a title, notes or steps edit went to every day on a day not stored yet, and to the template on the first day. It now goes through `editThisDay` too (a move, a time, a repeat rule, a tick or a Day keep their old paths).
+- **Checked, not affected:** the scissors (This day only makes a separate Free time block), the Clear tools (This day only skips the day; `planSkip` already hands the template on), Parts (no day only write to the parent), a tick on a to do (ticks are never taken from the template).
+Files: `lib/shiftActions.ts`, `lib/taskOps.ts`, `app.json` 3.53.1.
+Tests: `seriesMove.test.ts` +1 (first day, carrier, projections clean); `easConfig.test.ts` (version); real new p67 (8, desktop) and phone-p20 (6, 390 x 844, the clock moved to the stored next day and a projected day).
+Gates: tsc clean; mobile `npm test` 1207/1207; desktop 118/118; iOS export plus `check:ios-markers` OK (49 markers, 0 hits); security scan passed (Git Bash). Real checks on the rebuilt web export (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p67 8/8, phone-p20 6/6, phone-p19 27/27, p54 28/28, p64 12/12, p63 18/18, p57 27/27, p58 37/37, p60 33/33, p65 26/26, p66 17/17, phone-p14 28/28, p49 36/36, p55 20/20. Full regression NOT run.
+
+---
+
 ## 3.53.0 — 2026-11-13 (Shifts, S5: the phone; PLAN_shifts D1 to D5, PLAN_breaks_as_gaps G1 to G5)
 
 **Phone only. No new column, no database change.**

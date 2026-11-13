@@ -1,14 +1,15 @@
 // Shifts S3: what "Add inside" and a tick on a shift's row write (the pure rules are in shifts.ts). Each is ONE gesture,
-// so one Ctrl+Z puts it back (undoStack.ts). Desktop only for now.
+// so one Ctrl+Z puts it back (undoStack.ts). The desktop and the phone.
 import type { Task } from './types';
 import { generateId } from './data';
-import { addTask, deleteTask, loadTasksRaw, updateTask } from './storage';
-import { deleteSeries, materialise, skipOccurrence, splitFrom } from './seriesActions';
+import { addTask, deleteTask, loadTasksRaw, updateTask, updateTasks } from './storage';
+import { deleteSeries, editThisDay, materialise, skipOccurrence, splitFrom } from './seriesActions';
+import { wideTargets } from './seriesWide';
+import { opsForProjected, opsForTask } from './taskOps';
 import { firstShownFrom } from './series';
 import { rootTaskId } from './recurrence';
 import { dateKey } from './kanban';
 import type { DayHostEntry } from './hosting';
-import { opsForProjected, opsForTask } from './taskOps';
 import { stack } from './undoStack';
 import { flipTodo, insideItemsOf, insideTask, insideTodo, type InsideForm, type ShiftRow } from './shifts';
 
@@ -22,7 +23,8 @@ async function storedRow(shift: Task, projected: boolean): Promise<Task | undefi
 
 // A timed item is an ordinary task on the shift's day (All days: on the shift's repeat days from this day on). A to do
 // joins the shift's checklist: "All days" of a repeating shift adds it to every day (the steps are shared by the
-// series, seriesWide.ts, each day keeping its own ticks); "This day only" stores that day and adds it there.
+// series, seriesWide.ts, each day keeping its own ticks); "This day only" adds it to that day alone, never to the
+// template the later days are drawn from.
 export async function addInside(shift: Task, projected: boolean, f: InsideForm): Promise<void> {
   const day = shift.dueDate;
   if (!day) return;
@@ -46,9 +48,20 @@ export async function addInside(shift: Task, projected: boolean, f: InsideForm):
     if (await splitFrom(shift, { subtasks: insideTodo(row.subtasks, f.title, id) })) return;
   }
   if (shift.recurrence && (f.scope === 'all' || f.scope === 'following')) {
-    const ops = projected ? opsForProjected(shift) : opsForTask(shift);
-    const row = projected ? shift : await latest(shift.id);
-    await ops.patch({ subtasks: insideTodo((row ?? shift).subtasks, f.title, id) });
+    // 3.53.1: added to EACH day's own checklist (the template and every stored day), so a to do another day has for
+    // itself alone ("This day only") stays on that day and is never copied to the others.
+    const root = rootTaskId(shift.id);
+    const rows = (await loadTasksRaw()).filter((t) => rootTaskId(t.id) === root);
+    const now = new Date().toISOString();
+    await updateTasks(wideTargets(rows, dateKey(new Date())).map((r) => ({ ...r, subtasks: insideTodo(r.subtasks, f.title, id), updatedAt: now })));
+    return;
+  }
+  if (shift.recurrence) {
+    // 3.53.1: This day only on a repeating shift changes that day alone (series.planThisDayEdit). When that day is the
+    // series' latest stored row (its first day, or a day stored ahead), it would be the template every later day is
+    // drawn from, so the next day is stored as well, as the series was, and carries the series on.
+    const base = projected ? shift : ((await latest(shift.id)) ?? shift);
+    await editThisDay(shift, { subtasks: insideTodo(base.subtasks, f.title, id) });
     return;
   }
   const row = await storedRow(shift, projected);

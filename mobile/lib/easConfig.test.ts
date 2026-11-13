@@ -24,14 +24,17 @@ test('no variable values, keys or project addresses are in eas.json', () => {
   assert.doesNotMatch(raw, /SUPABASE|EXPO_PUBLIC|supabase\.co|sb_publishable|eyJ|secret|ANON/i);
 });
 
-test('only environment is added: no appVersionSource and no autoIncrement (the build number is raised by hand in app.json)', () => {
+// 3.53.2: cli.appVersionSource is now set to "local" (the default eas-cli 27 asks to have written down), which keeps
+// the build number in app.json; "remote" or autoIncrement would hand it to EAS, so both stay refused.
+test('only environment and appVersionSource "local" are added: no autoIncrement (the build number is raised by hand in app.json)', () => {
   const allowedTop = new Set(['cli', 'build', 'submit']);
   for (const k of Object.keys(eas)) assert.ok(allowedTop.has(k), k);
   assert.equal(eas.appVersionSource, undefined);
-  assert.doesNotMatch(raw, /appVersionSource|autoIncrement/);
+  assert.equal(eas.cli.appVersionSource, 'local');
+  assert.doesNotMatch(raw, /autoIncrement|"remote"/);
   const allowedProfile = new Set(['environment', 'ios']);
   for (const k of Object.keys(eas.build.production)) assert.ok(allowedProfile.has(k), k);
-  const allowedCli = new Set(['version']);
+  const allowedCli = new Set(['version', 'appVersionSource']);
   for (const k of Object.keys(eas.cli)) assert.ok(allowedCli.has(k), k);
 });
 
@@ -41,7 +44,7 @@ test('submit.production exists and is empty: Apple details are asked for interac
 });
 
 test('the app is 3.0.0, bundle com.najeca.belific, scheme belific (the callback link)', () => {
-  assert.equal(app.expo.version, '3.53.1');
+  assert.equal(app.expo.version, '3.53.2');
   assert.equal(app.expo.ios.bundleIdentifier, 'com.najeca.belific');
   assert.equal(app.expo.scheme, 'belific');
   assert.equal(app.expo.ios.usesAppleSignIn, true);

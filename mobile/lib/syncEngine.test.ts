@@ -30,6 +30,7 @@ class FakeServer {
   maxRows = 1000;
   online = true;
   upsertsBeforeFailure: number | null = null;
+  refuseTable: AnyTable | null = null;
   gate: Promise<void> | null = null;
   calls = 0;
 
@@ -92,6 +93,8 @@ class FakeServer {
       upsert: async (t: AnyTable, rows: Row[]) => {
         this.check(profile, t);
         if (this.gate) await this.gate;
+        // A table whose writes the server refuses (a Postgres error on one row fails its whole request).
+        if (this.refuseTable === t) throw new Error('invalid input syntax for type date: "soon"');
         if (this.upsertsBeforeFailure !== null) {
           if (this.upsertsBeforeFailure === 0) throw new Error('upsert failed: 500 internal');
           this.upsertsBeforeFailure -= 1;
@@ -1073,4 +1076,49 @@ test('005 older build safety: a build that does not know the columns edits the r
   assert.equal(desk.row('tasks', 'p')?.repeatUntil, '2026-12-17');
   assert.equal(desk.row('tasks', 'c')?.completed, true);
   assert.equal(desk.row('tasks', 'c')?.parentId, 'p');
+});
+
+test('3.53.2 a task the server refuses no longer keeps new lists off the server; the failure is shown and the task stays queued', async () => {
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };
+  const desk = makeDevice(server);
+  server.refuseTable = 'tasks';
+  await desk.put('tasks', task('t1', 'Refused'));
+  await desk.put('lists', { key: 'l1', name: 'New list', sortOrder: 0, createdAt: '2026-11-12T00:00:00.000Z' });
+  await desk.engine.sync();
+  // Before 3.53.2 the tasks refusal stopped the push, so the list never left the computer.
+  assert.equal(server.get('lists', 'l1')?.name, 'New list');
+  assert.equal(server.get('tasks', 't1'), undefined);
+  const s = desk.engine.getStatus();
+  assert.equal(s.state, 'error');
+  assert.match(s.lastError ?? '', /^tasks: invalid input syntax/);
+  assert.deepEqual(desk.data.outbox.entries.map((e) => e.key), ['t1']);
+  // Once the server takes it, the queued task goes up and the status is clear again.
+  server.refuseTable = null;
+  await desk.engine.sync();
+  assert.equal(server.get('tasks', 't1')?.title, 'Refused');
+  assert.equal(desk.engine.getStatus().state, 'idle');
+  assert.equal(desk.data.outbox.entries.length, 0);
+});
+
+test('3.53.2 a network failure still stops the push at once (nothing is tried table by table offline)', async () => {
+  const server = new FakeServer();
+  server.caps = { serverUpdatedAt: true, taskPipeline: true, taskExtras: true, planner: true };
+  const desk = makeDevice(server);
+  await desk.engine.sync();
+  await desk.put('tasks', task('t1', 'x'));
+  await desk.put('lists', { key: 'l1', name: 'L', sortOrder: 0, createdAt: '2026-11-12T00:00:00.000Z' });
+  server.online = false;
+  await desk.engine.drain(true);
+  assert.equal(desk.engine.getStatus().state, 'offline');
+  assert.equal(desk.data.outbox.entries.length, 2);
+});
+
+test('3.53.2 a push with no session says signed out instead of keeping an old status', async () => {
+  const server = new FakeServer();
+  const d = makeDevice(server, { userId: null });
+  await d.put('tasks', task('t1', 'x'));
+  await d.engine.drain(true);
+  assert.equal(d.engine.getStatus().state, 'signed-out');
+  assert.equal(d.data.outbox.entries.length, 1);
 });

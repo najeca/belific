@@ -25,6 +25,28 @@ export function syncLineText(s: SyncLike, now: number): { text: string; warn: bo
   return { text: s.pending > 0 ? `${s.pending} change${s.pending === 1 ? '' : 's'} waiting` : 'Synced', warn: false };
 }
 
+// 3.53.2: the short line always on screen (desktop top bar beside the avatar, phone header). A failure stays
+// "Sync failed: reason" until a sync succeeds, however old it is, so a stopped sync can never look fine.
+export function syncBadgeText(s: SyncLike, now: number): { text: string; warn: boolean } {
+  if (s.state === 'error') {
+    const why = (s.lastError ?? 'unknown').trim();
+    return { text: `Sync failed: ${why.length > 60 ? `${why.slice(0, 57)}…` : why}`, warn: true };
+  }
+  if (!s.signedIn || s.state === 'signed-out') return { text: 'Not signed in', warn: false };
+  if (s.state === 'syncing') return { text: 'Syncing…', warn: false };
+  if (s.state === 'offline') return { text: `Offline · ${s.pending} waiting`, warn: false };
+  if (s.pending > 0) return { text: `${s.pending} change${s.pending === 1 ? '' : 's'} waiting`, warn: false };
+  const t = s.lastSuccessAt ? Date.parse(s.lastSuccessAt) : NaN;
+  if (Number.isNaN(t)) return { text: 'Not synced yet', warn: false };
+  const mins = Math.floor((now - t) / 60000);
+  if (mins < 1) return { text: 'Synced just now', warn: false };
+  if (mins < 60) return { text: `Synced ${mins} min ago`, warn: false };
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return { text: `Synced ${hours} h ago`, warn: false };
+  const days = Math.floor(hours / 24);
+  return { text: `Synced ${days} day${days === 1 ? '' : 's'} ago`, warn: false };
+}
+
 // "Last synced just now / 5 minutes ago / 2 days ago / Not synced yet".
 export function lastSyncedText(lastSuccessAt: string | null, now: number): string {
   if (!lastSuccessAt) return 'Not synced yet';

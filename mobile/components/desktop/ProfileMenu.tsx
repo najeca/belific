@@ -8,6 +8,7 @@ import { runFullSync, type PublicSyncStatus } from '../../lib/sync';
 import { lastSyncedText, profileInitial, syncErrorText, syncLineText } from '../../lib/syncText';
 import Popover, { closePopover, Row, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { useAccount } from './useAccount';
+import { useSyncBadge } from '../useSyncBadge';
 
 const POPOVER_ID = 'profile';
 
@@ -36,9 +37,18 @@ export default function ProfileMenu({
   const open = useIsOpen(POPOVER_ID);
   const signedIn = account !== null;
   const initial = profileInitial(account);
+  const badge = useSyncBadge();
 
   return (
     <>
+      <Text
+        style={[styles.badge, badge.warn && styles.warn]}
+        numberOfLines={1}
+        accessibilityLabel={`Sync: ${badge.text}`}
+        {...({ dataSet: { syncBadge: '1' } } as object)}
+      >
+        {badge.text}
+      </Text>
       <Pressable
         ref={ref as never}
         onPress={() => togglePopover(POPOVER_ID, get)}
@@ -139,6 +149,7 @@ const styles = StyleSheet.create({
   // 3.31.0: the avatar is a 44 px ink circle (the text colour), its initial or icon in the page colour.
   icon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.textPrimary },
   iconActive: { opacity: 0.85 },
+  badge: { fontSize: 12, color: Colors.textSecondary, maxWidth: 240, marginRight: 8, alignSelf: 'center' },
   initial: { fontSize: 17, fontWeight: '700', color: Colors.background },
   body: { padding: 14, gap: 6 },
   rows: { paddingBottom: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },

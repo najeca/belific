@@ -279,11 +279,17 @@ export function createSyncEngine(deps: {
   }
 
   // Pushes the outbox. Removes an entry only after the server accepted it and
-  // only if it was not rewritten meanwhile. Stops at the first failure and
+  // only if it was not rewritten meanwhile. A network failure stops it; a table
+  // the server refuses is skipped and the rest still go (3.53.2). Either way it
   // backs off; `force` ignores the backoff (a full sync, or a reconnect).
   async function drainOnce(force: boolean): Promise<void> {
     const userId = await server.userId();
-    if (!userId) return;
+    // Signed out, or the session could not be refreshed: nothing is sent, and the status says so instead of
+    // keeping an old "Synced".
+    if (!userId) {
+      setStatus({ state: 'signed-out' });
+      return;
+    }
     let state = await outbox.read();
     if (state.entries.length === 0) return;
     if (!force && state.nextAttemptAt > now()) return;
@@ -291,17 +297,26 @@ export function createSyncEngine(deps: {
     let seenChanged = false;
     try {
       const c = caps ?? (await loadCaps());
+      // 3.53.2: a table the server refuses (anything but a network failure) no longer stops the tables after it, so
+      // one bad task can never keep new lists off the server. Its entries stay queued, and the first refusal is
+      // thrown once every other table has been tried, so the status still says the sync failed and why.
+      let refused: Error | null = null;
       for (const table of TIMESTAMPED_TABLES) {
         // Entries for a table the server lacks stay queued until it appears.
         if (!tableReady(table, c)) continue;
         const spec = TABLE_SPECS[table];
         const entries = state.entries.filter((e) => e.table === table && e.op === 'upsert' && e.row);
-        for (const batch of chunk(entries, batchSize)) {
-          await server.upsert(
-            table,
-            batch.map((e) => ({ ...spec.toRemote(e.row as Record<string, unknown>, c), user_id: userId })),
-          );
-          state = await outbox.update((s) => removeSent(s, batch));
+        try {
+          for (const batch of chunk(entries, batchSize)) {
+            await server.upsert(
+              table,
+              batch.map((e) => ({ ...spec.toRemote(e.row as Record<string, unknown>, c), user_id: userId })),
+            );
+            state = await outbox.update((s) => removeSent(s, batch));
+          }
+        } catch (e) {
+          if (isNetworkError(e)) throw e;
+          if (refused === null) refused = new Error(`${table}: ${errorText(e)}`);
         }
       }
       const adds = state.entries.filter((e) => e.table === 'routine_completions' && e.op === 'upsert' && e.row);
@@ -322,6 +337,7 @@ export function createSyncEngine(deps: {
         seenChanged = true;
         state = await outbox.update((s) => removeSent(s, [e]));
       }
+      if (refused !== null) throw refused;
       await outbox.update((s) => recordSuccess(s));
     } catch (e) {
       await outbox.update((s) => recordFailure(s, now()));
@@ -377,6 +393,10 @@ export function createSyncEngine(deps: {
   return {
     sync,
     drain,
+    // A sync that could not start (the project check failed): shown in the status, never silent.
+    reportProblem(e: unknown) {
+      fail(e);
+    },
     getStatus: () => status,
     subscribe(listener: (s: SyncStatus) => void): () => void {
       listeners.add(listener);

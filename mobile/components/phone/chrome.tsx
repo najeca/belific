@@ -7,6 +7,7 @@ import { radius, type ColorTokens } from '../../lib/tokens';
 import { useStyles, useTheme } from './theme';
 import { inter, type } from './type';
 import { MIN_TOUCH } from './ui';
+import { useSyncBadge } from '../useSyncBadge';
 
 // The frame every phone tab shares (PLAN_phone P3): a title in Newsreader with the profile avatar
 // top right (Settings live behind it, there is no Settings tab), the round + button, and a
@@ -16,6 +17,9 @@ const make = (c: ColorTokens) => ({
   header: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 6 },
   title: { ...type.screenTitle, color: c.textPrimary, flexShrink: 1 },
   sub: { ...type.meta, color: c.textSecondary, marginTop: 2 },
+  // 3.53.2: the sync line under the title, on every tab; in the danger colour while the last sync failed.
+  sync: { ...type.meta, color: c.textSecondary, marginTop: 2 },
+  syncWarn: { color: c.danger },
   avatar: { width: MIN_TOUCH, height: MIN_TOUCH, alignItems: 'center' as const, justifyContent: 'center' as const },
   avatarCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface, alignItems: 'center' as const, justifyContent: 'center' as const },
   fab: { position: 'absolute' as const, right: 18, width: 58, height: 58, borderRadius: 29, backgroundColor: c.accent, alignItems: 'center' as const, justifyContent: 'center' as const, borderWidth: 1, borderColor: c.accent },
@@ -31,6 +35,7 @@ export function ScreenHeader({ title, sub, left }: { title: string; sub?: string
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const badge = useSyncBadge();
   return (
     <View style={[s.header, { paddingTop: insets.top + 8 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
@@ -40,6 +45,9 @@ export function ScreenHeader({ title, sub, left }: { title: string; sub?: string
             {title}
           </Text>
           {sub ? <Text style={s.sub}>{sub}</Text> : null}
+          <Text style={[s.sync, badge.warn && s.syncWarn]} numberOfLines={1} accessibilityLabel={`Sync: ${badge.text}`} {...({ dataSet: { syncBadge: '1' } } as object)}>
+            {badge.text}
+          </Text>
         </View>
       </View>
       <Pressable

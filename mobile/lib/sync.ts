@@ -154,8 +154,17 @@ async function accountChoiceHeld(): Promise<boolean> {
 }
 
 export async function runFullSync(): Promise<void> {
-  await ensureCurrentProject();
-  if (await accountChoiceHeld()) return;
+  // 3.53.2: a project check that fails used to stop every sync with nothing shown (the callers drop the error).
+  try {
+    await ensureCurrentProject();
+  } catch (e) {
+    engine.reportProblem(e);
+    throw e;
+  }
+  if (await accountChoiceHeld()) {
+    engine.reportProblem(new Error('waiting for your choice about this computer’s data'));
+    return;
+  }
   const userId = await getUserId();
   signedIn = userId !== null;
   if (signedIn) await setSyncEnabled(true);

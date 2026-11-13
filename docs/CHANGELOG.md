@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 3.53.2 — 2026-11-13 (Sync: a visible sync line; a refused table no longer blocks the others)
+
+**Desktop and phone. No new column, no database change. No local or server data was changed while investigating.**
+- **Investigated:** "the desktop stopped pushing after 11 Nov". The desktop's data folder on this PC (`%APPDATA%\belific-desktop\data`, read only) holds exactly what the server has: 110 tasks, newest 11 Nov 09:32:58; 8 lists, newest 2 Nov 10:25. Its outbox is empty (nothing waiting, no failed attempts), sync is on, and the account is df2051d2. Nothing in that folder, its log or its backups is newer than 11 Nov 09:40, no Belific is installed (only `desktop/dist/win-unpacked` from 2.18.0), and no browser profile holds newer Belific data. So the lists and tasks made since then were not made by a desktop app that saves on this PC, and no rejected write was found. Where that work lives is still open (another computer, or another copy of the app).
+- **Real gaps found and fixed:** (1) when the server refused one table's write (anything but a network failure), the push stopped there, so one bad task kept every later table, lists included, off the server. Now the refused table's rows stay queued, the other tables still go, and the status says "Sync failed: tasks: <reason>". (2) A push with no session left the old status showing; it now says signed out. (3) A failed project check, or a pending "this computer's data" choice, stopped every sync with nothing shown; both now show as a sync failure.
+- **Checked, no problem:** `repeat_until`/`parent_id` (migration 005) are sent only once the probe finds them and are cleaned first (a real date, a sane id); 0 minute lengths and reminders are valid (no CHECK constraints in 001 to 005); every local row on this PC maps to a valid server row.
+- **New:** a sync line that is always on screen: on the desktop, left of the profile avatar in the top bar; on the phone, under the title on every tab. "Not signed in", "Syncing…", "Synced just now" / "Synced 5 min ago", "3 changes waiting", "Offline · 3 waiting", "Sync failed: reason" (in the danger colour, until a sync succeeds).
+Files: `lib/syncEngine.ts`, `lib/sync.ts`, `lib/syncText.ts`, new `components/useSyncBadge.ts`, `components/desktop/ProfileMenu.tsx`, `components/phone/chrome.tsx`, `app.json` 3.53.2.
+Tests: syncEngine.test.ts +3 (a refused tasks table no longer keeps a list off the server, and the status names it; offline still stops at once; no session says signed out; the first and third fail on 3.53.1); syncText.test.ts +1; easConfig.test.ts follows the version and `cli.appVersionSource: "local"` (b9a36af had broken it); real new p68 (9).
+Gates: tsc clean; mobile `npm test` 1211/1211; desktop 118/118; iOS export plus `check:ios-markers` OK (49 markers, 0 hits); security scan passed (Git Bash). Real checks on the rebuilt web export (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p68 9/9, cp6 61/61, p67 8/8, p66 17/17, phone-p20 6/6, phone-p14 28/28, phone-p19 27/27. cp9, cp10, cp11 and cp12 (the profile menu) need the pointer and skip when quiet: NOT run. Full regression NOT run.
+
 ## 3.53.1 — 2026-11-13 (Fix: "This day only" on the first day of a repeating shift)
 
 **Desktop and phone. No new column, no database change.**

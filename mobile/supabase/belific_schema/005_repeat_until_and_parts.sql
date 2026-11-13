@@ -1,6 +1,6 @@
 -- Belific migration 005: Repeat until, and Parts (PLAN_repeat_end_and_parts).
 --
--- *** NOT APPLIED. Apply only after Jethro's review, through the Supabase migration tool.
+-- *** APPLIED 2026-11-13 by Jethro in the Supabase SQL editor (ran successfully). DO NOT RUN AGAIN.
 -- Never `supabase db push`. ***
 --
 -- Additive only: two nullable columns on belific.tasks. No default, no NOT NULL, no CHECK,

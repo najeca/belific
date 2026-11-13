@@ -8,6 +8,12 @@ to know the current version and recent history.
 
 ---
 
+## 3.52.0 — 2026-11-13 (Repeat until and Parts, R6: the phone; PLAN_repeat_end_and_parts)
+
+What: the phone gets Repeat until and Parts in the desktop's wording. Details: a Repeat until row ("No end", a date picker, a visible Clear, a quiet line for a day before the start), the Repeat line reads "..., until ..."; a Parts section (Add part button and a box: type, Enter, the box stays for the next; "2 of 5 done" and a bar; ticks in place; Open); a part's details show "Part of ..." and Take out and no Date, Time, Task or Break, Repeat or Where; a task with steps keeps them under Checklist with Turn into parts (a Break keeps Add a step, since a Break cannot hold parts); Delete asks "the task only" or "the task and its N parts". Today and the Tasks list show a task's parts as rows under it (44 pt ticks, 14 px text, "3 more" opens the details); parts are never rows or blocks of their own, and the Calendar hides them. Fix: a repeating day's open details now show its Repeat until after setting it.
+Tests: easConfig.test.ts changed on purpose (version); real new phone-p18 (23). phone-p6 unchanged (its task is a Break, which keeps Add a step).
+Gates: tsc clean; mobile `npm test` 1204/1204; desktop 118/118; iOS export plus `check:ios-markers` OK (51 markers, 0 hits); security scan passed. Real checks at 390 x 844 (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p18 23/23, phone-p6 23/23, phone-p10 10/10, phone-p12 19/19, phone-p14 31/31, phone-p16 27/27, phone-p17 20/20.
+
 ## 3.51.0 — 2026-11-12 (Repeat until and Parts, R5: Parts on repeating parents and across the flows; PLAN_repeat_end_and_parts)
 
 **Desktop. No new column. The phone screens are unchanged (R6).**

@@ -28,7 +28,9 @@ R3 status (3.49.0): This and following built (details, Clear day and week, sciss
 
 R4 status (3.50.0): Parts for ordinary tasks built.
 
-R5 status (3.51.0): Parts on repeating parents and across the flows built. R6 (the phone) next.
+R5 status (3.51.0): Parts on repeating parents and across the flows built.
+
+R6 status (3.52.0): the phone built (Repeat until, Parts in the details, part rows on Today and the Tasks list).
 
 ## 0. Today in six lines
 

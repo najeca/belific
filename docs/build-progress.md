@@ -967,3 +967,8 @@ Not in R4 (R5): parts of a repeating parent, Wrap up Tomorrow split, Clear tools
 What: parts repeat with a repeating parent and reset each day (a tick is that day's row); Wrap up Tomorrow splits a task with some parts done (E4); "3 parts" in Plan my day and Plan week; Clear tools count a task and its parts once and move them together; Delete repeating task asks about the parts; the Trash restores a series with its parts; one Ctrl+Z each. Fix: undoing a day row's creating tick unticks it (never a tombstone).
 Tests: parts.test.ts +7; wrapUp.test.ts and easConfig.test.ts changed on purpose; real new p66 (17).
 Gates: tsc clean; mobile `npm test` 1204/1204; desktop 118/118; iOS export plus `check:ios-markers` OK (51 markers, 0 hits); security scan passed. Real checks (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): p66 17/17, p65 26/26, p63 18/18, p64 12/12, p57 27/27, p58 37/37, p60 33/33. The six pointer checks updated for Add part (commit 9c4d6ff) were not run until the full regression below.
+
+## Repeat until and Parts, R6 (2026-11-13): 3.52.0, the phone
+What: Repeat until, Parts in the details, part rows under a task on Today and the Tasks list, parts hidden on the Calendar. Files: `components/phone/TaskDetails.tsx`, new `components/phone/PartRows.tsx`, `app/(tabs)/today.tsx`, `tasks.tsx`, `calendar.tsx`; `app.json` 3.52.0.
+Tests: easConfig changed on purpose; real new phone-p18 (23).
+Gates: tsc clean; mobile 1204/1204; desktop 118/118; iOS markers OK (51, 0 hits); security scan passed. Real (390 x 844, display 2, quiet): phone-p18 23/23, p6 23/23, p10, p12, p14, p16, p17 all pass. Full regression NOT run.

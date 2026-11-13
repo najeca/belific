@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { withParts } from '../../lib/parts';
 import { AppState, Pressable, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { radius, type ColorTokens } from '../../lib/tokens';
@@ -79,7 +80,8 @@ export default function CalendarScreen() {
     setCustom(ev);
     setCategories(cats);
     setStarter(st);
-    setData((d) => ({ ...d, tasks, projects, lists }));
+    // R6: a part is a row in its parent's card, never a block of its own; a parent with no estimate counts its parts'.
+    setData((d) => ({ ...d, tasks: withParts(tasks), projects, lists }));
     refreshTaskReminders();
   }, []);
 

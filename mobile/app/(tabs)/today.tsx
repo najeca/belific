@@ -36,6 +36,9 @@ import { AddButton, ScreenHeader } from '../../components/phone/chrome';
 import { QuickAdd } from '../../components/phone/QuickAdd';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { PressRow, haptic } from '../../components/phone/touch';
+import { PartRows } from '../../components/phone/PartRows';
+import { partsFor, partsProgress, withParts } from '../../lib/parts';
+import { setPartDone } from '../../lib/partActions';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
 import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
 import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
@@ -96,7 +99,10 @@ export default function TodayScreen() {
   const { c } = useTheme();
   const [todayKey, setTodayKey] = useState(() => dateKey(new Date()));
   const [nowMin, setNowMin] = useState(nowMinutes);
+  // R6: `tasks` is what the screen shows (a part is a row under its parent, never a task of its own); `all` is every row, where
+  // the parts are looked up.
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [all, setAll] = useState<Task[]>([]);
   const [customEvents, setCustomEvents] = useState<CustomEvent[]>([]);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -128,7 +134,8 @@ export default function TodayScreen() {
     ]);
     setTodayKey(key);
     setNowMin(nowMinutes());
-    setTasks(raw);
+    setTasks(withParts(raw));
+    setAll(raw);
     // Any change made here (a tick, an edit) is followed by a load: the reminders follow it.
     refreshTaskReminders();
     setCustomEvents(custom);
@@ -258,6 +265,7 @@ export default function TodayScreen() {
     const lst = t ? listOf(t) : null;
     const steps = t?.subtasks ?? [];
     const count = counter(steps);
+    const ps = t ? partsFor(all, t) : [];
     const timeText = item.kind === 'task' && item.time ? formatTime(item.time) : null;
     return (
       <View key={item.key} style={!first && s.rowSep} {...({ dataSet: { todayRow: item.kind === 'task' ? item.task.title : item.routine.title, todayKey: item.key } } as object)}>
@@ -297,6 +305,7 @@ export default function TodayScreen() {
               {timeText ? <Text style={[s.meta, { ...mono(500) }]} {...({ dataSet: { todayStart: '1' } } as object)}>{timeText}</Text> : null}
               {item.kind === 'routine' ? <Text style={s.meta}>{TIME_OF_DAY[item.routine.timeOfDay]} routine</Text> : null}
               {count.total ? <Text style={s.meta}>{`${count.done}/${count.total} steps`}</Text> : null}
+              {ps.length ? <Text style={s.meta} {...({ dataSet: { rowParts: partsProgress(ps).text } } as object)}>{partsProgress(ps).text}</Text> : null}
               {t && movedCaption(t) ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t) } } as object)}>{`↪ ${movedCaption(t)}`}</Text> : null}
               {t && hosts.inside.get(t.id) ? (
                 <View style={s.hostPill} {...({ dataSet: { hostPill: String(hosts.inside.get(t.id)) } } as object)}>
@@ -307,6 +316,7 @@ export default function TodayScreen() {
             </View>
           </PressRow>
         </View>
+        {t && ps.length > 0 ? <PartRows parent={t} parts={ps} onTick={(p, d) => void setPartDone(t, p, d).then(load)} onMore={() => void openEdit(t, projected)} /> : null}
         {open && t ? (
           <View style={s.expanded} {...({ dataSet: { todayExpanded: item.key } } as object)}>
             {t.notes ? <Text style={s.notes}>{t.notes}</Text> : null}
@@ -322,7 +332,7 @@ export default function TodayScreen() {
                 {t.durationMinutes ? ` for ${formatDuration(t.durationMinutes)}` : ''}
               </Text>
             ) : null}
-            {!lab && !lst && !t.notes && !steps.length ? <Text style={s.meta}>No notes, steps, label or list yet.</Text> : null}
+            {!lab && !lst && !t.notes && !steps.length && !ps.length ? <Text style={s.meta}>No notes, steps, label or list yet.</Text> : null}
             <View style={{ flexDirection: 'row' }}>
               <Button label="Edit" icon="create-outline" onPress={() => void openEdit(t, projected)} a11y={`Edit ${t.title}`} />
             </View>

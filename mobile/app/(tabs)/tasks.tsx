@@ -27,6 +27,9 @@ import { QuickAdd } from '../../components/phone/QuickAdd';
 import { ListSheet } from '../../components/phone/ListSheet';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { PressRow, SwipeRow, haptic } from '../../components/phone/touch';
+import { PartRows } from '../../components/phone/PartRows';
+import { partsFor, partsProgress, withParts } from '../../lib/parts';
+import { setPartDone } from '../../lib/partActions';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
 import { usePhonePref } from '../../components/phone/prefs';
 import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
@@ -85,7 +88,9 @@ export default function TasksTab() {
   const s = useStyles(make);
   const { c } = useTheme();
   const [chosen, setChosen] = useState<Chosen>(undefined);
+  // R6: `tasks` is what the lists show (a part is a row under its parent, never a task of its own); `all` is every row.
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [all, setAll] = useState<Task[]>([]);
   const [items, setItems] = useState<BrainDumpItem[]>([]);
   const [lists, setLists] = useState<TaskList[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -105,7 +110,8 @@ export default function TasksTab() {
 
   const load = useCallback(async () => {
     const [raw, dump, ls, ps, rs, comps] = await Promise.all([loadTasksRaw(), loadBrainDumpItems(), loadListsRaw(), loadProjects(), loadRoutines(), loadRoutineCompletions()]);
-    setTasks(raw);
+    setTasks(withParts(raw));
+    setAll(raw);
     // Any change made here (a tick, an edit) is followed by a load: the reminders follow it.
     refreshTaskReminders();
     setItems(dump);
@@ -212,6 +218,7 @@ export default function TasksTab() {
     const title = row.kind === 'task' ? `${row.task.emoji ? `${row.task.emoji} ` : ''}${row.task.title}` : row.item.title;
     const lab = t ? label(t) : null;
     const steps = counter(t?.subtasks);
+    const ps = t ? partsFor(all, t) : [];
     const when = t?.dueDate ? `${formatDayTitle(t.dueDate, todayKey)}${t.startTime ? `, ${formatTime(t.startTime)}` : ''}` : null;
     const repeating = !!t?.recurrence;
     // 3.3.0: a day of a repeating task moved on its own says where it came from.
@@ -263,7 +270,7 @@ export default function TasksTab() {
                   <Text style={[s.meta, { flexShrink: 1 }]}>{lab.name}</Text>
                 </View>
               ) : null}
-              {when || steps.total ? (
+              {when || steps.total || ps.length ? (
                 <View style={s.metaRow} {...({ dataSet: { rowWhen: '1' } } as object)}>
                   {when ? <Text style={[s.meta, { ...mono(400), fontSize: 12 }]}>{when}</Text> : null}
                   {t && hosts.inside.get(t.id) ? (
@@ -274,11 +281,13 @@ export default function TasksTab() {
               {t && hosts.during.get(t.id) ? <Text style={s.hostCaption} {...({ dataSet: { hostCaption: hosts.during.get(t.id) } } as object)}>{duringCaption(hosts.during.get(t.id) ?? '')}</Text> : null}
                   {moved ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t!) } } as object)}>{`↪ ${moved}`}</Text> : null}
                   {steps.total ? <Text style={s.meta}>{`${steps.done}/${steps.total} steps`}</Text> : null}
+                  {ps.length ? <Text style={s.meta} {...({ dataSet: { rowParts: partsProgress(ps).text } } as object)}>{partsProgress(ps).text}</Text> : null}
                 </View>
               ) : null}
             </PressRow>
           </View>
         </SwipeRow>
+        {t && ps.length > 0 ? <PartRows parent={t} parts={ps} onTick={(p, d) => void setPartDone(t, p, d).then(load)} onMore={() => void open(row)} /> : null}
       </View>
     );
   }

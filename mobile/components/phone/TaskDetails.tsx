@@ -4,7 +4,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { radius, type ColorTokens } from '../../lib/tokens';
-import { addDays, dateKey, formatDayTitle, parseDateKey } from '../../lib/kanban';
+import { addDays, dateKey, formatDayLabel, formatDayTitle, isDateKey, parseDateKey } from '../../lib/kanban';
 import { formatTime, generateId } from '../../lib/data';
 import { DURATION_PRESETS, formatDuration, parseDuration, presetLabel } from '../../lib/duration';
 import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
@@ -14,10 +14,13 @@ import { liveLists } from '../../lib/lists';
 import { addSubtask, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { opsForProjected, opsForTask } from '../../lib/taskOps';
 import { materialise, moveDay } from '../../lib/seriesActions';
-import { MOVE_THIS_DAY_NOTE, movedCaptionLong } from '../../lib/series';
+import { END_REPEAT_HERE, MOVE_THIS_DAY_NOTE, endTooEarlyText, movedCaptionLong, seriesOf } from '../../lib/series';
+import { rootTaskId } from '../../lib/recurrence';
 import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
 import { BREAK_HINT, KIND_LABEL, TASK_HINT, kindOf, kindPatch, showsInside, type TaskKind } from '../../lib/taskKind';
 import { addTask, loadListsRaw, loadTasksRaw } from '../../lib/storage';
+import { ADD_PART, CHECKLIST, PARTS, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
+import { addPart, convertSteps, deleteSeriesWithParts, deleteWithParts, setPartDone, takeOut } from '../../lib/partActions';
 import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, priorityPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { useStyles, useTheme } from './theme';
@@ -31,12 +34,12 @@ import Toggle from '../Toggle';
 import { RepeatEditor } from './RepeatEditor';
 import { TimesEditor } from './TimesEditor';
 import { RemindersEditor } from './RemindersEditor';
-import { repeatKindOf, REPEAT_CHOICES, shortRepeat } from '../../lib/repeat';
+import { repeatKindOf, REPEAT_CHOICES, repeatLine } from '../../lib/repeat';
 import { reminderHint, taskRemindersLabel } from '../../lib/reminder';
 import { isMultiTime, timesOf } from '../../lib/times';
 import { hostLinks, type HostLink } from '../../lib/hosting';
 import { breakRefusal, moveOutOfBreak } from '../../lib/hostActions';
-import { toTime } from '../../lib/timebox';
+import { formatMinutes, toTime } from '../../lib/timebox';
 import { UNDO_MS } from './UndoBar';
 
 // A task's details on the iPhone (PLAN_phone P6): the desktop's details panel for a finger, as a full
@@ -52,7 +55,7 @@ export interface DetailsTarget {
   draft?: boolean;
 }
 
-type Open = 'date' | 'time' | 'duration' | 'repeat' | 'times' | 'reminders' | null;
+type Open = 'date' | 'time' | 'duration' | 'repeat' | 'until' | 'times' | 'reminders' | null;
 
 const make = (c: ColorTokens) => ({
   screen: { flex: 1, backgroundColor: c.background },
@@ -100,6 +103,14 @@ const make = (c: ColorTokens) => ({
   hostMeta: { ...type.meta, color: c.onHostPill },
   hostOut: { minHeight: 44, minWidth: 64, paddingHorizontal: 10, borderRadius: radius.md, borderWidth: 1, borderColor: c.onHostPill, alignItems: 'center' as const, justifyContent: 'center' as const },
   hostOutText: { ...inter(600), fontSize: 14, color: c.onHostPill },
+  // R6: Parts, 44pt rows, 14 px or more, nothing red.
+  partRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, minHeight: 48, paddingHorizontal: 14 },
+  partTitle: { flex: 1, ...inter(500), fontSize: 16, color: c.textPrimary },
+  partBtn: { minHeight: 44, minWidth: 64, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, alignItems: 'center' as const, justifyContent: 'center' as const },
+  partBtnText: { ...inter(600), fontSize: 14, color: c.textPrimary },
+  partsBar: { height: 6, borderRadius: 3, backgroundColor: c.borderStrong, overflow: 'hidden' as const, marginHorizontal: 14, marginTop: 12 },
+  partsBarFill: { height: 6, borderRadius: 3, backgroundColor: c.accent },
+  partOfRow: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, alignItems: 'center' as const, gap: 8, marginTop: 8 },
   undoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, marginTop: 8, minHeight: 44, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: c.inverseBg },
   undoText: { ...inter(500), fontSize: 14, color: c.inverseText, flex: 1 },
   undoBtn: { minWidth: 64, minHeight: 44, alignItems: 'center' as const, justifyContent: 'center' as const },
@@ -120,6 +131,14 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   const [emoji, setEmoji] = useState('');
   const [notes, setNotes] = useState('');
   const [newStep, setNewStep] = useState('');
+  // R6: Parts (the same rules as the desktop's) and Repeat until.
+  const [parts, setParts] = useState<Task[]>([]);
+  const [partOf, setPartOf] = useState<Task | undefined>(undefined);
+  const [newPartText, setNewPartText] = useState('');
+  const [seriesStart, setSeriesStart] = useState<string | undefined>(undefined);
+  const [untilNote, setUntilNote] = useState<string | null>(null);
+  const [partsAsk, setPartsAsk] = useState(false);
+  const partInputRef = useRef<TextInput>(null);
   const [customDur, setCustomDur] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
@@ -149,6 +168,12 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     setTitle(t.title);
     setEmoji(t.emoji ?? '');
     setNotes(t.notes ?? '');
+    // R6: the task's parts (a repeating parent's, for its day), whose part it is, and where its series starts.
+    void loadTasksRaw().then((raw) => {
+      setParts(partsFor(raw, t));
+      setPartOf(parentTaskOf(t, raw));
+      setSeriesStart(t.recurrence ? seriesOf(raw, rootTaskId(t.id))?.startKey : undefined);
+    });
   }, [refreshHost]);
 
   useEffect(() => {
@@ -161,6 +186,9 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     const focusLater = target.draft ? setTimeout(() => titleRef.current?.focus(), 350) : null;
     setOpen(null);
     setNote(null);
+    setUntilNote(null);
+    setPartsAsk(false);
+    setNewPartText('');
     setNewLabel(null);
     loadLabels().then(setLabels).catch(() => {});
     loadListsRaw().then(setLists).catch(() => {});
@@ -265,6 +293,28 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   const list = task.listKey ? liveLists(lists).find((l) => l.key === task.listKey) : undefined;
   const liveLabels = labels.filter((l) => !l.deletedAt);
   const steps = task.subtasks ?? [];
+  // R6: parts on a task, repeating or not (not a part, not free time); the old steps show only when the task has some.
+  const partsHere = !unsaved && !partOf && canHaveParts(task);
+  const showSteps = !partOf && (!partsHere || steps.length > 0);
+  const progress = partsProgress(parts);
+  const addsUp = partsAddUp(task, parts, formatMinutes);
+  const reshow = async () => {
+    const raw = await loadTasksRaw();
+    const stored = raw.find((t) => t.id === task.id && !t.deletedAt);
+    // A projected day has no row of its own: it takes the end from its series' root (Repeat until is set on every row).
+    const root = !stored && task.recurrence ? raw.find((t) => t.id === rootTaskId(task.id) && !t.deletedAt) : undefined;
+    show(stored ?? (root ? { ...task, repeatUntil: root.repeatUntil } : task), projected && !stored);
+    onChanged();
+  };
+  const addOnePart = async () => {
+    const made = await addPart(task, newPartText);
+    if (made) {
+      setNewPartText('');
+      await reshow();
+    }
+    partInputRef.current?.focus();
+  };
+  const until = isDateKey(task.repeatUntil) ? task.repeatUntil : undefined;
   const dayText = task.dueDate ? formatDayTitle(task.dueDate, todayKey) : 'No date';
   const tomorrowKey = dateKey(addDays(parseDateKey(todayKey), 1));
 
@@ -292,7 +342,16 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
       ],
     });
   const deleteMenu = () =>
-    setMenu({
+    parts.length > 0 && !partOf
+      ? setMenu({
+          title: `${task.title}: ${parts.length === 1 ? '1 part' : `${parts.length} parts`}`,
+          items: [
+            ...(ops.series ? [{ label: 'Skip this day', icon: 'play-skip-forward-outline' as const, run: () => void ops.series!.skipDay().then(() => (onChanged(), onClose())) }] : []),
+            { label: deleteOnlyText, icon: 'trash-outline' as const, danger: true, run: () => void (ops.series ? deleteSeriesWithParts(task, 'only') : deleteWithParts(task, 'only')).then(() => (onChanged(), onClose())) },
+            { label: deleteAllText(parts.length), icon: 'trash-outline' as const, danger: true, run: () => void (ops.series ? deleteSeriesWithParts(task, 'all') : deleteWithParts(task, 'all')).then(() => (onChanged(), onClose())) },
+          ],
+        })
+      : setMenu({
       title: task.title,
       items: ops.series
         ? [
@@ -345,6 +404,17 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
               accessibilityLabel="Task title"
             />
           </View>
+          {partOf ? (
+            <View style={s.partOfRow} {...({ dataSet: { partOf: partOf.id } } as object)}>
+              <Text style={s.note}>{partOfText(partOf.title)}</Text>
+              <Pressable onPress={() => show(partOf, false)} style={s.partBtn} accessibilityRole="button" accessibilityLabel={`Open ${partOf.title}`} {...({ dataSet: { partParent: partOf.id } } as object)}>
+                <Text style={s.partBtnText}>{`Open ${partOf.title}`}</Text>
+              </Pressable>
+              <Pressable onPress={() => void takeOut(task).then(async () => { onChanged(); onClose(); })} style={s.partBtn} accessibilityRole="button" accessibilityLabel={takeOutText(partOf.title)} {...({ dataSet: { takeOut: task.id } } as object)}>
+                <Text style={s.partBtnText}>{takeOutText(partOf.title)}</Text>
+              </Pressable>
+            </View>
+          ) : null}
           {task.recurrence ? <Text style={[s.note, { marginTop: 4 }]} {...({ dataSet: { seriesTimeNote: '1' } } as object)}>{movedCaptionLong(task) ? OWN_TIME_NOTE : SERIES_TIME_NOTE}</Text> : null}
           {movedCaptionLong(task) ? <Text style={[s.note, { marginTop: 4 }]} {...({ dataSet: { detailMoved: '1' } } as object)}>{`↪ ${movedCaptionLong(task)}`}</Text> : null}
           {inside.length > 0 ? (
@@ -412,14 +482,14 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
 
           <Text style={s.section}>When</Text>
           <View style={s.card}>
-            {row('flag-outline', 'Top priority', (
+            {!partOf ? row('flag-outline', 'Top priority', (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 {isMustDo(task) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
                 <Toggle value={isMustDo(task)} onValueChange={(v) => void write(priorityPatch(v))} label="Top priority" colors={c} />
               </View>
-            ), () => void write(priorityPatch(!isMustDo(task))), 'Top priority', true, 'priority')}
-            {row('calendar-outline', 'Date', dayText, () => setOpen(open === 'date' ? null : 'date'), `Date, ${dayText}`, false, 'date')}
-            {open === 'date' ? (
+            ), () => void write(priorityPatch(!isMustDo(task))), 'Top priority', true, 'priority') : null}
+            {partOf ? null : row('calendar-outline', 'Date', dayText, () => setOpen(open === 'date' ? null : 'date'), `Date, ${dayText}`, false, 'date')}
+            {open === 'date' && !partOf ? (
               <View style={s.panel}>
                 {task.recurrence ? <Text style={s.note} {...({ dataSet: { moveDayNote: '1' } } as object)}>{MOVE_THIS_DAY_NOTE}</Text> : null}
                 <View style={s.chips}>
@@ -437,8 +507,8 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                 <MonthGrid value={task.dueDate} todayKey={todayKey} onPick={(k) => void setDate(k)} />
               </View>
             ) : null}
-            {row('time-outline', 'Time', task.startTime ? formatTime(task.startTime) : task.dueDate ? 'No time' : 'Pick a date first', () => task.dueDate && setOpen(open === 'time' ? null : 'time'), `Time, ${task.startTime ? formatTime(task.startTime) : 'none'}`, false, 'time')}
-            {open === 'time' && task.dueDate ? (
+            {partOf ? null : row('time-outline', 'Time', task.startTime ? formatTime(task.startTime) : task.dueDate ? 'No time' : 'Pick a date first', () => task.dueDate && setOpen(open === 'time' ? null : 'time'), `Time, ${task.startTime ? formatTime(task.startTime) : 'none'}`, false, 'time')}
+            {open === 'time' && task.dueDate && !partOf ? (
               <View style={[s.panel, { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }]}>
                 <TimeField value={task.startTime} onChange={(t) => void setTime(t)} a11y="Start time" />
                 {task.startTime ? <Button label="No time" onPress={() => void setTime(undefined)} a11y="Clear the time" /> : null}
@@ -479,8 +549,8 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
           </View>
 
           {/* Task or Break (3.27.0): the desktop's control, for a finger. The stored value is cutsBelow. */}
-          <Text style={s.section}>{KIND_LABEL}</Text>
-          <View style={[s.card, s.kindCard]} {...({ dataSet: { kindChoice: kindOf(task) } } as object)}>
+          {!partOf ? <Text style={s.section}>{KIND_LABEL}</Text> : null}
+          {!partOf ? <View style={[s.card, s.kindCard]} {...({ dataSet: { kindChoice: kindOf(task) } } as object)}>
             <View style={s.kindSeg} accessibilityRole="radiogroup" accessibilityLabel={KIND_LABEL}>
               {(
                 [
@@ -508,11 +578,11 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
             <Text style={s.note} {...({ dataSet: { kindHint: kindOf(task) } } as object)}>
               {kindOf(task) === 'break' ? BREAK_HINT : TASK_HINT}
             </Text>
-          </View>
+          </View> : null}
 
-          <Text style={s.section}>Repeat and reminders</Text>
-          <View style={s.card}>
-            {row('repeat-outline', 'Repeat', task.recurrence ? (shortRepeat(task, todayKey) ?? REPEAT_CHOICES.find((r) => r.kind === repeatKindOf(task.recurrence))?.label ?? 'Repeats') : 'Does not repeat', () => setOpen(open === 'repeat' ? null : 'repeat'), 'Repeat', true, 'repeat')}
+          {!partOf ? <Text style={s.section}>Repeat and reminders</Text> : null}
+          {!partOf ? <View style={s.card}>
+            {row('repeat-outline', 'Repeat', task.recurrence ? (repeatLine(task, todayKey) ?? REPEAT_CHOICES.find((r) => r.kind === repeatKindOf(task.recurrence))?.label ?? 'Repeats') : 'Does not repeat', () => setOpen(open === 'repeat' ? null : 'repeat'), 'Repeat', true, 'repeat')}
             {open === 'repeat' ? (
               <View style={s.panel}>
                 <RepeatEditor
@@ -520,6 +590,26 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                   onApply={(fields) => {
                     setOpen(null);
                     void write(fields);
+                  }}
+                />
+              </View>
+            ) : null}
+            {task.recurrence && ops.series ? row('flag-outline', 'Repeat until', until ? formatDayLabel(until) : 'No end', () => setOpen(open === 'until' ? null : 'until'), `Repeat until, ${until ? formatDayLabel(until) : 'no end'}`, false, 'until') : null}
+            {open === 'until' && task.recurrence && ops.series ? (
+              <View style={s.panel} {...({ dataSet: { repeatUntilPanel: until ?? '' } } as object)}>
+                <Text style={s.note}>The last day it happens. Later days are hidden, not deleted.</Text>
+                {untilNote ? <Text style={s.note} {...({ dataSet: { untilNote: '1' } } as object)}>{untilNote}</Text> : null}
+                {until ? <Button label="Clear" onPress={() => void ops.series!.setUntil(undefined).then(async () => { setUntilNote(null); setOpen(null); await reshow(); })} a11y="Clear the end date" /> : null}
+                <MonthGrid
+                  value={until}
+                  todayKey={todayKey}
+                  onPick={(k) => {
+                    if (seriesStart && k < seriesStart) {
+                      setUntilNote(`${endTooEarlyText(seriesStart)}.`);
+                      return;
+                    }
+                    setUntilNote(null);
+                    void ops.series!.setUntil(k).then(async () => { setOpen(null); await reshow(); });
                   }}
                 />
               </View>
@@ -536,10 +626,10 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                 <RemindersEditor task={task} onWrite={(fields) => void write(fields)} />
               </View>
             ) : null}
-          </View>
+          </View> : null}
 
-          <Text style={s.section}>Where</Text>
-          <View style={s.card}>
+          {!partOf ? <Text style={s.section}>Where</Text> : null}
+          {!partOf ? <View style={s.card}>
             {row('pricetag-outline', 'Label', label ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <LabelDot color={labelColor(label.colorKey)?.edge ?? c.textTertiary} />
@@ -564,7 +654,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
               </View>
             ) : null}
             {row('list-outline', 'List', list ? `${list.emoji ? `${list.emoji} ` : ''}${list.name}` : 'Brain Dump', listMenu, `List, ${list ? list.name : 'Brain Dump'}`, false, 'list')}
-          </View>
+          </View> : null}
 
           <Text style={s.section}>Notes</Text>
           <View style={s.card}>
@@ -580,8 +670,67 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
             />
           </View>
 
-          <Text style={s.section}>{`Steps${steps.length ? ` ${steps.filter((x) => x.done).length}/${steps.length}` : ''}`}</Text>
-          <View style={s.card}>
+          {/* R6: Parts, the desktop's wording: one "Add part" button and a box (type a name, Enter, next); each part has a tick
+              that works in place; "2 of 5 done" and a bar. E3: Add part replaces Add a step; steps a task already has stay
+              under a small "Checklist" heading with "Turn into parts". */}
+          {partsHere ? (
+            <>
+              <Text style={s.section} {...({ dataSet: { partsHead: String(parts.length) } } as object)}>{parts.length > 0 ? `${PARTS}  ${progress.text}` : PARTS}</Text>
+              <View style={s.card} {...({ dataSet: { partsCard: String(parts.length) } } as object)}>
+                {parts.length > 0 ? (
+                  <View style={s.partsBar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: progress.total, now: progress.done }} {...({ dataSet: { partsBar: `${progress.done}/${progress.total}` } } as object)}>
+                    <View style={[s.partsBarFill, { width: `${Math.round((progress.done / progress.total) * 100)}%` }]} />
+                  </View>
+                ) : null}
+                {parts.map((p, n) => (
+                  <View key={p.id} style={[s.partRow, n > 0 && s.sep]} {...({ dataSet: { partRow: p.title } } as object)}>
+                    <Pressable
+                      onPress={() => void setPartDone(task, p, !p.completed).then(reshow)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: p.completed }}
+                      accessibilityLabel={p.completed ? `Untick ${p.title}` : `Tick ${p.title}`}
+                      hitSlop={8}
+                      {...({ dataSet: { partTick: p.title } } as object)}
+                    >
+                      <RoundCheck done={p.completed} size={22} />
+                    </Pressable>
+                    <Text style={[s.partTitle, p.completed && { color: c.textSecondary, textDecorationLine: 'line-through' as const }]} numberOfLines={2}>{p.title}</Text>
+                    {p.durationMinutes ? <Text style={s.note}>{formatMinutes(p.durationMinutes)}</Text> : null}
+                    <Pressable onPress={() => show(p, false)} style={s.partBtn} accessibilityRole="button" accessibilityLabel={`Open ${p.title}`} {...({ dataSet: { partOpen: p.title } } as object)}>
+                      <Text style={s.partBtnText}>Open</Text>
+                    </Pressable>
+                  </View>
+                ))}
+                <View style={[s.partRow, parts.length > 0 && s.sep]}>
+                  <TextInput
+                    ref={partInputRef}
+                    style={s.stepInput}
+                    value={newPartText}
+                    onChangeText={setNewPartText}
+                    placeholder="Name of the part"
+                    placeholderTextColor={c.textTertiary}
+                    returnKeyType="done"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => void addOnePart()}
+                    accessibilityLabel={`Add a part to ${task.title}`}
+                    {...({ dataSet: { partInput: '1' } } as object)}
+                  />
+                  <Pressable onPress={() => void addOnePart()} style={s.partBtn} accessibilityRole="button" accessibilityLabel={ADD_PART} {...({ dataSet: { addPart: '1' } } as object)}>
+                    <Text style={s.partBtnText}>{ADD_PART}</Text>
+                  </Pressable>
+                </View>
+              </View>
+              {addsUp ? <Text style={[s.note, { marginTop: 6, marginLeft: 4 }]}>{addsUp}</Text> : null}
+            </>
+          ) : null}
+
+          {showSteps ? <Text style={s.section}>{`${partsHere ? CHECKLIST : 'Steps'}${steps.length ? ` ${steps.filter((x) => x.done).length}/${steps.length}` : ''}`}</Text> : null}
+          {showSteps && partsHere && !task.recurrence ? (
+            <View style={{ alignItems: 'flex-start', marginBottom: 8 }}>
+              <Button label={TURN_INTO_PARTS} onPress={() => void convertSteps(task).then(reshow)} a11y={TURN_INTO_PARTS} />
+            </View>
+          ) : null}
+          {showSteps ? <View style={s.card}>
             {steps.map((st, n) => (
               <View key={st.id} style={[s.step, n > 0 && s.sep]} {...({ dataSet: { detailStep: st.title } } as object)}>
                 <Pressable onPress={() => void ops.toggleSubtask(st.id).then(async () => { const t = (await loadTasksRaw()).find((x) => x.id === task.id); if (t) show(t, projected); onChanged(); })} accessibilityRole="button" accessibilityLabel={`Step ${st.title}${st.done ? ', done' : ''}`} hitSlop={8}>
@@ -601,7 +750,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                 </Pressable>
               </View>
             ))}
-            <View style={[s.step, steps.length > 0 && s.sep]}>
+            {!partsHere ? <View style={[s.step, steps.length > 0 && s.sep]}>
               <Ionicons name="add" size={20} color={c.textSecondary} />
               <TextInput
                 style={s.stepInput}
@@ -618,8 +767,8 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                 }}
                 accessibilityLabel="Add a step"
               />
-            </View>
-          </View>
+            </View> : null}
+          </View> : null}
 
           {unsaved ? null : <View style={{ marginTop: 28, alignItems: 'flex-start' }}>
             <Button label={ops.series ? 'Delete or skip' : 'Delete task'} kind="danger" icon="trash-outline" onPress={deleteMenu} a11y={ops.series ? 'Delete or skip' : 'Delete task'} />

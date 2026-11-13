@@ -260,10 +260,10 @@ async function run() {
   await key('t');
   // 2.45.0 (on purpose): "Today" no longer has a calendar emoji in front of it (the heading has a line icon).
   check('T opens quick capture for today', (await body()).includes('Quick capture to Today'));
-  await type('Captured today');
+  await type('Quick grab');
   await enter();
-  await C.waitFor(() => byTitle('Captured today').length === 1, 8000);
-  check('T made a task planned for today', byTitle('Captured today')[0].dueDate === today);
+  await C.waitFor(() => byTitle('Quick grab').length === 1, 8000);
+  check('T made a task planned for today', byTitle('Quick grab')[0].dueDate === today);
   await blur();
   await key('q');
   await type('First of two');

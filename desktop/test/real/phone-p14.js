@@ -127,17 +127,8 @@ async function run() {
   await P.finger.tap(visible('[data-inside-open="task:t2"]'), 1200);
   check('a row\'s title opens that task, which says "Shows inside Tea" with Move out', /Shows inside Tea/.test(await P.js(`(document.querySelector('[data-during-break]') || {}).innerText || ''`)) && (await P.js(`!!document.querySelector('[data-during-out]')`)));
   await shot('phone-p14-hosted-details-light');
-  // 3.27.0: Task | Break on the phone (the stored value is cutsBelow), two 44 pt options and one line under them.
-  await P.js(`(() => { const e = document.querySelector('[data-kind-choice]'); if (e) e.scrollIntoView({ block: 'center' }); })()`);
-  await C.sleep(400);
-  const kind = await P.js(`(() => { const e = document.querySelector('[data-kind-choice]'); return e ? [e.getAttribute('data-kind-choice'), e.innerText.replace(/\\s+/g, ' ').trim()] : null; })()`);
-  check('3.27.0: the phone details have Task | Break, Task chosen, with its line', !!kind && kind[0] === 'task' && kind[1].includes('A normal task. If you place it inside a break it shows as a chip in that break.'), JSON.stringify(kind));
-  check('3.27.0: both options are 44 pt tall', await P.js(`[...document.querySelectorAll('[data-kind-choice] [data-kind]')].every((e) => e.getBoundingClientRect().height >= 44)`));
-  await P.finger.tap(visible('[data-kind-choice] [data-kind="break"]'), 1200);
-  check('3.27.0: Break stores cutsBelow true and shows the Break line', task('t2').cutsBelow === true && /Cuts the tasks it overlaps/.test(await P.js(`(document.querySelector('[data-kind-choice]') || {}).innerText || ''`)), JSON.stringify(task('t2')));
-  await shot('phone-p14-kind-break-light');
-  await P.finger.tap(visible('[data-kind-choice] [data-kind="task"]'), 1200);
-  check('3.27.0: Task clears it again', task('t2').cutsBelow === undefined, JSON.stringify(task('t2')));
+  // PLAN_shifts S5 (3.53.0): the phone details have no Task | Break choice (one kind of block, as on the desktop).
+  check('S5: the phone details have no Task | Break choice and no Break line', !(await P.js(`!!document.querySelector('[data-kind-choice]')`)) && !/Task or Break|Cuts the tasks it overlaps/.test(await P.js(`document.body.innerText`)));
   await close();
 
   // Dark.

@@ -30,7 +30,12 @@ import { BRAIN_DUMP_EMOJI } from '../../lib/emoji';
 import { BRAIN_DUMP_NAME, liveLists } from '../../lib/lists';
 import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
 import { counter } from '../../lib/subtasks';
-import { deleteOne, deleteRepeating, duplicate, moveToList, skipDay, tickRoutine, tickTask, toggleSubtask } from '../../lib/phoneActions';
+import { deleteOne, deleteRepeating, duplicate, loadCutMin, moveToList, skipDay, tickRoutine, tickTask, toggleSubtask } from '../../lib/phoneActions';
+import { shiftsOfDay, type ShiftRow } from '../../lib/shifts';
+import { tickRow } from '../../lib/shiftActions';
+import { plannedText } from '../../lib/taskTotals';
+import { ShiftRows } from '../../components/phone/ShiftRows';
+import { AddInside, type InsideTarget } from '../../components/phone/AddInside';
 import type { CustomEvent, Project, Routine, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { AddButton, ScreenHeader } from '../../components/phone/chrome';
 import { QuickAdd } from '../../components/phone/QuickAdd';
@@ -115,6 +120,9 @@ export default function TodayScreen() {
   const [undo, setUndo] = useState<UndoMessage | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState(false);
+  // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
+  const [cutMin, setCutMin] = useState(30);
+  const [inside, setInside] = useState<InsideTarget | null>(null);
   const [details, setDetails] = useState<DetailsTarget | null>(null);
   const [editEvent, setEditEvent] = useState<CustomEvent | undefined>();
   const [editRoutine, setEditRoutine] = useState<Routine | undefined>();
@@ -134,6 +142,7 @@ export default function TodayScreen() {
     ]);
     setTodayKey(key);
     setNowMin(nowMinutes());
+    setCutMin(await loadCutMin());
     setTasks(withParts(raw));
     setAll(raw);
     // Any change made here (a tick, an edit) is followed by a load: the reminders follow it.
@@ -155,7 +164,19 @@ export default function TodayScreen() {
     }, [load]),
   );
 
-  const view = useMemo(() => buildToday({ tasks, todayKey, nowMin, events, routines, routinesDone }), [tasks, todayKey, nowMin, events, routines, routinesDone]);
+  const full = useMemo(() => buildToday({ tasks, todayKey, nowMin, events, routines, routinesDone }), [tasks, todayKey, nowMin, events, routines, routinesDone]);
+  // S5: a block inside a shift is a row of the shift's card, not a row of its own (D2); the day's total counts the shift once.
+  const ownTasks = useMemo(() => {
+    const seen = new Map<string, Task>();
+    for (const i of [...full.timed, ...full.anytime, ...full.done]) if (i.kind === 'task' && !seen.has(i.task.id)) seen.set(i.task.id, i.task);
+    return [...seen.values()];
+  }, [full]);
+  const shifts = useMemo(() => shiftsOfDay(tasks, todayKey, todayKey, cutMin, new Set(ownTasks.map((t) => t.id))), [tasks, todayKey, cutMin, ownTasks]);
+  const view = useMemo(() => {
+    const keep = (i: TodayItem) => i.kind !== 'task' || !shifts.hidden.has(i.task.id);
+    return { ...full, timed: full.timed.filter(keep), anytime: full.anytime.filter(keep), done: full.done.filter(keep) };
+  }, [full, shifts]);
+  const planned = useMemo(() => plannedText(ownTasks.filter((t) => t.dueDate === todayKey)), [ownTasks, todayKey]);
   const hosts = useMemo(() => hostIndex(tasks, [todayKey], todayKey), [tasks, todayKey]);
   const live = liveLists(lists);
 
@@ -195,6 +216,7 @@ export default function TodayScreen() {
     ];
     const items: MenuItem[] = [
       { label: 'Edit', icon: 'create-outline', run: () => void openEdit(task, projected) },
+      ...(task.startTime && !task.cutsBelow ? [{ label: 'Add inside', icon: 'add-circle-outline' as const, run: () => setInside({ task, projected }) }] : []),
       { label: 'Duplicate', icon: 'copy-outline', run: after(() => duplicate(task, projected)) },
       // The menu closes first; the list choice opens as a second menu.
       { label: 'Move to list', icon: 'list-outline', run: () => setTimeout(() => setMenu({ title: `Move "${task.title}" to`, items: moveItems }), 250) },
@@ -206,6 +228,14 @@ export default function TodayScreen() {
         : [{ label: 'Delete', icon: 'trash-outline' as const, danger: true, run: after(() => deleteOne(task)) }]),
     ];
     setMenu({ title: task.title, items });
+  }
+
+  // A tick on a row of a shift works in place (the round tick of an inside block or to do); Undo puts it back.
+  async function tickInside(task: Task, projected: boolean, row: ShiftRow) {
+    haptic(row.done ? 'light' : 'success');
+    await tickRow(task, projected, row);
+    await load();
+    if (!row.done) setUndo({ id: Date.now(), text: `Done: ${row.title}`, undo: () => void tickRow(task, projected, { ...row, done: true }).then(load) });
   }
 
   const label = (t: Task) => {
@@ -317,6 +347,14 @@ export default function TodayScreen() {
           </PressRow>
         </View>
         {t && ps.length > 0 ? <PartRows parent={t} parts={ps} onTick={(p, d) => void setPartDone(t, p, d).then(load)} onMore={() => void openEdit(t, projected)} /> : null}
+        {t && shifts.byTask.has(t.id) ? (
+          <ShiftRows
+            info={shifts.byTask.get(t.id)!}
+            onTick={(row) => void tickInside(t, projected, row)}
+            onOpen={(row) => row.full && void openEdit(row.full, !!row.projected)}
+            onAdd={() => setInside({ task: t, projected })}
+          />
+        ) : null}
         {open && t ? (
           <View style={s.expanded} {...({ dataSet: { todayExpanded: item.key } } as object)}>
             {t.notes ? <Text style={s.notes}>{t.notes}</Text> : null}
@@ -361,6 +399,7 @@ export default function TodayScreen() {
             {`${itemTitle(view.next)}${at(view.next)}`}
           </Text>
         ) : null}
+        {planned ? <Text style={s.nowLine} numberOfLines={1} {...({ dataSet: { todayPlanned: planned } } as object)}>{planned}</Text> : null}
       </View>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
@@ -394,6 +433,7 @@ export default function TodayScreen() {
         ) : null}
       </ScrollView>
       <UndoBar message={undo} onDone={() => setUndo(null)} />
+      <AddInside target={inside} onClose={() => setInside(null)} onAdded={() => void load()} />
       <AddButton onPress={() => setAdding(true)} a11y="Add a task for today" />
       <QuickAdd visible={adding} where={{ dueDate: todayKey, label: 'Today' }} onClose={() => setAdding(false)} onAdded={() => void load()} />
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />

@@ -17,7 +17,12 @@ import { materialise, moveDay } from '../../lib/seriesActions';
 import { END_REPEAT_HERE, MOVE_THIS_DAY_NOTE, endTooEarlyText, movedCaptionLong, seriesOf } from '../../lib/series';
 import { rootTaskId } from '../../lib/recurrence';
 import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
-import { BREAK_HINT, KIND_LABEL, TASK_HINT, kindOf, kindPatch, showsInside, type TaskKind } from '../../lib/taskKind';
+import { FREE_TIME_TEXT, MAKE_NORMAL, kindPatch, showsInside } from '../../lib/taskKind';
+import { shiftsOfDay, type ShiftInfo, type ShiftRow } from '../../lib/shifts';
+import { tickRow } from '../../lib/shiftActions';
+import { loadCutMin } from '../../lib/phoneActions';
+import { ShiftRows } from './ShiftRows';
+import { AddInside } from './AddInside';
 import { addTask, loadListsRaw, loadTasksRaw } from '../../lib/storage';
 import { ADD_PART, CHECKLIST, PARTS, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
 import { addPart, convertSteps, deleteSeriesWithParts, deleteWithParts, setPartDone, takeOut } from '../../lib/partActions';
@@ -86,13 +91,6 @@ const make = (c: ColorTokens) => ({
   note: { ...type.meta, color: c.textSecondary },
   warn: { ...type.meta, color: c.danger },
   mark: { fontSize: 18, color: c.danger },
-  // 3.27.0: Task | Break, two options of 44pt.
-  kindCard: { padding: 12, gap: 8 },
-  kindSeg: { flexDirection: 'row' as const, gap: 4, padding: 3, borderRadius: radius.md, backgroundColor: c.pane },
-  kindOpt: { flex: 1, minHeight: 44, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6, borderRadius: radius.md - 2 },
-  kindOptOn: { backgroundColor: c.accent },
-  kindText: { ...inter(600), fontSize: 15, color: c.textSecondary },
-  kindTextOn: { color: c.onAccent },
   // 3.10.0: "Inside this break" and "Shows inside Lunch" (3.27.0; was "During: Lunch").
   hostBox: { backgroundColor: c.hostPill, borderRadius: radius.lg, paddingHorizontal: 6, paddingVertical: 4, marginTop: 10 },
   hostHead: { ...type.meta, ...inter(700), color: c.onHostPill, paddingHorizontal: 8, paddingTop: 6 },
@@ -147,6 +145,9 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   // 3.10.0: the task's day as the Calendar draws it, and the Undo of a Move out (5 seconds).
   const [links, setLinks] = useState<HostLink[]>([]);
   const [undo, setUndo] = useState<{ text: string; run: () => Promise<void> } | null>(null);
+  // S5: what is inside this task on its day (the desktop's summary, bar and rows), and the Add inside form.
+  const [shift, setShift] = useState<ShiftInfo | null>(null);
+  const [adding, setAdding] = useState(false);
   // 3.11.0: why a time, a length or a day was refused (shown whichever row was open).
   const [breakNote, setBreakNote] = useState<string | null>(null);
   // 3.23.0: true while this is a new task with no title yet (nothing is stored).
@@ -173,6 +174,9 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
       setParts(partsFor(raw, t));
       setPartOf(parentTaskOf(t, raw));
       setSeriesStart(t.recurrence ? seriesOf(raw, rootTaskId(t.id))?.startKey : undefined);
+      if (t.dueDate && !t.cutsBelow) {
+        void loadCutMin().then((cut) => setShift(shiftsOfDay(raw, t.dueDate as string, dateKey(new Date()), cut).byTask.get(t.id) ?? null));
+      } else setShift(null);
     });
   }, [refreshHost]);
 
@@ -180,6 +184,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     if (!target) return;
     setUndo(null);
     setBreakNote(null);
+    setAdding(false);
     show(target.task, target.projected);
     setUnsaved(!!target.draft);
     // The sheet's own focus handling can win a race with autoFocus: ask once more when it has settled.
@@ -275,6 +280,13 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     await (l.guest.time ? o.setTimeDone(l.guest.time, !l.guest.task.completed) : o.setCompleted(!l.guest.task.completed));
     if (task) await refreshHost(task);
     onChanged();
+  }
+  async function tickShiftRow(row: ShiftRow) {
+    if (!task) return;
+    await tickRow(task, projected, row);
+    if (!row.done) setUndo({ text: `Done: ${row.title}`, run: () => tickRow(task, projected, { ...row, done: true }) });
+    else setUndo(null);
+    await reshow();
   }
   async function moveOut(l: HostLink) {
     if (!task) return;
@@ -417,6 +429,18 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
           ) : null}
           {task.recurrence ? <Text style={[s.note, { marginTop: 4 }]} {...({ dataSet: { seriesTimeNote: '1' } } as object)}>{movedCaptionLong(task) ? OWN_TIME_NOTE : SERIES_TIME_NOTE}</Text> : null}
           {movedCaptionLong(task) ? <Text style={[s.note, { marginTop: 4 }]} {...({ dataSet: { detailMoved: '1' } } as object)}>{`↪ ${movedCaptionLong(task)}`}</Text> : null}
+          {/* Shifts S5: the summary, the bar, the rows (ticks work in place) and Add inside, for a placed task (not free time). */}
+          {!unsaved && !partOf && !task.cutsBelow && task.dueDate && task.startTime ? (
+            <View style={{ marginTop: 10 }} {...({ dataSet: { detailShift: task.id } } as object)}>
+              <ShiftRows
+                info={shift ?? { task, projected, rows: [], done: 0, count: 0 }}
+                flush
+                onTick={(row) => void tickShiftRow(row)}
+                onOpen={(row) => row.full && show(row.full, !!row.projected)}
+                onAdd={() => setAdding(true)}
+              />
+            </View>
+          ) : null}
           {inside.length > 0 ? (
             <View style={s.hostBox} {...({ dataSet: { insideBreak: String(inside.length) } } as object)}>
               <Text style={s.hostHead}>INSIDE THIS BREAK</Text>
@@ -548,37 +572,21 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
             ) : null}
           </View>
 
-          {/* Task or Break (3.27.0): the desktop's control, for a finger. The stored value is cutsBelow. */}
-          {!partOf ? <Text style={s.section}>{KIND_LABEL}</Text> : null}
-          {!partOf ? <View style={[s.card, s.kindCard]} {...({ dataSet: { kindChoice: kindOf(task) } } as object)}>
-            <View style={s.kindSeg} accessibilityRole="radiogroup" accessibilityLabel={KIND_LABEL}>
-              {(
-                [
-                  ['task', 'Task', 'checkmark-circle-outline'],
-                  ['break', 'Break', 'cafe-outline'],
-                ] as Array<[TaskKind, string, React.ComponentProps<typeof Ionicons>['name']]>
-              ).map(([k, text, icon]) => {
-                const on = kindOf(task) === k;
-                return (
-                  <Pressable
-                    key={k}
-                    onPress={() => (on ? undefined : void write(kindPatch(k)))}
-                    style={[s.kindOpt, on && s.kindOptOn]}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: on }}
-                    accessibilityLabel={text}
-                    {...({ dataSet: { kind: k } } as object)}
-                  >
-                    <Ionicons name={icon} size={18} color={on ? c.onAccent : c.textSecondary} />
-                    <Text style={[s.kindText, on && s.kindTextOn]}>{text}</Text>
+          {/* Shifts S5: no Task or Break choice (one kind of block, as on the desktop). Free time (made with the Free time tool on
+              the desktop, or an older Break) keeps one plain way back. */}
+          {task.cutsBelow && !partOf ? (
+            <>
+              <Text style={s.section}>Free time</Text>
+              <View style={[s.card, { padding: 12, gap: 8 }]} {...({ dataSet: { freeTime: '1' } } as object)}>
+                <Text style={s.note}>{FREE_TIME_TEXT}</Text>
+                <View style={{ alignItems: 'flex-start' }}>
+                  <Pressable onPress={() => void write(kindPatch('task'))} style={s.partBtn} accessibilityRole="button" accessibilityLabel={MAKE_NORMAL} {...({ dataSet: { makeNormal: '1' } } as object)}>
+                    <Text style={s.partBtnText}>{MAKE_NORMAL}</Text>
                   </Pressable>
-                );
-              })}
-            </View>
-            <Text style={s.note} {...({ dataSet: { kindHint: kindOf(task) } } as object)}>
-              {kindOf(task) === 'break' ? BREAK_HINT : TASK_HINT}
-            </Text>
-          </View> : null}
+                </View>
+              </View>
+            </>
+          ) : null}
 
           {!partOf ? <Text style={s.section}>Repeat and reminders</Text> : null}
           {!partOf ? <View style={s.card}>
@@ -775,6 +783,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
           </View>}
         </ScrollView>
         <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
+        <AddInside target={adding ? { task, projected } : null} onClose={() => setAdding(false)} onAdded={() => void reshow()} />
       </KeyboardAvoidingView>
     </Modal>
   );

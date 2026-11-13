@@ -3,6 +3,8 @@ import { setTaskCompleted, setTimeDoneById, toggleSubtaskById } from './taskActi
 import { completeProjected, deleteSeries, materialise, patchSeries, skipOccurrence, tickTimeProjected, toggleProjectedSubtask } from './seriesActions';
 import { duplicateTaskById } from './taskCommands';
 import type { Task } from './types';
+import { CUT_MIN_KEY, parseCutMin } from './cuts';
+import { loadUserSettingsRaw } from './storage';
 
 // What the phone's rows do to a task (PLAN_phone P4), one place for Today, Tasks and the Calendar.
 // A projected day of a repeating series (shown, not stored) goes through seriesActions.ts, exactly as
@@ -62,3 +64,13 @@ export function deleteOne(task: Task): Promise<void> {
 }
 export const skipDay = (task: Task): Promise<void> => skipOccurrence(task);
 export const deleteRepeating = (task: Task): Promise<void> => deleteSeries(task);
+
+// The smallest piece free time may leave (the setting planner.cut_min, default 30), for the shifts the phone shows.
+export async function loadCutMin(): Promise<number> {
+  try {
+    const row = (await loadUserSettingsRaw()).find((x) => x.key === CUT_MIN_KEY && !x.deletedAt);
+    return parseCutMin(row?.value);
+  } catch {
+    return parseCutMin(undefined);
+  }
+}

@@ -62,6 +62,11 @@ test('2.21.0: the iPhone gets Convert routines and Quests, so three markers were
   }
 });
 
+test('S5 (3.53.0): the phone draws shifts, so shiftsOfDay and No time just a to do were removed from the markers on purpose', () => {
+  assert.ok(!markers.MARKERS.includes('shiftsOfDay'));
+  assert.ok(!markers.MARKERS.includes('No time, just a to do'));
+});
+
 test('the only allowed name is copyRoutineCompletions', () => {
   assert.deepEqual(Object.keys(markers.ALLOWED), ['copyRoutineCompletions']);
   assert.ok(!markers.MARKERS.includes('copyRoutineCompletions'));

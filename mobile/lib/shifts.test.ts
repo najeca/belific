@@ -1,7 +1,8 @@
 // Run with `npm test` from mobile/. Shifts S3: the shift's card and details, and Add inside.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { doneText, flipTodo, formCheck, insideItemsOf, insideTask, insideTodo, rowMeta, shiftOnly, shiftSpan, shiftText, shiftsOfDay, withItems, type InsideForm } from './shifts.ts';
+import { doneText, flipTodo, formCheck, insideItemsOf, insideTask, insideTodo, rowMeta, shiftOnly, shiftSpan, shiftText, shiftsOfDay, shiftsOfDays, withItems, type InsideForm } from './shifts.ts';
+import { plannedText, totalsOf } from './taskTotals.ts';
 import type { Task } from './types.ts';
 
 const DAY = '2026-11-12';
@@ -135,4 +136,21 @@ test('S4: insideItemsOf lists the separate tasks a skip or a delete may take alo
   assert.equal(shiftOnly('Skip'), 'Skip the shift only');
   const shift = nurse();
   assert.deepEqual(insideItemsOf(shift, shift[0], DAY).map((e) => e.full.id).sort(), ['briefing', 'depts', 'lunch', 'patients', 'teams']);
+});
+
+test('S5 the phone: several days at once (the Tasks list), and the phone total reads the shift once (10h, not 15h)', () => {
+  const other = '2026-11-13';
+  const tasks = [...nurse({ subtasks: todos }), T('shift2', '09:00', 180, { title: 'Clinic', dueDate: other }), T('notes', '10:00', 60, { title: 'Notes', dueDate: other })];
+  const r = shiftsOfDays(tasks, [DAY, other, DAY], DAY, 30);
+  assert.deepEqual([...r.byTask.keys()].sort(), ['shift', 'shift2']);
+  assert.equal(shiftText(r.byTask.get('shift2')!), '1h of 3h planned, 2h free');
+  assert.ok(r.hidden.has('notes') && r.hidden.has('lunch'));
+  // only the shifts shown hide their blocks
+  const some = shiftsOfDays(tasks, [DAY, other], DAY, 30, new Set(['shift2']));
+  assert.deepEqual([...some.byTask.keys()], ['shift2']);
+  assert.equal(some.hidden.has('lunch'), false);
+  // the day's total on the phone is the desktop's rule
+  const day = tasks.filter((t) => t.dueDate === DAY);
+  assert.equal(totalsOf(day, Date.now(), 30).estimate, 600);
+  assert.equal(plannedText(day), '10h planned');
 });

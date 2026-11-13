@@ -1,6 +1,6 @@
 // Shifts S3 and S4 (PLAN_shifts): the card and the details of a block with things inside it, "Add inside", and what goes
 // with a shift that is skipped, deleted or crosses midnight. Pure: NO runtime
-// imports besides siblings; see shifts.test.ts. Desktop only (the phone gets it in S5).
+// imports besides siblings; see shifts.test.ts. Desktop and phone (S5).
 //
 // A SHIFT is a placed task (a day, a time, a length of 2 hours or more, S4) that has other blocks fully inside its time
 // (lib/nesting.ts), or a checklist (its subtasks, the "to dos"). What is inside it is worked out from the times every time a day is drawn:
@@ -159,6 +159,20 @@ export function shiftsOfDay(tasks: Task[], dayKey: string, todayKey: string, cut
   for (const id of [...out.carried]) {
     if (times.get(id) === 1) out.hidden.add(id);
     else out.carried.delete(id);
+  }
+  return out;
+}
+
+// S5 (the phone): the shifts of several days at once (the Tasks list has rows from many days). A task is a row when the
+// day it stands on shows its shift. `visible` is the ids of the shifts shown; the blocks inside a shift not shown keep
+// their rows.
+export function shiftsOfDays(tasks: Task[], dayKeys: string[], todayKey: string, cutMin: number, visible?: Set<string>): DayShifts {
+  const out: DayShifts = { byTask: new Map(), hidden: new Set(), carried: new Set() };
+  for (const day of [...new Set(dayKeys)]) {
+    const d = shiftsOfDay(tasks, day, todayKey, cutMin, visible);
+    for (const [k, v] of d.byTask) out.byTask.set(k, v);
+    for (const id of d.hidden) out.hidden.add(id);
+    for (const id of d.carried) out.carried.add(id);
   }
   return out;
 }

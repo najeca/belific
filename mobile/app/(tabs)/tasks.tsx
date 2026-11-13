@@ -20,7 +20,11 @@ import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
 import { counter } from '../../lib/subtasks';
 import { formatDuration } from '../../lib/duration';
 import { SERIES_PREFIX } from '../../lib/routineConvert';
-import { deleteOne, deleteRepeating, duplicate, moveToList, skipDay, tickRoutine, tickTask } from '../../lib/phoneActions';
+import { deleteOne, deleteRepeating, duplicate, loadCutMin, moveToList, skipDay, tickRoutine, tickTask } from '../../lib/phoneActions';
+import { shiftsOfDays, type ShiftRow } from '../../lib/shifts';
+import { tickRow } from '../../lib/shiftActions';
+import { ShiftRows } from '../../components/phone/ShiftRows';
+import { AddInside, type InsideTarget } from '../../components/phone/AddInside';
 import type { BrainDumpItem, Project, Routine, Task, TaskList } from '../../lib/types';
 import { AddButton, ScreenHeader } from '../../components/phone/chrome';
 import { QuickAdd } from '../../components/phone/QuickAdd';
@@ -101,6 +105,9 @@ export default function TasksTab() {
   const [undo, setUndo] = useState<UndoMessage | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState(false);
+  // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
+  const [cutMin, setCutMin] = useState(30);
+  const [inside, setInside] = useState<InsideTarget | null>(null);
   const [details, setDetails] = useState<DetailsTarget | null>(null);
   const [listSheet, setListSheet] = useState<{ list: TaskList | null } | null>(null);
   const [showStreaks] = usePhonePref('showStreaks');
@@ -112,6 +119,7 @@ export default function TasksTab() {
     const [raw, dump, ls, ps, rs, comps] = await Promise.all([loadTasksRaw(), loadBrainDumpItems(), loadListsRaw(), loadProjects(), loadRoutines(), loadRoutineCompletions()]);
     setTasks(withParts(raw));
     setAll(raw);
+    setCutMin(await loadCutMin());
     // Any change made here (a tick, an edit) is followed by a load: the reminders follow it.
     refreshTaskReminders();
     setItems(dump);
@@ -135,6 +143,12 @@ export default function TasksTab() {
   );
   // 3.10.0: "During Lunch" and "2 inside" on the dated rows of a list.
   const hosts = useMemo(() => hostIndex(tasks, rows.flatMap((r) => (r.kind === 'task' && r.task.dueDate && r.task.startTime ? [r.task.dueDate] : [])), todayKey), [tasks, rows, todayKey]);
+  // S5: a block inside a shift is a row of the shift's card on this list, not a row of its own (D2).
+  const shifts = useMemo(() => {
+    const placed = rows.flatMap((r) => (r.kind === 'task' && r.task.dueDate && r.task.startTime ? [r.task] : []));
+    return shiftsOfDays(tasks, placed.map((t) => t.dueDate as string), todayKey, cutMin, new Set(placed.map((t) => t.id)));
+  }, [tasks, rows, todayKey, cutMin]);
+  const shownRows = useMemo(() => rows.filter((r) => r.kind !== 'task' || !shifts.hidden.has(r.task.id)), [rows, shifts]);
   const quests = useMemo(() => (chosen === REPEATING ? buildQuests(tasks, completions, todayKey) : []), [chosen, tasks, completions, todayKey]);
   const listName = chosen === REPEATING ? 'Repeating' : listKey ? (live.find((l) => l.key === listKey)?.name ?? 'Brain Dump') : 'Brain Dump';
 
@@ -162,6 +176,13 @@ export default function TasksTab() {
     else await deleteOne(row.task);
     await load();
   };
+  // A tick on a row of a shift works in place; Undo puts it back.
+  const tickInside = async (task: Task, row: ShiftRow) => {
+    haptic(row.done ? 'light' : 'success');
+    await tickRow(task, false, row);
+    await load();
+    if (!row.done) setUndo({ id: Date.now(), text: `Done: ${row.title}`, undo: () => void tickRow(task, false, { ...row, done: true }).then(load) });
+  };
   const open = async (row: ThoughtRow) => setDetails({ task: await asTask(row), projected: false });
 
   function holdMenu(row: ThoughtRow) {
@@ -180,6 +201,7 @@ export default function TasksTab() {
       title,
       items: [
         { label: 'Edit', icon: 'create-outline', run: () => void open(row) },
+        ...(row.kind === 'task' && row.task.startTime && !row.task.cutsBelow ? [{ label: 'Add inside', icon: 'add-circle-outline' as const, run: () => setInside({ task: row.task, projected: false }) }] : []),
         { label: 'Duplicate', icon: 'copy-outline', run: after((t) => duplicate(t, false)) },
         { label: 'Move to list', icon: 'list-outline', run: () => setTimeout(() => setMenu({ title: `Move "${title}" to`, items: moveItems }), 250) },
         ...(repeating
@@ -288,6 +310,14 @@ export default function TasksTab() {
           </View>
         </SwipeRow>
         {t && ps.length > 0 ? <PartRows parent={t} parts={ps} onTick={(p, d) => void setPartDone(t, p, d).then(load)} onMore={() => void open(row)} /> : null}
+        {t && shifts.byTask.has(t.id) ? (
+          <ShiftRows
+            info={shifts.byTask.get(t.id)!}
+            onTick={(r) => void tickInside(t, r)}
+            onOpen={(r) => r.full && setDetails({ task: r.full, projected: !!r.projected })}
+            onAdd={() => setInside({ task: t, projected: false })}
+          />
+        ) : null}
       </View>
     );
   }
@@ -440,10 +470,10 @@ export default function TasksTab() {
         ) : (
           <>
             <Card style={{ overflow: 'hidden', marginTop: 8 }}>
-              {rows.length === 0 ? (
+              {shownRows.length === 0 ? (
                 <Text style={s.empty}>{listKey === undefined ? 'Nothing waiting. Type above to capture a thought; add the details later.' : 'This list is empty. Type above to add to it.'}</Text>
               ) : (
-                rows.map((r, n) => renderRow(r, n === 0))
+                shownRows.map((r, n) => renderRow(r, n === 0))
               )}
             </Card>
             {doneToday.length > 0 ? (
@@ -470,6 +500,7 @@ export default function TasksTab() {
         )}
       </ScrollView>
       <UndoBar message={undo} onDone={() => setUndo(null)} />
+      <AddInside target={inside} onClose={() => setInside(null)} onAdded={() => void load()} />
       <AddButton onPress={() => setAdding(true)} a11y={`Add to ${chosen === REPEATING ? 'Brain Dump' : listName}`} />
       <QuickAdd visible={adding} where={{ listKey, label: chosen === REPEATING ? 'Brain Dump' : listName }} onClose={() => setAdding(false)} onAdded={() => void load()} />
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />

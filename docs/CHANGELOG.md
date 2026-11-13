@@ -8,6 +8,21 @@ to know the current version and recent history.
 
 ---
 
+## 3.53.0 — 2026-11-13 (Shifts, S5: the phone; PLAN_shifts D1 to D5, PLAN_breaks_as_gaps G1 to G5)
+
+**Phone only. No new column, no database change.**
+- **No Task | Break choice in the phone details.** One kind of block, as on the desktop. Free time (made on the desktop with the Free time tool, or an older Break) shows a plain "Free time" section with its one line and one 44 pt button, **Make it a normal block**.
+- **A shift shows its summary and a bar on Today and the Tasks list:** "5h of 10h planned, 5h free" and "2 of 7 done" (the same figures as the desktop's card: `lib/shifts.ts shiftsOfDay`, with the Free time cut setting `planner.cut_min`). The blocks inside it and its to dos are rows of the shift (a round 44 pt tick that works in place, the title opens that block, the time and length on the right); up to 6 rows, then "Show N more". Inside blocks are never rows of their own (D2). Text 14 px or more, nothing red.
+- **Add inside** (a labelled 44 pt button on the card, in the details of a placed task, and in the hold menu): the desktop's form for a finger. What is it? **No time, just a to do** joins the shift's checklist; **At a time** (a time and a length) becomes an ordinary task on the shift's day, checked against the shift with a grey note and **Fit inside**; for a repeating shift **This day only / This and following / All days of Shift**.
+- **Today's planned line** ("10h planned" under Now and Next) uses the desktop's counting rule (`plannedText`), so a 10 hour shift with 5 hours inside reads 10h, not 15h.
+- A tick on a row of a shift on Today or the Tasks list shows "Done: ..." with Undo.
+- Not in this phase (the plan's own scope, left out on purpose): the Calendar's Day grid does not draw shells or gaps yet (it still shows a shift and its blocks side by side, as before); the Plan my day, Wrap up and Plan week screens stay desktop only.
+Files: `components/phone/ShiftRows.tsx` (new), `components/phone/AddInside.tsx` (new), `components/phone/TaskDetails.tsx` (Task | Break removed, Free time section, shift block), `app/(tabs)/today.tsx`, `app/(tabs)/tasks.tsx`, `lib/shifts.ts` (`shiftsOfDays`), `lib/phoneActions.ts` (`loadCutMin`), `scripts/ios-markers.js` (`shiftsOfDay` and "No time, just a to do" are no longer markers, on purpose), `app.json` 3.53.0.
+Tests: new `shifts.test.ts` case (several days, phone total 10h); `iosMarkers.test.ts` (two markers removed on purpose); `repeatPartsSchema.test.ts` (005 is APPLIED); `easConfig.test.ts` (version); real new phone-p19 (27, the nurse example at 390 x 844); phone-p14's Task | Break checks replaced by "no Task | Break".
+Gates: tsc clean; mobile 1206/1206; desktop 118/118; iOS export plus `check:ios-markers` OK (49 markers, 0 hits); security scan passed. Real checks at 390 x 844 (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p19 27/27, p14 28/28, p13 17/17, p18 23/23, p6 23/23, p10, p12, p16, p17 all pass.
+
+---
+
 ## 3.52.0 — 2026-11-13 (Repeat until and Parts, R6: the phone; PLAN_repeat_end_and_parts)
 
 What: the phone gets Repeat until and Parts in the desktop's wording. Details: a Repeat until row ("No end", a date picker, a visible Clear, a quiet line for a day before the start), the Repeat line reads "..., until ..."; a Parts section (Add part button and a box: type, Enter, the box stays for the next; "2 of 5 done" and a bar; ticks in place; Open); a part's details show "Part of ..." and Take out and no Date, Time, Task or Break, Repeat or Where; a task with steps keeps them under Checklist with Turn into parts (a Break keeps Add a step, since a Break cannot hold parts); Delete asks "the task only" or "the task and its N parts". Today and the Tasks list show a task's parts as rows under it (44 pt ticks, 14 px text, "3 more" opens the details); parts are never rows or blocks of their own, and the Calendar hides them. Fix: a repeating day's open details now show its Repeat until after setting it.

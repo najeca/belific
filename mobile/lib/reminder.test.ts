@@ -118,3 +118,16 @@ test('3.18.0: reminders can be chosen before a task has a time: stored as usual,
   // Once a time is set the stored list is read as before.
   assert.deepEqual(effectiveReminders({ reminders: [0, 5] }, [0]), [0, 5]);
 });
+
+test('3.54.0 a lead tapped on a task still on Default gives exactly that reminder', async () => {
+  const { tapLead, effectiveReminders, reminderPatch, DEFAULT_REMINDERS } = await import('./reminder.ts');
+  const onDefault = {};
+  // Before: "At start time" switched the hidden default start off (None), "1 day before" came with a start time.
+  assert.deepEqual(tapLead(false, effectiveReminders(onDefault, DEFAULT_REMINDERS), 0), [0]);
+  assert.deepEqual(tapLead(false, effectiveReminders(onDefault, DEFAULT_REMINDERS), 1440), [1440]);
+  assert.deepEqual(reminderPatch(tapLead(false, [0], 1440)), { reminders: [1440], reminderMinutes: 1440 });
+  // Once the task has its own list, a tap toggles within it as before.
+  assert.deepEqual(tapLead(true, [1440], 0), [0, 1440]);
+  assert.deepEqual(tapLead(true, [0, 1440], 0), [1440]);
+  assert.deepEqual(tapLead(true, [], 60), [60]);
+});

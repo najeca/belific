@@ -11,7 +11,7 @@ import { colorClash, freeColorKey, labelColor } from '../../lib/labelColors';
 import LabelForm from './LabelForm';
 import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
 import { availableSuggestions, findLabelByName, normalizeName } from '../../lib/labelRules';
-import { NEEDS_TIME_HINT, NO_START_NOTE, REMINDER_LEADS, MAX_TASK_REMINDERS, effectiveReminders, leadLabel, reminderPatch, reminderState, toggleLead } from '../../lib/reminder';
+import { NEEDS_TIME_HINT, NO_START_NOTE, REMINDER_LEADS, MAX_TASK_REMINDERS, effectiveReminders, leadLabel, reminderPatch, reminderState, tapLead } from '../../lib/reminder';
 import { useDefaultReminders } from './reminderStore';
 import {
   ANNUAL_CONFIRM,
@@ -155,10 +155,14 @@ export function ReminderBody({ task, ops, done }: BodyProps) {
   const explicit = Array.isArray(task.reminders) || reminderState(task.reminderMinutes) !== 'default';
   // Kept here too, so several switches in a row build on each other before the saved task comes back.
   const [list, setList] = useState(() => effectiveReminders(task, defaults));
+  // 3.54.0: true once a lead was tapped here, so a second tap builds on the first even before the saved task comes back.
+  const [touched, setTouched] = useState(false);
   useEffect(() => {
     setList(effectiveReminders(task, defaults));
+    setTouched(false);
   }, [task.reminders, task.reminderMinutes, defaults]);
-  const full = list.length >= MAX_TASK_REMINDERS;
+  const own = explicit || touched;
+  const full = own && list.length >= MAX_TASK_REMINDERS;
   return (
     <View style={styles.list}>
       <PopoverHeading>Reminders</PopoverHeading>
@@ -178,7 +182,7 @@ export function ReminderBody({ task, ops, done }: BodyProps) {
       />
       <Row
         label="None"
-        selected={explicit && list.length === 0}
+        selected={own && list.length === 0}
         onPress={() => {
           setList([]);
           ops.patch(reminderPatch([]));
@@ -186,7 +190,7 @@ export function ReminderBody({ task, ops, done }: BodyProps) {
         }}
       />
       {REMINDER_LEADS.map((lead) => {
-        const on = explicit && list.includes(lead);
+        const on = own && list.includes(lead);
         return (
           <Row
             key={lead}
@@ -195,8 +199,10 @@ export function ReminderBody({ task, ops, done }: BodyProps) {
             disabled={full && !on}
             a11y={`${leadLabel(lead)}${on ? ', on' : ', off'}`}
             onPress={() => {
-              const next = toggleLead(explicit ? list : effectiveReminders(task, defaults), lead);
+              // 3.54.0: on Default the first tap gives exactly this lead (tapLead), not the hidden default plus or minus it.
+              const next = tapLead(own, list, lead);
               setList(next);
+              setTouched(true);
               ops.patch(reminderPatch(next));
             }}
           />

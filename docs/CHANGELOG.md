@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.54.0 — 2026-11-13 (Reminders picker: the first tap gives exactly that reminder; the row stays on screen)
+
+**Phone and desktop. No database change.** PLAN_phone_parity phase 1 (item 5).
+- **Bug:** on a task still on Default (which means "at the start"), a reminder chip toggled the hidden default list. "At start time" switched the start off, so the picker jumped to None; "1 day before" was added next to a start time nobody chose. The desktop Reminder menu had the same fault.
+- **Fix:** the shared `tapLead` (`lib/reminder.ts`) starts from an empty list on Default, so the first tap gives exactly that reminder; later taps build on the task's own list. The desktop menu (`TaskPopovers.tsx`) also remembers a tap until the saved task comes back.
+- **iOS overflow:** the phone details' row value can now shrink (at most 60 % of the row, two lines), and the "Applies once you set a time" hint shows under the chips only, not in the row.
+Tests: reminder.test.ts +1; real phone-p7 17/17 (new first tap and row width checks), phone-p16 27/27 (hint not in the row), p36 18/18 (Default plus 5 minutes is now only 5 minutes), p15 31/31, phone-p6 23/23. Expectations changed on purpose.
+Gates: tsc clean; mobile `npm test` 1212/1212; iOS export plus `check:ios-markers` OK (49 markers, 0 hits); security scan passed. Full regression NOT run. The overflow only shows on an iPhone: hand test.
+
 ## 3.53.2 — 2026-11-13 (Sync: a visible sync line; a refused table no longer blocks the others)
 
 **Desktop and phone. No new column, no database change. No local or server data was changed while investigating.**

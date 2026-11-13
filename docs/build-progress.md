@@ -992,3 +992,8 @@ Cause: no code fault was found. The desktop data folder on this PC matches the s
 Fixed: a table the server refuses no longer stops the tables after it (the refused rows stay queued and the status names the table and reason); no session, a failed project check and a pending account choice now show instead of leaving an old status. New sync line always on screen (desktop top bar, phone header). Details in the CHANGELOG.
 Tests: syncEngine.test.ts +3, syncText.test.ts +1, easConfig.test.ts (version, appVersionSource "local"); real new p68 (9).
 Gates: tsc clean; mobile 1211/1211; desktop 118/118; iOS markers OK (49, 0 hits); security scan passed. Real (display 2, quiet): p68 9/9, cp6 61/61, p67, p66, phone-p20, phone-p14, phone-p19 all pass. cp9 to cp12 skip when quiet: not run. Full regression NOT run.
+
+## Phone parity phase 1 (2026-11-13): 3.54.0, reminders picker fix
+What: a reminder tapped on a task on Default gives exactly that reminder (shared tapLead, phone and desktop); the phone Reminders row no longer overflows on iOS. Details in the CHANGELOG.
+Tests: reminder.test.ts +1; real phone-p7 17/17, phone-p16 27/27, p36 18/18 (expectations updated on purpose), p15 31/31, phone-p6 23/23.
+Gates: tsc clean; mobile 1212/1212; iOS markers OK; security scan passed. Full regression NOT run.

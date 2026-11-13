@@ -97,8 +97,18 @@ async function run() {
 
   // Reminders.
   await tapIn('[data-detail-row="reminders"]');
+  // 3.54.0 (PLAN_phone_parity item 5): on Default the first tap gives exactly that reminder (it used to toggle the hidden
+  // default, "at the start", so At start time switched it off and a lead came with a start time nobody chose).
+  await tapIn('[aria-label="Remind At start time"]');
+  check('Default, then At start time: exactly at the start', JSON.stringify(gym().reminders) === '[0]' && gym().reminderMinutes === 0, JSON.stringify(gym()));
+  await tapIn('[aria-label="Reminders default"]');
+  await tapIn('[aria-label="Remind 1 day before"]');
+  check('Default, then 1 day before: exactly one day before, no start time added', JSON.stringify(gym().reminders) === '[1440]' && gym().reminderMinutes === 1440, JSON.stringify(gym()));
+  await tapIn('[aria-label="Remind At start time"]');
   await tapIn('[aria-label="Remind 10 minutes before"]');
-  check('a lead is added to the default (at the start and 10 minutes before)', JSON.stringify(gym().reminders) === '[0,10]' && gym().reminderMinutes === 0, JSON.stringify(gym()));
+  check('further taps build on the task\'s own list (at the start, 10 minutes and 1 day before)', JSON.stringify(gym().reminders) === '[0,10,1440]', JSON.stringify(gym()));
+  const rowBox = await P.js(`(() => { const r = ${inSheet('[data-detail-row="reminders"]')}; if (!r) return null; const b = r.getBoundingClientRect(); const kids = [...r.querySelectorAll('div')].map((d) => d.getBoundingClientRect()); return { left: b.left, right: b.right, w: innerWidth, maxRight: Math.max(...kids.map((k) => k.right)), text: r.innerText.replace(/\\s+/g, ' ') }; })()`);
+  check('the Reminders row with three reminders stays inside the screen', !!rowBox && rowBox.right <= rowBox.w + 1 && rowBox.maxRight <= rowBox.w + 1, JSON.stringify(rowBox));
   check('it says the reminders apply to each time', /each time/i.test(await sheetText()));
   await tapIn('[aria-label="No reminders"]');
   check('None stores an empty list', JSON.stringify(gym().reminders) === '[]' && gym().reminderMinutes === -1);

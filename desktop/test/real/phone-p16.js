@@ -143,7 +143,8 @@ async function run() {
   await P.finger.tap(visible('[aria-label="Remind 5 minutes before"]'), 700);
   check('phone: tapping 5 minutes before stores it on the task as usual', Array.isArray(storedTask('rm').reminders) && storedTask('rm').reminders.includes(5), JSON.stringify(storedTask('rm')));
   const rowText = await P.js(`(() => { const r = document.querySelector('[aria-label="Reminders"]'); return r ? r.innerText.replace(/\\s+/g, ' ') : null; })()`);
-  check('phone: the Reminders row shows the choice with the hint', /5 minutes before/.test(String(rowText)) && /applies once you set a time/i.test(String(rowText)), String(rowText));
+  // 3.54.0: the "applies once you set a time" hint shows under the chips only, so the row never overflows on iOS.
+  check('phone: the Reminders row shows the choice (the hint stays under the chips)', /5 minutes before/.test(String(rowText)) && !/applies once you set a time/i.test(String(rowText)), String(rowText));
   await P.finger.tap(visible('[aria-label="Done"]'), 900);
 
   const failed = summary();

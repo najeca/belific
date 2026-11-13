@@ -75,7 +75,9 @@ const make = (c: ColorTokens) => ({
   row: { flexDirection: 'row' as const, alignItems: 'center' as const, minHeight: 52, paddingHorizontal: 14, gap: 12 },
   sep: { borderTopWidth: 1, borderTopColor: c.border },
   rowLabel: { ...inter(500), fontSize: 16, color: c.textPrimary, flex: 1 },
-  rowValue: { ...inter(500), fontSize: 15, color: c.textSecondary },
+  // 3.54.0: a long value (several reminders) wraps inside the row instead of pushing past the screen edge on iOS, where
+  // a text in a row does not shrink by itself; the label keeps at least 40 % of the row.
+  rowValue: { ...inter(500), fontSize: 15, color: c.textSecondary, flexShrink: 1, maxWidth: '60%' as const, textAlign: 'right' as const },
   rowValueSet: { color: c.textPrimary },
   panel: { paddingHorizontal: 14, paddingBottom: 14, gap: 10 },
   chips: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
@@ -377,7 +379,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     <Pressable onPress={onPress} style={({ pressed }) => [s.row, !first && s.sep, pressed && { backgroundColor: c.hover }]} accessibilityRole="button" accessibilityLabel={a11y} {...({ dataSet: data ? { detailRow: data } : {} } as object)}>
       <Ionicons name={icon} size={20} color={c.textSecondary} />
       <Text style={s.rowLabel}>{text}</Text>
-      {typeof value === 'string' ? <Text style={s.rowValue}>{value}</Text> : value}
+      {typeof value === 'string' ? <Text style={s.rowValue} numberOfLines={2}>{value}</Text> : value}
     </Pressable>
   );
 
@@ -628,7 +630,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                 <TimesEditor task={task} onWrite={(fields) => void write(fields)} />
               </View>
             ) : null}
-            {row('notifications-outline', 'Reminders', `${taskRemindersLabel(task)}${isMultiTime(task) ? ', each time' : ''}${reminderHint(task) && (Array.isArray(task.reminders) || task.reminderMinutes != null) ? `, ${reminderHint(task)!.toLowerCase()}` : ''}`, () => setOpen(open === 'reminders' ? null : 'reminders'), 'Reminders', false, 'reminders')}
+            {row('notifications-outline', 'Reminders', `${taskRemindersLabel(task)}${isMultiTime(task) ? ', each time' : ''}`, () => setOpen(open === 'reminders' ? null : 'reminders'), 'Reminders', false, 'reminders')}
             {open === 'reminders' ? (
               <View style={s.panel}>
                 <RemindersEditor task={task} onWrite={(fields) => void write(fields)} />

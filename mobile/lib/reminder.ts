@@ -35,6 +35,14 @@ export function toggleLead(list: readonly number[], lead: number): number[] {
   return normalizeReminders(has ? list.filter((n) => n !== lead) : [...list, lead]);
 }
 
+// 3.54.0 (PLAN_phone_parity item 5): a tap on a lead in the Reminders picker. On a task still on Default the picker
+// shows no lead as chosen, so the tap starts from an empty list and gives exactly that one reminder. It used to toggle
+// the hidden default list ([0], at the start): "At start time" then switched the start off (the picker jumped to None)
+// and "1 day before" was added next to a start time nobody chose. Phone and desktop both use this.
+export function tapLead(explicit: boolean, list: readonly number[], lead: number): number[] {
+  return toggleLead(explicit ? list : [], lead);
+}
+
 // The fields to write: 'default' goes back to the default list; a list is stored as it is,
 // with its first (smallest lead) mirrored into the legacy single value; an empty list is "none".
 export function reminderPatch(choice: 'default' | readonly number[]): { reminders: number[] | undefined; reminderMinutes: number | undefined } {

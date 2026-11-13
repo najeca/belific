@@ -116,7 +116,8 @@ async function run() {
   await C.waitFor(async () => !!stored('n').startTime, 5000).catch(() => {});
   await C.sleep(1500);
   check('setting the day and a time stores them', stored('n').dueDate === dayStr && stored('n').startTime === timeStr, JSON.stringify(stored('n')));
-  check('once it has a time the reminders fire normally: scheduled at the start and 5 minutes before', JSON.stringify(leads('n')) === JSON.stringify([0, 5]), JSON.stringify(leads('n')));
+  // 3.54.0: on Default the first tap gives exactly that lead (tapLead), so only 5 minutes before.
+  check('once it has a time the reminders fire normally: scheduled 5 minutes before (the one lead chosen)', JSON.stringify(leads('n')) === JSON.stringify([5]), JSON.stringify(leads('n')));
   const hintGone = await I.js(`!document.querySelector('[data-detail-panel] [data-reminder-row-hint]')`);
   check('and the hint is gone', hintGone === true);
   await I.key('Escape', [], 500);

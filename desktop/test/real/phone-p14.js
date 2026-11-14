@@ -152,17 +152,17 @@ async function run() {
   await C.sleep(400);
   const slot = await P.point(`document.querySelector('[data-empty-slots]')`);
   await P.finger.tapAt(slot.left + slot.w * 0.7, slot.top + 9.38 * 56, 900);
-  check('a tap just under the break opens the quick add at 9:15am', /9:15am/.test(await P.js(`(document.querySelector('[data-quick-add]') || {}).getAttribute?.('data-quick-add') || ''`)));
-  await P.finger.tap(visible('[data-quick-add] [aria-label="New task title"]'), 300);
+  check('a tap just under the break opens the new task card at 9:15am', /9:15am/.test(await P.js(`(document.querySelector('[data-new-task]') || {}).getAttribute?.('data-new-task') || ''`)));
+  await P.finger.tap(visible('[aria-label="Task title"]'), 300);
   await win.webContents.insertText('Snack');
   await C.sleep(300);
-  const typed = await P.js(`(document.querySelector('[data-quick-add] [aria-label="New task title"]') || {}).value || ''`);
+  const typed = await P.js(`(document.querySelector('[aria-label="Task title"]') || {}).value || ''`);
   const n0 = read('belific_tasks').length;
-  await P.finger.tap(visible('[data-quick-add] [aria-label="Add task"]'), 1000);
-  const qn = await P.js(`(document.querySelector('[data-quick-add-note]') || {}).innerText || ''`);
-  check('the quick add refuses it: "Longer than the break (20 min)", nothing stored', qn === 'Longer than the break (20 min)' && read('belific_tasks').length === n0, `typed "${typed}", note "${qn}"`);
+  await P.finger.tap(visible('[aria-label="Done"]'), 1000);
+  const qn = await P.js(`(document.querySelector('[data-break-note]') || {}).innerText || ''`);
+  check('the new task card refuses it: "Longer than the break (20 min)", nothing stored', qn === 'Longer than the break (20 min)' && read('belific_tasks').length === n0, `typed "${typed}", note "${qn}"`);
   await shot('phone-p14-refused-quick-add-dark');
-  await P.finger.tap(visible('[data-quick-add] [aria-label="Cancel adding"]'), 700);
+  await P.finger.tap(visible('[aria-label="Cancel new task"]'), 700);
 
   // The details: a hosted task given a length that sticks out of the break.
   await openSheet();

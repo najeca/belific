@@ -1,7 +1,7 @@
 'use strict';
 // @real-input: quiet
 // Real touch check for 3.23.0, step 1, on the phone (390 x 844): the + beside the Tasks tab's add row opens a new
-// task card (the task details sheet, empty, the title focused, "Save" at the top); nothing is stored until it has
+// task card (the task details sheet, empty, the title focused, Cancel and Done at the top); nothing is stored until it has
 // a title; closing it empty stores nothing. Step 2: the Tasks rows show the label's NAME on its own line, then the
 // day and time on the next. Light and dark. BELIFIC_SHOTS: a folder for screenshots.
 const fs = require('node:fs');
@@ -74,11 +74,11 @@ async function run() {
     check(`${mode}: the add row has a + at least 44 pt`, !!plus && plus.w >= 44 && plus.h >= 44, JSON.stringify(plus));
     await P.finger.tap(visible('[data-add-plus]'), 1000);
     const o = await P.js(`(() => { const a = document.activeElement; const h = document.querySelector('[data-task-details]'); return { open: !!h, label: a && a.getAttribute('aria-label'), value: a && a.value, head: h ? h.innerText : '' }; })()`);
-    check(`${mode}: the + opens the task sheet with an empty, focused title, "New task" and Save`, o.open && o.label === 'Task title' && o.value === '' && /New task/.test(o.head) && /Save/.test(o.head), JSON.stringify(o));
+    check(`${mode}: the + opens the task sheet with an empty, focused title, "New task", Cancel and Done`, o.open && o.label === 'Task title' && o.value === '' && /New task/.test(o.head) && /Cancel/.test(o.head) && /Done/.test(o.head), JSON.stringify(o));
     check(`${mode}: no Delete button on a new card`, !(await P.js(`document.body.innerText.includes('Delete task')`)));
     await shot(`phone-p17-newcard-${mode}`);
-    await P.finger.tap(visible('[aria-label="Save"]'), 900);
-    check(`${mode}: Save with no title closes it and stores nothing`, !(await sheetOpen()) && titles().length === before, `${before} -> ${titles().length}`);
+    await P.finger.tap(visible('[aria-label="Done"]'), 900);
+    check(`${mode}: Done with no title closes it and stores nothing`, !(await sheetOpen()) && titles().length === before, `${before} -> ${titles().length}`);
     await P.finger.tap(visible('[data-add-plus]'), 1000);
     await typeText(`Phone card ${mode}`);
     await P.js(`document.activeElement.blur()`);

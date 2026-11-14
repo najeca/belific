@@ -80,24 +80,24 @@ async function run() {
   // Today: + adds for today.
   await P.finger.tap(tab('Today'), 900);
   await P.finger.tap(visible('[data-add-button]'), 900);
-  const sheet = await P.js(`(() => { const e = document.querySelector('[data-quick-add]'); return e ? e.getAttribute('data-quick-add') : null; })()`);
+  const sheet = await P.js(`(() => { const e = document.querySelector('[data-new-task]'); return e ? e.getAttribute('data-new-task') : null; })()`);
   check('Today: + opens the quick add for "Today"', sheet === 'Today', String(sheet));
   await shot('phone-p3-quickadd');
-  await P.finger.tap(visible('[data-quick-add] [aria-label="Cancel adding"]'), 700);
-  check('Cancel closes it in one tap', !(await P.js(`!!document.querySelector('[data-quick-add]')`)));
+  await P.finger.tap(visible('[aria-label="Cancel new task"]'), 700);
+  check('Cancel closes it in one tap', !(await P.js(`!!document.querySelector('[data-new-task]')`)));
   await P.finger.tap(visible('[data-add-button]'), 900);
-  await P.finger.tap(visible('[aria-label="New task title"]'), 300);
+  await P.finger.tap(visible('[aria-label="Task title"]'), 300);
   await typeText('Call the bank');
-  await P.finger.tap(visible('[aria-label="Add task"]'), 900);
+  await P.finger.tap(visible('[aria-label="Done"]'), 900);
   const bank = stored().find((t) => t.title === 'Call the bank');
   check('Add stores the task for today', !!bank && bank.dueDate === today && !bank.listKey, JSON.stringify(bank));
 
   // Calendar: + adds on the chosen day.
   await P.finger.tap(tab('Calendar'), 900);
   await P.finger.tap(visible('[data-add-button]'), 900);
-  await P.finger.tap(visible('[aria-label="New task title"]'), 300);
+  await P.finger.tap(visible('[aria-label="Task title"]'), 300);
   await typeText('Dentist');
-  await P.finger.tap(visible('[aria-label="Add task"]'), 900);
+  await P.finger.tap(visible('[aria-label="Done"]'), 900);
   const dentist = stored().find((t) => t.title === 'Dentist');
   check('Calendar: + stores the task on the chosen day (today)', !!dentist && dentist.dueDate === today, JSON.stringify(dentist));
 
@@ -105,14 +105,18 @@ async function run() {
   await P.finger.tap(tab('Tasks'), 1000);
   check('Tasks: Brain Dump shows the loose thought', (await text()).includes('A loose thought'));
   await shot('phone-p3-tasks');
+  await P.js(`document.querySelector('[data-list-chip="__repeating__"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
+  await C.sleep(400);
   await P.finger.tap(visible('[data-list-chip="__repeating__"]'), 900);
   check('Tasks: Repeating shows the repeating task (the old Quests)', (await text()).includes('Stretch'));
   await shot('phone-p3-repeating');
+  await P.js(`document.querySelector('[data-list-chip="dump"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
+  await C.sleep(400);
   await P.finger.tap(visible('[data-list-chip="dump"]'), 900);
   await P.finger.tap(visible('[data-add-button]'), 900);
-  await P.finger.tap(visible('[aria-label="New task title"]'), 300);
+  await P.finger.tap(visible('[aria-label="Task title"]'), 300);
   await typeText('Idea for the garden');
-  await P.finger.tap(visible('[aria-label="Add task"]'), 900);
+  await P.finger.tap(visible('[aria-label="Done"]'), 900);
   const idea = stored().find((t) => t.title === 'Idea for the garden');
   check('Tasks: + in Brain Dump stores a task with no day and no list', !!idea && !idea.dueDate && !idea.listKey, JSON.stringify(idea));
   check('Tasks: it shows in Brain Dump at once', (await text()).includes('Idea for the garden'));

@@ -38,7 +38,7 @@ import { ShiftRows } from '../../components/phone/ShiftRows';
 import { AddInside, type InsideTarget } from '../../components/phone/AddInside';
 import type { CustomEvent, Project, Routine, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { AddButton, ScreenHeader } from '../../components/phone/chrome';
-import { QuickAdd } from '../../components/phone/QuickAdd';
+import { newTaskTarget } from '../../components/phone/newTask';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { PressRow, haptic } from '../../components/phone/touch';
 import { PartRows } from '../../components/phone/PartRows';
@@ -119,7 +119,6 @@ export default function TodayScreen() {
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
   const [undo, setUndo] = useState<UndoMessage | null>(null);
   const [showDone, setShowDone] = useState(false);
-  const [adding, setAdding] = useState(false);
   // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
   const [cutMin, setCutMin] = useState(30);
   const [inside, setInside] = useState<InsideTarget | null>(null);
@@ -434,8 +433,7 @@ export default function TodayScreen() {
       </ScrollView>
       <UndoBar message={undo} onDone={() => setUndo(null)} />
       <AddInside target={inside} onClose={() => setInside(null)} onAdded={() => void load()} />
-      <AddButton onPress={() => setAdding(true)} a11y="Add a task for today" />
-      <QuickAdd visible={adding} where={{ dueDate: todayKey, label: 'Today' }} onClose={() => setAdding(false)} onAdded={() => void load()} />
+      <AddButton onPress={() => setDetails(newTaskTarget({ dueDate: todayKey, label: 'Today' }))} a11y="Add a task for today" />
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
       <AddEventModal

@@ -28,7 +28,7 @@ import { ShiftRows } from '../../components/phone/ShiftRows';
 import { AddInside, type InsideTarget } from '../../components/phone/AddInside';
 import type { BrainDumpItem, Project, Routine, Task, TaskList } from '../../lib/types';
 import { AddButton, ScreenHeader } from '../../components/phone/chrome';
-import { QuickAdd } from '../../components/phone/QuickAdd';
+import { newTaskTarget } from '../../components/phone/newTask';
 import { ListSheet } from '../../components/phone/ListSheet';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { PressRow, SwipeRow, haptic } from '../../components/phone/touch';
@@ -105,7 +105,6 @@ export default function TasksTab() {
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
   const [undo, setUndo] = useState<UndoMessage | null>(null);
   const [showDone, setShowDone] = useState(false);
-  const [adding, setAdding] = useState(false);
   // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
   const [cutMin, setCutMin] = useState(30);
   const [inside, setInside] = useState<InsideTarget | null>(null);
@@ -222,10 +221,8 @@ export default function TasksTab() {
   }
 
   // 3.23.0: a new task card in the shown list; nothing is stored until it has a title.
-  async function newCard() {
-    const now = new Date().toISOString();
-    const task: Task = { id: generateId(), title: '', completed: false, createdAt: now, updatedAt: now, ...(listKey ? { listKey } : {}) };
-    setDetails({ task, projected: false, draft: true });
+  function newCard() {
+    setDetails(newTaskTarget({ listKey, label: chosen === REPEATING ? 'Brain Dump' : listName }));
   }
 
   async function addFromRow() {
@@ -513,8 +510,7 @@ export default function TasksTab() {
       </ScrollView>
       <UndoBar message={undo} onDone={() => setUndo(null)} />
       <AddInside target={inside} onClose={() => setInside(null)} onAdded={() => void load()} />
-      <AddButton onPress={() => setAdding(true)} a11y={`Add to ${chosen === REPEATING ? 'Brain Dump' : listName}`} />
-      <QuickAdd visible={adding} where={{ listKey, label: chosen === REPEATING ? 'Brain Dump' : listName }} onClose={() => setAdding(false)} onAdded={() => void load()} />
+      <AddButton onPress={() => setDetails(newTaskTarget({ listKey, label: chosen === REPEATING ? 'Brain Dump' : listName }))} a11y={`Add to ${chosen === REPEATING ? 'Brain Dump' : listName}`} />
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
       <ListSheet
         visible={!!listSheet}

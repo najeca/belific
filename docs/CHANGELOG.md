@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 3.56.0 — 2026-11-14 (The + opens the whole task card; a phrase fills the day, time and length)
+
+**Phone only. No database change, no sync code touched.** PLAN_phone_parity phase 4 (item 1).
+- **The + on Today, the Tasks tab and the Calendar** (and a tap on an empty Day slot) opens the full task card, empty, instead of the title only sheet. The title is focused; the place is already filled in ("Goes to: Today", the chosen list, the tapped quarter hour with 30 minutes) and said under the header. Every row is there from the start: day, time, length, repeat (with Repeat until), reminders, label, list, smaller tasks, notes. Header: **Cancel**, "New task", **Done** (44 pt). A new task is kept in memory until it has a title (3.23.0), then stored once; **Cancel** throws it away (a task already stored goes to the Trash with its smaller tasks); **Done** keeps it. A time inside a break it does not fit in is still refused, with the reason on the card, and Done keeps the card open. Smaller tasks need a stored task: until it has a name the section says "Give the task a name first, then add smaller tasks."
+- **Phrases:** the desktop's phrase reader (`parseQuick`) runs on a new task's title as it is typed. "Dentist tomorrow 3pm 30m" shows chips (Tomorrow, 3:00pm, 30m; 14 px, 44 pt) under the title and a **Keep it as plain text** button; nothing is applied or stored until Enter or Done, which sets the title to "Dentist", the day, the time and the length. Leaving the title with a phrase in it does not store the task (the chips stay). Only a new task's first title is read; an existing task's title is never reread.
+- **Fix found on the way:** the card's writes now run one after another on the latest task, so a blur and a tap that both commit the title cannot store the task twice with the older copy winning.
+- The Tasks tab's round + beside the add row (empty box) uses the same card; typing there and pressing + still adds the typed text as a task, as before.
+Files: new `components/phone/newTask.ts`; `components/phone/TaskDetails.tsx`; `app/(tabs)/today.tsx`, `tasks.tsx`, `calendar.tsx`; `components/phone/QuickAdd.tsx` removed; `app.json` 3.56.0.
+Tests: easConfig (version); real new phone-p22 (17); phone-p3, p8, p9, p11, p14 and p17 follow the new card (Cancel new task / Task title / Done instead of the sheet's Cancel adding / New task title / Add task; p3 scrolls the chip row because the example list chips are there with no lists).
+Gates: tsc clean; mobile `npm test` 1215/1215; desktop 118/118; iOS export plus `check:ios-markers` OK (49 markers, 0 hits); security scan passed (Git Bash). Real (390 x 844, BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p22 17/17, p3 13/13, p8 15/15, p9 11/11, p11 51/51, p14 28/28, p17 20/20, p21 14/14, p5 26/26, p6 23/23, p7 17/17, p10 10/10, p12 19/19, p13 17/17, p16 27/27, p18 23/23, p19 27/27, p20 6/6. Full regression NOT run. The keyboard over the card, and whether Done stays reachable with it up, only show on an iPhone: hand test.
+
 ## 3.55.0 — 2026-11-14 (Smaller tasks replaces Parts; three example lists and three example labels)
 
 **Phone and desktop. No database change, no sync code touched.** PLAN_phone_parity phase 3 (items 7 and 6).

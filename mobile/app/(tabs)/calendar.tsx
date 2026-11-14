@@ -14,7 +14,7 @@ import { askCalendarAccess, calendarAccess, loadDeviceEvents, openPhoneSettings,
 import type { DaySource } from '../../lib/phoneDay';
 import type { CustomCategory, CustomEvent, ScheduleEvent } from '../../lib/types';
 import { AddButton, ScreenHeader, Segmented } from '../../components/phone/chrome';
-import { QuickAdd, type QuickAddWhere } from '../../components/phone/QuickAdd';
+import { newTaskTarget } from '../../components/phone/newTask';
 import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
 import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
 import { DayView, type DayData } from '../../components/phone/calendar/DayView';
@@ -69,7 +69,6 @@ export default function CalendarScreen() {
   const [access, setAccess] = useState<CalendarAccess | null>(null);
   const [promptDismissed, setPromptDismissed] = useState(true);
   const [details, setDetails] = useState<DetailsTarget | null>(null);
-  const [adding, setAdding] = useState<QuickAddWhere | null>(null);
   const [editEvent, setEditEvent] = useState<CustomEvent | undefined>();
   const [notice, setNotice] = useState<UndoMessage | null>(null);
 
@@ -244,7 +243,7 @@ export default function CalendarScreen() {
               onOpen={open}
               onChanged={() => void load()}
               onNote={(text, undo) => setNotice({ id: Date.now(), text, ...(undo ? { undo } : {}) })}
-              onAddAt={(m) => setAdding({ dueDate: anchor, startTime: toTime(m), durationMinutes: 30, label: `${formatDayLabel(anchor)} at ${formatTime(toTime(m))}` })}
+              onAddAt={(m) => setDetails(newTaskTarget({ dueDate: anchor, startTime: toTime(m), durationMinutes: 30, label: `${formatDayLabel(anchor)} at ${formatTime(toTime(m))}` }))}
               onDrop={(t) => void drop(t)}
             />
           ) : view === 'week' ? (
@@ -255,8 +254,7 @@ export default function CalendarScreen() {
         </View>
       </GestureDetector>
       <UndoBar message={notice} onDone={() => setNotice(null)} />
-      <AddButton onPress={() => setAdding({ dueDate: anchor, label: anchor === todayKey ? 'Today' : formatDayLabel(anchor) })} a11y="Add a task on this day" />
-      <QuickAdd visible={!!adding} where={adding ?? { label: '' }} onClose={() => setAdding(null)} onAdded={() => void load()} />
+      <AddButton onPress={() => setDetails(newTaskTarget({ dueDate: anchor, label: anchor === todayKey ? 'Today' : formatDayLabel(anchor) }))} a11y="Add a task on this day" />
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
       <AddEventModal
         visible={!!editEvent}

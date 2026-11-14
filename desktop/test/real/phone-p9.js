@@ -77,7 +77,7 @@ async function run() {
   await swipe(30, 200);
   const after = await P.js(`${scroller}.scrollTop`);
   check('Day: a slanted vertical drag scrolls the timeline and never turns the page', (await title()) === today && after < before - 60, `${before} -> ${after}`);
-  check('Day: and it opened nothing', !(await P.js(`!!document.querySelector('[data-quick-add], [data-task-details]')`)));
+  check('Day: and it opened nothing', !(await P.js(`!!document.querySelector('[data-task-details]')`)));
 
   // Week.
   await P.finger.tap(visible('[data-seg="week"]'), 900);
@@ -90,7 +90,7 @@ async function run() {
   // Tomorrow, unless today is the last day of the shown week (a Sunday: tomorrow is in the next week), then yesterday.
   const other = cols.includes(day(1)) ? day(1) : day(-1);
   await P.finger.tap(visible(`[data-week-day="${other}"]`), 1000);
-  check('Week: a tap on a day opens it in Day view, and creates nothing', !!(await P.js(`document.querySelector('[data-day-view="${other}"]')`)) && count() === n0 && !(await P.js(`!!document.querySelector('[data-quick-add]')`)));
+  check('Week: a tap on a day opens it in Day view, and creates nothing', !!(await P.js(`document.querySelector('[data-day-view="${other}"]')`)) && count() === n0 && !(await P.js(`!!document.querySelector('[data-new-task]')`)));
   await P.finger.tap(visible('[data-seg="week"]'), 900);
   const weekBefore = await P.js(`document.querySelector('[data-week-view]').getAttribute('data-week-view')`);
   await swipe(-220);

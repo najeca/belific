@@ -1002,3 +1002,8 @@ Gates: tsc clean; mobile 1212/1212; iOS markers OK; security scan passed. Full r
 What: "Parts" becomes "Smaller tasks" on phone and desktop (heading, Add a smaller task, hint, Turn steps into smaller tasks, every count); three example lists (Home, Work, Shopping) and three example labels (Health, Money, Family) offered with one tap. Details in the CHANGELOG.
 Tests: presets.test.ts, parts.test.ts; real new phone-p21 14/14, p69 6/6; words updated in nine real checks.
 Gates: tsc clean; mobile 1215/1215; desktop 118/118; iOS markers OK (49, 0 hits); security scan passed. Real checks listed in the CHANGELOG. Full regression NOT run.
+
+## Phone parity phase 4 (2026-11-14): 3.56.0, the + opens the whole task card
+What: the + (Today, Tasks, Calendar, an empty Day slot) opens the full task card with Cancel and Done; the desktop's phrase reader fills day, time and length from the title, shown as chips first. QuickAdd.tsx removed. Details in the CHANGELOG.
+Tests: real new phone-p22 17/17; six older phone checks follow the new card.
+Gates: tsc clean; mobile 1215/1215; desktop 118/118; iOS markers OK (49, 0 hits); security scan passed. Full regression NOT run.

@@ -11,6 +11,7 @@ import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
 import { labelColor } from '../../lib/labelColors';
 import { createLabel, loadLabels } from '../../lib/labels';
 import { PRESET_HINT, availableLabelPresets, type LabelPreset } from '../../lib/presets';
+import { KEEP_AS_TEXT, parseQuick, previewText, quickFields } from '../../lib/quickParse';
 import { liveLists } from '../../lib/lists';
 import { addSubtask, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { opsForProjected, opsForTask } from '../../lib/taskOps';
@@ -59,6 +60,8 @@ export interface DetailsTarget {
   projected: boolean;
   // 3.23.0: a new task that is not stored yet (the + of the Tasks tab's add row); it is stored when it has a title.
   draft?: boolean;
+  // Phase 4: where a new task will land, said under the header ("Today", "Thu 23 Oct at 14:00", "Brain Dump").
+  where?: string;
 }
 
 type Open = 'date' | 'time' | 'duration' | 'repeat' | 'until' | 'times' | 'reminders' | null;
@@ -69,6 +72,7 @@ const make = (c: ColorTokens) => ({
   headTitle: { ...type.sheetTitle, color: c.textPrimary },
   doneBtn: { minHeight: 44, minWidth: 64, alignItems: 'flex-end' as const, justifyContent: 'center' as const },
   doneText: { ...inter(700), fontSize: 17, color: c.accentText },
+  cancelText: { ...inter(600), fontSize: 17, color: c.textSecondary },
   titleRow: { flexDirection: 'row' as const, gap: 8, alignItems: 'center' as const },
   titleInput: { flex: 1, ...inter(600), fontSize: 20, color: c.textPrimary, minHeight: 48, paddingHorizontal: 4 },
   emojiInput: { width: 52, minHeight: 44, textAlign: 'center' as const, fontSize: 22, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface },
@@ -155,6 +159,15 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   const [breakNote, setBreakNote] = useState<string | null>(null);
   // 3.23.0: true while this is a new task with no title yet (nothing is stored).
   const [unsaved, setUnsaved] = useState(false);
+  // Phase 4: this card was opened by the + (a new task): Cancel throws it away, Done keeps it. `savedRef` makes the first
+  // store happen once even when a blur and a tap both ask. `plain`: the title is kept exactly as typed (no phrase reading).
+  const [fresh, setFresh] = useState(false);
+  const [plain, setPlain] = useState(false);
+  const savedRef = useRef(false);
+  const refusedRef = useRef(false);
+  // Writes run one after another, each seeing the task as the one before left it (a blur and a tap can both commit the title).
+  const taskRef = useRef<Task | null>(null);
+  const chain = useRef<Promise<unknown>>(Promise.resolve());
   const titleRef = useRef<TextInput>(null);
   const refreshHost = useCallback(async (t: Task) => {
     setLinks(t.dueDate ? hostLinks(await loadTasksRaw(), t.dueDate, dateKey(new Date())) : []);
@@ -166,6 +179,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   }, [undo]);
 
   const show = useCallback((t: Task, proj: boolean) => {
+    taskRef.current = t;
     setTask(t);
     setProjected(proj);
     void refreshHost(t);
@@ -190,6 +204,9 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     setAdding(false);
     show(target.task, target.projected);
     setUnsaved(!!target.draft);
+    setFresh(!!target.draft);
+    setPlain(false);
+    savedRef.current = false;
     // The sheet's own focus handling can win a race with autoFocus: ask once more when it has settled.
     const focusLater = target.draft ? setTimeout(() => titleRef.current?.focus(), 350) : null;
     setOpen(null);
@@ -209,13 +226,26 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   const ops = projected ? opsForProjected(task) : opsForTask(task);
 
   // Writes a patch, then shows the task as stored (a projected day: the patch is shown on it).
-  async function write(fields: Partial<Task> | null) {
+  function write(fields: Partial<Task> | null): Promise<void> {
+    const run = chain.current.then(() => writeNow(fields));
+    chain.current = run.catch(() => {});
+    return run;
+  }
+  async function writeNow(fields: Partial<Task> | null) {
     if (!task || !fields || Object.keys(fields).length === 0) return;
     // 3.23.0: a new task is kept in memory until it has a title, then stored under its own id.
-    if (unsaved) {
-      const next: Task = { ...task, ...fields };
+    if (unsaved && !savedRef.current) {
+      const next: Task = { ...(taskRef.current ?? task), ...fields };
       if (next.title.trim()) {
+        // A time inside a break it does not fit in is refused, as the quick add sheet did (3.11.0).
+        const refused = next.startTime ? await breakRefusal(null, { dueDate: next.dueDate, startTime: next.startTime, durationMinutes: next.durationMinutes }, 'drop') : null;
+        if (refused) {
+          refusedRef.current = true;
+          setBreakNote(refused);
+          return;
+        }
         const now = new Date().toISOString();
+        savedRef.current = true;
         setUnsaved(false);
         await addTask({ ...next, title: next.title.trim(), createdAt: now, updatedAt: now });
         onChanged();
@@ -329,6 +359,41 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     }
     partInputRef.current?.focus();
   };
+  // Phase 4: the desktop's phrase reader on a new task's title ("Dentist tomorrow 3pm 30m" fills the day, time and length).
+  // The chips under the title say what it understood before anything is applied; it is applied when the title is
+  // committed, once, for a new task only.
+  const nowDate = new Date();
+  const phrase = fresh && unsaved && !plain && title.trim() ? parseQuick(title, nowDate) : null;
+  const understood = phrase && phrase.found ? previewText(phrase, nowDate).split(' · ').filter(Boolean) : [];
+  const commitTitle = async () => {
+    if (phrase && phrase.found && phrase.title.trim()) {
+      setTitle(phrase.title);
+      await write({ ...titlePatch(task, phrase.title), ...quickFields(phrase, nowDate) });
+      return;
+    }
+    await write(titlePatch(task, title));
+  };
+  // Leaving the title with a phrase in it keeps the new task in memory (the chips stay, Keep it as plain text can still be
+  // chosen); Enter or Done applies the phrase and stores the task.
+  const blurTitle = async () => {
+    if (phrase && phrase.found) return;
+    await commitTitle();
+  };
+  const finishNew = async () => {
+    refusedRef.current = false;
+    await commitTitle();
+    // A time that does not fit in a break keeps the card open, with the reason on it.
+    if (refusedRef.current) return;
+    onClose();
+  };
+  const cancelNew = async () => {
+    if (savedRef.current) {
+      const raw = await loadTasksRaw();
+      if (raw.some((t) => t.id === task.id && !t.deletedAt)) await deleteWithParts(task, 'all');
+      onChanged();
+    }
+    onClose();
+  };
   const until = isDateKey(task.repeatUntil) ? task.repeatUntil : undefined;
   const dayText = task.dueDate ? formatDayTitle(task.dueDate, todayKey) : 'No date';
   const tomorrowKey = dateKey(addDays(parseDateKey(todayKey), 1));
@@ -397,9 +462,14 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
     <Modal visible animationType={reduced ? 'none' : 'slide'} presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[s.head, { paddingTop: Platform.OS === 'ios' ? 10 : insets.top + 10 }]} {...({ dataSet: { taskDetails: task.id } } as object)}>
-          <Text style={s.headTitle}>{projected ? 'Repeating task' : unsaved ? 'New task' : 'Task'}</Text>
-          <Pressable onPress={onClose} style={s.doneBtn} accessibilityRole="button" accessibilityLabel={unsaved ? 'Save' : 'Done'}>
-            <Text style={s.doneText}>{unsaved ? 'Save' : 'Done'}</Text>
+          {fresh ? (
+            <Pressable onPress={() => void cancelNew()} style={[s.doneBtn, { alignItems: 'flex-start' }]} accessibilityRole="button" accessibilityLabel="Cancel new task" {...({ dataSet: { newCancel: '1' } } as object)}>
+              <Text style={s.cancelText}>Cancel</Text>
+            </Pressable>
+          ) : null}
+          <Text style={s.headTitle}>{projected ? 'Repeating task' : fresh ? 'New task' : 'Task'}</Text>
+          <Pressable onPress={() => void (fresh ? finishNew() : Promise.resolve(onClose()))} style={s.doneBtn} accessibilityRole="button" accessibilityLabel="Done" {...({ dataSet: { detailsDone: '1' } } as object)}>
+            <Text style={s.doneText}>Done</Text>
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
@@ -418,8 +488,8 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
               style={s.titleInput}
               value={title}
               onChangeText={setTitle}
-              onBlur={() => void write(titlePatch(task, title))}
-              onSubmitEditing={() => void write(titlePatch(task, title))}
+              onBlur={() => void (fresh ? blurTitle() : write(titlePatch(task, title)))}
+              onSubmitEditing={() => void (fresh ? commitTitle() : write(titlePatch(task, title)))}
               returnKeyType="done"
               multiline={false}
               autoFocus={unsaved}
@@ -428,6 +498,21 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
               accessibilityLabel="Task title"
             />
           </View>
+          {fresh && target.where ? <Text style={[s.note, { fontSize: 14, marginTop: 4, marginLeft: 4 }]} {...({ dataSet: { newTask: target.where } } as object)}>{`Goes to: ${target.where}`}</Text> : null}
+          {understood.length > 0 ? (
+            <View style={{ marginTop: 8, gap: 8 }} {...({ dataSet: { phraseChips: String(understood.length) } } as object)}>
+              <View style={s.chips}>
+                {understood.map((u) => (
+                  <View key={u} style={[s.chip, { minHeight: 44, backgroundColor: c.accent, borderColor: c.accent }]}>
+                    <Text style={[s.chipText, s.chipTextOn]}>{u}</Text>
+                  </View>
+                ))}
+              </View>
+              <Pressable onPress={() => setPlain(true)} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel={KEEP_AS_TEXT} {...({ dataSet: { keepPlain: '1' } } as object)}>
+                <Text style={[s.chipText, { textDecorationLine: 'underline' }]}>{KEEP_AS_TEXT}</Text>
+              </Pressable>
+            </View>
+          ) : null}
           {partOf ? (
             <View style={s.partOfRow} {...({ dataSet: { partOf: partOf.id } } as object)}>
               <Text style={s.note}>{partOfText(partOf.title)}</Text>
@@ -756,6 +841,13 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                 </View>
               </View>
               {addsUp ? <Text style={[s.note, { marginTop: 6, marginLeft: 4 }]}>{addsUp}</Text> : null}
+            </>
+          ) : null}
+
+          {fresh && unsaved && canHaveParts(task) ? (
+            <>
+              <Text style={s.section}>{PARTS}</Text>
+              <Text style={[s.note, { fontSize: 14, lineHeight: 20, marginLeft: 4 }]} {...({ dataSet: { partsNeedName: '1' } } as object)}>Give the task a name first, then add smaller tasks.</Text>
             </>
           ) : null}
 

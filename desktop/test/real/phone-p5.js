@@ -138,9 +138,9 @@ async function run() {
 
   // Hold a row.
   await P.finger.hold(body('Write report'), 480, 700);
-  const items = await P.js(`[...document.querySelectorAll('[data-action-menu] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
-  check('hold a row: Edit, Duplicate, Move to list, Delete', JSON.stringify(items) === JSON.stringify(['Edit', 'Duplicate', 'Move to list', 'Delete', 'Cancel']), JSON.stringify(items));
-  await P.finger.tap(`document.querySelector('[data-action-menu] [aria-label="Cancel"]')`, 600);
+  const items = await P.js(`[...document.querySelectorAll('[data-hold-card] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
+  check('hold a row: the centred card with Done, Edit, Move, Delete, More', JSON.stringify(items) === JSON.stringify(['Done', 'Edit', 'Move', 'Delete', 'More', 'Cancel']), JSON.stringify(items));
+  await P.finger.tap(`document.querySelector('[data-hold-card] [aria-label="Cancel"]')`, 600);
 
   // Hold a list: edit it.
   await P.finger.hold(chip('L1'), 480, 900);

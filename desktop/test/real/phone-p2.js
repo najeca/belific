@@ -60,6 +60,7 @@ async function run() {
   const card = (t) => `document.querySelector('[data-task-row="${t}"] [data-task-body]')`;
   // A tap opens the task: the details sheet (P6) or, before it, the task form.
   const editOpen = () => P.js(`!!document.querySelector('[data-task-details]') || /Due date/.test(document.body.innerText)`);
+  const holdItems = () => P.js(`[...document.querySelectorAll('[data-hold-card] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
   const menuOpen = () => P.js(`!!document.querySelector('[data-action-menu]')`);
   const closeEdit = async () => {
     if (await editOpen()) await P.finger.tap(`[...document.querySelectorAll('[aria-label="Done"], [aria-label="Cancel"]')].pop()`, 800);
@@ -88,12 +89,12 @@ async function run() {
 
   // Press and hold.
   await P.finger.hold(card('Thought number 12'), 480, 700);
-  check('hold: about 400 ms opens the quick menu', await menuOpen());
-  const items = await P.js(`[...document.querySelectorAll('[data-action-menu] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
-  check('hold: the menu has Edit, Duplicate, Move to list, Delete and Cancel', JSON.stringify(items) === JSON.stringify(['Edit', 'Duplicate', 'Move to list', 'Delete', 'Cancel']), JSON.stringify(items));
+  check('hold: about 400 ms opens the centred card', await P.js(`!!document.querySelector('[data-hold-card]')`));
+  const items = await holdItems();
+  check('hold: the card has Done, Edit, Move, Delete, More and Cancel', JSON.stringify(items) === JSON.stringify(['Done', 'Edit', 'Move', 'Delete', 'More', 'Cancel']), JSON.stringify(items));
   await shot('phone-p2-hold');
-  await P.finger.tap(`document.querySelector('[data-action-menu] [aria-label="Cancel"]')`, 700);
-  check('hold: Cancel closes the menu in one tap', !(await menuOpen()));
+  await P.finger.tap(`document.querySelector('[data-hold-card] [aria-label="Cancel"]')`, 700);
+  check('hold: Cancel closes the card in one tap', !(await P.js(`!!document.querySelector('[data-hold-card]')`)));
 
   // Swipe left.
   await P.finger.drag(card('Thought number 12'), -200, 0, 260, 800, { x: 240, y: 20 });

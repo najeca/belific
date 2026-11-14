@@ -1007,3 +1007,8 @@ Gates: tsc clean; mobile 1215/1215; desktop 118/118; iOS markers OK (49, 0 hits)
 What: the + (Today, Tasks, Calendar, an empty Day slot) opens the full task card with Cancel and Done; the desktop's phrase reader fills day, time and length from the title, shown as chips first. QuickAdd.tsx removed. Details in the CHANGELOG.
 Tests: real new phone-p22 17/17; six older phone checks follow the new card.
 Gates: tsc clean; mobile 1215/1215; desktop 118/118; iOS markers OK (49, 0 hits); security scan passed. Full regression NOT run.
+
+## Phone parity phase 5 (2026-11-14): 3.57.0, the centred hold card
+What: a press and hold on a task shows it large in the middle of the screen with Done, Edit, Skip today (with its plain line), Move, Delete (dark text, not red) and More. Details in the CHANGELOG.
+Tests: real new phone-p23 16/16; phone-p2, p4, p5 follow the card.
+Gates: tsc clean; mobile 1215/1215; desktop 118/118; iOS markers OK (49, 0 hits); security scan passed. Full regression NOT run.

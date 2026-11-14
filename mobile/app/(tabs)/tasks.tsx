@@ -31,6 +31,7 @@ import { AddButton, ScreenHeader } from '../../components/phone/chrome';
 import { newTaskTarget } from '../../components/phone/newTask';
 import { ListSheet } from '../../components/phone/ListSheet';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
+import { HoldCard } from '../../components/phone/HoldCard';
 import { PressRow, SwipeRow, haptic } from '../../components/phone/touch';
 import { PartRows } from '../../components/phone/PartRows';
 import { partsFor, partsProgress, withParts } from '../../lib/parts';
@@ -103,6 +104,8 @@ export default function TasksTab() {
   const [completions, setCompletions] = useState<Array<{ routineId: string; date: string }>>([]);
   const [text, setText] = useState('');
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
+  // Phase 5: the centred card a press and hold on a task opens.
+  const [hold, setHold] = useState<{ row: ThoughtRow; task: Task } | null>(null);
   const [undo, setUndo] = useState<UndoMessage | null>(null);
   const [showDone, setShowDone] = useState(false);
   // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
@@ -191,34 +194,50 @@ export default function TasksTab() {
   };
   const open = async (row: ThoughtRow) => setDetails({ task: await asTask(row), projected: false });
 
+  // Phase 5: a press and hold opens the centred card (a legacy Brain Dump item becomes a task first, as on any action).
   function holdMenu(row: ThoughtRow) {
-    const title = row.kind === 'task' ? row.task.title : row.item.title;
+    void asTask(row).then((task) => setHold({ row, task }));
+  }
+
+  // What the card's buttons do. Move and More open as the next sheet once the card has closed.
+  const holdActions = (row: ThoughtRow, task: Task) => {
     const after = (fn: (t: Task) => Promise<unknown>) => () => {
-      asTask(row)
-        .then(fn)
-        .then(load);
+      fn(task).then(load);
     };
-    const moveItems: MenuItem[] = [
+    const nextWeekKey = dateKey(addDays(parseDateKey(todayKey), 7));
+    const toDay = (key: string, text: string) => () => {
+      void updateTask({ ...task, dueDate: key }).then(load);
+      setUndo({ id: Date.now(), text: `${text}: ${task.title}`, undo: () => void updateTask(task).then(load) });
+    };
+    const listItems: MenuItem[] = [
       { label: 'Brain Dump', icon: 'file-tray-outline', run: after((t) => moveToList(t, false, undefined)) },
       ...live.map((l) => ({ label: `${l.emoji ? `${l.emoji} ` : ''}${l.name}`, icon: 'list-outline' as const, run: after((t) => moveToList(t, false, l.key)) })),
     ];
-    const repeating = row.kind === 'task' && !!row.task.recurrence;
-    setMenu({
-      title,
-      items: [
-        { label: 'Edit', icon: 'create-outline', run: () => void open(row) },
-        ...(row.kind === 'task' && row.task.startTime && !row.task.cutsBelow ? [{ label: 'Add inside', icon: 'add-circle-outline' as const, run: () => setInside({ task: row.task, projected: false }) }] : []),
-        { label: 'Duplicate', icon: 'copy-outline', run: after((t) => duplicate(t, false)) },
-        { label: 'Move to list', icon: 'list-outline', run: () => setTimeout(() => setMenu({ title: `Move "${title}" to`, items: moveItems }), 250) },
-        ...(repeating
-          ? [
-              { label: 'Skip this day', icon: 'play-skip-forward-outline' as const, run: after((t) => skipDay(t)) },
-              { label: 'Delete repeating task', icon: 'trash-outline' as const, danger: true, run: after((t) => deleteRepeating(t)) },
-            ]
-          : [{ label: 'Delete', icon: 'trash-outline' as const, danger: true, run: () => void remove(row) }]),
-      ],
-    });
-  }
+    const repeating = !!task.recurrence;
+    // A repeating task is never moved to a day this way (it has Skip today); it can change list.
+    const moveItems: MenuItem[] = repeating
+      ? listItems
+      : [
+          { label: 'Tomorrow', icon: 'arrow-forward-outline', run: toDay(tomorrowKey, 'Moved to tomorrow') },
+          { label: 'Next week', icon: 'calendar-outline', run: toDay(nextWeekKey, 'Moved to next week') },
+          { label: 'Pick a day', icon: 'calendar-number-outline', run: () => void open(row) },
+          ...listItems,
+        ];
+    const moreItems: MenuItem[] = [
+      ...(row.kind === 'task' && task.startTime && !task.cutsBelow ? [{ label: 'Add inside', icon: 'add-circle-outline' as const, run: () => setInside({ task, projected: false }) }] : []),
+      { label: 'Duplicate', icon: 'copy-outline', run: after((t) => duplicate(t, false)) },
+    ];
+    return {
+      completed: task.completed,
+      done: () => (task.completed ? void tickTask(task, false, false).then(load) : void done(row)),
+      edit: () => void open(row),
+      skip: after((t) => skipDay(t)),
+      deleteOne: () => void remove(row),
+      deleteSeries: after((t) => deleteRepeating(t)),
+      move: () => setTimeout(() => setMenu({ title: 'Move to', items: moveItems }), 250),
+      more: () => setTimeout(() => setMenu({ title: task.title, items: moreItems }), 250),
+    };
+  };
 
   // 3.23.0: a new task card in the shown list; nothing is stored until it has a title.
   function newCard() {
@@ -512,6 +531,7 @@ export default function TasksTab() {
       <AddInside target={inside} onClose={() => setInside(null)} onAdded={() => void load()} />
       <AddButton onPress={() => setDetails(newTaskTarget({ listKey, label: chosen === REPEATING ? 'Brain Dump' : listName }))} a11y={`Add to ${chosen === REPEATING ? 'Brain Dump' : listName}`} />
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
+      {hold ? <HoldCard task={hold.task} projected={false} labels={projects} lists={lists} todayKey={todayKey} actions={holdActions(hold.row, hold.task)} onClose={() => setHold(null)} /> : null}
       <ListSheet
         visible={!!listSheet}
         list={listSheet?.list ?? null}

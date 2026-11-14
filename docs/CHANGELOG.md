@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 3.57.0 — 2026-11-14 (Press and hold: a card in the middle of the screen)
+
+**Phone only. No database change, no sync code touched.** PLAN_phone_parity phase 5 (item 3).
+- A press and hold on a task (Today, the Tasks tab) dims the screen and shows a card in the middle: the label with its colour, the title large (20/700), the day and time ("Today, 9:00am to 9:30am"), the length, the repeat line for a repeating task, and the list. Under it, 48 pt buttons, two to a row: **Done** (**Not done** on a done task), **Edit**, **Skip today** (repeating tasks only, with the line "Skip today: not today. It still repeats next time."), **Move**, **Delete**, **More**, then Cancel. A tap on the dim area closes it; with reduced motion it is a plain fade.
+- **Delete** is plain dark text with its word, never red. On a repeating task it asks "Only today, or every day?" on the same card: **Only today** skips the day, **Every day** deletes the series (to the Trash, as before).
+- **Move** opens "Move to": Tomorrow, Next week (seven days from today), Pick a day (opens the details), Brain Dump and the lists, each with Undo for the two day moves. A repeating task only offers the lists (it has Skip today). **More** opens Add inside (a placed task) and Duplicate.
+- Routines and custom events keep their small menu. The "Skip this day" and "Delete repeating task" menu rows are gone from the hold (their jobs are Skip today and Delete).
+Files: new `components/phone/HoldCard.tsx`; `app/(tabs)/today.tsx`, `tasks.tsx`; `app.json` 3.57.0.
+Tests: easConfig (version); real new phone-p23 (16); phone-p2, p4 and p5 follow the card (Done, Edit, Move, Delete, More; Duplicate is under More, the list choice under Move).
+Gates: tsc clean; mobile `npm test` 1215/1215; desktop 118/118; iOS export plus `check:ios-markers` OK (49 markers, 0 hits); security scan passed (Git Bash). Real (390 x 844, BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p23 16/16, p2 14/14, p4 26/26, p5 26/26, p11 51/51, p3 13/13, p6 23/23, p9 11/11, p14 28/28, p17 20/20, p18 23/23, p19 27/27, p21 14/14, p22 17/17. Full regression NOT run. How the hold feels (the 400 ms press, haptics, the card against the notch and Larger Text) only shows on an iPhone: hand test.
+
 ## 3.56.0 — 2026-11-14 (The + opens the whole task card; a phrase fills the day, time and length)
 
 **Phone only. No database change, no sync code touched.** PLAN_phone_parity phase 4 (item 1).

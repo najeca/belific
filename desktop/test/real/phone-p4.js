@@ -76,6 +76,8 @@ async function run() {
   const body = (title) => `[...document.querySelectorAll('[data-today-row]')].find((e) => e.getAttribute('data-today-row') === ${JSON.stringify(title)})?.querySelector('[data-today-body]')`;
   const tickOf = (title) => `[...document.querySelectorAll('[data-today-row]')].find((e) => e.getAttribute('data-today-row') === ${JSON.stringify(title)})?.querySelector('[data-tick]')`;
   const menuItems = () => P.js(`[...document.querySelectorAll('[data-action-menu] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
+  const holdItems = () => P.js(`[...document.querySelectorAll('[data-hold-card] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
+  const holdTap = (label) => P.finger.tap(`document.querySelector('[data-hold-card] [aria-label=${JSON.stringify(label)}]')`, 900);
   const menuTap = (label) => P.finger.tap(`document.querySelector('[data-action-menu] [aria-label=${JSON.stringify(label)}]')`, 900);
 
   // Order (once Today has read the data).
@@ -129,29 +131,31 @@ async function run() {
 
   // Press and hold.
   await P.finger.hold(body('Pay rent'), 480, 700);
-  check('hold opens Edit, Duplicate, Move to list, Delete', JSON.stringify(await menuItems()) === JSON.stringify(['Edit', 'Duplicate', 'Move to list', 'Delete', 'Cancel']), JSON.stringify(await menuItems()));
+  check('hold opens the centred card: Done, Edit, Move, Delete, More', JSON.stringify(await holdItems()) === JSON.stringify(['Done', 'Edit', 'Move', 'Delete', 'More', 'Cancel']), JSON.stringify(await holdItems()));
   await shot('phone-p4-menu');
+  await holdTap('More');
+  await C.sleep(500);
   await menuTap('Duplicate');
   check('Duplicate makes a copy', read('belific_tasks').filter((t) => t.title === 'Pay rent' && !t.deletedAt).length === 2);
   await P.finger.hold(body('Pay rent'), 480, 700);
-  await menuTap('Move to list');
+  await holdTap('Move');
   await C.sleep(500);
-  check('Move to list offers Brain Dump and the lists', JSON.stringify(await menuItems()) === JSON.stringify(['Brain Dump', '🏢 Office', 'Cancel']), JSON.stringify(await menuItems()));
+  check('Move offers Tomorrow, Next week, Pick a day, Brain Dump and the lists', JSON.stringify(await menuItems()) === JSON.stringify(['Tomorrow', 'Next week', 'Pick a day', 'Brain Dump', '🏢 Office', 'Cancel']), JSON.stringify(await menuItems()));
   await menuTap('🏢 Office');
   check('the task moves to the list', task('rent').listKey === 'L1');
   await P.finger.hold(body('Pay rent'), 480, 700);
-  await menuTap('Delete');
+  await holdTap('Delete');
   check('Delete deletes it (to Trash)', !!task('rent').deletedAt);
   await P.finger.hold(body('Evening review'), 480, 700);
-  await menuTap('Edit');
+  await holdTap('Edit');
   // 2.54.0 (P6): Edit opens the task details (it was the old task form).
   check('Edit opens the task details', await P.js(`!!document.querySelector('[data-task-details="review"]')`));
   await P.finger.tap(`[...document.querySelectorAll('[aria-label="Done"]')].pop()`, 800);
 
   // A repeating task's menu.
   await P.finger.hold(body('Old habit'), 480, 700);
-  check('a repeating task offers Skip this day and Delete repeating task', JSON.stringify(await menuItems()) === JSON.stringify(['Edit', 'Duplicate', 'Move to list', 'Skip this day', 'Delete repeating task', 'Cancel']), JSON.stringify(await menuItems()));
-  await menuTap('Cancel');
+  check('a repeating task also offers Skip today, with its plain line', JSON.stringify(await holdItems()) === JSON.stringify(['Done', 'Edit', 'Skip today', 'Move', 'Delete', 'More', 'Cancel']) && (await P.js(`(document.querySelector('[data-hold-skip-note]') || {}).innerText || ''`)).includes('not today. It still repeats next time.'), JSON.stringify(await holdItems()));
+  await holdTap('Cancel');
 
   const failed = summary();
   app.exit(failed === 0 ? 0 : 1);

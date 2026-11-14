@@ -19,8 +19,9 @@ import {
   loadRoutines,
   loadTasksRaw,
   shouldShowStarterRoutine,
+  updateTask,
 } from '../../lib/storage';
-import { dateKey } from '../../lib/kanban';
+import { addDays, dateKey, parseDateKey } from '../../lib/kanban';
 import { movedCaption, movedFrom } from '../../lib/series';
 import { duringCaption, hostIndex, insidePill } from '../../lib/hosting';
 import { buildToday, itemTitle, type TodayItem } from '../../lib/todayView';
@@ -40,6 +41,7 @@ import type { CustomEvent, Project, Routine, ScheduleEvent, Task, TaskList } fro
 import { AddButton, ScreenHeader } from '../../components/phone/chrome';
 import { newTaskTarget } from '../../components/phone/newTask';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
+import { HoldCard } from '../../components/phone/HoldCard';
 import { PressRow, haptic } from '../../components/phone/touch';
 import { PartRows } from '../../components/phone/PartRows';
 import { partsFor, partsProgress, withParts } from '../../lib/parts';
@@ -117,6 +119,8 @@ export default function TodayScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
+  // Phase 5: the centred card a press and hold on a task opens.
+  const [hold, setHold] = useState<{ item: Extract<TodayItem, { kind: 'task' }> } | null>(null);
   const [undo, setUndo] = useState<UndoMessage | null>(null);
   const [showDone, setShowDone] = useState(false);
   // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
@@ -205,29 +209,49 @@ export default function TodayScreen() {
       setMenu({ title: item.routine.title, items: [{ label: 'Edit routine', icon: 'create-outline', run: () => setEditRoutine(item.routine) }] });
       return;
     }
+    setHold({ item });
+  }
+
+  // Phase 5: what the centred hold card does. Move and More open as the next sheet once the card has closed.
+  const holdActions = (item: Extract<TodayItem, { kind: 'task' }>) => {
     const { task, projected } = item;
     const after = (fn: () => Promise<unknown>) => () => {
       fn().then(load);
     };
-    const moveItems: MenuItem[] = [
+    const tomorrowKey = dateKey(addDays(parseDateKey(todayKey), 1));
+    const nextWeekKey = dateKey(addDays(parseDateKey(todayKey), 7));
+    const toDay = (key: string, text: string) => () => {
+      void updateTask({ ...task, dueDate: key }).then(load);
+      setUndo({ id: Date.now(), text: `${text}: ${task.title}`, undo: () => void updateTask(task).then(load) });
+    };
+    const listItems: MenuItem[] = [
       { label: 'Brain Dump', icon: 'file-tray-outline', run: after(() => moveToList(task, projected, undefined)) },
       ...live.map((l) => ({ label: `${l.emoji ? `${l.emoji} ` : ''}${l.name}`, icon: 'list-outline' as const, run: after(() => moveToList(task, projected, l.key)) })),
     ];
-    const items: MenuItem[] = [
-      { label: 'Edit', icon: 'create-outline', run: () => void openEdit(task, projected) },
+    // A repeating task is never moved to a day this way (it has Skip today); it can change list.
+    const moveItems: MenuItem[] = task.recurrence
+      ? listItems
+      : [
+          { label: 'Tomorrow', icon: 'arrow-forward-outline', run: toDay(tomorrowKey, 'Moved to tomorrow') },
+          { label: 'Next week', icon: 'calendar-outline', run: toDay(nextWeekKey, 'Moved to next week') },
+          { label: 'Pick a day', icon: 'calendar-number-outline', run: () => void openEdit(task, projected) },
+          ...listItems,
+        ];
+    const moreItems: MenuItem[] = [
       ...(task.startTime && !task.cutsBelow ? [{ label: 'Add inside', icon: 'add-circle-outline' as const, run: () => setInside({ task, projected }) }] : []),
       { label: 'Duplicate', icon: 'copy-outline', run: after(() => duplicate(task, projected)) },
-      // The menu closes first; the list choice opens as a second menu.
-      { label: 'Move to list', icon: 'list-outline', run: () => setTimeout(() => setMenu({ title: `Move "${task.title}" to`, items: moveItems }), 250) },
-      ...(task.recurrence
-        ? [
-            { label: 'Skip this day', icon: 'play-skip-forward-outline' as const, run: after(() => skipDay(task)) },
-            { label: 'Delete repeating task', icon: 'trash-outline' as const, danger: true, run: after(() => deleteRepeating(task)) },
-          ]
-        : [{ label: 'Delete', icon: 'trash-outline' as const, danger: true, run: after(() => deleteOne(task)) }]),
     ];
-    setMenu({ title: task.title, items });
-  }
+    return {
+      completed: task.completed,
+      done: () => void tick(item, !task.completed),
+      edit: () => void openEdit(task, projected),
+      skip: after(() => skipDay(task)),
+      deleteOne: after(() => (task.recurrence ? skipDay(task) : deleteOne(task))),
+      deleteSeries: after(() => deleteRepeating(task)),
+      move: () => setTimeout(() => setMenu({ title: 'Move to', items: moveItems }), 250),
+      more: () => setTimeout(() => setMenu({ title: task.title, items: moreItems }), 250),
+    };
+  };
 
   // A tick on a row of a shift works in place (the round tick of an inside block or to do); Undo puts it back.
   async function tickInside(task: Task, projected: boolean, row: ShiftRow) {
@@ -435,6 +459,7 @@ export default function TodayScreen() {
       <AddInside target={inside} onClose={() => setInside(null)} onAdded={() => void load()} />
       <AddButton onPress={() => setDetails(newTaskTarget({ dueDate: todayKey, label: 'Today' }))} a11y="Add a task for today" />
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
+      {hold ? <HoldCard task={hold.item.task} projected={hold.item.projected} labels={projects} lists={lists} todayKey={todayKey} actions={holdActions(hold.item)} onClose={() => setHold(null)} /> : null}
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
       <AddEventModal
         visible={!!editEvent}

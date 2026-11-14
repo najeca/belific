@@ -30,7 +30,13 @@ export interface PhoneGoogleDeps {
       options?: { flowId?: string | null },
     ): Promise<{ data: { session?: unknown } | null; error: unknown }>;
   };
+  // Opens the sign in page. 3.58.0: on the iPhone this is the in app sign in sheet (expo-web-browser
+  // openAuthSessionAsync), which hands back the belific://auth-callback link itself ({ type: 'success', url }) or says
+  // the person closed it ({ type: 'cancel' | 'dismiss' }). Anything else means "opened; the link comes through Linking".
   openUrl(url: string): Promise<unknown>;
+  // Just before the code exchange creates a session: the hold that keeps sync off until the account is checked
+  // (lib/firstLaunch.ts). Optional, so older callers and tests are unchanged.
+  beforeExchange?(): Promise<void>;
   // Project check and SHA-256 support; throws if the sign in must not start.
   prepare(): Promise<void>;
   // Is crypto.getRandomValues secure (phoneAuthCore.randomnessIsSecure)? The PKCE
@@ -66,12 +72,24 @@ export function createPhoneGoogleFlow(deps: PhoneGoogleDeps) {
       const verifier = await deps.readVerifier(data.flowId).catch(() => null);
       const begun = gate.begin(data.url, now(), data.flowId, verifier);
       if (!begun.ok) throw new Error('not-started');
+      let opened: unknown;
       try {
-        await deps.openUrl(data.url);
+        opened = await deps.openUrl(data.url);
       } catch {
         gate.cancel();
         set({ busy: false, message: beginFailureText('no-browser') });
         return;
+      }
+      // The in app sheet returns the link (or the person's "Cancel") directly.
+      const result = opened && typeof opened === 'object' ? (opened as { type?: unknown; url?: unknown }) : null;
+      if (result?.type === 'success' && typeof result.url === 'string') {
+        await handleLink(result.url);
+      } else if (result?.type === 'cancel' || result?.type === 'dismiss') {
+        // Only if this attempt is still the open one (a link may have finished it meanwhile).
+        if (state.busy) {
+          gate.cancel();
+          set({ busy: false, message: FAILURE_TEXT.cancelled });
+        }
       }
     } catch {
       gate.cancel();
@@ -99,6 +117,7 @@ export function createPhoneGoogleFlow(deps: PhoneGoogleDeps) {
     let ok = false;
     try {
       await deps.prepare();
+      if (deps.beforeExchange) await deps.beforeExchange();
       const { data, error } = await deps.auth.exchangeCodeForSession(decision.code, { flowId: decision.flowId });
       // The error text is never shown or logged: it can echo request details.
       ok = !error && !!data?.session;

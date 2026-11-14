@@ -7,6 +7,7 @@ import { createSupabaseServer } from './syncServer';
 import { ensureProject } from './projectGuard';
 import { DELETED, HOLD_KEY, LAST_USER_KEY } from './accountSwitch';
 import { REVOKE_KEY } from './revokePending';
+import { ACCOUNT_CHECK_KEY } from './firstLaunch';
 import { authStorage } from './kv';
 import {
   loadBrainDumpItemsRaw,
@@ -101,7 +102,7 @@ export function ensureCurrentProject(): Promise<void> {
       setItem: (k, v) => kv.setItem(k, v),
       removeItem: (k) => kv.removeItem(k),
       stateKeys: SYNC_STATE_KEYS,
-      forgetKeys: [META.caps, META.seenCompletions, ...TIMESTAMPED_TABLES.map((t) => META.cursor(t)), HOLD_KEY],
+      forgetKeys: [META.caps, META.seenCompletions, ...TIMESTAMPED_TABLES.map((t) => META.cursor(t)), HOLD_KEY, ACCOUNT_CHECK_KEY],
       lastUserKey: LAST_USER_KEY,
       differentAccountMarker: DELETED,
       disableSync: () => setSyncEnabled(false),
@@ -144,10 +145,22 @@ export function subscribeSyncStatus(listener: (s: PublicSyncStatus) => void): ()
 // what happens to this computer's data first (cp6.1). Nothing syncs until then.
 // The key is read as a literal so this file stays free of desktop code; on
 // iOS belificDesktop is absent and this never reads anything.
+// 3.58.0: the phone has its own hold (lib/firstLaunch.ts ACCOUNT_CHECK_KEY): set before a sign in finishes and kept
+// while the account is unchecked or found empty, so nothing on the phone is uploaded until the person chooses. It is
+// read on every platform (the phone layout also runs in the web export, where belificDesktop exists).
 async function accountChoiceHeld(): Promise<boolean> {
-  if (!globalThis.belificDesktop) return false;
   try {
+    if ((await kv.getItem(ACCOUNT_CHECK_KEY)) !== null) return true;
+    if (!globalThis.belificDesktop) return false;
     return (await kv.getItem('belific_account_choice_pending')) !== null;
+  } catch {
+    return true;
+  }
+}
+
+async function phoneHeld(): Promise<boolean> {
+  try {
+    return (await kv.getItem(ACCOUNT_CHECK_KEY)) !== null;
   } catch {
     return true;
   }
@@ -162,7 +175,8 @@ export async function runFullSync(): Promise<void> {
     throw e;
   }
   if (await accountChoiceHeld()) {
-    engine.reportProblem(new Error('waiting for your choice about this computer’s data'));
+    // The phone's sheet already says what is waiting; the desktop's choice shows in the sync line.
+    if (!(await phoneHeld())) engine.reportProblem(new Error('waiting for your choice about this computer’s data'));
     return;
   }
   const userId = await getUserId();

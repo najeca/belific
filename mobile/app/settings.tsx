@@ -38,8 +38,7 @@ import {
 } from '../lib/data';
 import { seedOwnerSchedule } from '../lib/ownerSeed';
 import { supabase } from '../lib/supabase';
-import { signInWithApple, signOut, deleteAccount } from '../lib/auth';
-import { phoneGoogle } from '../lib/phoneGoogleAuth';
+import { signOut, deleteAccount } from '../lib/auth';
 import RoutineConvertSection from './components/RoutineConvertSection';
 import CalendarsSection from './components/CalendarsSection';
 import { usePhonePref } from '../components/phone/prefs';
@@ -65,7 +64,6 @@ export default function SettingsScreen() {
   const ownerTapCount = useRef(0);
   const [session, setSession] = useState<Session | null>(null);
   const [authBusy, setAuthBusy] = useState(false);
-  const [google, setGoogle] = useState(phoneGoogle.getState());
 
   useEffect(() => {
     async function checkPermissions() {
@@ -100,29 +98,17 @@ export default function SettingsScreen() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Google sign in (system browser): its waiting state and fixed messages.
-  useEffect(() => phoneGoogle.subscribe(setGoogle), []);
-
-  async function handleSignIn() {
-    setAuthBusy(true);
-    try {
-      await signInWithApple();
-    } catch (e) {
-      // Apple's own sheet already communicates a user-initiated
-      // cancellation — only surface a real failure.
-      const code = (e as { code?: string })?.code;
-      if (code !== 'ERR_REQUEST_CANCELED') {
-        Alert.alert('Sign in failed', 'Could not sign in with Apple. Please try again.');
-      }
-    } finally {
-      setAuthBusy(false);
-    }
+  // 3.58.0: after any sign out the Sign in screen comes back (PLAN_phone_parity item A).
+  function backToSignIn() {
+    if (router.canDismiss()) router.dismissAll();
+    router.replace('/welcome');
   }
 
   async function handleSignOut() {
     setAuthBusy(true);
     try {
       await signOut();
+      backToSignIn();
     } catch {
       Alert.alert('Error', 'Could not sign out. Please try again.');
     } finally {
@@ -154,6 +140,7 @@ export default function SettingsScreen() {
                     setAuthBusy(true);
                     try {
                       await deleteAccount();
+                      backToSignIn();
                     } catch {
                       Alert.alert('Error', 'Could not delete your account. Please try again.');
                     } finally {
@@ -357,38 +344,22 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </>
           ) : (
-            <>
-              <TouchableOpacity
-                style={styles.row}
-                onPress={handleSignIn}
-                disabled={authBusy || google.busy}
-                activeOpacity={0.7}
-                accessibilityLabel="Sign in with Apple"
-                accessibilityRole="button"
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="logo-apple" size={18} color={Colors.textPrimary} style={{ marginRight: 10 }} />
-                  <Text style={styles.rowLabel}>Sign in with Apple</Text>
-                </View>
-                {authBusy && <ActivityIndicator size="small" color={Colors.textSecondary} />}
-              </TouchableOpacity>
-              <View style={styles.divider} />
-              <TouchableOpacity
-                style={styles.row}
-                onPress={() => (google.busy ? phoneGoogle.cancel() : phoneGoogle.start().catch(() => {}))}
-                disabled={authBusy}
-                activeOpacity={0.7}
-                accessibilityLabel={google.busy ? 'Cancel Google sign in' : 'Sign in with Google'}
-                accessibilityRole="button"
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="logo-google" size={18} color={Colors.textPrimary} style={{ marginRight: 10 }} />
-                  <Text style={styles.rowLabel}>{google.busy ? 'Cancel Google sign in' : 'Sign in with Google'}</Text>
-                </View>
-                {google.busy && <ActivityIndicator size="small" color={Colors.textSecondary} />}
-              </TouchableOpacity>
-              {google.message && <Text style={styles.authNote}>{google.message}</Text>}
-            </>
+            // 3.58.0: one row to the Sign in screen, which has Google and Apple and checks the account before any
+            // sync (PLAN_phone_parity item A).
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => router.push('/welcome?from=settings')}
+              activeOpacity={0.7}
+              accessibilityLabel="Sign in"
+              accessibilityRole="button"
+              {...({ dataSet: { settingsSignIn: '1' } } as object)}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="person-circle-outline" size={18} color={Colors.textPrimary} style={{ marginRight: 10 }} />
+                <Text style={styles.rowLabel}>Sign in</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+            </TouchableOpacity>
           )}
         </View>
 

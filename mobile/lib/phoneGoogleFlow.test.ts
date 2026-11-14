@@ -222,15 +222,18 @@ test('a new start replaces the earlier attempt', async () => {
   assert.equal(log.exchanges.length, 1);
 });
 
-test('the wiring file uses Linking and the shared flow only: no desktop or Electron code', () => {
+test('the wiring file uses the in app sign in sheet (Linking elsewhere) and the shared flow only: no desktop or Electron code', () => {
   const root = path.resolve(import.meta.dirname);
-  for (const f of ['phoneGoogleAuth.ts', 'phoneGoogleFlow.ts', 'phoneAuthCore.ts', '../app/+native-intent.ts']) {
+  for (const f of ['phoneGoogleAuth.ts', 'phoneGoogleFlow.ts', 'phoneAuthCore.ts', 'phoneAccount.ts', 'firstLaunch.ts', '../app/welcome.tsx', '../app/+native-intent.ts']) {
     const text = fs.readFileSync(path.join(root, f), 'utf8');
     const imports = [...text.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
     for (const i of imports) assert.doesNotMatch(i, /desktop|electron|accountSwitch|SignInPage/i, `${f} imports ${i}`);
     assert.doesNotMatch(text, /require\(\s*['"]electron/);
   }
   const wiring = fs.readFileSync(path.join(root, 'phoneGoogleAuth.ts'), 'utf8');
+  // 3.58.0: the system sign in sheet on the iPhone, bound to the same redirect (no provider setting changes).
+  assert.match(wiring, /Platform\.OS === 'ios' \? WebBrowser\.openAuthSessionAsync\(url, REDIRECT_TO\)/);
   assert.match(wiring, /Linking\.openURL/);
+  assert.match(wiring, /beforeExchange: holdPhoneSync/);
   assert.match(wiring, /Linking\.addEventListener\('url'/);
 });

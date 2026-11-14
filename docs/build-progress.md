@@ -1012,3 +1012,9 @@ Gates: tsc clean; mobile 1215/1215; desktop 118/118; iOS markers OK (49, 0 hits)
 What: a press and hold on a task shows it large in the middle of the screen with Done, Edit, Skip today (with its plain line), Move, Delete (dark text, not red) and More. Details in the CHANGELOG.
 Tests: real new phone-p23 16/16; phone-p2, p4, p5 follow the card.
 Gates: tsc clean; mobile 1215/1215; desktop 118/118; iOS markers OK (49, 0 hits); security scan passed. Full regression NOT run.
+
+## Phone parity phase 2 (2026-11-14): 3.58.0, first launch and the empty account sheet
+What: a signed out phone opens on "Sign in to see your tasks" (Continue with Google, Continue with Apple, Use without an account), on first launch and after any sign out; after a sign in, sync is held until the account is checked, and an account with no rows shows "This account has no tasks yet" (Sign out and try another way, Start fresh), so nothing local is uploaded until the person chooses. Google now uses the in app sign in sheet (expo-web-browser, same redirect, PKCE). Google and Apple only (decision 4). Details in the CHANGELOG.
+Native: `expo-web-browser` ~15.0.11 is new (a normal Expo module with its config plugin); it is not in any build yet, so Google sign in needs a new TestFlight build. No database, Supabase, Apple or Google setting changed.
+Tests: new firstLaunch.test.ts (21); phoneGoogleFlow.test.ts (wiring); real new phone-p24 (35, fake Supabase, a stored fake session stands in for the sign in); `common.js` seeds "Use without an account" for the older phone checks.
+Gates: tsc clean; mobile 1236/1236; iOS markers OK (49, 0 hits); security scan passed (Git Bash). Real checks listed in the CHANGELOG. Full regression NOT run.

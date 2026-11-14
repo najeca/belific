@@ -104,6 +104,14 @@ function isolate() {
     fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
     fs.writeFileSync(settingsFile, JSON.stringify({ vibrantColours: false }));
   }
+  // 3.58.0: a signed out phone opens on the Sign in screen until "Use without an account" is chosen. The older phone
+  // checks describe a phone that already chose it, so they start with that key; a check of the first launch
+  // (phone-p24) sets BELIFIC_TEST_FIRST_LAUNCH=1 before this. The desktop layout never reads the key.
+  const noAccountFile = path.join(userData, 'data', 'belific_phone_no_account.kv');
+  if (process.env.BELIFIC_TEST_FIRST_LAUNCH !== '1' && !fs.existsSync(noAccountFile)) {
+    fs.mkdirSync(path.dirname(noAccountFile), { recursive: true });
+    fs.writeFileSync(noAccountFile, '1');
+  }
   return userData;
 }
 
@@ -323,4 +331,4 @@ function firstWindow() {
   return BrowserWindow.getAllWindows()[0];
 }
 
-module.exports = { MAIN, SUPABASE_HOST, isolate, watchNetwork, installFakeSupabase, sleep, waitFor, seedTasks, makeChecker, firstWindow };
+module.exports = { MAIN, SUPABASE_HOST, fakeJwt, isolate, watchNetwork, installFakeSupabase, sleep, waitFor, seedTasks, makeChecker, firstWindow };

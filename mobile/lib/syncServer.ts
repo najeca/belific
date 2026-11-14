@@ -51,6 +51,26 @@ function isMissingColumn(error: PgError): boolean {
   );
 }
 
+// 3.58.0 (phone first launch): does this account have any Belific row at all? One read of one row per table, nothing
+// written. A table the server lacks counts as empty; any other error throws (the caller says it could not check).
+export const ACCOUNT_TABLES: AnyTable[] = ['tasks', 'lists', 'projects', 'brain_dump_items', 'custom_events', 'routines', 'custom_categories', 'user_settings', 'routine_completions'];
+
+export async function accountHasRows(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: SupabaseClient<any, any, any>,
+  userId: string,
+): Promise<boolean> {
+  for (const table of ACCOUNT_TABLES) {
+    const { data, error } = await client.from(table).select('user_id').eq('user_id', userId).limit(1);
+    if (error) {
+      if (isMissingColumn(error)) continue;
+      throw new Error(error.message);
+    }
+    if ((data ?? []).length > 0) return true;
+  }
+  return false;
+}
+
 export function createSupabaseServer(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: SupabaseClient<any, any, any>,

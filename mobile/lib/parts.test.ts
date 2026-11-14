@@ -57,7 +57,7 @@ test('E2: the parent with no estimate counts its parts (75m); its own estimate w
   const own = withParts([{ ...upper, durationMinutes: 60 }, bench, shoulders, back]);
   assert.equal(own[0].partsMinutes, undefined);
   assert.equal(estimateOf(own[0]), 60);
-  assert.equal(partsAddUp({ durationMinutes: 60 }, [bench, shoulders, back], (m) => `${m}m`), 'Parts add up to 75m.');
+  assert.equal(partsAddUp({ durationMinutes: 60 }, [bench, shoulders, back], (m) => `${m}m`), 'Smaller tasks add up to 75m.');
   assert.equal(partsAddUp({}, [bench], (m) => `${m}m`), null, 'no line when the sum is the estimate');
   assert.equal(partMinutes([T('a'), T('b', { durationMinutes: 10 })]), 10, 'a new part has no estimate and adds nothing');
 });
@@ -93,8 +93,8 @@ test('delete: "the task only" turns the parts into ordinary tasks on its Day and
   const allOut = deleteWrites(upper, [bench, shoulders, back], 'all', 'now');
   assert.ok(allOut.every((r) => r.deletedAt === 'now'));
   assert.ok(allOut.slice(1).every((p) => p.parentId === 'upper'), 'the link stays, so Restore puts them back under it');
-  assert.equal(deleteAllText(3), 'Delete the task and its 3 parts');
-  assert.equal(deleteAllText(1), 'Delete the task and its part');
+  assert.equal(deleteAllText(3), 'Delete the task and its 3 smaller tasks');
+  assert.equal(deleteAllText(1), 'Delete the task and its smaller task');
 });
 
 test('take out: an ordinary task on the parent\'s Day and list; new parts: no Day, the parent\'s list, a name needed', () => {
@@ -145,7 +145,7 @@ test('the Trash: the parts deleted with their parent are one entry with it ("Wit
   const entries = trashEntries(rows, Date.parse(at) + 1000);
   assert.equal(entries.length, 1);
   assert.equal(entries[0].title, 'Upper day');
-  assert.equal(entries[0].note, 'With its 3 parts.');
+  assert.equal(entries[0].note, 'With its 3 smaller tasks.');
   assert.equal(partsDeletedWith(entries[0].row, rows).length, 3);
 });
 
@@ -188,7 +188,7 @@ test('R5, E4: Wrap up Tomorrow with some parts done splits the task like steps; 
   const item = dayItems(rows, '2026-11-12', '2026-11-12', 15)[0];
   assert.deepEqual(item.parts, { done: 1, total: 3 });
   assert.equal(buttonsFor(item).partsLeft, 2);
-  assert.equal(partsButton(2), 'Only the 2 parts left to tomorrow');
+  assert.equal(partsButton(2), 'Only the 2 smaller tasks left to tomorrow');
   const plan = splitParts(up, partsOf([up, ...ps.map((p) => ({ ...p, parentId: 'up' }))], 'up'), '2026-11-13', 'copy1', 'now');
   assert.equal(plan.today.completed, true);
   assert.equal(plan.copy.dueDate, '2026-11-13');
@@ -207,7 +207,7 @@ test('R5: Clear tools: a task and its parts count once; to the Trash they go tog
   const plan = planClear([up, ...ps], { kind: 'list', listKey: 'gym', name: 'Gym' }, '2026-11-12');
   assert.equal(plan.count, 1, 'counted as one');
   assert.deepEqual([plan.withParts, plan.parts], [1, 2]);
-  assert.equal(partsNote(plan, 'trash'), '1 task has 2 parts, which go with it.');
+  assert.equal(partsNote(plan, 'trash'), '1 task has 2 smaller tasks, which go with it.');
   const rows = oneOffRows(plan, 'trash', 'now');
   assert.deepEqual(rows.map((r) => r.id).sort(), ['p1', 'p2', 'up']);
   assert.ok(rows.every((r) => r.deletedAt === 'now'));
@@ -235,4 +235,13 @@ test('R5: undoing the tick that created a part\'s day row unticks it, never a to
   assert.equal(plan.writes[0].completed, false);
   const again = planStep({ ...entry, written: plan.written }, [camp(), tpl, plan.writes[0]], '2026-11-12T10:00:09.000Z', 'redo');
   assert.equal(again.writes[0].completed, true);
+});
+
+test('the words (3.55.0): Smaller tasks, Add a smaller task, a one line hint, Turn steps into smaller tasks', async () => {
+  const m = await import('./parts.ts');
+  assert.equal(m.PARTS, 'Smaller tasks');
+  assert.equal(m.ADD_PART, 'Add a smaller task');
+  assert.equal(m.PARTS_HINT, 'Break a big task into steps you can tick off one at a time.');
+  assert.equal(m.TURN_INTO_PARTS, 'Turn steps into smaller tasks');
+  assert.equal(m.partOfText('Upper day'), 'Smaller task of Upper day');
 });

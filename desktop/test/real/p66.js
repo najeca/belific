@@ -5,12 +5,12 @@
 //   - "Upper day" repeats Mon to Thu with two parts: today's card shows "0 of 2 done"; a tick in the card stores that
 //     day's row only ("bench:2026-11-12"), the next day's card is "0 of 2 done" again (the ticks reset); the last open part
 //     completes that day; one Ctrl+Z each;
-//   - "Pull day" (one off, today) has three parts, one done: Wrap up shows "3 parts" and "Only the 2 parts left to
+//   - "Pull day" (one off, today) has three parts, one done: Wrap up shows "3 smaller tasks" and "Only the 2 parts left to
 //     tomorrow" (E4); it keeps today's Pull day done with its done part and puts a copy on tomorrow holding the two open
 //     parts (re-linked); one Ctrl+Z puts it back;
-//   - "Leg day" (one off, today, in the Gym list) with two parts: Clear list says "1 task has 2 parts, which go with it"
+//   - "Leg day" (one off, today, in the Gym list) with two parts: Clear list says "1 task has 2 smaller tasks, which go with it"
 //     and moves all three to the Trash together; one Ctrl+Z puts it back;
-//   - Delete repeating task on Upper day asks "Delete the task only" or "Delete the task and its 2 parts".
+//   - Delete repeating task on Upper day asks "Delete the task only" or "Delete the task and its 2 smaller tasks".
 // Text 14 px or more, nothing red. Runs quiet.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -117,9 +117,9 @@ async function run() {
   await I.click(`document.querySelector('[data-popover] [aria-label="Wrap up from the menu"]')`, 900);
   check('Wrap up opens', await I.exists(`document.querySelector('[data-wrap-up]')`));
   const pullRow = await I.js(`(() => { const r = document.querySelector('[data-wrap-row="pull"]'); return r ? r.innerText.replace(/\\s+/g, ' ') : null; })()`);
-  check('Pull day says "3 parts"; Rows, Curls and Face pulls are not rows of their own', !!pullRow && pullRow.includes('3 parts') && !(await I.exists(`document.querySelector('[data-wrap-row="row"]')`)), String(pullRow));
+  check('Pull day says "3 smaller tasks"; Rows, Curls and Face pulls are not rows of their own', !!pullRow && pullRow.includes('3 smaller tasks') && !(await I.exists(`document.querySelector('[data-wrap-row="row"]')`)), String(pullRow));
   const btn = await I.js(`(() => { const b = document.querySelector('[data-wrap-for="pull"][data-wrap-btn="parts"]'); return b ? [b.innerText.trim(), parseFloat(getComputedStyle(b.querySelector('div[dir]') || b).fontSize)] : null; })()`);
-  check('it offers "Only the 2 parts left to tomorrow", 14 px or more', !!btn && btn[0] === 'Only the 2 parts left to tomorrow' && btn[1] >= 14, JSON.stringify(btn));
+  check('it offers "Only the 2 smaller tasks left to tomorrow", 14 px or more', !!btn && btn[0] === 'Only the 2 smaller tasks left to tomorrow' && btn[1] >= 14, JSON.stringify(btn));
   await I.shot('p66-wrap');
   await I.click(`document.querySelector('[data-wrap-for="pull"][data-wrap-btn="parts"]')`, 1700);
   const pullToday = byId('pull');
@@ -148,9 +148,9 @@ async function run() {
   await I.js(`(() => { const b = [...document.querySelectorAll('[aria-label="Confirm delete repeating task"]')][0]; b && b.click(); })()`);
   await C.sleep(900);
   const ask = await I.js(`(() => { const m = document.querySelector('[data-menu-parts-delete]'); return m ? m.innerText.replace(/\\s+/g, ' ') : null; })()`);
-  check('Delete repeating task asks "Delete the task only" or "Delete the task and its 2 parts"', !!ask && ask.includes('Delete the task only') && ask.includes('Delete the task and its 2 parts'), String(ask));
+  check('Delete repeating task asks "Delete the task only" or "Delete the task and its 2 smaller tasks"', !!ask && ask.includes('Delete the task only') && ask.includes('Delete the task and its 2 smaller tasks'), String(ask));
   await I.shot('p66-delete');
-  await I.click(I.byLabel('Delete the task and its 2 parts'), 1800);
+  await I.click(I.byLabel('Delete the task and its 2 smaller tasks'), 1800);
   check('all: the series and both part templates are in the Trash, nothing left as a loose task', !live().some((t) => ['Upper day', 'Bench press', 'Shoulders'].includes(t.title) && !t.completed) && raw().filter((t) => t.parentId === 'up' && !t.id.includes(':')).every((t) => t.deletedAt), JSON.stringify(raw().filter((t) => t.id.startsWith('up') || t.parentId === 'up').map((t) => [t.id, !!t.completed, !!t.deletedAt, t.parentId])));
   await undo();
   check('one Ctrl+Z brings the series back (its parts with it)', live().some((t) => t.title === 'Upper day'));

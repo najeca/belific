@@ -155,7 +155,7 @@ next lin` && !(await modalOpen()), JSON.stringify(taskNamed('Alpha').notes));
   // ---- Add part: spaces and Enter (3.50.0, R4, E3: Add part replaces Add subtask on a task with no steps; Bravo has none) ----
   const partsOfB = () => read('belific_tasks').filter((x) => !x.deletedAt && x.parentId === taskNamed('Bravo').id);
   await openModal('Bravo');
-  await click(inModal('[aria-label^="Add a part to"]'));
+  await click(inModal('[aria-label^="Add a smaller task to"]'));
   await type('second part here');
   check('Add part: spaces typed, details still open', (await activeValue()) === 'second part here' && (await modalOpen()), `${JSON.stringify(await activeValue())} ${await js('document.activeElement && document.activeElement.getAttribute("aria-label")')}`);
   await press('Return');

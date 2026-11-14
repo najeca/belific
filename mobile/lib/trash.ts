@@ -109,7 +109,7 @@ export function partsDeletedWithSeries(entryRow: Task, tasks: Task[]): Task[] {
   const moments = new Set(tasks.filter((r) => !r.parentId && rootTaskId(r.id) === root && isDeleteEvent(r)).map((r) => r.deletedAt));
   return tasks.filter((t) => t.parentId === root && !(idDate(t.id) !== undefined) && isDeleteEvent(t) && moments.has(t.deletedAt));
 }
-export const withPartsNote = (n: number): string => (n === 1 ? 'With its part.' : `With its ${n} parts.`);
+export const withPartsNote = (n: number): string => (n === 1 ? 'With its smaller task.' : `With its ${n} smaller tasks.`);
 
 export function trashEntries(tasks: Task[], nowMs: number): TrashEntry[] {
   const cutoff = nowMs - TRASH_DAYS * DAY_MS;

@@ -55,7 +55,7 @@ export function PartRows({ parent, parts, onTick, onMore }: { parent: Task; part
         </View>
       ))}
       {more > 0 ? (
-        <Pressable onPress={onMore} style={s.more} accessibilityRole="button" accessibilityLabel={`${more} more parts of ${parent.title}`} {...({ dataSet: { cardPartsMore: String(more) } } as object)}>
+        <Pressable onPress={onMore} style={s.more} accessibilityRole="button" accessibilityLabel={`${more} more smaller tasks of ${parent.title}`} {...({ dataSet: { cardPartsMore: String(more) } } as object)}>
           <Text style={s.moreText}>{more} more</Text>
         </Pressable>
       ) : null}

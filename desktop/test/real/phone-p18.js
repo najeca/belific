@@ -7,8 +7,8 @@
 //   - the details: a Parts section with a visible "Add part" button and a box (type, Enter, the box stays for the next); the
 //     old "Add a step" is gone for a task with no steps; a task with steps keeps them under "Checklist" with "Turn into
 //     parts" (one tap, the same names and ticks);
-//   - a part opens with "Part of Upper day" and no Date or Time; "Take out of Upper day" makes it an ordinary task;
-//   - Delete on a task with parts asks "Delete the task only" or "Delete the task and its 2 parts";
+//   - a part opens with "Smaller task of Upper day" and no Date or Time; "Take out of Upper day" makes it an ordinary task;
+//   - Delete on a task with parts asks "Delete the task only" or "Delete the task and its 2 smaller tasks";
 //   - the details of a repeating day have "Repeat until" ("No end"): a day on or after the start is written on every row, the
 //     repeat line reads "..., until ...", a day before the start is refused with a quiet line, Clear brings the days back;
 //   - Today: a repeating day's parts are rows under it and reset each day (a tick is that day's row).
@@ -131,7 +131,7 @@ async function run() {
   await P.finger.tap(`[...document.querySelectorAll('[data-task-row="Upper day"] [data-task-body]')][0]`, 1200);
   check('a tap opens the details of Upper day', await P.js(`!!document.querySelector('[data-task-details="up"]')`));
   check('Parts with a visible "Add part" button, and no "Add a step"', (await P.js(`!!${inSheet('[data-add-part]')}`)) && !(await P.js(`!!${inSheet('[aria-label="Add a step"]')}`)));
-  check('the Parts heading reads "Parts  0 of 2 done"; text 14 px or more; nothing red', ((await sheetText()).replace(/\s+/g, ' ')).toLowerCase().includes('parts 0 of 2 done') && (await P.js(`!!${inSheet('[data-parts-bar="0/2"]')}`)));
+  check('the Parts heading reads "Smaller tasks  0 of 2 done"; text 14 px or more; nothing red', ((await sheetText()).replace(/\s+/g, ' ')).toLowerCase().includes('smaller tasks 0 of 2 done') && (await P.js(`!!${inSheet('[data-parts-bar="0/2"]')}`)));
   await focusIn('[data-part-input]');
   await typeText('Back');
   await enter();
@@ -145,22 +145,22 @@ async function run() {
   // ---- a part opens with "Part of" ----
   await tapIn('[data-part-open="Back"]', 1200);
   const partSheet = (await sheetText()).replace(/\s+/g, ' ');
-  check('a part opens with "Part of Upper day", and no Date or Time row', partSheet.includes('Part of Upper day') && !(await P.js(`!!${inSheet('[data-detail-row="date"]')}`)) && !(await P.js(`!!${inSheet('[data-detail-row="time"]')}`)) && (await P.js(`!!${inSheet('[data-detail-row="duration"]')}`)), partSheet.slice(0, 160));
+  check('a part opens with "Smaller task of Upper day", and no Date or Time row', partSheet.includes('Smaller task of Upper day') && !(await P.js(`!!${inSheet('[data-detail-row="date"]')}`)) && !(await P.js(`!!${inSheet('[data-detail-row="time"]')}`)) && (await P.js(`!!${inSheet('[data-detail-row="duration"]')}`)), partSheet.slice(0, 160));
   await tapIn('[data-take-out]', 1200);
   check('"Take out of Upper day" makes it an ordinary task in the list', !task(partsNow[2].id).parentId, JSON.stringify(task(partsNow[2].id)));
   await C.sleep(600);
 
   // ---- steps into parts ----
   await P.finger.tap(`[...document.querySelectorAll('[data-task-row="Leg day"] [data-task-body]')][0]`, 1200);
-  check('a task with steps keeps them under "Checklist" with "Turn into parts"', ((await sheetText()).replace(/\s+/g, ' ')).toLowerCase().includes('checklist') && (await P.js(`!!${inSheet('[aria-label="Turn into parts"]')}`)));
-  await tapIn('[aria-label="Turn into parts"]', 1200);
+  check('a task with steps keeps them under "Checklist" with "Turn steps into smaller tasks"', ((await sheetText()).replace(/\s+/g, ' ')).toLowerCase().includes('checklist') && (await P.js(`!!${inSheet('[aria-label="Turn steps into smaller tasks"]')}`)));
+  await tapIn('[aria-label="Turn steps into smaller tasks"]', 1200);
   const legParts = live().filter((t) => t.parentId === 'leg');
-  check('Turn into parts: two parts with the same names and ticks, the checklist emptied', legParts.map((p) => `${p.title}:${p.completed}`).join() === 'Squats:true,Lunges:false' && !(task('leg').subtasks || []).length, JSON.stringify(legParts));
+  check('Turn steps into smaller tasks: two parts with the same names and ticks, the checklist emptied', legParts.map((p) => `${p.title}:${p.completed}`).join() === 'Squats:true,Lunges:false' && !(task('leg').subtasks || []).length, JSON.stringify(legParts));
 
   // ---- Delete with parts ----
   await tapIn('[aria-label="Delete task"]', 900);
   const menuText = await P.js(`(document.querySelector('[data-action-menu]') || {}).innerText || ''`);
-  check('Delete asks "Delete the task only" or "Delete the task and its 2 parts"', menuText.includes('Delete the task only') && menuText.includes('Delete the task and its 2 parts'), menuText);
+  check('Delete asks "Delete the task only" or "Delete the task and its 2 smaller tasks"', menuText.includes('Delete the task only') && menuText.includes('Delete the task and its 2 smaller tasks'), menuText);
   await menuTap('Delete the task only');
   check('"Delete the task only": Leg day to the Trash, its parts ordinary tasks', !!task('leg').deletedAt && legParts.every((p) => !task(p.id).parentId && !task(p.id).deletedAt));
 

@@ -997,3 +997,8 @@ Gates: tsc clean; mobile 1211/1211; desktop 118/118; iOS markers OK (49, 0 hits)
 What: a reminder tapped on a task on Default gives exactly that reminder (shared tapLead, phone and desktop); the phone Reminders row no longer overflows on iOS. Details in the CHANGELOG.
 Tests: reminder.test.ts +1; real phone-p7 17/17, phone-p16 27/27, p36 18/18 (expectations updated on purpose), p15 31/31, phone-p6 23/23.
 Gates: tsc clean; mobile 1212/1212; iOS markers OK; security scan passed. Full regression NOT run.
+
+## Phone parity phase 3 (2026-11-14): 3.55.0, Smaller tasks and the example lists and labels
+What: "Parts" becomes "Smaller tasks" on phone and desktop (heading, Add a smaller task, hint, Turn steps into smaller tasks, every count); three example lists (Home, Work, Shopping) and three example labels (Health, Money, Family) offered with one tap. Details in the CHANGELOG.
+Tests: presets.test.ts, parts.test.ts; real new phone-p21 14/14, p69 6/6; words updated in nine real checks.
+Gates: tsc clean; mobile 1215/1215; desktop 118/118; iOS markers OK (49, 0 hits); security scan passed. Real checks listed in the CHANGELOG. Full regression NOT run.

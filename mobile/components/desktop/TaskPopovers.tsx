@@ -10,7 +10,8 @@ import { DURATION_PRESETS, parseDuration, presetLabel } from '../../lib/duration
 import { colorClash, freeColorKey, labelColor } from '../../lib/labelColors';
 import LabelForm from './LabelForm';
 import { countTasksWithLabel, createLabel, deleteLabel, loadLabels, renameLabel, setLabelColor } from '../../lib/labels';
-import { availableSuggestions, findLabelByName, normalizeName } from '../../lib/labelRules';
+import { findLabelByName, normalizeName } from '../../lib/labelRules';
+import { PRESET_HINT, availableLabelPresets, type LabelPreset } from '../../lib/presets';
 import { NEEDS_TIME_HINT, NO_START_NOTE, REMINDER_LEADS, MAX_TASK_REMINDERS, effectiveReminders, leadLabel, reminderPatch, reminderState, tapLead } from '../../lib/reminder';
 import { useDefaultReminders } from './reminderStore';
 import {
@@ -400,7 +401,7 @@ export function LabelBody({ task, ops, done }: BodyProps) {
   const query = normalizeName(text);
   const shown = useMemo(() => (query ? labels.filter((l) => normalizeName(l.name).includes(query)) : labels), [labels, query]);
   const suggestions = useMemo(
-    () => availableSuggestions(labels).filter((s) => !query || normalizeName(s).includes(query)),
+    () => availableLabelPresets(labels).filter((p) => !query || normalizeName(p.name).includes(query)),
     [labels, query],
   );
   const exact = query ? findLabelByName(labels, text) : undefined;
@@ -408,6 +409,13 @@ export function LabelBody({ task, ops, done }: BodyProps) {
   async function choose(key: string | undefined) {
     await ops.patch({ projectKey: key });
     done();
+  }
+  // Phase 3: one tap makes an example label with its emoji and colour (the original eight when the new colours are off).
+  async function addPreset(p: LabelPreset) {
+    const result = await createLabel(p.name, p.emoji, newColorsOk ? p.colorKey : p.originalKey, newColorsOk);
+    if (!result) return;
+    notifyChanged();
+    await choose(result.label.key);
   }
   const openNew = (name: string) => {
     setForm({ mode: 'new', name: name.trim() });
@@ -588,9 +596,10 @@ export function LabelBody({ task, ops, done }: BodyProps) {
       {suggestions.length > 0 && (
         <>
           <PopoverHeading>Suggested</PopoverHeading>
-          {suggestions.map((s) => (
-            <Row key={s} label={s} leading={<Ionicons name="add" size={16} color={Colors.textSecondary} />} onPress={() => openNew(s)} a11y={`Add label ${s}`} />
+          {suggestions.map((p) => (
+            <Row key={p.name} label={`${p.emoji} ${p.name}`} leading={<Ionicons name="add" size={16} color={Colors.textSecondary} />} onPress={() => void addPreset(p)} a11y={`Add label ${p.name}`} />
           ))}
+          <Text style={[popoverStyles.note, { fontSize: 14 }]}>{PRESET_HINT}</Text>
         </>
       )}
 
@@ -770,7 +779,7 @@ export function OverflowBody({
     if (partsAsk !== null && task) {
       return (
         <View style={[styles.list, styles.partsAsk]} {...({ dataSet: { menuPartsDelete: String(partsAsk) } } as object)}>
-          <Text style={styles.partsAskText}>This repeating task has {partsAsk === 1 ? '1 part' : `${partsAsk} parts`}.</Text>
+          <Text style={styles.partsAskText}>This repeating task has {partsAsk === 1 ? '1 smaller task' : `${partsAsk} smaller tasks`}.</Text>
           {(['only', 'all'] as const).map((c) => (
             <Row
               key={c}
@@ -852,7 +861,7 @@ export function OverflowBody({
   if (partsAsk !== null && task && !series) {
     return (
       <View style={[styles.list, styles.partsAsk]} {...({ dataSet: { menuPartsDelete: String(partsAsk) } } as object)}>
-        <Text style={styles.partsAskText}>This task has {partsAsk === 1 ? '1 part' : `${partsAsk} parts`}.</Text>
+        <Text style={styles.partsAskText}>This task has {partsAsk === 1 ? '1 smaller task' : `${partsAsk} smaller tasks`}.</Text>
         {(['only', 'all'] as const).map((c) => (
           <Row
             key={c}

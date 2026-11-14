@@ -7,9 +7,9 @@
 //   - on the board they are rows in Upper day's card with a bar and "0 of 3 done", never cards of their own, and not in
 //     the left list; a tick works in place ("1 of 3 done"), one Ctrl+Z each; the last one completes Upper day;
 //   - totals count once (E2): "Pull day" has no estimate and parts of 20m and 25m, so today reads 0:45;
-//   - a part's details say "Part of Upper day" with no Day row, and "Take out of Upper day" makes it an ordinary task;
-//   - "Leg day" keeps its steps under "Checklist" with "Turn into parts"; one Ctrl+Z puts the steps back;
-//   - Delete asks "Delete the task only" or "Delete the task and its 3 parts"; each is one Ctrl+Z;
+//   - a part's details say "Smaller task of Upper day" with no Day row, and "Take out of Upper day" makes it an ordinary task;
+//   - "Leg day" keeps its steps under "Checklist" with "Turn steps into smaller tasks"; one Ctrl+Z puts the steps back;
+//   - Delete asks "Delete the task only" or "Delete the task and its 3 smaller tasks"; each is one Ctrl+Z;
 //   - text 14 px or more, nothing red.
 // Runs quiet.
 const fs = require('node:fs');
@@ -109,7 +109,7 @@ async function run() {
     await I.enter([], 1200);
   }
   const parts = live().filter((t) => t.parentId === 'upper');
-  check('Enter adds each part and the box stays open for the next: three parts, the parent\'s id, no Day', parts.length === 3 && parts.map((p) => p.title).join(',') === 'Bench press,Shoulders,Back' && parts.every((p) => !p.dueDate && !p.startTime) && (await I.activeLabel()) === 'Add a part to Upper day', JSON.stringify(parts.map((p) => [p.title, p.dueDate])));
+  check('Enter adds each part and the box stays open for the next: three parts, the parent\'s id, no Day', parts.length === 3 && parts.map((p) => p.title).join(',') === 'Bench press,Shoulders,Back' && parts.every((p) => !p.dueDate && !p.startTime) && (await I.activeLabel()) === 'Add a smaller task to Upper day', JSON.stringify(parts.map((p) => [p.title, p.dueDate])));
   check('the section says "0 of 3 done"; 14 px or more; nothing red', (await I.js(`document.querySelector('[data-parts-done]').innerText.trim()`)) === '0 of 3 done' && (await minFont('[data-parts-section]')) >= 14 && (await notRed('[data-parts-section]')));
   await I.shot('p65-details');
   await closeDetails();
@@ -137,7 +137,7 @@ async function run() {
   // ---- a part's details, take out ----
   await openDetails('upper', 'Upper day');
   await I.click(`document.querySelector('[data-part-open="${bench.id}"]')`, 1000);
-  check('the part\'s details say "Part of Upper day", with no Day row', (await I.exists(`document.querySelector('[data-part-of="upper"]')`)) && (await I.js(`document.querySelector('[data-part-of]').innerText.includes('Part of Upper day')`)) && !(await I.js(`document.querySelector('[data-detail-panel]').innerText.includes('Task date')`)));
+  check('the part\'s details say "Smaller task of Upper day", with no Day row', (await I.exists(`document.querySelector('[data-part-of="upper"]')`)) && (await I.js(`document.querySelector('[data-part-of]').innerText.includes('Smaller task of Upper day')`)) && !(await I.js(`document.querySelector('[data-detail-panel]').innerText.includes('Task date')`)));
   await I.shot('p65-part');
   await I.click(`document.querySelector('[data-take-out="${bench.id}"]')`, 1500);
   check('"Take out of Upper day": an ordinary task on today, in no parent', !byId(bench.id).parentId && byId(bench.id).dueDate === TODAY, JSON.stringify(byId(bench.id)));
@@ -148,10 +148,10 @@ async function run() {
 
   // ---- steps into parts ----
   await openDetails('leg', 'Leg day');
-  check('Leg day keeps its steps under "Checklist" with a visible "Turn into parts"', (await I.js(`document.querySelector('[data-detail-panel]').innerText.includes('Checklist')`)) && (await I.exists(`document.querySelector('[data-turn-into-parts]')`)));
+  check('Leg day keeps its steps under "Checklist" with a visible "Turn steps into smaller tasks"', (await I.js(`document.querySelector('[data-detail-panel]').innerText.includes('Checklist')`)) && (await I.exists(`document.querySelector('[data-turn-into-parts]')`)));
   await I.click(`document.querySelector('[data-turn-into-parts]')`, 1500);
   const legParts = live().filter((t) => t.parentId === 'leg');
-  check('Turn into parts: two parts with the same names and ticks, the checklist emptied', legParts.map((p) => `${p.title}:${p.completed}`).join(',') === 'Squats:true,Lunges:false' && !(byId('leg').subtasks || []).length, JSON.stringify([legParts, byId('leg').subtasks]));
+  check('Turn steps into smaller tasks: two parts with the same names and ticks, the checklist emptied', legParts.map((p) => `${p.title}:${p.completed}`).join(',') === 'Squats:true,Lunges:false' && !(byId('leg').subtasks || []).length, JSON.stringify([legParts, byId('leg').subtasks]));
   await closeDetails();
   await undo();
   check('one Ctrl+Z puts the steps back and the parts away', (byId('leg').subtasks || []).length === 2 && !live().some((t) => t.parentId === 'leg'));
@@ -160,10 +160,11 @@ async function run() {
   await openDetails('upper', 'Upper day');
   await I.click(I.byLabel('More task actions'), 500);
   await I.click(I.byLabel('Delete task'), 700);
-  check('Delete asks "Delete the task only" or "Delete the task and its 3 parts"', (await I.exists(`document.querySelector('[data-parts-delete-choice="only"]')`)) && (await I.js(`document.querySelector('[data-parts-delete-choice="all"]').innerText.trim()`)) === 'Delete the task and its 3 parts');
+  check('Delete asks "Delete the task only" or "Delete the task and its 3 smaller tasks"', (await I.exists(`document.querySelector('[data-parts-delete-choice="only"]')`)) && (await I.js(`document.querySelector('[data-parts-delete-choice="all"]').innerText.trim()`)) === 'Delete the task and its 3 smaller tasks');
   await I.shot('p65-delete');
+  await I.js(`document.querySelector('[data-parts-delete-choice="all"]').scrollIntoView({ block: 'center' })`);
   await I.click(`document.querySelector('[data-parts-delete-choice="all"]')`, 1500);
-  check('"Delete the task and its 3 parts": all four to the Trash', ['upper', ...raw().filter((t) => t.parentId === 'upper').map((t) => t.id)].every((id) => byId(id).deletedAt) && raw().filter((t) => t.parentId === 'upper').length === 3);
+  check('"Delete the task and its 3 smaller tasks": all four to the Trash', ['upper', ...raw().filter((t) => t.parentId === 'upper').map((t) => t.id)].every((id) => byId(id).deletedAt) && raw().filter((t) => t.parentId === 'upper').length === 3);
   await undo();
   // A tombstone is never cleared: Upper day comes back under a new id, and its parts follow it (R4).
   const up2 = byTitle('Upper day');

@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.55.0 — 2026-11-14 (Smaller tasks replaces Parts; three example lists and three example labels)
+
+**Phone and desktop. No database change, no sync code touched.** PLAN_phone_parity phase 3 (items 7 and 6).
+- **Wording (one shared change, `lib/parts.ts`):** the heading is **Smaller tasks** (was Parts), the button **Add a smaller task** (was Add part) with the one line hint "Break a big task into steps you can tick off one at a time.", **Turn steps into smaller tasks** (was Turn into parts). Everywhere a count is said it follows: "3 smaller tasks" (Plan my day, Plan week, Wrap up and its button, Clear list, the Trash note, the delete questions "Delete the task and its 3 smaller tasks"), "Smaller tasks add up to 75m.", "Smaller task of Upper day", the box's placeholder and labels. "2 of 5 done" and "Checklist" (a shift's to dos) stay.
+- **Presets (`lib/presets.ts`):** lists Home 🏠, Work 💼, Shopping 🛒; labels Health 💪 (green), Money 💷 (yellow), Family 👪 (blue; the original sage, sand and sky on a desktop that has not turned the 2.27 colours on). One tap makes one; nothing is made without a tap; one a person already has is not offered again. Phone: with no lists the Tasks tab shows the three as dashed chips beside Brain Dump; New list has a Quick start row; a task's Label menu and New label panel offer the labels. Desktop: the list switcher's New list, the details' list picker, and the label menu's Suggested (the three presets replace the old ten names; `labelSuggestions.ts` is no longer used by the menu). Hints 14 px, touch targets 44 pt.
+Files: `lib/parts.ts`, `presets.ts` (new), `clear.ts`, `trash.ts`, `wrapUp.ts`, `components/phone/TaskDetails.tsx`, `ListSheet.tsx`, `PartRows.tsx`, `app/(tabs)/tasks.tsx`, `components/desktop/TaskDetailPanel.tsx`, `TaskPopovers.tsx`, `ListSwitcher.tsx`, `ListPick.tsx`, `PartRows.tsx`; `app.json` 3.55.0.
+Tests: presets.test.ts (2), parts.test.ts (wording, +1) and 5 expectations changed on purpose; easConfig (version); real new phone-p21 (14) and p69 (6); the checks that read the old words were updated (cp8b, cp8c, cp8f, cp9, p10, p11, p65, p66, phone-p18). p65's click on the delete choice now scrolls it into view (the hint made the panel taller).
+Gates: tsc clean; mobile `npm test` 1215/1215; desktop 118/118; iOS export plus `check:ios-markers` OK (49 markers, 0 hits); security scan passed (Git Bash). Real (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p21 14/14, p69 6/6, phone-p18 23/23, p65 26/26, p66 17/17, p63 18/18, p64 12/12, phone-p6 23/23, phone-p5 26/26, phone-p15 49/49, p29 38/38, p32 29/29. The pointer-only checks that were edited for the words (cp8b, cp8c, cp8f, cp9, p10, p11) were not run. Full regression NOT run.
+
 ## 3.54.0 — 2026-11-13 (Reminders picker: the first tap gives exactly that reminder; the row stays on screen)
 
 **Phone and desktop. No database change.** PLAN_phone_parity phase 1 (item 5).

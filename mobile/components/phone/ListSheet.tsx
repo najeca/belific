@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, type ColorTokens } from '../../lib/tokens';
 import { createListState, sharedEmojiNote, takenEmojis } from '../../lib/lists';
 import { createList, editList, removeList } from '../../lib/taskCommands';
+import { PRESET_HINT, availableListPresets } from '../../lib/presets';
 import type { TaskList } from '../../lib/types';
 import { useStyles, useTheme } from './theme';
 import { useReducedMotion, useSettled } from './touch';
@@ -25,6 +26,8 @@ const make = (c: ColorTokens) => ({
   row: { flexDirection: 'row' as const, gap: 10, justifyContent: 'flex-end' as const },
   danger: { ...inter(600), fontSize: 15, color: c.danger },
   note: { ...type.meta, color: c.textSecondary },
+  preset: { minHeight: 44, paddingHorizontal: 14, borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed' as const, borderColor: c.borderStrong, justifyContent: 'center' as const },
+  presetText: { ...inter(600), fontSize: 15, color: c.textPrimary },
 });
 
 export function ListSheet({ visible, list, lists, count, onClose, onSaved }: { visible: boolean; list: TaskList | null; lists: TaskList[]; count: number; onClose: () => void; onSaved: (key: string | null) => void }) {
@@ -46,6 +49,15 @@ export function ListSheet({ visible, list, lists, count, onClose, onSaved }: { v
   }, [visible, list]);
 
   const create = createListState(lists, name);
+  const presets = availableListPresets(lists);
+  async function addPreset(presetName: string, presetEmoji: string) {
+    const result = await createList(presetName, presetEmoji);
+    if ('problem' in result) {
+      setProblem(result.problem);
+      return;
+    }
+    onSaved(result.list.key);
+  }
   // 3.14.0: a list that already shares its emoji with another keeps it; this says so.
   const shared = list ? sharedEmojiNote(lists, list.key) : null;
   async function save() {
@@ -70,6 +82,19 @@ export function ListSheet({ visible, list, lists, count, onClose, onSaved }: { v
             <Text style={s.title} accessibilityRole="header">
               {list ? 'Edit list' : 'New list'}
             </Text>
+            {!list && presets.length > 0 ? (
+              <View style={{ gap: 8 }} {...({ dataSet: { listPresets: String(presets.length) } } as object)}>
+                <Text style={s.label}>Quick start</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {presets.map((p) => (
+                    <Pressable key={p.name} onPress={() => void addPreset(p.name, p.emoji)} style={s.preset} accessibilityRole="button" accessibilityLabel={`Add list ${p.name}`} {...({ dataSet: { listPreset: p.name } } as object)}>
+                      <Text style={s.presetText}>{`${p.emoji} ${p.name}`}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={[s.note, { fontSize: 14, lineHeight: 20 }]}>{PRESET_HINT}</Text>
+              </View>
+            ) : null}
             <Text style={s.label}>Name</Text>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <TextInput

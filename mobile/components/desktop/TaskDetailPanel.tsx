@@ -35,7 +35,7 @@ import DurationSelect from './DurationSelect';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 import Popover, { Row, closePopover, isPopoverOpen, togglePopover, useIsOpen, usePopoverAnchor } from './Popover';
 import { MonthGrid } from './ui';
-import { ADD_PART, CHECKLIST, PARTS, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, isSeriesParent, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
+import { ADD_PART, CHECKLIST, PARTS, PARTS_HINT, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, isSeriesParent, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
 import { addPart, convertSteps, deleteWithParts, setPartDone, takeOut } from '../../lib/partActions';
 import { LabelBody, MoveToDayBody, ReminderBody, RepeatBody, SeriesNote } from './TaskPopovers';
 import { labelColor } from '../../lib/labelColors';
@@ -636,7 +636,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
         </View>
 
         {/* R4: Parts (an ordinary task that is not a part). E3: Add part replaces Add subtask for new items; steps a
-            task already has stay under a small "Checklist" heading, with "Turn into parts". */}
+            task already has stay under a small "Checklist" heading, with "Turn steps into smaller tasks". */}
         {partsHere ? <PartsSection parent={task} parts={parts} onSaved={onSaved} /> : null}
         {showSteps && (<>
         <View style={styles.divider} />
@@ -754,7 +754,7 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
         {/* R4: a task with parts asks "the task only" or "the task and its N parts", two visible buttons. */}
         {confirming && !asking && parts.length > 0 && !task.recurrence && (
           <View style={styles.partsDelete} {...({ dataSet: { partsDelete: String(parts.length) } } as object)}>
-            <Text style={styles.plainText}>This task has {parts.length === 1 ? '1 part' : `${parts.length} parts`}.</Text>
+            <Text style={styles.plainText}>This task has {parts.length === 1 ? '1 smaller task' : `${parts.length} smaller tasks`}.</Text>
             {(['only', 'all'] as const).map((c) => (
               <Pressable
                 key={c}
@@ -937,6 +937,7 @@ function PartsSection({ parent, parts, onSaved }: { parent: Task; parts: Task[];
           </Text>
           {parts.length > 0 ? <Text style={styles.plainText} {...({ dataSet: { partsDone: progress.text } } as object)}>{progress.text}</Text> : null}
         </View>
+        <Text style={styles.plainText} {...({ dataSet: { partsHint: '1' } } as object)}>{PARTS_HINT}</Text>
         {parts.length > 0 ? <PartsBar done={progress.done} total={progress.total} /> : null}
         {parts.map((p) => (
           <View key={p.id} style={styles.subRow} {...({ dataSet: { partRow: p.id } } as object)}>
@@ -966,9 +967,9 @@ function PartsSection({ parent, parts, onSaved }: { parent: Task; parts: Task[];
             onChangeText={setText}
             onSubmitEditing={() => void add()}
             blurOnSubmit={false}
-            placeholder="Name of the part"
+            placeholder="Name of the smaller task"
             placeholderTextColor={Colors.textSecondary}
-            accessibilityLabel={`Add a part to ${parent.title}`}
+            accessibilityLabel={`Add a smaller task to ${parent.title}`}
             {...({ dataSet: { partInput: '1' } } as object)}
           />
           <Pressable onPress={() => void add()} style={styles.partBtn} accessibilityRole="button" accessibilityLabel={ADD_PART} {...({ dataSet: { addPart: '1' } } as object)}>

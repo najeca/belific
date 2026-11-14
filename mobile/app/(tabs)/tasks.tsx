@@ -10,7 +10,8 @@ import { movedCaption, movedFrom } from '../../lib/series';
 import { duringCaption, hostIndex, insidePill } from '../../lib/hosting';
 import { deleteBrainDumpItem, loadBrainDumpItems, loadListsRaw, loadProjects, loadRoutineCompletions, loadRoutines, loadTasksRaw, updateTask } from '../../lib/storage';
 import { convertDumpItem } from '../../lib/taskActions';
-import { createTaskIn } from '../../lib/taskCommands';
+import { createList, createTaskIn } from '../../lib/taskCommands';
+import { LIST_PRESETS } from '../../lib/presets';
 import { listCounts, liveLists, tasksInList } from '../../lib/lists';
 import { rowId, splitThoughts, type ThoughtRow } from '../../lib/thoughts';
 import { buildQuests, canPlanToday, questsBySection, streakText, QUEST_SECTIONS, type Quest } from '../../lib/quests';
@@ -112,6 +113,12 @@ export default function TasksTab() {
   const [listSheet, setListSheet] = useState<{ list: TaskList | null } | null>(null);
   const [showStreaks] = usePhonePref('showStreaks');
   const input = useRef<TextInput>(null);
+  // Phase 3: with no lists, the three example lists sit in the chip row; one tap makes one (nothing is made without a tap).
+  const addListPreset = async (presetName: string, presetEmoji: string) => {
+    const res = await createList(presetName, presetEmoji);
+    if (!('problem' in res)) setChosen(res.list.key);
+    await load();
+  };
   const todayKey = dateKey(new Date());
   const tomorrowKey = dateKey(addDays(parseDateKey(todayKey), 1));
 
@@ -402,6 +409,11 @@ export default function TasksTab() {
         <RNScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
           {chip(undefined, 'Brain Dump', counts.get('') ?? 0, '🧠')}
           {live.map((l) => chip(l.key, l.name, counts.get(l.key) ?? 0, l.emoji ?? '📋'))}
+          {live.length === 0 ? LIST_PRESETS.map((p) => (
+            <PressRow key={p.name} onTap={() => void addListPreset(p.name, p.emoji)} a11y={`Add list ${p.name}`} style={[s.chip, { borderStyle: 'dashed', minHeight: 44 }]} touchAction="pan-x" data={{ listPreset: p.name }}>
+              <Text style={[s.chipText, { color: c.textSecondary }]}>{`${p.emoji} ${p.name}`}</Text>
+            </PressRow>
+          )) : null}
           {chip(REPEATING, 'Repeating', null, '🔁')}
           <PressRow onTap={() => setListSheet({ list: null })} a11y="New list" style={[s.chip, { borderStyle: 'dashed' }]} touchAction="pan-x" data={{ listChip: 'new' }}>
             <Ionicons name="add" size={16} color={c.textSecondary} />

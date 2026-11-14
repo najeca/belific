@@ -99,8 +99,8 @@ export function buttonsFor(item: WrapItem): WrapButtons {
   return { tomorrow: true, list: true, letGo: true, stepsLeft: !item.inside && ticked > 0 && left > 0 ? left : 0, partsLeft: !item.inside && pd > 0 && pl > 0 ? pl : 0 };
 }
 
-export const partsButton = (n: number): string => (n === 1 ? 'Only the 1 part left to tomorrow' : `Only the ${n} parts left to tomorrow`);
-export const partsCaption = (p: { done: number; total: number }): string => (p.total === 1 ? '1 part' : `${p.total} parts`);
+export const partsButton = (n: number): string => (n === 1 ? 'Only the 1 smaller task left to tomorrow' : `Only the ${n} smaller tasks left to tomorrow`);
+export const partsCaption = (p: { done: number; total: number }): string => (p.total === 1 ? '1 smaller task' : `${p.total} smaller tasks`);
 export const stepsButton = (n: number): string => (n === 1 ? 'Only the 1 step left to tomorrow' : `Only the ${n} steps left to tomorrow`);
 
 // What a decided row folds to ("Tomorrow · Undo").
@@ -112,7 +112,7 @@ export function choiceText(c: WrapChoice): string {
   if (c === 'letGo') return 'Let go, in the Trash';
   if (c === 'skip') return 'Let go for today, it repeats';
   if (c === 'steps') return 'The steps left go to tomorrow';
-  if (c === 'parts') return 'The parts left go to tomorrow';
+  if (c === 'parts') return 'The smaller tasks left go to tomorrow';
   if (c === 'today') return 'Today';
   if (c === 'notToday') return 'Not today, back to its list';
   if (c === 'skipToday') return 'Skipped today, it repeats';

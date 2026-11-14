@@ -168,8 +168,8 @@ async function run() {
   await I.click(`${card(day(1), 'Fresh one')}.querySelector('[aria-label="Title Fresh one"]')`, 600);
   check('1: a brand new task opens its details straight away', (await modalOpen()) && (await modalTitle()) === 'Fresh one');
   // The modal holds what left the card: time of day, reminder, steps.
-  check('1: the modal has the time of day, the reminder and an add part field (3.50.0: Add part replaces Add subtask)', (await I.exists(`${I.dialog('Task details')}.querySelector('input[type="time"]')`)) && (await I.exists(`${I.dialog('Task details')}.querySelector('[aria-label^="Reminder:"]')`)) && (await I.exists(`${I.dialog('Task details')}.querySelector('[aria-label="Add a part to Fresh one"]')`)));
-  await I.click(`${I.dialog('Task details')}.querySelector('[aria-label="Add a part to Fresh one"]')`, 200);
+  check('1: the modal has the time of day, the reminder and an add part field (3.50.0: Add part replaces Add subtask)', (await I.exists(`${I.dialog('Task details')}.querySelector('input[type="time"]')`)) && (await I.exists(`${I.dialog('Task details')}.querySelector('[aria-label^="Reminder:"]')`)) && (await I.exists(`${I.dialog('Task details')}.querySelector('[aria-label="Add a smaller task to Fresh one"]')`)));
+  await I.click(`${I.dialog('Task details')}.querySelector('[aria-label="Add a smaller task to Fresh one"]')`, 200);
   await I.type('Step A');
   await I.enter();
   const freshParts = () => (read('belific_tasks') || []).filter((t) => !t.deletedAt && t.parentId === byTitle('Fresh one').id);

@@ -107,7 +107,7 @@ async function run() {
   // 3.32.0 (Motorways restyle, on purpose): a row is at least 44 px (the mock's 52, kept tighter), values 16/700.
   check('1: every row is one line (at most 44 px; the Task or Break row, with its control and sentence, at most 84)', rows.length >= 7 && rows.every((r) => r.h <= (r.name === 'Task or Break' ? 84 : 44)), JSON.stringify(rows));
   check('1: no row has a divider line', rows.every((r) => r.lines === 0), JSON.stringify(rows));
-  const lined = await I.js(`[...${panel}.querySelectorAll('*')].filter((e) => { if (e.tagName === 'INPUT' || e.tagName === 'SELECT' || e.tagName === 'TEXTAREA' || e.getAttribute('aria-label') === 'Turn into parts') return false; const s = getComputedStyle(e); const r = e.getBoundingClientRect(); return r.width > 120 && ((parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none' && s.borderTopColor !== 'rgba(0, 0, 0, 0)') || (parseFloat(s.borderBottomWidth) > 0 && s.borderBottomStyle !== 'none' && s.borderBottomColor !== 'rgba(0, 0, 0, 0)')); }).length`);
+  const lined = await I.js(`[...${panel}.querySelectorAll('*')].filter((e) => { if (e.tagName === 'INPUT' || e.tagName === 'SELECT' || e.tagName === 'TEXTAREA' || e.getAttribute('aria-label') === 'Turn steps into smaller tasks') return false; const s = getComputedStyle(e); const r = e.getBoundingClientRect(); return r.width > 120 && ((parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none' && s.borderTopColor !== 'rgba(0, 0, 0, 0)') || (parseFloat(s.borderBottomWidth) > 0 && s.borderBottomStyle !== 'none' && s.borderBottomColor !== 'rgba(0, 0, 0, 0)')); }).length`);
   check('1: nothing wide in the modal draws a line', lined === 0, String(lined));
   const label = await I.js(`(() => { const r = ${panel}.querySelector('[data-detail-row="Label"]'); const n = r.firstElementChild.getBoundingClientRect(); const v = r.lastElementChild.getBoundingClientRect(); return { sameLine: Math.abs((n.top + n.height / 2) - (v.top + v.height / 2)) < 6, nameLeft: n.right <= v.left }; })()`);
   check('1: the name is on the left and the value on the right, on the same line', label.sameLine && label.nameLeft, JSON.stringify(label));
@@ -129,7 +129,7 @@ async function run() {
   check('1: in a short window the modal fits and scrolls inside itself', fit.top >= 0 && fit.bottom <= fit.vh && fit.scrolls, JSON.stringify(fit));
   await I.js(`(() => { const p = ${panel}; const sc = [...p.querySelectorAll('div')].find((d) => d.scrollHeight > d.clientHeight + 4 && getComputedStyle(d).overflowY !== 'visible'); if (sc) sc.scrollTop = sc.scrollHeight; })()`);
   await C.sleep(300);
-  const lastSeen = await I.js(`(() => { const el = ${panel}.querySelector('[aria-label="Add a part to Modal task"]'); const r = el.getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; })()`);
+  const lastSeen = await I.js(`(() => { const el = ${panel}.querySelector('[aria-label="Add a smaller task to Modal task"]'); const r = el.getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; })()`);
   check('1: the Parts field (Add part, 3.50.0) can be scrolled into view', lastSeen);
   await closeModal();
   win.setSize(1440, 900);

@@ -17,8 +17,9 @@ import { isDateKey } from './kanban.ts';
 import { idDate } from './series.ts';
 import { rootTaskId } from './recurrence.ts';
 
-export const ADD_PART = 'Add part';
-export const PARTS = 'Parts';
+export const ADD_PART = 'Add a smaller task';
+export const PARTS = 'Smaller tasks';
+export const PARTS_HINT = 'Break a big task into steps you can tick off one at a time.';
 
 type Row = Pick<Task, 'id' | 'deletedAt'> & Partial<Pick<Task, 'parentId'>>;
 
@@ -163,7 +164,7 @@ export function partsProgress(parts: Array<Pick<Task, 'completed'>>): PartsProgr
 // "Parts add up to 1h 15m." (only when the parent has its own estimate and the parts have some).
 export function partsAddUp(parent: Pick<Task, 'durationMinutes'>, parts: Array<Pick<Task, 'durationMinutes'>>, format: (m: number) => string): string | null {
   const m = partMinutes(parts);
-  return m > 0 && hasOwnEstimate(parent) ? `Parts add up to ${format(m)}.` : null;
+  return m > 0 && hasOwnEstimate(parent) ? `Smaller tasks add up to ${format(m)}.` : null;
 }
 
 // Can `t` hold parts? A task, repeating or not (R5), not itself a part, not free time.
@@ -205,7 +206,7 @@ export function deleteWrites(parent: Task, parts: Task[], choice: DeleteChoice, 
   return [gone, ...parts.map((p) => takeOutRow(p, parent))];
 }
 export const deleteOnlyText = 'Delete the task only';
-export const deleteAllText = (n: number): string => `Delete the task and its ${n === 1 ? 'part' : `${n} parts`}`;
+export const deleteAllText = (n: number): string => `Delete the task and its ${n === 1 ? 'smaller task' : `${n} smaller tasks`}`;
 
 // Taking a part out: it becomes an ordinary task, on the parent's Day and in the parent's list.
 export function takeOutRow(part: Task, parent: Pick<Task, 'dueDate' | 'listKey'>): Task {
@@ -225,9 +226,9 @@ export function stepsToParts(parent: Task, ids: (i: number) => string, nowIso: s
   });
   return { parent: { ...parent, subtasks: undefined }, parts };
 }
-export const TURN_INTO_PARTS = 'Turn into parts';
+export const TURN_INTO_PARTS = 'Turn steps into smaller tasks';
 export const CHECKLIST = 'Checklist';
-export const partOfText = (parentTitle: string): string => `Part of ${parentTitle}`;
+export const partOfText = (parentTitle: string): string => `Smaller task of ${parentTitle}`;
 
 // A day's tasks with their parents' parts totals (E2), for a total: the parts of `raw` are looked up, but only the
 // tasks of `dayTasks` come back (a part has no Day, so it never counts on its own).

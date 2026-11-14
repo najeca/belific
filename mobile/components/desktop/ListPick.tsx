@@ -5,6 +5,7 @@ import { Colors } from '../../lib/theme';
 import { BRAIN_DUMP_EMOJI } from '../../lib/emoji';
 import { BRAIN_DUMP_NAME, createListState, listOptionText, listTitle } from '../../lib/lists';
 import { createList } from '../../lib/taskCommands';
+import { PRESET_HINT, availableListPresets } from '../../lib/presets';
 import type { TaskList } from '../../lib/types';
 import Popover, { Row, closePopover, togglePopover, useIsOpen, usePopoverAnchor, popoverStyles } from './Popover';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -53,6 +54,15 @@ function Body({ lists, value, onChange }: { lists: TaskList[]; value: string | u
     closePopover(true);
   };
   const state = createListState(lists, name);
+  async function addPreset(presetName: string, presetEmoji: string) {
+    const result = await createList(presetName, presetEmoji);
+    if ('problem' in result) {
+      setProblem(result.problem);
+      return;
+    }
+    notifyChanged();
+    choose(result.list.key);
+  }
   async function add() {
     if (!state.enabled) {
       setProblem(state.why);
@@ -77,6 +87,14 @@ function Body({ lists, value, onChange }: { lists: TaskList[]; value: string | u
       <View style={styles.rule} />
       {creating ? (
         <View style={popoverStyles.pad}>
+          {availableListPresets(lists).length > 0 ? (
+            <View {...({ dataSet: { listPresets: String(availableListPresets(lists).length) } } as object)}>
+              {availableListPresets(lists).map((p) => (
+                <Row key={p.name} label={`${p.emoji} ${p.name}`} leading={<Text style={styles.emoji}>+</Text>} onPress={() => void addPreset(p.name, p.emoji)} a11y={`Add list ${p.name}`} />
+              ))}
+              <Text style={[popoverStyles.note, { fontSize: 14 }]}>{PRESET_HINT}</Text>
+            </View>
+          ) : null}
           <View style={styles.nameRow}>
             <TextInput
               autoFocus

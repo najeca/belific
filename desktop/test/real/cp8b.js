@@ -305,7 +305,7 @@ async function run() {
   await openModal('Charlie');
   // 3.50.0 (R4 of PLAN_repeat_end_and_parts, E3): Add part replaces Add subtask on an ordinary task with no steps.
   const partsOf = (title) => read('belific_tasks').filter((t) => !t.deletedAt && t.parentId === taskNamed(title).id);
-  await click(inModal('[aria-label^="Add a part to"]'));
+  await click(inModal('[aria-label^="Add a smaller task to"]'));
   await typeText('one');
   await key('Return');
   await typeText('two');

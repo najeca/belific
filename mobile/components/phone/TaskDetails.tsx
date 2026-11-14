@@ -10,6 +10,7 @@ import { DURATION_PRESETS, formatDuration, parseDuration, presetLabel } from '..
 import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
 import { labelColor } from '../../lib/labelColors';
 import { createLabel, loadLabels } from '../../lib/labels';
+import { PRESET_HINT, availableLabelPresets, type LabelPreset } from '../../lib/presets';
 import { liveLists } from '../../lib/lists';
 import { addSubtask, deleteSubtask, renameSubtask } from '../../lib/subtasks';
 import { opsForProjected, opsForTask } from '../../lib/taskOps';
@@ -24,7 +25,7 @@ import { loadCutMin } from '../../lib/phoneActions';
 import { ShiftRows } from './ShiftRows';
 import { AddInside } from './AddInside';
 import { addTask, loadListsRaw, loadTasksRaw } from '../../lib/storage';
-import { ADD_PART, CHECKLIST, PARTS, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
+import { ADD_PART, CHECKLIST, PARTS, PARTS_HINT, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
 import { addPart, convertSteps, deleteSeriesWithParts, deleteWithParts, setPartDone, takeOut } from '../../lib/partActions';
 import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, priorityPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -332,6 +333,14 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   const dayText = task.dueDate ? formatDayTitle(task.dueDate, todayKey) : 'No date';
   const tomorrowKey = dateKey(addDays(parseDateKey(todayKey), 1));
 
+  // Phase 3: one tap makes an example label (its emoji and colour) and puts it on this task.
+  const addLabelPreset = async (p: LabelPreset) => {
+    const res = await createLabel(p.name, p.emoji, p.colorKey, true);
+    setNewLabel(null);
+    if (!res) return;
+    setLabels(await loadLabels());
+    await write(labelPatch(res.label.key));
+  };
   const labelMenu = () =>
     setMenu({
       title: 'Label',
@@ -345,6 +354,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
           run: () => void write(labelPatch(l.key)),
         })),
         { label: 'New label', icon: 'add', run: () => setNewLabel('') },
+        ...availableLabelPresets(liveLabels).map((p) => ({ label: `Add ${p.emoji} ${p.name}`, icon: 'add' as const, run: () => void addLabelPreset(p) })),
       ],
     });
   const listMenu = () =>
@@ -358,7 +368,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
   const deleteMenu = () =>
     parts.length > 0 && !partOf
       ? setMenu({
-          title: `${task.title}: ${parts.length === 1 ? '1 part' : `${parts.length} parts`}`,
+          title: `${task.title}: ${parts.length === 1 ? '1 smaller task' : `${parts.length} smaller tasks`}`,
           items: [
             ...(ops.series ? [{ label: 'Skip this day', icon: 'play-skip-forward-outline' as const, run: () => void ops.series!.skipDay().then(() => (onChanged(), onClose())) }] : []),
             { label: deleteOnlyText, icon: 'trash-outline' as const, danger: true, run: () => void (ops.series ? deleteSeriesWithParts(task, 'only') : deleteWithParts(task, 'only')).then(() => (onChanged(), onClose())) },
@@ -647,7 +657,20 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
               </View>
             ) : 'None', labelMenu, `Label, ${label ? label.name : 'none'}`, true, 'label')}
             {newLabel !== null ? (
-              <View style={[s.panel, { flexDirection: 'row', gap: 8 }]}>
+              <View style={[s.panel, { gap: 8 }]} {...({ dataSet: { labelPresets: String(availableLabelPresets(liveLabels).length) } } as object)}>
+                {availableLabelPresets(liveLabels).length > 0 ? (
+                  <>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {availableLabelPresets(liveLabels).map((p) => (
+                        <Pressable key={p.name} onPress={() => void addLabelPreset(p)} style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: c.borderStrong, justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel={`Add label ${p.name}`} {...({ dataSet: { labelPreset: p.name } } as object)}>
+                          <Text style={[s.rowValue, s.rowValueSet]}>{`${p.emoji} ${p.name}`}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Text style={[s.note, { fontSize: 14, lineHeight: 20 }]}>{PRESET_HINT}</Text>
+                  </>
+                ) : null}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TextInput style={[s.input, { flex: 1 }]} value={newLabel} onChangeText={setNewLabel} placeholder="New label name" placeholderTextColor={c.textTertiary} autoFocus accessibilityLabel="New label name" />
                 <Button
                   label="Add"
@@ -661,6 +684,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                   }}
                   a11y="Add label"
                 />
+                </View>
               </View>
             ) : null}
             {row('list-outline', 'List', list ? `${list.emoji ? `${list.emoji} ` : ''}${list.name}` : 'Brain Dump', listMenu, `List, ${list ? list.name : 'Brain Dump'}`, false, 'list')}
@@ -682,10 +706,11 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
 
           {/* R6: Parts, the desktop's wording: one "Add part" button and a box (type a name, Enter, next); each part has a tick
               that works in place; "2 of 5 done" and a bar. E3: Add part replaces Add a step; steps a task already has stay
-              under a small "Checklist" heading with "Turn into parts". */}
+              under a small "Checklist" heading with "Turn steps into smaller tasks". */}
           {partsHere ? (
             <>
               <Text style={s.section} {...({ dataSet: { partsHead: String(parts.length) } } as object)}>{parts.length > 0 ? `${PARTS}  ${progress.text}` : PARTS}</Text>
+              <Text style={[s.note, { fontSize: 14, lineHeight: 20, marginBottom: 6, marginLeft: 4 }]} {...({ dataSet: { partsHint: '1' } } as object)}>{PARTS_HINT}</Text>
               <View style={s.card} {...({ dataSet: { partsCard: String(parts.length) } } as object)}>
                 {parts.length > 0 ? (
                   <View style={s.partsBar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: progress.total, now: progress.done }} {...({ dataSet: { partsBar: `${progress.done}/${progress.total}` } } as object)}>
@@ -717,12 +742,12 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                     style={s.stepInput}
                     value={newPartText}
                     onChangeText={setNewPartText}
-                    placeholder="Name of the part"
+                    placeholder="Name of the smaller task"
                     placeholderTextColor={c.textTertiary}
                     returnKeyType="done"
                     blurOnSubmit={false}
                     onSubmitEditing={() => void addOnePart()}
-                    accessibilityLabel={`Add a part to ${task.title}`}
+                    accessibilityLabel={`Add a smaller task to ${task.title}`}
                     {...({ dataSet: { partInput: '1' } } as object)}
                   />
                   <Pressable onPress={() => void addOnePart()} style={s.partBtn} accessibilityRole="button" accessibilityLabel={ADD_PART} {...({ dataSet: { addPart: '1' } } as object)}>

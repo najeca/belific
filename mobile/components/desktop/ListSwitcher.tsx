@@ -6,6 +6,7 @@ import { Colors } from '../../lib/theme';
 import { BRAIN_DUMP_EMOJI, DEFAULT_LIST_EMOJI } from '../../lib/emoji';
 import { BRAIN_DUMP_NAME, createListState, listTitle, sharedEmojiNote, takenEmojis } from '../../lib/lists';
 import { createList, editList, removeList } from '../../lib/taskCommands';
+import { PRESET_HINT, availableListPresets } from '../../lib/presets';
 import type { TaskList } from '../../lib/types';
 import EmojiField from './EmojiField';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover, useIsOpen, usePopoverAnchor, popoverStyles } from './Popover';
@@ -70,6 +71,15 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
   };
 
   const create = createListState(lists, name);
+  async function addPreset(presetName: string, presetEmoji: string) {
+    const result = await createList(presetName, presetEmoji);
+    if ('problem' in result) {
+      setProblem(result.problem);
+      return;
+    }
+    notifyChanged();
+    choose(result.list.key);
+  }
   async function add() {
     if (!create.enabled) {
       setProblem(create.why);
@@ -130,6 +140,14 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
 
       <PopoverHeading>New list</PopoverHeading>
       <View style={popoverStyles.pad}>
+        {availableListPresets(lists).length > 0 ? (
+          <View {...({ dataSet: { listPresets: String(availableListPresets(lists).length) } } as object)}>
+            {availableListPresets(lists).map((p) => (
+              <Row key={p.name} label={`${p.emoji} ${p.name}`} leading={<Text style={styles.emoji}>+</Text>} onPress={() => void addPreset(p.name, p.emoji)} a11y={`Add list ${p.name}`} />
+            ))}
+            <Text style={[popoverStyles.note, { fontSize: 14 }]}>{PRESET_HINT}</Text>
+          </View>
+        ) : null}
         <View style={styles.nameRow}>
           <TextInput
             style={[styles.input, styles.nameInput]}

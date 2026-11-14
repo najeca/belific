@@ -195,7 +195,7 @@ export function oneOffRows(plan: ClearPlan, mode: ClearMode, nowIso: string): Ta
 export function partsNote(plan: Pick<ClearPlan, 'withParts' | 'parts'>, mode: ClearMode): string | null {
   if (plan.withParts === 0 || mode === 'off') return null;
   const who = plan.withParts === 1 ? '1 task has' : `${plan.withParts} tasks have`;
-  const n = plan.parts === 1 ? '1 part' : `${plan.parts} parts`;
+  const n = plan.parts === 1 ? '1 smaller task' : `${plan.parts} smaller tasks`;
   return `${who} ${n}, which go with ${plan.withParts === 1 ? 'it' : 'them'}.`;
 }
 

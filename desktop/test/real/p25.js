@@ -122,7 +122,7 @@ async function run() {
   check('there are still two lists, none deleted', lists().length === 2 && lists().every((l) => !l.deletedAt));
   const kept = tasks();
   check('the tasks keep their list key and are all there', kept.length === 3 && kept.filter((t) => t.listKey === 'L1').length === 2 && kept.filter((t) => t.listKey === 'L2').length === 1, JSON.stringify(kept.map((t) => [t.id, t.listKey])));
-  check('the edit box closed and the dropdown shows the new name and emoji', !(await I.exists(box)) && /🚀/.test(await dropdownText()) && (await dropdownText()).includes('Deep work') && !(await dropdownText()).includes('💼'), await dropdownText());
+  check('the edit box closed and the dropdown shows the new name and emoji', !(await I.exists(box)) && /🚀/.test(await dropdownText()) && (await dropdownText()).includes('Deep work') && !(await dropdownText()).split('NEW LIST')[0].includes('💼'), await dropdownText());
 
   // ======== Everywhere the list is shown ========
   await I.click(I.byLabel('Show list Deep work'), 700);

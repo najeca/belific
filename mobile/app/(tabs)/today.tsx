@@ -39,7 +39,7 @@ import { ShiftRows } from '../../components/phone/ShiftRows';
 import { AddInside, type InsideTarget } from '../../components/phone/AddInside';
 import type { CustomEvent, Project, Routine, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { AddButton, ScreenHeader } from '../../components/phone/chrome';
-import { newTaskTarget } from '../../components/phone/newTask';
+import { StepAdd, type StepAddTarget } from '../../components/phone/StepAdd';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { HoldCard } from '../../components/phone/HoldCard';
 import { PressRow, haptic } from '../../components/phone/touch';
@@ -122,6 +122,8 @@ export default function TodayScreen() {
   // Phase 5: the centred card a press and hold on a task opens.
   const [hold, setHold] = useState<{ item: Extract<TodayItem, { kind: 'task' }> } | null>(null);
   const [undo, setUndo] = useState<UndoMessage | null>(null);
+  // PLAN_phone_stepflow phase 1: the round + opens the step by step add flow (Today is the suggested day).
+  const [stepAdd, setStepAdd] = useState<StepAddTarget | null>(null);
   const [showDone, setShowDone] = useState(false);
   // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
   const [cutMin, setCutMin] = useState(30);
@@ -457,7 +459,16 @@ export default function TodayScreen() {
       </ScrollView>
       <UndoBar message={undo} onDone={() => setUndo(null)} />
       <AddInside target={inside} onClose={() => setInside(null)} onAdded={() => void load()} />
-      <AddButton onPress={() => setDetails(newTaskTarget({ dueDate: todayKey, label: 'Today' }))} a11y="Add a task for today" />
+      <AddButton onPress={() => setStepAdd({ suggestDay: todayKey })} a11y="Add a task" />
+      <StepAdd
+        target={stepAdd}
+        onClose={(note) => {
+          setStepAdd(null);
+          void load();
+          if (note) setUndo({ id: Date.now(), text: note });
+        }}
+        onChanged={() => void load()}
+      />
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
       {hold ? <HoldCard task={hold.item.task} projected={hold.item.projected} labels={projects} lists={lists} todayKey={todayKey} actions={holdActions(hold.item)} onClose={() => setHold(null)} /> : null}
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />

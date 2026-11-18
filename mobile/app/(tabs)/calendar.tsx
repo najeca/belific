@@ -15,6 +15,7 @@ import type { DaySource } from '../../lib/phoneDay';
 import type { CustomCategory, CustomEvent, ScheduleEvent } from '../../lib/types';
 import { AddButton, ScreenHeader, Segmented } from '../../components/phone/chrome';
 import { newTaskTarget } from '../../components/phone/newTask';
+import { StepAdd, type StepAddTarget } from '../../components/phone/StepAdd';
 import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
 import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
 import { DayView, type DayData } from '../../components/phone/calendar/DayView';
@@ -71,6 +72,9 @@ export default function CalendarScreen() {
   const [details, setDetails] = useState<DetailsTarget | null>(null);
   const [editEvent, setEditEvent] = useState<CustomEvent | undefined>();
   const [notice, setNotice] = useState<UndoMessage | null>(null);
+  // PLAN_phone_stepflow phase 1: the round + opens the step by step add flow (the day shown is suggested); a tap on an
+  // empty slot still opens the whole card with that time.
+  const [stepAdd, setStepAdd] = useState<StepAddTarget | null>(null);
 
   const load = useCallback(async () => {
     const [tasks, ev, cats, st, projects, lists] = await Promise.all([loadTasksRaw(), loadCustomEvents(), loadCustomCategories(), shouldShowStarterRoutine(), loadProjects(), loadListsRaw()]);
@@ -254,7 +258,16 @@ export default function CalendarScreen() {
         </View>
       </GestureDetector>
       <UndoBar message={notice} onDone={() => setNotice(null)} />
-      <AddButton onPress={() => setDetails(newTaskTarget({ dueDate: anchor, label: anchor === todayKey ? 'Today' : formatDayLabel(anchor) }))} a11y="Add a task on this day" />
+      <AddButton onPress={() => setStepAdd({ suggestDay: anchor })} a11y="Add a task" />
+      <StepAdd
+        target={stepAdd}
+        onClose={(note) => {
+          setStepAdd(null);
+          void load();
+          if (note) setNotice({ id: Date.now(), text: note });
+        }}
+        onChanged={() => void load()}
+      />
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
       <AddEventModal
         visible={!!editEvent}

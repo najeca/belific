@@ -1018,3 +1018,7 @@ What: a signed out phone opens on "Sign in to see your tasks" (Continue with Goo
 Native: `expo-web-browser` ~15.0.11 is new (a normal Expo module with its config plugin); it is not in any build yet, so Google sign in needs a new TestFlight build. No database, Supabase, Apple or Google setting changed.
 Tests: new firstLaunch.test.ts (21); phoneGoogleFlow.test.ts (wiring); real new phone-p24 (35, fake Supabase, a stored fake session stands in for the sign in); `common.js` seeds "Use without an account" for the older phone checks.
 Gates: tsc clean; mobile 1236/1236; iOS markers OK (49, 0 hits); security scan passed (Git Bash). Real checks listed in the CHANGELOG. Full regression NOT run.
+## PLAN_phone_stepflow phase 1 (2026-11-18): 3.59.0, the step by step add flow
+What: the round + on the phone opens five screens (What's on your mind?, When, What time?, Which list or label?, Anything else to add?) with Skip, Back and dots; Next on the first screen stores the task (no Day) and every answer updates it; closing keeps it, and a task with no Day says where it is ("Saved in Brain Dump on the Tasks tab"). Phrases still fill and skip their screens. The desktop does not change.
+Tests: new stepFlow.test.ts (6); real new phone-p25 (38); phone-p22 changed on purpose (the card from the add row's +).
+Gates: listed in the CHANGELOG. Full regression NOT run (after phase 3).

@@ -29,6 +29,7 @@ import { AddInside, type InsideTarget } from '../../components/phone/AddInside';
 import type { BrainDumpItem, Project, Routine, Task, TaskList } from '../../lib/types';
 import { AddButton, ScreenHeader } from '../../components/phone/chrome';
 import { newTaskTarget } from '../../components/phone/newTask';
+import { StepAdd, type StepAddTarget } from '../../components/phone/StepAdd';
 import { ListSheet } from '../../components/phone/ListSheet';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { HoldCard } from '../../components/phone/HoldCard';
@@ -107,6 +108,8 @@ export default function TasksTab() {
   // Phase 5: the centred card a press and hold on a task opens.
   const [hold, setHold] = useState<{ row: ThoughtRow; task: Task } | null>(null);
   const [undo, setUndo] = useState<UndoMessage | null>(null);
+  // PLAN_phone_stepflow phase 1: the round + opens the step by step add flow, in the list shown.
+  const [stepAdd, setStepAdd] = useState<StepAddTarget | null>(null);
   const [showDone, setShowDone] = useState(false);
   // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
   const [cutMin, setCutMin] = useState(30);
@@ -529,7 +532,16 @@ export default function TasksTab() {
       </ScrollView>
       <UndoBar message={undo} onDone={() => setUndo(null)} />
       <AddInside target={inside} onClose={() => setInside(null)} onAdded={() => void load()} />
-      <AddButton onPress={() => setDetails(newTaskTarget({ listKey, label: chosen === REPEATING ? 'Brain Dump' : listName }))} a11y={`Add to ${chosen === REPEATING ? 'Brain Dump' : listName}`} />
+      <AddButton onPress={() => setStepAdd({ listKey })} a11y={`Add to ${chosen === REPEATING ? 'Brain Dump' : listName}`} />
+      <StepAdd
+        target={stepAdd}
+        onClose={(note) => {
+          setStepAdd(null);
+          void load();
+          if (note) setUndo({ id: Date.now(), text: note });
+        }}
+        onChanged={() => void load()}
+      />
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
       {hold ? <HoldCard task={hold.task} projected={false} labels={projects} lists={lists} todayKey={todayKey} actions={holdActions(hold.row, hold.task)} onClose={() => setHold(null)} /> : null}
       <ListSheet

@@ -8,6 +8,17 @@ to know the current version and recent history.
 
 ---
 
+## 3.59.0 — 2026-11-18 (Phone: the + opens a step by step add flow)
+
+**Phone only; the desktop does not change. No database change, no new data field, no new native module.** PLAN_phone_stepflow phase 1 (it replaces PLAN_phone_parity phase 4).
+- **The round + on Today, Tasks and Calendar** opens one question per screen, with small progress dots ("Step 2 of 5" for VoiceOver), a close button, and **Back** and **Skip** from screen 2 on: **What's on your mind?** (a big box; **Next** stores the task at once: a title, no Day, so Anytime in Brain Dump or the list shown), **When do you want it done by?** (Today, Tomorrow, Pick a date; Today, or the day shown on the Calendar, is marked "Suggested" and nothing is written until it is tapped), **What time?** (only with a Day: a time, a length, or **Just a reminder**, a quick reminder with 0 minutes), **Which list or label?** (the 3.55.0 presets when there are none), **Anything else to add?** (notes and **Add a smaller task**, then **Done**).
+- Every answer updates the stored task through the usual path (taskOps patches with the shared detailsPatches and the break refusal); closing at any point keeps it as it is. Closing a task with no Day puts a line on the screen: "Saved in Brain Dump on the Tasks tab: …" (or the list's name), and Brain Dump lists it first (newest first, as before). Closing an empty first screen stores nothing.
+- A quick add phrase on the first screen ("Dentist tomorrow 3pm 30m") still shows its chips; Next stores it with the day, time and length, and the screens it answered are passed over (Back reaches them). A repeating phrase never shows "When".
+- No priority anywhere in the flow. The whole task card stays for Edit, for a tap on an empty Calendar slot, and for the + beside the Tasks tab's add row.
+Files: new `lib/stepFlow.ts`, `components/phone/StepAdd.tsx`; `app/(tabs)/today.tsx`, `tasks.tsx`, `calendar.tsx`; `app.json` 3.59.0.
+Tests: new stepFlow.test.ts (6); easConfig (version); real new phone-p25 (38). Changed on purpose (a separate commit): phone-p22 opens the whole card from the Tasks add row's + (the round + is the flow now), so its new task goes to Brain Dump with no Day; phone-p3 drives the flow from Today, the Calendar and Brain Dump (Today suggested, the close button); phone-p11 audits the flow's first screen in place of the quick add card. phone-p17 and phone-p6 needed no change (p17 uses the add row's +; p6 reads Today, which changes in phase 2).
+Gates: tsc clean; mobile `npm test` 1242/1242; desktop 118/118; iOS export plus `check:ios-markers` OK (49 markers, 0 hits); security scan passed (Git Bash). Real (390 x 844, BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p25 38/38, phone-p22 17/17, phone-p17 20/20, phone-p3 15/15, phone-p11 51/51, and every other phone check passes (p2, p4 to p10, p12 to p16, p18, p19, p21, p23, p24; p20 6/6 on a rerun after a GPU and network service crash in the batch); cp6 61/61 (the desktop). Full regression NOT run (once after phase 3). Not checkable here: the keyboard over the first screen, Larger Text, the iOS swipe down to close: hand test.
+
 ## 3.58.0 — 2026-11-14 (First launch: sign in first, and an empty account asks before anything is uploaded)
 
 **Phone only. No database change, no Supabase, Apple or Google setting changed. New native module: `expo-web-browser` (needs a new build).** PLAN_phone_parity phase 2 (item A), with decision 4: Google and Apple only, no email sign in.

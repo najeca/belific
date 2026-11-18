@@ -1,7 +1,9 @@
 'use strict';
 // @real-input: quiet
-// Real touch check for 3.56.0 (PLAN_phone_parity phase 4) at 390 x 844: the + opens the whole task card.
-//   - Today's +: the card with Cancel, "New task" and Done, "Goes to: Today", the title focused, and every row from the start
+// Real touch check for 3.56.0 (PLAN_phone_parity phase 4) at 390 x 844: the whole new task card.
+// 3.59.0 (PLAN_phone_stepflow phase 1, on purpose): the round + now opens the step by step flow (phone-p25), so this check
+// opens the card from the + beside the Tasks tab's add row, which still opens it ("Goes to: Brain Dump", no Day).
+//   - the card with Cancel, "New task" and Done, "Goes to: Brain Dump", the title focused, and every row from the start
 //     (Length, Repeat, Reminders, Label, List, Smaller tasks, Notes);
 //   - "Dentist tomorrow 3pm 30m": chips Tomorrow, 3:00pm, 30m (14 px or more) under the title, nothing stored yet;
 //     Done stores "Dentist" for tomorrow at 15:00 for 30 minutes;
@@ -66,8 +68,8 @@ async function run() {
   const open = () => P.js(`!!document.querySelector('[data-task-details]')`);
   const sheetText = () => P.js(`(() => { const r = document.querySelector('[data-task-details]'); return r && r.parentElement ? r.parentElement.innerText.replace(/\\s+/g, ' ') : ''; })()`);
   const plus = async () => {
-    await P.finger.tap(tab('Today'), 1000);
-    await P.finger.tap(visible('[data-add-button]'), 1200);
+    await P.finger.tap(tab('Tasks'), 1000);
+    await P.finger.tap(visible('[data-add-plus]'), 1200);
   };
 
   // ---- the card ----
@@ -75,7 +77,7 @@ async function run() {
   const head = await P.js(`(() => { const a = document.activeElement; const h = document.querySelector('[data-task-details]'); return { open: !!h, label: a && a.getAttribute('aria-label'), head: h ? h.innerText.replace(/\\s+/g, ' ') : '' }; })()`);
   check('+ opens the whole task card: Cancel, New task, Done, the title focused', head.open && head.label === 'Task title' && /Cancel/.test(head.head) && /New task/.test(head.head) && /Done/.test(head.head), JSON.stringify(head));
   const text0 = await sheetText();
-  check('it says where the task goes ("Goes to: Today")', text0.includes('Goes to: Today'), text0.slice(0, 200));
+  check('it says where the task goes ("Goes to: Brain Dump")', text0.includes('Goes to: Brain Dump'), text0.slice(0, 200));
   check('every row is there from the start: Length, Repeat, Reminders, Label, List, Smaller tasks, Notes', ['Length', 'Repeat', 'Reminders', 'Label', 'List', 'SMALLER TASKS', 'NOTES'].every((w) => text0.toUpperCase().includes(w.toUpperCase())), text0);
   check('Smaller tasks says to name the task first', text0.includes('Give the task a name first, then add smaller tasks.'));
   await shot('phone-p22-card');
@@ -104,7 +106,7 @@ async function run() {
   check('Keep it as plain text hides the chips', !(await P.js(`!!document.querySelector('[data-phrase-chips]')`)));
   await P.finger.tap(visible('[data-details-done]'), 1500);
   const lunch = live().find((t) => t.title === 'Lunch with Sam tomorrow');
-  check('the words are stored exactly as typed, with only the place (today)', !!lunch && lunch.dueDate === day(0) && !lunch.startTime, JSON.stringify(lunch));
+  check('the words are stored exactly as typed, with only the place (Brain Dump: no Day, no list)', !!lunch && !lunch.dueDate && !lunch.listKey && !lunch.startTime, JSON.stringify(lunch));
 
   // ---- cancel after the title was stored; a smaller task once it has a name ----
   await plus();

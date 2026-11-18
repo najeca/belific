@@ -105,7 +105,8 @@ async function run() {
     ['today', async () => P.finger.tap(tab('Today'), 1000), async () => {}],
     ['today-open', async () => P.finger.tap(`[...document.querySelectorAll('[data-today-row="Standup"] [data-today-body]')][0]`, 800), async () => P.finger.tap(`[...document.querySelectorAll('[data-today-row="Standup"] [data-today-body]')][0]`, 600)],
     ['today-menu', async () => P.finger.hold(`[...document.querySelectorAll('[data-today-row="Pay rent"] [data-today-body]')][0]`, 480, 800), cancel],
-    ['quick-add', async () => P.finger.tap(visible('[data-add-button]'), 900), async () => P.finger.tap(visible('[aria-label="Cancel new task"]'), 700)],
+    // 3.59.0 (on purpose): the round + opens the step by step add flow; its first screen is audited, then closed (empty: nothing stored).
+    ['add-flow', async () => P.finger.tap(visible('[data-add-button]'), 900), async () => P.finger.tap(visible('[data-step-close]'), 700)],
     ['tasks', async () => P.finger.tap(tab('Tasks'), 1000), async () => {}],
     ['details', async () => P.finger.tap(`[...document.querySelectorAll('[data-task-row="A thought"] [data-task-body]')][0]`, 1200), done],
     ['list-edit', async () => P.finger.hold(visible('[data-list-chip="L1"]'), 480, 900), async () => P.finger.tap(visible('[aria-label="Cancel list edit"]'), 700)],

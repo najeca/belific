@@ -4,6 +4,8 @@
 // Calendar, Tasks); the avatar opens Settings on every tab; the round + opens the quick add with the
 // place filled in, Cancel is one tap, Add stores the task there; Tasks holds Brain Dump, All and
 // Repeating, so nothing the old four tabs did is lost.
+// 3.59.0 (PLAN_phone_stepflow phase 1, on purpose): the round + opens the step by step flow; its first screen's Next stores
+// the task with no Day, and the day comes from "When do you want it done by?" (Today suggested on Today and the Calendar).
 const fs = require('node:fs');
 const path = require('node:path');
 const { app } = require('electron');
@@ -77,29 +79,34 @@ async function run() {
     if (on) await P.finger.tap(visible('[aria-label="Back"]'), 900);
   }
 
-  // Today: + adds for today.
+  // Today: + opens the add flow; Today is the suggested day.
+  const flowOpen = () => P.js(`!!document.querySelector('[data-step-add]')`);
+  const suggested = (key) => P.js(`(([...document.querySelectorAll('[data-step-choice="${key}"]')].pop()) || {}).innerText || ''`);
   await P.finger.tap(tab('Today'), 900);
   await P.finger.tap(visible('[data-add-button]'), 900);
-  const sheet = await P.js(`(() => { const e = document.querySelector('[data-new-task]'); return e ? e.getAttribute('data-new-task') : null; })()`);
-  check('Today: + opens the quick add for "Today"', sheet === 'Today', String(sheet));
+  check('Today: + opens the add flow', await flowOpen());
   await shot('phone-p3-quickadd');
-  await P.finger.tap(visible('[aria-label="Cancel new task"]'), 700);
-  check('Cancel closes it in one tap', !(await P.js(`!!document.querySelector('[data-new-task]')`)));
+  await P.finger.tap(visible('[data-step-close]'), 700);
+  check('the close button closes it in one tap', !(await flowOpen()));
   await P.finger.tap(visible('[data-add-button]'), 900);
-  await P.finger.tap(visible('[aria-label="Task title"]'), 300);
   await typeText('Call the bank');
-  await P.finger.tap(visible('[aria-label="Done"]'), 900);
+  await P.finger.tap(visible('[data-step-next]'), 900);
+  check('Today: "Today" is the suggested day', (await suggested('today')).includes('Suggested'));
+  await P.finger.tap(visible('[data-step-choice="today"]'), 900);
+  await P.finger.tap(visible('[data-step-close]'), 900);
   const bank = stored().find((t) => t.title === 'Call the bank');
-  check('Add stores the task for today', !!bank && bank.dueDate === today && !bank.listKey, JSON.stringify(bank));
+  check('Today stores the task for today', !!bank && bank.dueDate === today && !bank.listKey, JSON.stringify(bank));
 
-  // Calendar: + adds on the chosen day.
+  // Calendar: + suggests the chosen day (today).
   await P.finger.tap(tab('Calendar'), 900);
   await P.finger.tap(visible('[data-add-button]'), 900);
-  await P.finger.tap(visible('[aria-label="Task title"]'), 300);
   await typeText('Dentist');
-  await P.finger.tap(visible('[aria-label="Done"]'), 900);
+  await P.finger.tap(visible('[data-step-next]'), 900);
+  check('Calendar: the chosen day (today) is suggested', (await suggested('today')).includes('Suggested'));
+  await P.finger.tap(visible('[data-step-choice="today"]'), 900);
+  await P.finger.tap(visible('[data-step-close]'), 900);
   const dentist = stored().find((t) => t.title === 'Dentist');
-  check('Calendar: + stores the task on the chosen day (today)', !!dentist && dentist.dueDate === today, JSON.stringify(dentist));
+  check('Calendar: the task is stored on the chosen day (today)', !!dentist && dentist.dueDate === today, JSON.stringify(dentist));
 
   // Tasks: Brain Dump and Repeating (since P5 the list switcher; the interim "All" went with it).
   await P.finger.tap(tab('Tasks'), 1000);
@@ -114,9 +121,9 @@ async function run() {
   await C.sleep(400);
   await P.finger.tap(visible('[data-list-chip="dump"]'), 900);
   await P.finger.tap(visible('[data-add-button]'), 900);
-  await P.finger.tap(visible('[aria-label="Task title"]'), 300);
   await typeText('Idea for the garden');
-  await P.finger.tap(visible('[aria-label="Done"]'), 900);
+  await P.finger.tap(visible('[data-step-next]'), 900);
+  await P.finger.tap(visible('[data-step-close]'), 900);
   const idea = stored().find((t) => t.title === 'Idea for the garden');
   check('Tasks: + in Brain Dump stores a task with no day and no list', !!idea && !idea.dueDate && !idea.listKey, JSON.stringify(idea));
   check('Tasks: it shows in Brain Dump at once', (await text()).includes('Idea for the garden'));

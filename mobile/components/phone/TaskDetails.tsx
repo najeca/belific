@@ -84,6 +84,8 @@ const make = (c: ColorTokens) => ({
   // a text in a row does not shrink by itself; the label keeps at least 40 % of the row.
   rowValue: { ...inter(500), fontSize: 15, color: c.textSecondary, flexShrink: 1, maxWidth: '60%' as const, textAlign: 'right' as const },
   rowValueSet: { color: c.textPrimary },
+  // 3.59.1: the Label value, one line; no percentage width of its own (its row box holds the limit).
+  labelValue: { ...inter(500), fontSize: 15, color: c.textPrimary, flexShrink: 1 },
   panel: { paddingHorizontal: 14, paddingBottom: 14, gap: 10 },
   chips: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
   chip: { minHeight: 40, paddingHorizontal: 14, borderRadius: radius.full, borderWidth: 1, borderColor: c.borderStrong, alignItems: 'center' as const, justifyContent: 'center' as const },
@@ -735,10 +737,12 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
 
           {!partOf ? <Text style={s.section}>Where</Text> : null}
           {!partOf ? <View style={s.card}>
+            {/* 3.59.1: one line (dot, emoji, name, … when too long). The width limit sits on this box, not on the text: a
+                percentage of a box sized by its own text made iOS wrap "Personal" over three lines with the emoji above. */}
             {row('pricetag-outline', 'Label', label ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, maxWidth: '62%' }} {...({ dataSet: { labelValue: label.name } } as object)}>
                 <LabelDot color={labelColor(label.colorKey)?.edge ?? c.textTertiary} />
-                <Text style={[s.rowValue, s.rowValueSet]}>{`${label.emoji ? `${label.emoji} ` : ''}${label.name}`}</Text>
+                <Text style={[s.labelValue]} numberOfLines={1} ellipsizeMode="tail">{`${label.emoji ? `${label.emoji} ` : ''}${label.name}`}</Text>
               </View>
             ) : 'None', labelMenu, `Label, ${label ? label.name : 'none'}`, true, 'label')}
             {newLabel !== null ? (
@@ -772,7 +776,9 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
                 </View>
               </View>
             ) : null}
-            {row('list-outline', 'List', list ? `${list.emoji ? `${list.emoji} ` : ''}${list.name}` : 'Brain Dump', listMenu, `List, ${list ? list.name : 'Brain Dump'}`, false, 'list')}
+            {row('list-outline', 'List', (
+              <Text style={[s.rowValue, s.rowValueSet, { maxWidth: '62%' }]} numberOfLines={1} ellipsizeMode="tail" {...({ dataSet: { listValue: list ? list.name : 'Brain Dump' } } as object)}>{list ? `${list.emoji ? `${list.emoji} ` : ''}${list.name}` : 'Brain Dump'}</Text>
+            ), listMenu, `List, ${list ? list.name : 'Brain Dump'}`, false, 'list')}
           </View> : null}
 
           <Text style={s.section}>Notes</Text>

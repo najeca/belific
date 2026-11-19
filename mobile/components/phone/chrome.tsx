@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { radius, type ColorTokens } from '../../lib/tokens';
@@ -8,10 +8,12 @@ import { useStyles, useTheme } from './theme';
 import { inter, type } from './type';
 import { MIN_TOUCH } from './ui';
 import { useSyncBadge } from '../useSyncBadge';
+import { avatarA11y } from '../../lib/profileAvatar';
+import { AvatarFace, ProfileSheet, reloadAvatar, useAvatar } from './ProfileSheet';
 
 // The frame every phone tab shares (PLAN_phone P3): a title in Newsreader with the profile avatar
-// top right (Settings live behind it, there is no Settings tab), the round + button, and a
-// segmented switch.
+// top right, the round + button, and a segmented switch. 3.59.1: the avatar opens the Profile sheet (a preset
+// picture or initials on a colour, and the way to Settings; there is no Settings tab).
 
 const make = (c: ColorTokens) => ({
   header: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 6 },
@@ -21,7 +23,6 @@ const make = (c: ColorTokens) => ({
   sync: { ...type.meta, color: c.textSecondary, marginTop: 2 },
   syncWarn: { color: c.danger },
   avatar: { width: MIN_TOUCH, height: MIN_TOUCH, alignItems: 'center' as const, justifyContent: 'center' as const },
-  avatarCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface, alignItems: 'center' as const, justifyContent: 'center' as const },
   fab: { position: 'absolute' as const, right: 18, width: 58, height: 58, borderRadius: 29, backgroundColor: c.accent, alignItems: 'center' as const, justifyContent: 'center' as const, borderWidth: 1, borderColor: c.accent },
   segTrack: { flexDirection: 'row' as const, borderRadius: radius.lg, padding: 3, gap: 2, backgroundColor: c.surfaceRaised, borderWidth: 1, borderColor: c.border },
   seg: { flex: 1, minHeight: 36, borderRadius: radius.md, alignItems: 'center' as const, justifyContent: 'center' as const, paddingHorizontal: 4 },
@@ -36,6 +37,14 @@ export function ScreenHeader({ title, sub, left }: { title: string; sub?: string
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const badge = useSyncBadge();
+  const avatar = useAvatar();
+  const [profile, setProfile] = useState(false);
+  // The picture may have come from another phone through sync: read it again whenever a tab shows.
+  useFocusEffect(
+    useCallback(() => {
+      void reloadAvatar();
+    }, []),
+  );
   return (
     <View style={[s.header, { paddingTop: insets.top + 8 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
@@ -51,16 +60,24 @@ export function ScreenHeader({ title, sub, left }: { title: string; sub?: string
         </View>
       </View>
       <Pressable
-        onPress={() => router.push('/settings')}
+        onPress={() => setProfile(true)}
         style={s.avatar}
         accessibilityRole="button"
-        accessibilityLabel="Profile and settings"
-        {...({ dataSet: { profileAvatar: '1' } } as object)}
+        accessibilityLabel={avatarA11y(avatar)}
+        accessibilityHint="Opens your profile and Settings."
+        {...({ dataSet: { profileAvatar: avatar.kind } } as object)}
       >
-        <View style={s.avatarCircle}>
-          <Ionicons name="person-outline" size={18} color={c.textSecondary} />
-        </View>
+        <AvatarFace avatar={avatar} />
       </Pressable>
+      <ProfileSheet
+        visible={profile}
+        onClose={() => setProfile(false)}
+        onSettings={() => {
+          setProfile(false);
+          // The sheet slides away first, then Settings is pushed.
+          setTimeout(() => router.push('/settings'), 300);
+        }}
+      />
     </View>
   );
 }

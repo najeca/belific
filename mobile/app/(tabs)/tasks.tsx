@@ -38,6 +38,8 @@ import { PartRows } from '../../components/phone/PartRows';
 import { partsFor, partsProgress, withParts } from '../../lib/parts';
 import { setPartDone } from '../../lib/partActions';
 import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
+import { EarlierPill, EarlierSheet, earlierCount } from '../../components/phone/EarlierSheet';
+import { withoutEarlier } from '../../lib/earlierUndo';
 import { usePhonePref } from '../../components/phone/prefs';
 import { refreshTaskReminders } from '../../components/phone/reminderScheduler';
 import { TaskDetails, type DetailsTarget } from '../../components/phone/TaskDetails';
@@ -111,6 +113,7 @@ export default function TasksTab() {
   // PLAN_phone_stepflow phase 1: the round + opens the step by step add flow, in the list shown.
   const [stepAdd, setStepAdd] = useState<StepAddTarget | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [earlierOpen, setEarlierOpen] = useState(false);
   // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
   const [cutMin, setCutMin] = useState(30);
   const [inside, setInside] = useState<InsideTarget | null>(null);
@@ -148,10 +151,13 @@ export default function TasksTab() {
 
   const live = liveLists(lists);
   const listKey = chosen === REPEATING ? undefined : chosen && live.some((l) => l.key === chosen) ? chosen : undefined;
-  const counts = useMemo(() => listCounts(tasks, lists), [tasks, lists]);
+  // 3.59.1: a one off task of an earlier day that is not ticked waits in the Earlier pill, not in its list (nor its count).
+  const current = useMemo(() => withoutEarlier(tasks, todayKey), [tasks, todayKey]);
+  const earlier = useMemo(() => earlierCount(all, todayKey), [all, todayKey]);
+  const counts = useMemo(() => listCounts(current, lists), [current, lists]);
   const { rows, doneToday } = useMemo(
-    () => splitThoughts(tasksInList(tasks, listKey, lists), listKey === undefined ? items : [], todayKey, { includeDated: listKey !== undefined }),
-    [tasks, items, lists, listKey, todayKey],
+    () => splitThoughts(tasksInList(current, listKey, lists), listKey === undefined ? items : [], todayKey, { includeDated: listKey !== undefined }),
+    [current, items, lists, listKey, todayKey],
   );
   // 3.10.0: "During Lunch" and "2 inside" on the dated rows of a list.
   const hosts = useMemo(() => hostIndex(tasks, rows.flatMap((r) => (r.kind === 'task' && r.task.dueDate && r.task.startTime ? [r.task.dueDate] : [])), todayKey), [tasks, rows, todayKey]);
@@ -423,6 +429,11 @@ export default function TasksTab() {
   return (
     <View style={s.screen}>
       <ScreenHeader title="Tasks" />
+      {earlier > 0 ? (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+          <EarlierPill count={earlier} onPress={() => setEarlierOpen(true)} />
+        </View>
+      ) : null}
       <View>
         {/* React Native's own scroll view: gesture handler's horizontal one cancels a chip's hold on the web export. */}
         <RNScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
@@ -558,6 +569,7 @@ export default function TasksTab() {
         }}
       />
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
+      <EarlierSheet visible={earlierOpen} onClose={() => setEarlierOpen(false)} onChanged={() => void load()} />
     </View>
   );
 }

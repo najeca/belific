@@ -1,6 +1,6 @@
 # Plan: step by step add, the Today Now card and hours strip, Plan my day (PLAN_phone_stepflow)
 
-Written 2026-11-18 on `v2-redesign` at 3.58.0 (after the full regression of 4261c73, all green). Plan only: no app
+Written 2026-11-18 on `v2-redesign` at 3.58.0; **updated 2026-11-19 at 3.59.1 (Part B): section 2 is the Today redesign, section 4 the Tasks tab redesign (it replaces parity phase 6), section 5 the later phases; plan only, waiting for confirmation** (after the full regression of 4261c73, all green). Plan only: no app
 change. **Phone only: nothing the desktop draws or does changes.** Where this plan makes a choice of its own it says
 "chosen here"; the questions at the end ask Jethro to confirm those.
 
@@ -92,52 +92,132 @@ screen, Skip, Back, close at each step keeps the task, Just a reminder stores 0 
 stored row after each answer. Older checks that tap + and expect the card (phone-p17 and phone-p22) are updated on
 purpose in the same commit.
 
-## 2. Today on the phone
+## 2. Today redesign (replaces the old phase 2; written 2026-11-19 at 3.59.1)
 
-### Now card
+The old section 2 (a Now card over the old list, a thin hours bar) is replaced by this. Inspired by a vertical
+timeline planner, **drawn with our own shapes, colours and tokens** (`lib/tokens.ts`, the label palette in
+`lib/labelColors.ts`, Inter and Newsreader, the slab helper below); nothing is copied from any other app.
 
-A white card (radius 16, slab, an 8 px accent band; label colours are not in this brief) at the top of Today, in place
-of the "Now / Next" lines:
+**Today is the home** (the first tab, as now). From top to bottom:
 
-- **Something now:** "Now · 19:00 to 20:00" (13/800 accentText), the title (24/800), **"25 min left"**, a short
-  divider, then **"Next: Dinner at 20:30, in 55 min"** (title in textPrimary). A big **Done** (the row's `tick`, the same
-  Undo bar).
-- **Nothing now, something later:** "Next · 20:30", the title, "in 1 h 20 min"; no Done (chosen here: Start now from
-  parity plan B is left out, it was not asked for; question 4).
+```
+Today                                   (JC)
+Thursday 19 November
+[ Earlier 2 ]                        [ Plan ]
++------------------------------------------+
+|| NOW · 14:00 to 15:00        ( Health )  |   label colour edge on the left, a pill on the right
+|| Gym                                     |   with the label's name, or "Free time"
+|| 25 min left                             |
+|| ---------                               |
+|| Next: Call Mum at 15:30, in 55 min      |
++------------------------------------------+
+Hours today   [====green====|==blue==|..grey..]
+💪 Health 1h 30m · 💷 Money 45m · No label 2h
+
+ 09:00  |  ( 💼 )  Stand up                      ( )
+        |          09:00 · 15m
+ 10:00  |  (    )  Deep work block               ( )   bubble height shows the length
+        |  ( 💼 )  10:00 · 2h
+        |    · Smaller task: Draft             ( )   smaller tasks nest inside their block
+        |
+        |   (gap: Lunch, free time)                   a cut break is a gap on the line
+ 14:00 ●--- Now                                       the Now marker on the line
+        |  ( 💪 )  Gym                           ( )
+        ...
+Anytime
++--------------------------------------+
+| Buy stamps          💼 Work        ( ) |  separate slab cards, a visible gap
++--------------------------------------+
++--------------------------------------+
+| Read chapter 3      🧠 Brain Dump  ( ) |
++--------------------------------------+
+```
+
+### Now card (pinned at the top)
+- **Something now:** "Now · 14:00 to 15:00", the title, **"25 min left"**, a short divider, **"Next: Call Mum at
+  15:30, in 55 min"**. A **label colour edge** (the label's `edge` colour, 6 px, on the left) and a **pill** at the
+  top right with the label's name (its emoji too), or **"Free time"** when the item now is a free time block
+  (`cutsBelow`) or nothing is planned now. A big **Done** for the task now (the usual tick, the Undo bar).
+- **Nothing now, something later:** "Free time" pill, "Next: Call Mum at 15:30, in 1 h 20 min".
 - **Nothing left today:** "Nothing else today". **Nothing at all:** "A free day", quietly.
-- "in <duration>" is the time until the next item starts, in the app's `formatMinutes` words.
-- A quick reminder can be Now's next item ("Next: Ring the pharmacy at 14:00, in 10 min"); it is never "now" (it has
-  no length).
-- **Updates every minute:** the existing 60 s timer, plus an `AppState` listener so coming back from the background
-  redraws at once (a timer does not run while the app sleeps). The times come from `buildToday`; a small pure
-  `lib/nowCard.ts` gives the words (tested: now with time left, next only, the "in" text across the hour, midnight,
-  a reminder as next, a multi time task).
+- "in <duration>" is the time until the next item starts, in `formatMinutes` words. A quick reminder (0 minutes) can be
+  Next ("Next: Ring the pharmacy at 14:00, in 10 min"); it is never Now.
+- **Updates every minute** (the existing 60 s timer while Today has focus) **and when the app comes back from the
+  background** (an `AppState` "active" listener redraws at once; a timer does not run while the phone sleeps).
+- Pure `lib/nowCard.ts` gives the words (tested: now with time left, next only, "in" across the hour and midnight, a
+  reminder as next, a multi time task, free time now).
 
-### Hours strip
+### The timeline (today's timed items)
+- A **thin vertical line** (2 px, `border` colour) joins one **bubble per item**. The bubble is a rounded shape in the
+  item's **label colour** (its `tint` as the fill, `edge` as the ring; no label: the neutral grey) with the **list's
+  emoji** in it (Brain Dump's 🧠 when none).
+- **Bubble height shows the length**: a fixed scale (chosen here: 1 px per minute, at least 44 pt, at most 160 pt, so a
+  5 minute item still has a full touch target and an 8 hour shift does not fill the screen). A quick reminder is a small
+  round bubble (44 pt).
+- Beside the bubble: the title (16/600), and **the time small under it** ("10:00 · 2h", Roboto Mono 13).
+- A **tick circle on the right in the label colour** (the ring in `edge`, filled when done). Ticking keeps the row
+  (struck through, as the timeline is the day's plan) with the Undo bar.
+- A **Now marker on the line**: a dot and a short rule at the current minute, drawn between the items it falls between
+  (inside a bubble when an item is running). It moves with the minute update.
+- **Cut breaks are gaps**: a free time block is not a bubble; the line shows a gap with its name in small grey text
+  ("Lunch, free time"), as the Calendar day grid already draws breaks (`lib/cuts.ts`, `lib/phoneDay.ts`).
+- **Smaller tasks nest inside their block**: under the block's bubble, indented, each with its own small tick (the
+  `PartRows` rules), the same for a shift's inside rows (`ShiftRows`).
+- Events (the person's own and the starter ones) are drawn as plain grey bubbles with no tick, as now.
+- A tap opens the row's card (`TaskDetails`); press and hold opens the centred `HoldCard`, as now.
 
-Under the Now card, one thin bar of today's planned hours **per label**, each part in its label's colour
-(`labelColor(...).edge`, the same helper as the desktop), with a one line legend under it ("💪 Health 1h 30m · 💷
-Money 45m · No label 2h").
+### Anytime (untimed tasks for today)
+- Each untimed task for today is its **own slab card** (the offset shape workaround, below) with a visible gap (10 pt),
+  never joined into one card: title, the list name small, the label colour (an edge and a dot), the tick on the right.
+- **Long press, then drag, reorders them**; the order is the **do first order** and Now card's "Next" never uses it
+  (Next is timed only). A tap still opens the card; a long press still opens the HoldCard if the finger does not move
+  (the same split the Calendar's block drag uses, `lib/phoneDrag.ts`: hold, then move).
+- **Does this need a new column? Answer: not if we choose so.** A task has no order field (`Task` in `lib/types.ts`
+  has none; the synced `tasks` columns have none). Two ways:
+  - **(a) No database change (recommended):** one `user_settings` row per day, key `today.order.YYYY-MM-DD`, value the
+    ordered task ids (JSON, at most a few hundred bytes). It syncs like every setting, needs no schema change, and old
+    rows can be deleted after 14 days. A task not in the list goes after the ordered ones, by the current rule (top
+    priority first, then oldest first). The desktop does not read it.
+  - **(b) A new column** `tasks.day_order` (a number): cleaner per task, but it is a database change (a migration, the
+    sync mapping, the desktop schema check) and it would be one more field a phone and the desktop edit at once.
+  **No database change is applied without your go.**
 
-- Counted: today's tasks still to do and done (chosen here: the day's plan, so ticking does not shrink it; question
-  5), with the same minutes as `totalsOf` (a shift counted once, breaks not counted).
-- **Zero minute reminders never count** (`isQuickReminder` is skipped, as `totalsOf` does). Tasks with no length count
-  0 (chosen here; the desktop's totals do the same).
-- **Lists are not coloured and not in the strip.** Tasks with no label are one neutral grey part, "No label".
-- With no planned minutes the strip is not drawn.
-- Pure `lib/labelHours.ts` + `labelHours.test.ts` (reminders skipped, a shift counted once, a deleted label falls to No
-  label, order by most hours).
+### Hours strip (per label, for today)
+- One thin bar under the Now card, one part per label in its colour, longest first, and a one line legend under it.
+- Counted: **today's tasks done and planned both** (the day's plan does not shrink as you tick), with the minutes of
+  `taskTotals.totalsOf` (a shift counted once; breaks never counted). **Zero minute reminders never count**
+  (`isQuickReminder` is skipped). A task with no length counts 0. Tasks with no label are one grey "No label" part.
+- **"Count in daily hours" switch per label**: in the label's own sheet (B2 adds one; until then a row in Settings,
+  "Daily hours", a switch per label). Stored as `user_settings` rows `hours.count.<labelKey>` = `off` (no database
+  change). **Sleep and Break are off by default**: a label named Sleep or Break (trimmed, any case) counts off until it
+  is switched on. A label switched off is not in the strip or its total; its tasks still show on the timeline.
+- No planned minutes: the strip is not drawn. Pure `lib/labelHours.ts` + test (reminders skipped, a shift counted once,
+  a deleted label falls to No label, Sleep and Break off by default, a switched off label left out).
 
-### Priority mark hidden
+### The Calendar tab and the old Today list
+- **The Calendar tab stays for planning other days**: its day view (with the drag), the week and the month, as now.
+- **The old Today list goes**: the "Now / Next" text lines, the "Planned" card and the joined Anytime card are replaced
+  by the Now card, the timeline and the Anytime slabs. "Done today" stays as the folded row at the bottom (ticked
+  untimed tasks; ticked timed items stay on the timeline, struck through). Routines that are still routines show as
+  Anytime slabs with their tick, as now. The Earlier pill (3.59.1) stays in the header row, beside the Plan button
+  (phase 3).
 
-The ❗ mark is no longer drawn on any phone row or block (`today.tsx`, `tasks.tsx`, `calendar/DayView.tsx`,
-`calendar/PhoneBlock.tsx`). The stored value and the desktop are untouched; a task set as top priority on the desktop
-keeps it. Chosen here: the details' "Top priority" switch also goes from the phone (question 7), and Anytime's
-"top priority first" order stays (it is shared with the desktop, `todayView.ts`).
+### The red priority mark, hidden on every phone screen
+The ❗ (`MUST_DO_MARK`) is no longer drawn on any phone screen: `today.tsx`, `tasks.tsx`, `calendar/DayView.tsx`,
+`calendar/PhoneBlock.tsx` and the leftover import in `TaskDetails.tsx` (the switch is already gone from the card). The stored value, the desktop and the shared sort rules
+are untouched (decision 7 of 2026-11-18 already took the "Top priority" switch off the phone's card).
 
-**Tests:** real touch check `phone-p26` at 390 x 844 with a fixed clock: each Now card state, the minute update, Done
-and Undo, the strip's parts and colours, a reminder not counted, no ❗ anywhere on Today, Tasks and Calendar, light
-and dark. phone-p6 (it reads the old "Now / Next" lines, the planned line or the ❗) is updated on purpose.
+### Slab cards (shared helper)
+RN `boxShadow` needs the New Architecture (`newArchEnabled: false` in `app.json`), so the slab is a plain `View` drawn
+absolutely behind the card, offset 6 px right and 6 px down, same radius, `border` colour, `pointerEvents="none"`,
+inside a wrapper with 6 px right and bottom margin; off in dark mode (a darker shape on a dark page reads as a smudge).
+One small phone helper, `components/phone/Slab.tsx`, used by Anytime here and by the Tasks rows in section 4.
+
+**Tests:** pure `nowCard.test.ts`, `labelHours.test.ts`, `anytimeOrder.test.ts` (the stored order, new tasks after,
+deleted ids dropped); real check `phone-p27` at 390 x 844 with a fixed clock: each Now card state, the minute update,
+the timeline order and bubble heights, the Now marker, a cut break as a gap, nested smaller tasks, the Anytime drag
+order stored and kept after a reload, the strip parts and colours, Sleep off by default, a reminder not counted, no ❗
+anywhere, light and dark. phone-p6 (it reads the old Now / Next lines) is changed on purpose.
 
 ## 3. Plan my day on the phone (its own phase)
 
@@ -166,21 +246,78 @@ with **Today**, **Tomorrow**, **A time** (today, with the time picker) and **Not
 check `phone-p27` at 390 x 844: each answer and the stored row, Undo of the last answer, per row Undo in the summary,
 close half way keeps answers, Not today on a repeating task skips only that day.
 
-## Phases
+## 4. Tasks tab redesign (replaces PLAN_phone_parity phase 6)
+
+```
+Tasks                                   (JC)
+[ Earlier 2 ]
+Lists                                 + New list
+ 🧠 Brain Dump 4   💼 Work 7   🔁 Routines 2   ...      (chips with counts, as now)
+Labels                               + New label
+ ● Health 5   ● Money 2   ...                          (chips with a colour dot and counts)
+[ Search ]                                [ Trash ]
+
++------------------------------------+
+|| Buy stamps                    ( ) |    each task its own slab card, a 10 pt gap
+|| 💼 Work · ● Errands               |    title, the list name small, label colour edge and dot
++------------------------------------+
++------------------------------------+
+|| Renew passport                ( ) |
+|| 🧠 Brain Dump                     |
++------------------------------------+
+```
+
+- **Slab rows:** every task is its **own separate card with a visible gap**, never joined (the `Slab` helper above).
+  Each card: the title, the **list name small** (with its emoji), and the **label colour** (a 4 px edge on the left
+  and a dot before the label's name). The swipes (Done, Tomorrow, Delete), the tap and the press and hold stay as now.
+- **Repeating tasks grouped by how often**, with clear headers: **Daily, Weekly, Every 2 weeks, Monthly** (and, only
+  when there are some, Every few weeks, Every year, Other repeats: the existing `QUEST_SECTIONS` in `lib/quests.ts`).
+  Each group **collapses and expands** (a chevron on the header, 44 pt) and **remembers its state** on this phone (a
+  `kv` key `belific_phone_repeat_folds`, never synced). **"Repeating" is never used alone as a label**: the chip
+  becomes "🔁 Repeats" (chosen here; question B2.1). Each row says its pattern in words
+  ("Every day", "Every Monday and Wednesday", "Every 2 weeks on Friday", "Monthly on the 3rd") with a new pure
+  `repeatWords()` (the existing `repeatLine` gives "Mon, Wed" style short forms; the words version is new and tested).
+- **Repeat until on the row:** "Until 17 Dec" after the pattern ("Every day · Until 17 Dec"), so a temporary task is
+  clear at a glance.
+- **Top of the tab:** the lists and the labels, each with its count (open tasks, the `lib/lists.ts` rule, without the
+  Earlier ones as of 3.59.1), **+ New list** (the `ListSheet`), **+ New label** (a new phone label sheet: name, emoji,
+  colour, using the colour row 3.59.1 added to the add flow; it also holds the "Count in daily hours" switch from
+  section 2), **Search** (a full screen search over titles and notes with the shared `lib/taskSearch.ts`) and **Trash**
+  (deleted tasks of the last 30 days with Restore, the shared Trash rules; Let go from Earlier lands here). A label
+  chip opens every task with that label, grouped by list.
+- **"Every year": it exists.** `lib/repeat.ts` has `annual` ("Every year", since 2.21.0), `lib/recurrence.ts` projects
+  it (29 Feb falls on 28 Feb in other years) and the phone's `RepeatEditor` already offers it after the "every device
+  is updated" tick (`ANNUAL_WARNING`). Nothing to build; the Tasks tab only needs its group header ("Every year") when
+  such a task exists. (If you meant something else, for example a birthday style yearly date without the warning, that
+  is a wording change only: drop the tick once every device runs 2.21 or later, which they now all do.)
+
+**Tests:** pure `repeatWords.test.ts` (every rule and day set, until, a rule this version does not know); real check
+`phone-p28`: slab cards with gaps and colours, the groups and their fold kept after a reload, the words, "Until 17 Dec",
+counts, + New label, Search, Trash with Restore, light and dark. phone-p5, p9, p22 (they read the joined rows and the
+"Repeating" chip) are changed on purpose.
+
+## 5. Later phases (listed only, not started)
+
+| # | Phase | Effort | Notes |
+|---|---|---|---|
+| L1 | **Home screen and lock screen widgets: Now and Next** | L (3 to 4 days, plus a TestFlight round) | Needs a native WidgetKit extension and an App Group to share the Now and Next text. **SDK 54:** Expo's own `expo-widgets` arrived (alpha) with **SDK 55**; there is no SDK 54 version. Two ways: (a) upgrade to SDK 55 or later first (its own phase, M to L, every native module rechecked), then `expo-widgets`; (b) stay on SDK 54 with Evan Bacon's `@bacons/apple-targets` config plugin and a small SwiftUI widget (it states SDK 53+; to be proven in a test build). Either way a new build, Xcode work and a hand test; no server. Recommended: (a) when the SDK upgrade is due anyway. |
+| L2 | **Weekly hours statistics** | M (1.5 days) | One screen from the Profile sheet: the last 7 days, planned and done minutes per label (the `labelHours` rules of section 2, the same switches), a bar per day and a week total. No streaks, no loss wording, nothing red. Pure `weekHours.ts` + test. |
+
+No Apple Watch app.
+
+## Phases (updated 2026-11-19)
 
 | # | Phase | Effort | Model |
 |---|---|---|---|
-| 1 | Step by step add flow (section 1) | L (2 days) | Opus for the flow rules, Sonnet for the screens |
-| 2 | Today: Now card, hours strip, priority mark hidden (section 2) | M (1 to 1.5 days) | Sonnet |
-| 3 | Plan my day on the phone (section 3) | L (2 days) | Opus |
+| 1 | Step by step add flow (section 1) | done, 3.59.0 (fix pack 3.59.1) | |
+| 2 | **Today redesign**: Now card, timeline, Anytime slabs and order, hours strip with the per label switch, no ❗ (section 2) | L (3 days) | Opus for the timeline and Now rules, Sonnet for the drawing |
+| 3 | Plan my day on the phone (section 3, unchanged) | L (2 days) | Opus |
+| 4 | **Tasks tab redesign**: slab rows, repeat groups and words, Until, the top (lists, labels, Search, Trash) (section 4) | L (2.5 days) | Sonnet, Opus for `repeatWords` |
+| L1 | Widgets (section 5) | L | later, not started |
+| L2 | Weekly hours (section 5) | M | later, not started |
 
-Each phase: a version bump (`app.json` only, 3.59.0, 3.60.0, 3.61.0), CHANGELOG, `docs/build-progress.md`, one commit
-for the app and a separate commit for any check changed on purpose.
-
-**Gates for each phase:** `npx tsc --noEmit`; mobile `npm test`; `npx expo export --platform ios` to a folder outside
-the repo and `npm run check:ios-markers -- <folder>`; the security scan (Git Bash); the new and the touched phone
-touch checks at 390 x 844 (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1), and the desktop checks that read shared code
-(desktop `npm test`, cp6) to show **the desktop did not change**. The full regression once after phase 3.
+Order chosen here: 2, then 4 (both are the daily look), then 3. Each phase: a version bump, CHANGELOG,
+`docs/build-progress.md`, an app commit and a separate commit for checks changed on purpose; the gates as before.
 
 ## Risks
 
@@ -228,3 +365,21 @@ All eight defaults are confirmed as written. Notes:
 7. The Top priority switch goes from the phone's details. Tasks that already have a priority keep it stored and synced;
    the desktop is unaffected.
 6. Slab cards and label colours on rows stay in `PLAN_phone_parity.md` for later.
+
+## Questions for Part B (with recommended defaults)
+
+- **B1.1 Anytime order:** store it in one `user_settings` row per day (no database change)? *Default:* yes, option (a).
+- **B1.2 Bubble scale:** 1 pt per minute, 44 pt at least, 160 pt at most? *Default:* yes.
+- **B1.3 Ticked timed items stay on the timeline, struck through** (the day's plan), and only untimed ones fold into
+  Done today? *Default:* yes.
+- **B1.4 "Count in daily hours"** lives in Settings until the label sheet of phase 4 exists, then moves there?
+  *Default:* yes. Sleep and Break are matched by name only.
+- **B2.1 The Repeating chip's new name:** "🔁 Repeats", or "How often"? *Default:* "Repeats" (short, and a group header
+  under it always says how often).
+- **B2.2 Folded groups** remembered per phone only (not synced)? *Default:* yes.
+- **B3 Widgets:** wait for the SDK 55+ upgrade (`expo-widgets`) rather than a separate Swift target on SDK 54?
+  *Default:* yes.
+
+## Decisions for Part B
+
+Not yet: waiting for Jethro to confirm the questions above.

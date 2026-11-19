@@ -26,7 +26,7 @@ import { loadCutMin } from '../../lib/phoneActions';
 import { ShiftRows } from './ShiftRows';
 import { AddInside } from './AddInside';
 import { addTask, loadListsRaw, loadTasksRaw } from '../../lib/storage';
-import { ADD_PART, CHECKLIST, PARTS, PARTS_HINT, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
+import { ADD_PART, CHECKLIST, CHECKLIST_HINT_PHONE, PARTS, PARTS_HINT_PHONE, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
 import { addPart, convertSteps, deleteSeriesWithParts, deleteWithParts, setPartDone, takeOut } from '../../lib/partActions';
 import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, priorityPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -95,7 +95,7 @@ const make = (c: ColorTokens) => ({
   input: { ...inter(400), fontSize: 16, color: c.textPrimary, minHeight: 44, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.pane },
   notes: { ...inter(400), fontSize: 16, color: c.textPrimary, minHeight: 96, padding: 12, textAlignVertical: 'top' as const },
   step: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, minHeight: 48, paddingHorizontal: 14 },
-  stepInput: { flex: 1, ...inter(400), fontSize: 16, color: c.textPrimary, minHeight: 44 },
+  stepInput: { flex: 1, ...inter(400), fontSize: 16, color: c.textPrimary, minHeight: 44, minWidth: 0 },
   section: { ...type.section, color: c.textSecondary, marginTop: 18, marginBottom: 8, marginLeft: 4 },
   note: { ...type.meta, color: c.textSecondary },
   warn: { ...type.meta, color: c.danger },
@@ -801,7 +801,7 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
           {partsHere ? (
             <>
               <Text style={s.section} {...({ dataSet: { partsHead: String(parts.length) } } as object)}>{parts.length > 0 ? `${PARTS}  ${progress.text}` : PARTS}</Text>
-              <Text style={[s.note, { fontSize: 14, lineHeight: 20, marginBottom: 6, marginLeft: 4 }]} {...({ dataSet: { partsHint: '1' } } as object)}>{PARTS_HINT}</Text>
+              <Text style={[s.note, { fontSize: 14, lineHeight: 20, marginBottom: 6, marginLeft: 4 }]} {...({ dataSet: { partsHint: '1' } } as object)}>{PARTS_HINT_PHONE}</Text>
               <View style={s.card} {...({ dataSet: { partsCard: String(parts.length) } } as object)}>
                 {parts.length > 0 ? (
                   <View style={s.partsBar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: progress.total, now: progress.done }} {...({ dataSet: { partsBar: `${progress.done}/${progress.total}` } } as object)}>
@@ -857,7 +857,10 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
             </>
           ) : null}
 
-          {showSteps ? <Text style={s.section}>{`${partsHere ? CHECKLIST : 'Steps'}${steps.length ? ` ${steps.filter((x) => x.done).length}/${steps.length}` : ''}`}</Text> : null}
+          {/* 3.59.1: Smaller tasks and Checklist are two different things: a rule and more room between them, and a line each. */}
+          {showSteps && partsHere ? <View style={{ height: 1, backgroundColor: c.border, marginTop: 24, marginHorizontal: 4 }} {...({ dataSet: { checklistRule: '1' } } as object)} /> : null}
+          {showSteps ? <Text style={s.section} {...({ dataSet: { checklistHead: partsHere ? 'checklist' : 'steps' } } as object)}>{`${partsHere ? CHECKLIST : 'Steps'}${steps.length ? ` ${steps.filter((x) => x.done).length}/${steps.length}` : ''}`}</Text> : null}
+          {showSteps && partsHere ? <Text style={[s.note, { fontSize: 14, lineHeight: 20, marginBottom: 6, marginLeft: 4 }]} {...({ dataSet: { checklistHint: '1' } } as object)}>{CHECKLIST_HINT_PHONE}</Text> : null}
           {showSteps && partsHere && !task.recurrence ? (
             <View style={{ alignItems: 'flex-start', marginBottom: 8 }}>
               <Button label={TURN_INTO_PARTS} onPress={() => void convertSteps(task).then(reshow)} a11y={TURN_INTO_PARTS} />

@@ -245,3 +245,10 @@ test('the words (3.55.0): Smaller tasks, Add a smaller task, a one line hint, Tu
   assert.equal(m.TURN_INTO_PARTS, 'Turn steps into smaller tasks');
   assert.equal(m.partOfText('Upper day'), 'Smaller task of Upper day');
 });
+
+test('3.59.1: the phone card tells Smaller tasks and Checklist apart; the desktop line is unchanged', async () => {
+  const m = await import('./parts.ts');
+  assert.equal(m.PARTS_HINT_PHONE, 'Their own times and lengths, shown inside this block');
+  assert.equal(m.CHECKLIST_HINT_PHONE, 'Quick tick boxes, no times');
+  assert.equal(m.PARTS_HINT, 'Break a big task into steps you can tick off one at a time.');
+});

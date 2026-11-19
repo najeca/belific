@@ -20,6 +20,9 @@ import { rootTaskId } from './recurrence.ts';
 export const ADD_PART = 'Add a smaller task';
 export const PARTS = 'Smaller tasks';
 export const PARTS_HINT = 'Break a big task into steps you can tick off one at a time.';
+// 3.59.1: the phone's task card says what tells the two sections apart (the desktop keeps PARTS_HINT).
+export const PARTS_HINT_PHONE = 'Their own times and lengths, shown inside this block';
+export const CHECKLIST_HINT_PHONE = 'Quick tick boxes, no times';
 
 type Row = Pick<Task, 'id' | 'deletedAt'> & Partial<Pick<Task, 'parentId'>>;
 

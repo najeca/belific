@@ -133,7 +133,7 @@ async function run() {
   check('Save writes the dog to Games', strip(lists().find((l) => l.key === 'LG').emoji) === '🐶', JSON.stringify(lists().find((l) => l.key === 'LG')));
   // Dark.
   await P.finger.tap(tab('Today'), 900);
-  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
   await P.finger.tap(visible('[data-phone-theme] [data-seg="dark"]'), 900);
   if (await P.js(`!!(${visible('[aria-label="Back"]')})`)) await P.finger.tap(visible('[aria-label="Back"]'), 900);
   await P.finger.tap(tab('Tasks'), 1000);
@@ -216,7 +216,7 @@ async function run() {
   };
   await surfaces('dark');
   await P.finger.tap(tab('Today'), 900);
-  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
   await P.finger.tap(visible('[data-phone-theme] [data-seg="light"]'), 900);
   if (await P.js(`!!(${visible('[aria-label="Back"]')})`)) await P.finger.tap(visible('[aria-label="Back"]'), 900);
   await surfaces('light');

@@ -73,7 +73,7 @@ async function run() {
   // The avatar opens Settings from every tab.
   for (const t of ['Today', 'Calendar', 'Tasks']) {
     await P.finger.tap(tab(t), 900);
-    await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+    await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
     const on = (await text()).includes('Notifications') && (await text()).includes('Account');
     check(`${t}: the avatar opens Settings`, on);
     if (on) await P.finger.tap(visible('[aria-label="Back"]'), 900);

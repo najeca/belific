@@ -107,7 +107,7 @@ async function run() {
   await P.js(`(() => { const e = ${inSheet('[data-parts-head], [data-add-part]')}; if (e) e.scrollIntoView({ block: 'center' }); })()`);
   await C.sleep(300);
   const text = (await sheetText()).replace(/\s+/g, ' ');
-  check('the details read "Smaller tasks", "Add a smaller task" and the hint; no "Parts" or "Add part"', text.toLowerCase().includes('smaller tasks') && text.includes('Add a smaller task') && text.includes('Break a big task into steps you can tick off one at a time.') && !/Parts|Add part/.test(text), text.slice(0, 1500));
+  check('the details read "Smaller tasks", "Add a smaller task" and the hint; no "Parts" or "Add part"', text.toLowerCase().includes('smaller tasks') && text.includes('Add a smaller task') && text.includes('Their own times and lengths, shown inside this block') /* 3.59.1: the phone's own line */ && !/Parts|Add part/.test(text), text.slice(0, 1500));
   const hint = await P.js(`(() => { const e = ${inSheet('[data-parts-hint]')}; return e ? parseFloat(getComputedStyle(e).fontSize) : 0; })()`);
   check('the hint is 14 px or more', hint >= 14, String(hint));
   const add = await P.js(`(() => { const e = ${inSheet('[data-add-part]')}; return e ? e.getBoundingClientRect().height : 0; })()`);

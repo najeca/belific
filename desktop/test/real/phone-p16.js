@@ -70,7 +70,7 @@ async function run() {
   };
 
   // ======== Step 1: switches ========
-  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
   await audit('light settings', 3);
   await shot('phone-p16-switches-settings-light');
   await P.finger.tap(visible('[data-phone-theme] [data-seg="dark"]'), 900);
@@ -112,7 +112,7 @@ async function run() {
   };
   await mode3('dark');
   await P.finger.tap(tab('Today'), 900);
-  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
   await P.finger.tap(visible('[data-phone-theme] [data-seg="light"]'), 900);
   await P.finger.tap(visible('[aria-label="Back"]'), 900);
   await mode3('light');

@@ -114,7 +114,7 @@ async function run() {
     ['calendar-day', async () => P.finger.tap(tab('Calendar'), 1200), async () => {}],
     ['calendar-week', async () => P.finger.tap(visible('[data-seg="week"]'), 900), async () => {}],
     ['calendar-month', async () => P.finger.tap(visible('[data-seg="month"]'), 900), async () => P.finger.tap(visible('[data-seg="day"]'), 700)],
-    ['settings', async () => P.finger.tap(visible('[data-profile-avatar]'), 1200), async () => P.finger.tap(visible('[aria-label="Back"]'), 900)],
+    ['settings', async () => P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */, async () => P.finger.tap(visible('[aria-label="Back"]'), 900)],
   ];
 
   const tour = async (themeName) => {
@@ -138,7 +138,7 @@ async function run() {
 
   // The Theme setting.
   await P.finger.tap(tab('Today'), 900);
-  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
   check('Settings has the Theme setting: Light, Dark, Match system', JSON.stringify(await P.js(`[...document.querySelectorAll('[data-phone-theme] [role="tab"]')].map((e) => e.textContent.trim())`)) === JSON.stringify(['Light', 'Dark', 'Match system']));
   await P.finger.tap(visible('[data-phone-theme] [data-seg="dark"]'), 900);
   check('Dark is stored on this phone only', /dark/.test(fs.readFileSync(path.join(dataDir, 'belific_phone_theme_mode.kv'), 'utf8')));

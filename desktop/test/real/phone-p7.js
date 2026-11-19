@@ -119,7 +119,7 @@ async function run() {
   await P.finger.tap(visible('[aria-label="Done"]'), 900);
 
   // This phone's own switch.
-  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
   check('Settings has "Remind me on this device", on by default', await P.js(`(() => { const s = document.querySelector('[data-phone-remind] [role="switch"]'); return !!s && (s.getAttribute('aria-checked') === 'true' || s.checked === true); })()`));
   await P.finger.tap(visible('[data-phone-remind] [role="switch"]'), 700);
   const stored = fs.readFileSync(path.join(dataDir, 'belific_phone_remind_tasks.kv'), 'utf8');

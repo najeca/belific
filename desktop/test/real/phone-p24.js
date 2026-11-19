@@ -103,6 +103,8 @@ async function run() {
   const serverTasks = (userId) => (fake.store.tables.tasks || []).filter((r) => r.user_id === userId);
   const openSettings = async () => {
     await P.finger.tap(`document.querySelector('[data-profile-avatar]')`, 1200);
+    // 3.59.1: the avatar opens Profile; Settings is a row in it.
+    await P.finger.tap(`[...document.querySelectorAll('[data-profile-settings]')].pop()`, 1600);
   };
 
   // ---- first launch ----

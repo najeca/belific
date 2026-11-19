@@ -175,7 +175,7 @@ async function run() {
   await P.finger.tap(`[...document.querySelectorAll('[data-routine-row="Water plants"] [role="button"]')][0]`, 900);
   check('a routine ticks as before', read('belific_routine_completions').some((c) => c.routineId === 'r1' && c.date === today));
   // The phone's own Show streaks switch.
-  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
   await P.finger.tap(visible('[data-phone-streaks] [role="switch"]'), 700);
   await P.finger.tap(visible('[aria-label="Back"]'), 900);
   await P.finger.tap(chip('__repeating__'), 900);

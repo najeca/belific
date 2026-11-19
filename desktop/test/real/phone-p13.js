@@ -149,7 +149,7 @@ async function run() {
   check('Today still lists every task on its own (nothing changes there)', ['Tea', 'Water the plants', 'Text Mum', 'Lunch', 'Listen to a podcast episode', 'Long lunch', 'Reply to Sam', 'Call the bank', 'Read a chapter'].every((t) => todayText.includes(t)), todayText.slice(0, 300));
 
   // Dark.
-  await P.finger.tap(visible('[data-profile-avatar]'), 1200);
+  await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
   await P.finger.tap(visible('[data-phone-theme] [data-seg="dark"]'), 900);
   if (await P.js(`!!(${visible('[aria-label="Back"]')})`)) await P.finger.tap(visible('[aria-label="Back"]'), 900);
   else if (await P.js(`!!(${visible('[aria-label="Done"]')})`)) await P.finger.tap(visible('[aria-label="Done"]'), 900);

@@ -204,8 +204,9 @@ Anytime
 
 ### The red priority mark, hidden on every phone screen
 The ❗ (`MUST_DO_MARK`) is no longer drawn on any phone screen: `today.tsx`, `tasks.tsx`, `calendar/DayView.tsx`,
-`calendar/PhoneBlock.tsx` and the leftover import in `TaskDetails.tsx` (the switch is already gone from the card). The stored value, the desktop and the shared sort rules
-are untouched (decision 7 of 2026-11-18 already took the "Top priority" switch off the phone's card).
+`calendar/PhoneBlock.tsx` and `TaskDetails.tsx`. **The card's "Top priority" switch also goes in this phase**: decision 7
+of 2026-11-18 took it off the phone, but it was never built (the card still shows it at 3.59.1). The stored value, the
+desktop and the shared sort rules are untouched.
 
 ### Slab cards (shared helper)
 RN `boxShadow` needs the New Architecture (`newArchEnabled: false` in `app.json`), so the slab is a plain `View` drawn

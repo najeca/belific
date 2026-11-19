@@ -13,7 +13,12 @@ import {
   updateRoutine,
   updateTask,
 } from './storage';
+import { createList } from './taskCommands';
+import { liveLists } from './lists';
+import { loadListsRaw } from './storage';
 import {
+  ROUTINES_EMOJI,
+  ROUTINES_LIST,
   planConvert,
   planUndo,
   routineSummary,
@@ -49,11 +54,12 @@ function serial<T>(fn: () => Promise<T>): Promise<T> {
 // The series are written first and the routine tombstones second. The
 // tombstone is a direct write of the row: storage.deleteRoutine is never used
 // because it also removes the routine's completions.
-export function convertRoutines(): Promise<number> {
+// 3.59.1: the phone passes `listKey` (its Routines list, routinesListKey below); the desktop passes nothing.
+export function convertRoutines(listKey?: string): Promise<number> {
   return serial(async () => {
     const [routines, tasks] = await Promise.all([loadRoutinesRaw(), loadTasksRaw()]);
     const nowIso = new Date().toISOString();
-    const plan = planConvert(routines, tasks, dateKey(new Date()), nowIso);
+    const plan = planConvert(routines, tasks, dateKey(new Date()), nowIso, listKey);
     for (const item of plan.items) if (item.series) await addTask(item.series);
     for (const item of plan.items) await updateRoutine(routineTombstone(item.routine, nowIso));
     return plan.items.length;
@@ -72,4 +78,15 @@ export function undoConversion(): Promise<number> {
     await copyRoutineCompletions(plan.copyFrom);
     return plan.count;
   });
+}
+
+// 3.59.1 (phone): the key of the list called Routines, made when there is none (with its emoji when no other list has
+// it, else with none: the shared one emoji per list rule).
+export async function routinesListKey(): Promise<string | undefined> {
+  const found = liveLists(await loadListsRaw()).find((l) => l.name.trim().toLowerCase() === ROUTINES_LIST.toLowerCase());
+  if (found) return found.key;
+  const made = await createList(ROUTINES_LIST, ROUTINES_EMOJI);
+  if (!('problem' in made)) return made.list.key;
+  const plain = await createList(ROUTINES_LIST);
+  return 'problem' in plain ? undefined : plain.list.key;
 }

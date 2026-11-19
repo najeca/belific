@@ -215,3 +215,37 @@ test('planning never produces anything for routine completions', () => {
   assert.deepEqual(Object.keys(undoPlan).sort(), ['copyFrom', 'count', 'routines', 'taskRows']);
   assert.ok(undoPlan.copyFrom.every((c) => c.from === 'r1'));
 });
+
+test('3.59.1: the phone puts converted routines in its Routines list; with no list (the desktop) nothing changes', async () => {
+  const m = await import('./routineConvert.ts');
+  const r = routine('r9', 'Stretch', 'morning');
+  assert.equal(planConvert([r], [], TODAY, NOW).items[0].series?.listKey, undefined);
+  assert.ok(!('listKey' in (planConvert([r], [], TODAY, NOW).items[0].series as object)));
+  assert.equal(planConvert([r], [], TODAY, NOW, 'L-routines').items[0].series?.listKey, 'L-routines');
+  assert.equal(m.ROUTINES_LIST, 'Routines');
+});
+
+test('3.59.1: the notice names the converted routines and says where they are', async () => {
+  const m = await import('./routineConvert.ts');
+  const a = routine('ra', 'Morning stretch', 'morning', { deletedAt: NOW });
+  const b = routine('rb', 'Evening walk', 'evening', { deletedAt: NOW });
+  const c = routine('rc', 'Still a routine', 'afternoon');
+  const series = (r: Routine, listKey?: string): Task => ({ ...planConvert([{ ...r, deletedAt: undefined }], [], TODAY, NOW, listKey).items[0].series! });
+  const names = (key: string) => (key === 'LR' ? 'Routines' : key === 'LW' ? 'Work' : undefined);
+
+  const one = m.convertedRoutines([a, c], [series(a, 'LR')]);
+  assert.deepEqual(one, [{ title: 'Morning stretch', listKey: 'LR' }]);
+  assert.equal(m.convertedNotice(one, names), '"Morning stretch" is now a repeating task. Find it on the Tasks tab, in the Routines list.');
+
+  const two = m.convertedRoutines([b, a], [series(a, 'LR'), series(b, 'LR')]);
+  assert.equal(m.convertedNotice(two, names), '"Morning stretch" and "Evening walk" are now repeating tasks. Find them on the Tasks tab, in the Routines list.');
+
+  // Converted before 3.59.1 (no list), or in two places: under Repeating, where every repeating task is.
+  assert.equal(m.convertedNotice(m.convertedRoutines([a], [series(a)]), names), '"Morning stretch" is now a repeating task. Find it on the Tasks tab, under Repeating.');
+  assert.equal(m.convertedNotice(m.convertedRoutines([a, b], [series(a, 'LR'), series(b, 'LW')]), names), '"Morning stretch" and "Evening walk" are now repeating tasks. Find them on the Tasks tab, under Repeating.');
+  // A series the person deleted is not listed; nothing converted says nothing.
+  assert.deepEqual(m.convertedRoutines([a], [{ ...series(a, 'LR'), deletedAt: NOW }]), []);
+  assert.equal(m.convertedNotice([], names), '');
+  const three = [{ title: 'A' }, { title: 'B' }, { title: 'C' }];
+  assert.equal(m.convertedNotice(three, names), '"A", "B" and "C" are now repeating tasks. Find them on the Tasks tab, under Repeating.');
+});

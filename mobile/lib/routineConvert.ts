@@ -68,8 +68,9 @@ export interface ConvertPlan {
   items: ConvertItem[];
 }
 
-// The root row of the series for one routine, dated the day Convert is pressed.
-export function seriesRowFor(routine: Routine, todayKey: string, nowIso: string): Task {
+// The root row of the series for one routine, dated the day Convert is pressed. 3.59.1: the phone passes the key of
+// its Routines list (made if missing); the desktop passes none, so its series stay in no list as before.
+export function seriesRowFor(routine: Routine, todayKey: string, nowIso: string, listKey?: string): Task {
   return {
     id: seriesIdFor(routine.id),
     title: routine.title,
@@ -79,18 +80,19 @@ export function seriesRowFor(routine: Routine, todayKey: string, nowIso: string)
     reminderMinutes: -1,
     createdAt: routine.createdAt,
     updatedAt: nowIso,
+    ...(listKey ? { listKey } : {}),
   };
 }
 
 // What Convert would do, from the stored routines (tombstones included) and
 // tasks (tombstones included). Routines the person already deleted are skipped.
-export function planConvert(routines: Routine[], tasks: Task[], todayKey: string, nowIso: string): ConvertPlan {
+export function planConvert(routines: Routine[], tasks: Task[], todayKey: string, nowIso: string, listKey?: string): ConvertPlan {
   const items: ConvertItem[] = [];
   for (const routine of [...routines].filter((r) => !r.deletedAt).sort(byTimeOfDay)) {
     // Any row with the root id means it was converted (or the person ended or
     // deleted that series): never write a second one.
     const exists = rowsOfRoot(tasks, seriesIdFor(routine.id)).length > 0;
-    items.push({ routine, series: exists ? null : seriesRowFor(routine, todayKey, nowIso) });
+    items.push({ routine, series: exists ? null : seriesRowFor(routine, todayKey, nowIso, listKey) });
   }
   return { items };
 }
@@ -182,4 +184,45 @@ export function routineLines(s: RoutineSummary): string[] {
     );
   }
   return out;
+}
+
+// ---- 3.59.1: the phone's notice names the routines and says where they are ----
+
+// The name of the list the phone puts converted routines in.
+export const ROUTINES_LIST = 'Routines';
+export const ROUTINES_EMOJI = '🔁';
+
+export interface ConvertedRoutine {
+  title: string;
+  // The live list its series is in (its name), or undefined: then it is only under Repeating.
+  listKey?: string;
+}
+
+// Every converted routine whose series is alive (what Undo would give back), by time of day.
+export function convertedRoutines(routines: Routine[], tasks: Task[]): ConvertedRoutine[] {
+  return [...routines]
+    .filter((r) => !!r.deletedAt)
+    .sort(byTimeOfDay)
+    .flatMap((r) => {
+      const rows = rowsOfRoot(tasks, seriesIdFor(r.id));
+      if (!isAlive(rows)) return [];
+      const root = rows.find((t) => t.id === seriesIdFor(r.id) && !t.deletedAt) ?? rows.find((t) => !t.deletedAt);
+      return [{ title: root?.title || r.title, ...(root?.listKey ? { listKey: root.listKey } : {}) }];
+    });
+}
+
+const quoted = (titles: string[]): string => {
+  const q = titles.map((t) => `"${t}"`);
+  return q.length <= 1 ? q.join('') : `${q.slice(0, -1).join(', ')} and ${q[q.length - 1]}`;
+};
+
+// For example: "Morning stretch" is now a repeating task. Find it on the Tasks tab, in the Routines list. `listName` gives a live
+// list's name from its key; a routine in no list (converted before 3.59.1, or on the desktop) is under Repeating.
+export function convertedNotice(items: ConvertedRoutine[], listName: (key: string) => string | undefined): string {
+  if (items.length === 0) return '';
+  const one = items.length === 1;
+  const names = items.map((i) => (i.listKey ? listName(i.listKey) : undefined));
+  const same = names.every((n) => n === names[0]) ? names[0] : undefined;
+  const where = same ? `in the ${same} list` : 'under Repeating';
+  return `${quoted(items.map((i) => i.title))} ${one ? 'is now a repeating task' : 'are now repeating tasks'}. Find ${one ? 'it' : 'them'} on the Tasks tab, ${where}.`;
 }

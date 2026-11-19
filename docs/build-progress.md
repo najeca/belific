@@ -1022,3 +1022,7 @@ Gates: tsc clean; mobile 1236/1236; iOS markers OK (49, 0 hits); security scan p
 What: the round + on the phone opens five screens (What's on your mind?, When, What time?, Which list or label?, Anything else to add?) with Skip, Back and dots; Next on the first screen stores the task (no Day) and every answer updates it; closing keeps it, and a task with no Day says where it is ("Saved in Brain Dump on the Tasks tab"). Phrases still fill and skip their screens. The desktop does not change.
 Tests: new stepFlow.test.ts (6); real new phone-p25 (38); phone-p22 changed on purpose (the card from the add row's +).
 Gates: listed in the CHANGELOG. Full regression NOT run (after phase 3).
+## Fix pack (2026-11-19): 3.59.1, phone only
+What: the card's Label row on one line; + New list and + New label in the add flow; Earlier on the phone (one pill, the desktop's rules, Undo per answer); the card's Smaller tasks and Checklist lines; a Profile sheet (preset picture or initials, synced); converted routines go to a Routines list and the notice names them. The desktop does not change.
+Tests: new earlierUndo.test.ts, profileAvatar.test.ts; real new phone-p26 (57); ten phone checks go through Profile to Settings, phone-p21 reads the new line (on purpose).
+Gates: listed in the CHANGELOG. Full regression NOT run.

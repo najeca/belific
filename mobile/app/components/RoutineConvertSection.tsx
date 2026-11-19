@@ -3,8 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useTheme, useThemed } from '../../components/phone/theme';
 import type { ColorTokens } from '../../lib/tokens';
-import { convertRoutines, loadRoutineState, undoConversion, type RoutineState } from '../../lib/routineConvertActions';
-import { DRY_RUN_NOTE, dryRunLines } from '../../lib/routineConvert';
+import { convertRoutines, loadRoutineState, routinesListKey, undoConversion, type RoutineState } from '../../lib/routineConvertActions';
+import { DRY_RUN_NOTE, ROUTINES_LIST, convertedNotice, convertedRoutines, dryRunLines } from '../../lib/routineConvert';
+import { loadListsRaw, loadRoutinesRaw, loadTasksRaw } from '../../lib/storage';
+import { liveLists } from '../../lib/lists';
 
 // Settings, Data on the iPhone (build plan phase 4, iOS adaptation step 2): turn
 // the routines into daily repeating tasks, which then show in Quests. The same
@@ -16,6 +18,9 @@ import { DRY_RUN_NOTE, dryRunLines } from '../../lib/routineConvert';
 // still counts. Undo ends the series and gives each routine back as a new row
 // with its ticks copied.
 //
+// 3.59.1: the routines land in a list called Routines (made if missing; the desktop's Convert is unchanged), and the
+// notice names them and says where they are on the Tasks tab ("Quests" was the old name of Repeating).
+//
 // Unlike the desktop there is no "Back up first" step: the phone has no backup
 // folder. Signed in, every row is also on the server; Undo is the way back.
 export default function RoutineConvertSection() {
@@ -25,9 +30,17 @@ export default function RoutineConvertSection() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [where, setWhere] = useState('');
 
+  // The notice: which routines are repeating tasks now, and where to find them.
+  const notice = async (): Promise<string> => {
+    const [routines, tasks, lists] = await Promise.all([loadRoutinesRaw(), loadTasksRaw(), loadListsRaw()]);
+    const live = liveLists(lists);
+    return convertedNotice(convertedRoutines(routines, tasks), (key) => live.find((l) => l.key === key)?.name);
+  };
   const reload = useCallback(async () => {
     setState(await loadRoutineState());
+    setWhere(await notice());
   }, []);
   useFocusEffect(
     useCallback(() => {
@@ -43,9 +56,9 @@ export default function RoutineConvertSection() {
     if (busy) return;
     setBusy(true);
     try {
-      const n = await convertRoutines();
+      await convertRoutines(await routinesListKey());
       setConfirming(false);
-      setNote(n === 1 ? 'Converted 1 routine. It is in Quests now. You can undo it here.' : `Converted ${n} routines. They are in Quests now. You can undo it here.`);
+      setNote('You can undo it here.');
       await reload();
     } catch {
       setNote('The conversion could not finish. Run it again to complete it.');
@@ -95,7 +108,7 @@ export default function RoutineConvertSection() {
           ))}
           <Text style={styles.hint}>{DRY_RUN_NOTE}</Text>
           <Text style={styles.hint}>
-            Each becomes a daily repeating task with no set time and no reminder, starting today, and shows in Quests. What you have already ticked is kept and counts for its streak.
+            {`Each becomes a daily repeating task with no set time and no reminder, starting today, in a list called ${ROUTINES_LIST} on the Tasks tab. What you have already ticked is kept and counts for its streak.`}
           </Text>
           <Text style={styles.warning}>A computer with an older Belific shows them as ordinary repeating tasks. You can undo this here.</Text>
           <View style={styles.row}>
@@ -117,8 +130,8 @@ export default function RoutineConvertSection() {
 
       {summary.converted > 0 && !confirming && (
         <>
-          <Text style={styles.body}>
-            {summary.converted === 1 ? '1 routine is now a repeating task.' : `${summary.converted} routines are now repeating tasks.`}
+          <Text style={styles.body} {...({ dataSet: { routineNotice: '1' } } as object)}>
+            {where || (summary.converted === 1 ? '1 routine is now a repeating task.' : `${summary.converted} routines are now repeating tasks.`)}
           </Text>
           <TouchableOpacity style={[styles.btn, busy && styles.disabled]} onPress={undo} disabled={busy} accessibilityRole="button" accessibilityLabel="Undo conversion">
             <Text style={styles.btnText}>Undo conversion</Text>

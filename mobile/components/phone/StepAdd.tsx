@@ -12,11 +12,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { radius, type ColorTokens } from '../../lib/tokens';
 import { addDays, dateKey, formatDayLabel, parseDateKey } from '../../lib/kanban';
 import { DURATION_PRESETS, presetLabel } from '../../lib/duration';
-import { labelColor } from '../../lib/labelColors';
+import { LABEL_COLORS, colorClash, labelColor, nextColorKey } from '../../lib/labelColors';
 import { createLabel, loadLabels } from '../../lib/labels';
 import { LIST_PRESETS, PRESET_HINT, availableLabelPresets } from '../../lib/presets';
 import { KEEP_AS_TEXT, parseQuick, previewText, quickFields } from '../../lib/quickParse';
-import { liveLists } from '../../lib/lists';
+import { createListState, liveLists, takenEmojis } from '../../lib/lists';
 import { createList } from '../../lib/taskCommands';
 import { opsForTask } from '../../lib/taskOps';
 import { addTask, loadListsRaw, loadTasksRaw } from '../../lib/storage';
@@ -32,6 +32,7 @@ import { MonthGrid } from './MonthGrid';
 import { TimeField } from './TimeField';
 import { inter, newsreader, type } from './type';
 import { LabelDot, RoundCheck } from './ui';
+import { EmojiPick } from './EmojiPick';
 import { newTaskTarget } from './newTask';
 
 // Where the + was pressed: a list to fill in at once (the Tasks tab), and a day to suggest on screen 2 (Today: today; the
@@ -60,7 +61,7 @@ const make = (c: ColorTokens) => ({
   hintOn: { color: c.onAccent },
   section: { ...type.section, color: c.textSecondary, marginTop: 8 },
   chips: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
-  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: radius.full, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface, flexDirection: 'row' as const, gap: 6, alignItems: 'center' as const, justifyContent: 'center' as const },
+  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: radius.full, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface, flexDirection: 'row' as const, gap: 6, alignItems: 'center' as const, justifyContent: 'center' as const, maxWidth: '100%' as const },
   chipDashed: { borderStyle: 'dashed' as const },
   chipOn: { backgroundColor: c.accent, borderColor: c.accent },
   chipText: { ...inter(600), fontSize: 15, color: c.textPrimary },
@@ -77,6 +78,14 @@ const make = (c: ColorTokens) => ({
   partInput: { flex: 1, ...inter(400), fontSize: 16, color: c.textPrimary, minHeight: 48, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface },
   partBtn: { minHeight: 48, paddingHorizontal: 14, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, alignItems: 'center' as const, justifyContent: 'center' as const },
   warn: { ...inter(500), fontSize: 14, lineHeight: 20, color: c.textPrimary },
+  // 3.59.1: the small New list / New label form under its group.
+  form: { gap: 10, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface },
+  formInput: { ...inter(500), fontSize: 17, color: c.textPrimary, minHeight: 48, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.pane },
+  swatches: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 4 },
+  swatch: { width: 44, height: 44, alignItems: 'center' as const, justifyContent: 'center' as const, borderRadius: 22 },
+  swatchDot: { width: 28, height: 28, borderRadius: 14 },
+  swatchOn: { borderWidth: 2, borderColor: c.textPrimary },
+  formRow: { flexDirection: 'row' as const, gap: 8, justifyContent: 'flex-end' as const, alignItems: 'center' as const },
 });
 
 export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget | null; onClose: (note: string | null) => void; onChanged: () => void }) {
@@ -96,6 +105,12 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
   const [partText, setPartText] = useState('');
   const [picking, setPicking] = useState(false);
   const [warn, setWarn] = useState<string | null>(null);
+  // 3.59.1: the inline New list / New label form on screen 4 (a name, an emoji for a list, a colour for a label).
+  const [making, setMaking] = useState<'list' | 'label' | null>(null);
+  const [newName, setNewName] = useState('');
+  const [newEmoji, setNewEmoji] = useState('');
+  const [newColor, setNewColor] = useState('');
+  const [makeNote, setMakeNote] = useState<string | null>(null);
   const taskRef = useRef<Task | null>(null);
   const chain = useRef<Promise<unknown>>(Promise.resolve());
   const inputRef = useRef<TextInput>(null);
@@ -119,6 +134,7 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
     setPartText('');
     setPicking(false);
     setWarn(null);
+    setMaking(null);
     loadListsRaw().then(setLists).catch(() => {});
     loadLabels().then(setLabels).catch(() => {});
     // The sheet's own focus handling can win a race with autoFocus: ask once more when it has settled.
@@ -191,6 +207,7 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
 
   const go = (to: Step | null, t: Task | null = taskRef.current) => {
     setPicking(false);
+    setMaking(null);
     setWarn(null);
     if (!to) {
       void finish(t);
@@ -241,7 +258,7 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
   const chip = (label: string, on: boolean, run: () => void, data: Record<string, string>, opts: { dot?: string; dashed?: boolean; a11y?: string; disabled?: boolean } = {}) => (
     <Pressable key={Object.values(data).join('|')} onPress={run} disabled={opts.disabled} style={[s.chip, opts.dashed && s.chipDashed, on && s.chipOn, opts.disabled && { opacity: 0.4 }]} accessibilityRole="button" accessibilityState={{ selected: on, disabled: !!opts.disabled }} accessibilityLabel={opts.a11y ?? label} {...({ dataSet: data } as object)}>
       {opts.dot && !on ? <LabelDot color={opts.dot} size={12} /> : null}
-      <Text style={[s.chipText, on && s.chipTextOn]}>{label}</Text>
+      <Text style={[s.chipText, on && s.chipTextOn, { flexShrink: 1 }]} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
 
@@ -350,6 +367,99 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
     if (res) await patch(labelPatch(res.label.key));
   }
 
+  // 3.59.1: + New list and + New label at the end of each group open a small form here, with the shared create paths
+  // (createList: the name and emoji rules; createLabel: a colour no other label has); the new one is chosen at once.
+  function startMaking(kind: 'list' | 'label') {
+    setMaking(making === kind ? null : kind);
+    setNewName('');
+    setNewEmoji('');
+    setNewColor(kind === 'label' ? nextColorKey(liveLabels, true) : '');
+    setMakeNote(null);
+  }
+  async function makeNew() {
+    if (making === 'list') {
+      const res = await createList(newName, newEmoji || undefined);
+      if ('problem' in res) {
+        setMakeNote(res.problem);
+        return;
+      }
+      setLists(await loadListsRaw());
+      setMaking(null);
+      await patch(listPatch(res.list.key));
+      return;
+    }
+    if (making === 'label') {
+      const res = await createLabel(newName, undefined, newColor || undefined, true);
+      if (!res) {
+        setMakeNote('Give the label a name.');
+        return;
+      }
+      setLabels(await loadLabels());
+      setMaking(null);
+      await patch(labelPatch(res.label.key));
+    }
+  }
+  function makeForm(kind: 'list' | 'label') {
+    const listCheck = kind === 'list' ? createListState(live, newName) : null;
+    const ok = kind === 'list' ? !!listCheck?.enabled : !!newName.trim();
+    const why = makeNote ?? (kind === 'list' && newName.trim() ? listCheck?.why : null);
+    return (
+      <View style={s.form} {...({ dataSet: { stepMake: kind } } as object)}>
+        <TextInput
+          style={s.formInput}
+          value={newName}
+          onChangeText={(v) => {
+            setNewName(v);
+            setMakeNote(null);
+          }}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (ok) void makeNew();
+          }}
+          placeholder={kind === 'list' ? 'Name of the list' : 'Name of the label'}
+          placeholderTextColor={c.textTertiary}
+          accessibilityLabel={kind === 'list' ? 'New list name' : 'New label name'}
+          {...({ dataSet: { stepMakeName: kind } } as object)}
+        />
+        {kind === 'list' ? <EmojiPick value={newEmoji} onChange={setNewEmoji} taken={takenEmojis(live)} /> : null}
+        {kind === 'label' ? (
+          <View style={s.swatches} accessibilityLabel="Colour" {...({ dataSet: { stepColors: newColor } } as object)}>
+            {LABEL_COLORS.map((col) => {
+              const on = newColor === col.key;
+              const taken = !on && !!colorClash(liveLabels, col.key);
+              return (
+                <Pressable
+                  key={col.key}
+                  onPress={() => {
+                    if (!taken) setNewColor(col.key);
+                  }}
+                  disabled={taken}
+                  style={[s.swatch, on && s.swatchOn, taken && { opacity: 0.25 }]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on, disabled: taken }}
+                  accessibilityLabel={taken ? `${col.name}, used by another label` : col.name}
+                  {...({ dataSet: { stepColor: col.key } } as object)}
+                >
+                  <View style={[s.swatchDot, { backgroundColor: col.edge }]} />
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+        {why ? <Text style={s.warn} {...({ dataSet: { stepMakeNote: '1' } } as object)}>{why}</Text> : null}
+        <View style={s.formRow}>
+          <Pressable onPress={() => setMaking(null)} style={s.quiet} accessibilityRole="button" accessibilityLabel="Cancel" {...({ dataSet: { stepMakeCancel: kind } } as object)}>
+            <Text style={s.quietText}>Cancel</Text>
+          </Pressable>
+          <Pressable onPress={() => void makeNew()} disabled={!ok} style={[s.partBtn, { backgroundColor: c.accent, borderColor: c.accent }, !ok && s.primaryOff]} accessibilityRole="button" accessibilityState={{ disabled: !ok }} accessibilityLabel={kind === 'list' ? 'Add list' : 'Add label'} {...({ dataSet: { stepMakeAdd: kind } } as object)}>
+            <Text style={[s.chipText, s.chipTextOn]}>{kind === 'list' ? 'Add list' : 'Add label'}</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   function whereScreen(t: Task) {
     const labelPresets = availableLabelPresets(liveLabels);
     return (
@@ -359,13 +469,17 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
           {chip('🧠 Brain Dump', !t.listKey, () => void patch(listPatch(undefined)), { stepList: 'brain-dump' })}
           {live.map((l) => chip(`${l.emoji ? `${l.emoji} ` : ''}${l.name}`, t.listKey === l.key, () => void patch(listPatch(l.key)), { stepList: l.name }))}
           {live.length === 0 ? LIST_PRESETS.map((p) => chip(`${p.emoji} ${p.name}`, false, () => void addListPreset(p.name, p.emoji), { stepListPreset: p.name }, { dashed: true, a11y: `Add list ${p.name}` })) : null}
+          {chip('+ New list', making === 'list', () => startMaking('list'), { stepNew: 'list' }, { dashed: true, a11y: 'New list' })}
         </View>
+        {making === 'list' ? makeForm('list') : null}
         <Text style={s.section}>Label</Text>
         <View style={s.chips}>
           {chip('No label', !t.projectKey, () => void patch(labelPatch(undefined)), { stepLabel: 'none' })}
           {liveLabels.map((l) => chip(`${l.emoji ? `${l.emoji} ` : ''}${l.name}`, t.projectKey === l.key, () => void patch(labelPatch(t.projectKey === l.key ? undefined : l.key)), { stepLabel: l.name }, { dot: labelColor(l.colorKey)?.edge ?? c.textTertiary }))}
           {liveLabels.length === 0 ? labelPresets.map((p) => chip(`${p.emoji} ${p.name}`, false, () => void addLabelPreset(p.name, p.emoji, p.colorKey), { stepLabelPreset: p.name }, { dashed: true, dot: labelColor(p.colorKey)?.edge, a11y: `Add label ${p.name}` })) : null}
+          {chip('+ New label', making === 'label', () => startMaking('label'), { stepNew: 'label' }, { dashed: true, a11y: 'New label' })}
         </View>
+        {making === 'label' ? makeForm('label') : null}
         {live.length === 0 || liveLabels.length === 0 ? <Text style={s.note}>{PRESET_HINT}</Text> : null}
       </>
     );

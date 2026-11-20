@@ -1064,3 +1064,8 @@ Gates: tsc clean; the full regression follows this entry.
   - phone-p11: light-mode contrast of the Today "Now" marker (accent text, 4.41:1). Not my code (3.60.0 element, appears only when the marker is on screen). Reported, not changed.
 - phone-p30 flaked once in 22 runs (rerun 22/22): flake.
 - Pointer-only checks NOT run (waiting for the user to clear the mouse).
+
+## 3.64.1 fix pack (phone only)
+- Now marker text -> accentText (light 4.5:1+). Plan my day: Not today on a never-started series refuses with a note (planGuard.ts, phone path only; planSkip untouched). Delete label in the label sheet through the shared deleteLabel, with a confirm.
+- Trash chip icon: report only. Ionicons trash-outline in textPrimary; no emoji character for it in the phone code.
+- A phone-only Skip on a never-started series can still be done from its card (shared logic, unchanged).

@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.64.1 — 2026-11-20 (Phone: fix pack)
+Phone only; the desktop does not change. No database change, no native change.
+- **Today "Now" marker:** its text uses the accent text colour (`accentText`), so it is at least 4.5:1 in light mode. Same look otherwise.
+- **Plan my day, Not today on a repeat that has never started:** the shared skip would delete the whole series (one stored template row, today its own day). Plan my day now refuses and says so ("This repeat hasn't started yet..."), and asks the task again. The guard is `lib/planGuard.ts`, used only by the phone's Plan my day; `planSkip` and the desktop are untouched.
+- **Delete label** in the phone's label edit sheet, with a confirm that says what happens to the tasks. It calls the desktop's `deleteLabel`: its tasks move to another label of the same name if there is one, else lose the label; the tasks stay.
+- Report only: the Trash chip is the Ionicons `trash-outline` glyph in the ink colour; no emoji character is used for it anywhere in the phone code. A red emoji look on the web export would be the browser drawing the glyph, not the app.
+Tests: planQueue.test.ts (+2); easConfig (version); real new phone-p32 (12 checks).
+
 ## 3.64.0 — 2026-11-20 (Phone: Calendar shells)
 Phone only; the desktop does not change. No database change, no native change.
 - The Calendar's Day view draws a **shift as a wide shell** with the blocks inside it on top, at real size: full width of the shell when they do not overlap, sharing the shell when they do (they used to share the whole day beside the shift, so a shift with three blocks inside drew four thin columns). Blocks that overlap outside a shift stay side by side. The rules are the desktop's (`lib/nesting.ts` `nestPlan`, `lib/timebox.ts` `layoutNested`, a shift being two hours or more); a tap on an inside block opens it, a tap on the shell outside them opens the shift, and the hold to drag works on both (`lib/phoneDay.ts` returns `shells`, `components/phone/calendar/DayView.tsx` draws them).

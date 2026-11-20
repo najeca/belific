@@ -3,9 +3,10 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, Tex
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, type ColorTokens } from '../../lib/tokens';
 import { LABEL_COLORS, colorClash, nextColorKey } from '../../lib/labelColors';
-import { createLabel, renameLabel, setLabelColor, setLabelEmoji } from '../../lib/labels';
+import { countTasksWithLabel, createLabel, deleteLabel, renameLabel, setLabelColor, setLabelEmoji } from '../../lib/labels';
 import { countsInHours, hoursCountKey } from '../../lib/labelHours';
-import { loadUserSettingsRaw, setUserSetting } from '../../lib/storage';
+import { deletedLabelTarget } from '../../lib/labelRules';
+import { loadTasksRaw, loadUserSettingsRaw, setUserSetting } from '../../lib/storage';
 import type { Project } from '../../lib/types';
 import Toggle from '../Toggle';
 import { useStyles, useTheme } from './theme';
@@ -33,7 +34,7 @@ const make = (c: ColorTokens) => ({
   switchText: { ...inter(500), fontSize: 15, color: c.textPrimary, flexShrink: 1 },
 });
 
-export function LabelSheet({ visible, label, labels, onClose, onSaved }: { visible: boolean; label: Project | null; labels: Project[]; onClose: () => void; onSaved: (key: string) => void }) {
+export function LabelSheet({ visible, label, labels, onClose, onSaved, onDeleted }: { visible: boolean; label: Project | null; labels: Project[]; onClose: () => void; onSaved: (key: string) => void; onDeleted?: (key: string) => void }) {
   const s = useStyles(make);
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -44,12 +45,14 @@ export function LabelSheet({ visible, label, labels, onClose, onSaved }: { visib
   const [color, setColor] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const [counts, setCounts] = useState(true);
+  const [confirm, setConfirm] = useState<string | null>(null);
   useEffect(() => {
     if (!visible) return;
     setName(label?.name ?? '');
     setEmoji(label?.emoji ?? '');
     setColor(label?.colorKey ?? nextColorKey(labels, true));
     setProblem(null);
+    setConfirm(null);
     if (label) {
       loadUserSettingsRaw()
         .then((rows) => setCounts(countsInHours(label, rows.find((r) => !r.deletedAt && r.key === hoursCountKey(label.key))?.value)))
@@ -85,6 +88,27 @@ export function LabelSheet({ visible, label, labels, onClose, onSaved }: { visib
     if ((emoji || '') !== (label.emoji ?? '')) await setLabelEmoji(label.key, emoji || undefined);
     await setUserSetting(hoursCountKey(label.key), counts ? 'on' : 'off');
     onSaved(label.key);
+  }
+
+  // Delete label: the desktop's rule (labels.deleteLabel): its tasks move to another label of the same name if there is
+  // one, else just lose the label; the tasks stay.
+  async function askDelete() {
+    if (!label) return;
+    const n = countTasksWithLabel(await loadTasksRaw(), label.key);
+    const target = deletedLabelTarget(labels, label.key);
+    const targetName = target ? labels.find((l) => l.key === target)?.name : undefined;
+    setConfirm(
+      n === 0
+        ? `Delete the label ${label.name}?`
+        : targetName
+          ? `Delete the label ${label.name}? Its ${n} task${n === 1 ? '' : 's'} will move to the other label called ${targetName}.`
+          : `Delete the label ${label.name}? Its ${n} task${n === 1 ? '' : 's'} will lose the label. The tasks stay.`,
+    );
+  }
+  async function doDelete() {
+    if (!label) return;
+    await deleteLabel(label.key);
+    onDeleted?.(label.key);
   }
 
   return (
@@ -130,11 +154,28 @@ export function LabelSheet({ visible, label, labels, onClose, onSaved }: { visib
                 <Toggle value={counts} onValueChange={setCounts} label="Count in daily hours" colors={c} />
               </View>
               {problem ? <Text style={s.problem}>{problem}</Text> : null}
+              {label && !confirm ? (
+                <View style={{ flexDirection: 'row' }}>
+                  <Button label="Delete label" onPress={() => void askDelete()} a11y={`Delete label ${label.name}`} />
+                </View>
+              ) : null}
+              {confirm ? (
+                <Text style={s.problem} {...({ dataSet: { labelDeleteConfirm: '1' } } as object)}>
+                  {confirm}
+                </Text>
+              ) : null}
             </ScrollView>
-            <View style={[s.row, { paddingTop: 12 }]}>
-              <Button label="Cancel" onPress={onClose} a11y="Cancel label edit" />
-              <Button label={label ? 'Save' : 'Create label'} kind="primary" onPress={save} a11y={label ? `Save label ${label.name}` : 'Create label'} />
-            </View>
+            {confirm ? (
+              <View style={[s.row, { paddingTop: 12 }]}>
+                <Button label="Keep" onPress={() => setConfirm(null)} a11y="Keep the label" />
+                <Button label="Delete" kind="primary" onPress={() => void doDelete()} a11y={`Confirm delete label ${label?.name ?? ''}`} />
+              </View>
+            ) : (
+              <View style={[s.row, { paddingTop: 12 }]}>
+                <Button label="Cancel" onPress={onClose} a11y="Cancel label edit" />
+                <Button label={label ? 'Save' : 'Create label'} kind="primary" onPress={save} a11y={label ? `Save label ${label.name}` : 'Create label'} />
+              </View>
+            )}
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>

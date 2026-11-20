@@ -683,6 +683,11 @@ export default function TasksTab() {
           setChosen(`${LABEL_PREFIX}${key}`);
           void load();
         }}
+        onDeleted={(key) => {
+          setLabelSheet(null);
+          setChosen((cur) => (cur === `${LABEL_PREFIX}${key}` ? undefined : cur));
+          void load();
+        }}
       />
       <SearchScreen visible={searchOpen} tasks={all} labels={projects} lists={lists} onClose={() => setSearchOpen(false)} onOpen={(t) => { setSearchOpen(false); setDetails({ task: t, projected: false }); }} />
       <TrashScreen visible={trashOpen} onClose={() => setTrashOpen(false)} onChanged={() => void load()} />

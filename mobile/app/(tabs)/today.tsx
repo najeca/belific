@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { RefreshControl, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AppState, RefreshControl, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,7 +26,10 @@ import { movedCaption, movedFrom } from '../../lib/series';
 import { duringCaption, hostIndex, insidePill } from '../../lib/hosting';
 import { buildToday, itemTitle, type TodayItem } from '../../lib/todayView';
 import { formatDuration } from '../../lib/duration';
-import { labelColor } from '../../lib/labelColors';
+import { labelColor, tintFor } from '../../lib/labelColors';
+import { nowCard, type NowCardItem } from '../../lib/nowCard';
+import { isQuickReminder } from '../../lib/quickReminder';
+import { NowCard, type NowLabel } from '../../components/phone/NowCard';
 import { BRAIN_DUMP_EMOJI } from '../../lib/emoji';
 import { BRAIN_DUMP_NAME, liveLists } from '../../lib/lists';
 import { counter } from '../../lib/subtasks';
@@ -71,7 +74,6 @@ const nowMinutes = () => {
 const make = (c: ColorTokens) => ({
   screen: { flex: 1, backgroundColor: c.background },
   nowLine: { ...type.meta, color: c.textSecondary },
-  nowStrong: { ...inter(600), color: c.textPrimary },
   row: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, minHeight: 56 },
   rowSep: { borderTopWidth: 1, borderTopColor: c.border },
   tick: { width: 52, minHeight: 56, alignItems: 'center' as const, justifyContent: 'center' as const },
@@ -102,7 +104,7 @@ const make = (c: ColorTokens) => ({
 
 export default function TodayScreen() {
   const s = useStyles(make);
-  const { c } = useTheme();
+  const { c, name: themeName } = useTheme();
   const [todayKey, setTodayKey] = useState(() => dateKey(new Date()));
   const [nowMin, setNowMin] = useState(nowMinutes);
   // R6: `tasks` is what the screen shows (a part is a row under its parent, never a task of its own); `all` is every row, where
@@ -171,6 +173,16 @@ export default function TodayScreen() {
       return () => clearInterval(timer);
     }, [load]),
   );
+  // 3.60.0: a timer does not run while the phone sleeps, so coming back to the app redraws the Now card at once (and a
+  // new day reloads).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      setNowMin(nowMinutes());
+      if (dateKey(new Date()) !== todayKey) load().catch(() => {});
+    });
+    return () => sub.remove();
+  }, [load, todayKey]);
 
   const full = useMemo(() => buildToday({ tasks, todayKey, nowMin, events, routines, routinesDone }), [tasks, todayKey, nowMin, events, routines, routinesDone]);
   // S5: a block inside a shift is a row of the shift's card, not a row of its own (D2); the day's total counts the shift once.
@@ -187,6 +199,18 @@ export default function TodayScreen() {
   const planned = useMemo(() => plannedText(ownTasks.filter((t) => t.dueDate === todayKey)), [ownTasks, todayKey]);
   const hosts = useMemo(() => hostIndex(tasks, [todayKey], todayKey), [tasks, todayKey]);
   const live = liveLists(lists);
+  // 3.60.0: the Now card reads every timed item of today (a ticked one is left out by nowCard itself).
+  const timedAll = useMemo(() => [...view.timed, ...view.done.filter((i) => i.kind !== 'routine' && i.startMin !== undefined)], [view]);
+  const now = useMemo(() => {
+    const items: NowCardItem[] = [];
+    for (const i of timedAll) {
+      if (i.kind === 'routine' || i.startMin === undefined) continue;
+      const t = i.kind === 'task' ? i.task : null;
+      items.push({ key: i.key, title: itemTitle(i), startMin: i.startMin, endMin: i.endMin ?? i.startMin, reminder: !!t && isQuickReminder(t), free: !!t?.cutsBelow, done: i.kind === 'task' && i.done });
+    }
+    return nowCard(items, nowMin);
+  }, [timedAll, nowMin]);
+  const nowItem = now.now ? timedAll.find((i) => i.key === now.now?.key) : undefined;
 
   async function tick(item: TodayItem, done: boolean, withUndo = true) {
     if (item.kind === 'event') return;
@@ -266,6 +290,12 @@ export default function TodayScreen() {
     if (!row.done) setUndo({ id: Date.now(), text: `Done: ${row.title}`, undo: () => void tickRow(task, projected, { ...row, done: true }).then(load) });
   }
 
+  // The label's colours for the Now card's edge and pill (the dark tint in dark mode).
+  const nowLabel = (t: Task): NowLabel | null => {
+    const p = t.projectKey ? projects.find((x) => x.key === t.projectKey && !x.deletedAt) : undefined;
+    const col = p ? labelColor(p.colorKey) : undefined;
+    return p ? { name: `${p.emoji ? `${p.emoji} ` : ''}${p.name}`, edge: col?.edge ?? c.textTertiary, tint: col ? tintFor(col, themeName === 'dark') : c.background } : null;
+  };
   const label = (t: Task) => {
     const p = t.projectKey ? projects.find((x) => x.key === t.projectKey) : undefined;
     return p ? { name: `${p.emoji ? `${p.emoji} ` : ''}${p.name}`, color: labelColor(p.colorKey)?.edge ?? c.textTertiary } : null;
@@ -409,8 +439,6 @@ export default function TodayScreen() {
 
   const today = new Date();
   const headerSub = `${DAYS[today.getDay()]} ${today.getDate()} ${MONTHS[today.getMonth()]}`;
-  const until = (i: TodayItem) => (i.kind !== 'routine' && i.endMin !== undefined ? `, until ${formatTime(toHHMM(i.endMin))}` : '');
-  const at = (i: TodayItem) => (i.kind !== 'routine' && i.startMin !== undefined ? ` at ${formatTime(toHHMM(i.startMin))}` : '');
 
   return (
     <View style={s.screen}>
@@ -420,17 +448,13 @@ export default function TodayScreen() {
           <EarlierPill count={earlier} onPress={() => setEarlierOpen(true)} />
         </View>
       ) : null}
-      <View style={{ paddingHorizontal: 16, paddingBottom: 4, gap: 2 }} {...({ dataSet: { nowNext: '1' } } as object)}>
-        <Text style={s.nowLine} numberOfLines={1}>
-          <Text style={s.nowStrong}>Now </Text>
-          {view.now ? `${itemTitle(view.now)}${until(view.now)}` : 'Nothing planned'}
-        </Text>
-        {view.next ? (
-          <Text style={s.nowLine} numberOfLines={1}>
-            <Text style={s.nowStrong}>Next </Text>
-            {`${itemTitle(view.next)}${at(view.next)}`}
-          </Text>
-        ) : null}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 6, gap: 6 }}>
+        <NowCard
+          words={now}
+          title={now.now?.title ?? ''}
+          label={nowItem?.kind === 'task' ? nowLabel(nowItem.task) : null}
+          onDone={nowItem?.kind === 'task' ? () => void tick(nowItem, true) : undefined}
+        />
         {planned ? <Text style={s.nowLine} numberOfLines={1} {...({ dataSet: { todayPlanned: planned } } as object)}>{planned}</Text> : null}
       </View>
       <ScrollView
@@ -501,9 +525,4 @@ export default function TodayScreen() {
       />
     </View>
   );
-}
-
-function toHHMM(min: number): string {
-  const m = ((Math.round(min) % 1440) + 1440) % 1440;
-  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }

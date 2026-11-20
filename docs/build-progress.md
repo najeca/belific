@@ -1026,3 +1026,7 @@ Gates: listed in the CHANGELOG. Full regression NOT run (after phase 3).
 What: the card's Label row on one line; + New list and + New label in the add flow; Earlier on the phone (one pill, the desktop's rules, Undo per answer); the card's Smaller tasks and Checklist lines; a Profile sheet (preset picture or initials, synced); converted routines go to a Routines list and the notice names them. The desktop does not change.
 Tests: new earlierUndo.test.ts, profileAvatar.test.ts; real new phone-p26 (57); ten phone checks go through Profile to Settings, phone-p21 reads the new line (on purpose).
 Gates: listed in the CHANGELOG. Full regression NOT run.
+## PLAN_phone_stepflow phase 2 (2026-11-20): 3.60.0, the Today redesign
+What: on the phone's Today, a Now card (now, time left, Next with "in", the label edge and pill or Free time, Done; every minute and on return from the background), a timeline of bubbles (label colours, list emoji, height by length, the Now marker, breaks as gaps, smaller tasks nested, ticked items kept struck through), Anytime slab cards with hold and drag order (one user_settings row a day), and an hours strip per label with a Count in daily hours switch per label in Settings (Sleep and Break off by default). No ❗ and no Top priority switch on the phone. The desktop does not change; no database change.
+Tests: new nowCard, todayTimeline, anytimeOrder, labelHours tests; real new phone-p27 (55); older checks changed on purpose listed in the CHANGELOG.
+Gates: listed in the CHANGELOG. Full regression NOT run.

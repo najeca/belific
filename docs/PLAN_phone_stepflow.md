@@ -311,7 +311,7 @@ No Apple Watch app.
 | # | Phase | Effort | Model |
 |---|---|---|---|
 | 1 | Step by step add flow (section 1) | done, 3.59.0 (fix pack 3.59.1) | |
-| 2 | **Today redesign**: Now card, timeline, Anytime slabs and order, hours strip with the per label switch, no ❗ (section 2) | L (3 days) | Opus for the timeline and Now rules, Sonnet for the drawing |
+| 2 | **Today redesign**: Now card, timeline, Anytime slabs and order, hours strip with the per label switch, no ❗ (section 2) | done, 3.60.0 | |
 | 3 | Plan my day on the phone (section 3, unchanged) | L (2 days) | Opus |
 | 4 | **Tasks tab redesign**: slab rows, repeat groups and words, Until, the top (lists, labels, Search, Trash) (section 4) | L (2.5 days) | Sonnet, Opus for `repeatWords` |
 | L1 | Widgets (section 5) | L | later, not started |
@@ -383,4 +383,14 @@ All eight defaults are confirmed as written. Notes:
 
 ## Decisions for Part B
 
-Not yet: waiting for Jethro to confirm the questions above.
+**Jethro, 2026-11-20: all defaults confirmed as written.**
+- B1.1 The Anytime order is one `user_settings` row per day; no database change.
+- B1.2 Bubble height 1 pt per minute, at least 44, at most 160.
+- B1.3 Ticked timed items stay on the timeline, struck through.
+- B1.4 "Count in daily hours" switches live in Settings for now; Sleep and Break are matched by name as defaults the person can change.
+- B2.1 The Repeating chip is renamed "Repeats".
+- B2.2 Folded repeat groups are remembered per phone only.
+- B3 Widgets wait for an SDK 55+ upgrade, which is its own later project.
+- The Top priority switch leaves the phone's card as part of the Today phase.
+
+**Built:** the Today redesign (phase 2) as 3.60.0, 2026-11-20. The Tasks tab redesign (phase 4) is not started.

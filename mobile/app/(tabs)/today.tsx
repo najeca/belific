@@ -122,7 +122,7 @@ const make = (c: ColorTokens) => ({
   markerLine: { flexDirection: 'row' as const, alignItems: 'center' as const, height: 22 },
   markerDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: c.accent, borderWidth: 2, borderColor: c.background },
   markerRule: { flex: 1, height: 2, backgroundColor: c.accent, opacity: 0.6 },
-  markerText: { ...mono(500), fontSize: 12, color: c.accent, paddingLeft: 8 },
+  markerText: { ...mono(500), fontSize: 12, color: c.accentText, paddingLeft: 8 },
   slabRow: { flexDirection: 'row' as const, alignItems: 'stretch' as const, minHeight: 60 },
   slabEdge: { width: 5 },
   slabBody: { flex: 1, paddingVertical: 10, paddingLeft: 11, paddingRight: 4, justifyContent: 'center' as const },

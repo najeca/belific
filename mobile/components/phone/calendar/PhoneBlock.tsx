@@ -8,7 +8,6 @@ import { formatDuration } from '../../../lib/duration';
 import { COMPACT_BLOCK_PX, toTime } from '../../../lib/timebox';
 import { chipPlan } from '../../../lib/hosting';
 import { pieceTimeText } from '../../../lib/cuts';
-import { isMustDo, MUST_DO_MARK } from '../../../lib/mustDo';
 import type { DaySource } from '../../../lib/phoneDay';
 import { useStyles, useTheme } from '../theme';
 import { inter, mono } from '../type';
@@ -39,7 +38,6 @@ const make = (c: ColorTokens) => ({
   done: { color: c.textSecondary, textDecorationLine: 'line-through' as const },
   meta: { ...mono(400), fontSize: 11, lineHeight: 15, color: c.textSecondary, flexShrink: 1, minWidth: 0 },
   right: { ...mono(400), fontSize: 11, lineHeight: 17, color: c.textSecondary, marginLeft: 'auto' as const, flexShrink: 0 },
-  mark: { fontSize: 11, color: c.danger, flexShrink: 0 },
   grey: { color: c.textSecondary },
   chip: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, alignSelf: 'flex-start' as const, maxWidth: '100%' as const, height: 16, marginTop: 2, paddingLeft: 5, paddingRight: 7, borderRadius: 8, backgroundColor: c.hostChip, borderWidth: 1, borderColor: c.border, overflow: 'hidden' as const },
   chipDot: { width: 7, height: 7, borderRadius: 4 },
@@ -58,14 +56,12 @@ export function PhoneBlock({ source, height, look }: { source: DaySource; height
   let timeText = '';
   let lengthText = '';
   let done = false;
-  let high = false;
   let repeats = false;
   let grey = false;
   if (source.kind === 'task') {
     const t = source.task;
     title = `${t.emoji ? `${t.emoji} ` : ''}${t.title}`;
     done = t.completed;
-    high = isMustDo(t);
     repeats = !!t.recurrence;
     const piece = source.piece;
     if (piece && !piece.head) {
@@ -121,7 +117,6 @@ export function PhoneBlock({ source, height, look }: { source: DaySource; height
         <Text style={[s.title, grey && s.grey, done && s.done]} numberOfLines={tier === 3 ? 2 : 1} maxFontSizeMultiplier={1.3}>
           {title}
         </Text>
-        {high ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
         {repeats && tier !== 1 ? <Ionicons name="repeat" size={11} color={c.textSecondary} /> : null}
         {right ? (
           <Text style={s.right} numberOfLines={1} maxFontSizeMultiplier={1.3}>

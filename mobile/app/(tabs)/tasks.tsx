@@ -17,7 +17,6 @@ import { rowId, splitThoughts, type ThoughtRow } from '../../lib/thoughts';
 import { buildQuests, canPlanToday, questsBySection, streakText, QUEST_SECTIONS, type Quest } from '../../lib/quests';
 import { completeQuest, planQuestToday, reopenQuest, skipQuest } from '../../lib/questActions';
 import { labelColor } from '../../lib/labelColors';
-import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
 import { counter } from '../../lib/subtasks';
 import { formatDuration } from '../../lib/duration';
 import { SERIES_PREFIX } from '../../lib/routineConvert';
@@ -81,7 +80,6 @@ const make = (c: ColorTokens) => ({
   hostPillText: { ...type.meta, ...inter(600), color: c.onHostPill },
   hostCaption: { ...type.meta, ...inter(600), color: c.onHostPill },
   metaRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, marginTop: 3, flexWrap: 'wrap' as const },
-  mark: { fontSize: 12, color: c.danger },
   empty: { ...type.meta, color: c.textSecondary, padding: 16 },
   doneHead: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, minHeight: 48, paddingHorizontal: 14 },
   doneText: { ...inter(600), fontSize: 15, color: c.textSecondary },
@@ -313,7 +311,6 @@ export default function TasksTab() {
                 <Text style={s.title} numberOfLines={2}>
                   {title}
                 </Text>
-                {t && isMustDo(t) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
                 {repeating ? <Ionicons name="repeat" size={14} color={c.textSecondary} accessibilityLabel="Repeats" /> : null}
                 {t?.durationMinutes ? <Text style={[s.meta, { ...mono(500), fontSize: 13, color: c.textPrimary, marginLeft: 'auto' }]} accessibilityLabel={`Estimate ${formatDuration(t.durationMinutes)}`} {...({ dataSet: { taskLength: '1' } } as object)}>{formatDuration(t.durationMinutes)}</Text> : null}
               </View>

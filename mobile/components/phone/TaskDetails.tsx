@@ -7,7 +7,6 @@ import { radius, type ColorTokens } from '../../lib/tokens';
 import { addDays, dateKey, formatDayLabel, formatDayTitle, isDateKey, parseDateKey } from '../../lib/kanban';
 import { formatTime, generateId } from '../../lib/data';
 import { DURATION_PRESETS, formatDuration, parseDuration, presetLabel } from '../../lib/duration';
-import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
 import { labelColor } from '../../lib/labelColors';
 import { createLabel, loadLabels } from '../../lib/labels';
 import { PRESET_HINT, availableLabelPresets, type LabelPreset } from '../../lib/presets';
@@ -28,7 +27,7 @@ import { AddInside } from './AddInside';
 import { addTask, loadListsRaw, loadTasksRaw } from '../../lib/storage';
 import { ADD_PART, CHECKLIST, CHECKLIST_HINT_PHONE, PARTS, PARTS_HINT_PHONE, TURN_INTO_PARTS, canHaveParts, deleteAllText, deleteOnlyText, parentTaskOf, partOfText, partsAddUp, partsFor, partsProgress, takeOutText } from '../../lib/parts';
 import { addPart, convertSteps, deleteSeriesWithParts, deleteWithParts, setPartDone, takeOut } from '../../lib/partActions';
-import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, priorityPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
+import { datePatch, durationPatch, emojiPatch, labelPatch, listPatch, notesPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { useStyles, useTheme } from './theme';
 import { useReducedMotion } from './touch';
@@ -99,7 +98,6 @@ const make = (c: ColorTokens) => ({
   section: { ...type.section, color: c.textSecondary, marginTop: 18, marginBottom: 8, marginLeft: 4 },
   note: { ...type.meta, color: c.textSecondary },
   warn: { ...type.meta, color: c.danger },
-  mark: { fontSize: 18, color: c.danger },
   // 3.10.0: "Inside this break" and "Shows inside Lunch" (3.27.0; was "During: Lunch").
   hostBox: { backgroundColor: c.hostPill, borderRadius: radius.lg, paddingHorizontal: 6, paddingVertical: 4, marginTop: 10 },
   hostHead: { ...type.meta, ...inter(700), color: c.onHostPill, paddingHorizontal: 8, paddingTop: 6 },
@@ -605,13 +603,8 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
 
           <Text style={s.section}>When</Text>
           <View style={s.card}>
-            {!partOf ? row('flag-outline', 'Top priority', (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {isMustDo(task) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
-                <Toggle value={isMustDo(task)} onValueChange={(v) => void write(priorityPatch(v))} label="Top priority" colors={c} />
-              </View>
-            ), () => void write(priorityPatch(!isMustDo(task))), 'Top priority', true, 'priority') : null}
-            {partOf ? null : row('calendar-outline', 'Date', dayText, () => setOpen(open === 'date' ? null : 'date'), `Date, ${dayText}`, false, 'date')}
+            {/* 3.60.0 (decision 7 of 2026-11-18): no Top priority on the phone; a stored priority stays, the desktop sets it. */}
+            {partOf ? null : row('calendar-outline', 'Date', dayText, () => setOpen(open === 'date' ? null : 'date'), `Date, ${dayText}`, true, 'date')}
             {open === 'date' && !partOf ? (
               <View style={s.panel}>
                 {task.recurrence ? <Text style={s.note} {...({ dataSet: { moveDayNote: '1' } } as object)}>{MOVE_THIS_DAY_NOTE}</Text> : null}

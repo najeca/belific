@@ -29,7 +29,6 @@ import { formatDuration } from '../../lib/duration';
 import { labelColor } from '../../lib/labelColors';
 import { BRAIN_DUMP_EMOJI } from '../../lib/emoji';
 import { BRAIN_DUMP_NAME, liveLists } from '../../lib/lists';
-import { isMustDo, MUST_DO_MARK } from '../../lib/mustDo';
 import { counter } from '../../lib/subtasks';
 import { deleteOne, deleteRepeating, duplicate, loadCutMin, moveToList, skipDay, tickRoutine, tickTask, toggleSubtask } from '../../lib/phoneActions';
 import { shiftsOfDay, type ShiftRow } from '../../lib/shifts';
@@ -90,7 +89,6 @@ const make = (c: ColorTokens) => ({
   hostPillText: { ...type.meta, ...inter(600), color: c.onHostPill },
   hostCaption: { ...type.meta, ...inter(600), color: c.onHostPill },
   metaRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, marginTop: 3, flexWrap: 'wrap' as const },
-  mark: { fontSize: 12, color: c.danger },
   expanded: { paddingLeft: 52, paddingRight: 12, paddingBottom: 12, gap: 8 },
   notes: { ...type.body, fontSize: 15, color: c.textPrimary },
   detail: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6 },
@@ -345,7 +343,6 @@ export default function TodayScreen() {
               <Text style={[s.title, done && s.titleDone]} numberOfLines={open ? undefined : 2}>
                 {title}
               </Text>
-              {t && isMustDo(t) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
               {t?.recurrence || item.kind === 'routine' ? <Ionicons name="repeat" size={14} color={c.textSecondary} accessibilityLabel="Repeats" /> : null}
               {t?.durationMinutes ? <Text style={s.length} accessibilityLabel={`Estimate ${formatDuration(t.durationMinutes)}`} {...({ dataSet: { todayLength: '1' } } as object)}>{formatDuration(t.durationMinutes)}</Text> : null}
             </View>

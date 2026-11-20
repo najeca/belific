@@ -6,7 +6,6 @@ import { buildPhoneDay, minuteAtY } from '../../../lib/phoneDay';
 import { GRID_HEIGHT_PX, PX_PER_HOUR, hourLabel } from '../../../lib/timebox';
 import { nowLineTop } from '../../../lib/calendarView';
 import { labelColor, tintFor } from '../../../lib/labelColors';
-import { isMustDo, MUST_DO_MARK } from '../../../lib/mustDo';
 import { HostedSheet } from './HostedSheet';
 import { listEmojiOf } from '../../../lib/lists';
 import { lostGuests, lostNote, type HostSnapshot } from '../../../lib/hosting';
@@ -40,7 +39,6 @@ const make = (c: ColorTokens) => ({
   line: { position: 'absolute' as const, left: GUTTER, right: 0, height: 1, backgroundColor: c.border },
   now: { position: 'absolute' as const, left: GUTTER - 4, right: 0, height: 2, backgroundColor: c.now },
   nowDot: { position: 'absolute' as const, left: GUTTER - 6, width: 8, height: 8, borderRadius: 4, backgroundColor: c.now },
-  mark: { fontSize: 11, color: c.danger },
 });
 
 export interface DayData {
@@ -165,7 +163,6 @@ export function DayView({
           <Text style={s.allDayLabel}>All day</Text>
           {day.allDay.map(({ task, projected }) => (
             <PressRow key={task.id} onTap={() => onOpen({ kind: 'task', task, projected })} a11y={`All day task ${task.title}`} style={s.chip} data={{ allDayChip: task.title }}>
-              {isMustDo(task) ? <Text style={s.mark}>{MUST_DO_MARK}</Text> : null}
               <Text style={[s.chipText, task.completed && { textDecorationLine: 'line-through', color: c.textSecondary }]} numberOfLines={1}>
                 {`${task.emoji ? `${task.emoji} ` : ''}${task.title}`}
               </Text>

@@ -84,7 +84,7 @@ async function run() {
 
   await P.finger.tap(tab('Tasks'), 1200);
   const chips = await P.js(`[...document.querySelectorAll('[data-list-chip]')].map((e) => e.getAttribute('data-list-chip'))`);
-  check('the switcher: Brain Dump, the lists, Repeating, New list', JSON.stringify(chips) === JSON.stringify(['dump', 'L1', '__repeating__', 'new']), JSON.stringify(chips));
+  check('the switcher: + New list (3.61.0: in the Lists header), Brain Dump, the lists, Repeats', JSON.stringify(chips) === JSON.stringify(['new', 'dump', 'L1', '__repeating__']), JSON.stringify(chips));
   const dump = await rows();
   check('Brain Dump: the thoughts and the old phone item, not the list task', dump.includes('Thought A') && dump.includes('Thought B') && dump.includes('Old phone note') && !dump.includes('Write report'), JSON.stringify(dump));
   await shot('phone-p5-braindump');
@@ -166,6 +166,7 @@ async function run() {
   check('New list makes a list and shows it', !!reading && (await P.js(`!!document.querySelector('[data-list-chip="${reading && reading.key}"]')`)));
 
   // Repeating.
+  await P.js(`document.querySelector('[data-list-chip="__repeating__"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
   await P.finger.tap(chip('__repeating__'), 1000);
   check('Repeating shows the repeating task with its streak', (await text()).includes('Stretch daily') && (await P.js(`!!document.querySelector('[data-streak]')`)), await text());
   check('Repeating keeps the unconverted routine', (await text()).includes('Water plants'));
@@ -178,6 +179,7 @@ async function run() {
   await P.finger.tap(visible('[data-profile-avatar]'), 1200).then(() => P.finger.tap(visible('[data-profile-settings]'), 1600)) /* 3.59.1: the avatar opens Profile, then Settings */;
   await P.finger.tap(visible('[data-phone-streaks] [role="switch"]'), 700);
   await P.finger.tap(visible('[aria-label="Back"]'), 900);
+  await P.js(`document.querySelector('[data-list-chip="__repeating__"]').scrollIntoView({ inline: 'center', block: 'nearest' })`);
   await P.finger.tap(chip('__repeating__'), 900);
   check('Show streaks off (Settings, On this iPhone) hides the streak', !(await P.js(`!!document.querySelector('[data-streak]')`)));
 

@@ -40,7 +40,7 @@ async function run() {
     const b = document.querySelector('[data-sync-badge]');
     if (!b) return null;
     const r = b.getBoundingClientRect();
-    const a = document.querySelector('[aria-label="Profile, not signed in"], [aria-label="Profile and account"], [aria-label="Profile and settings"]');
+    const a = document.querySelector('[data-profile-avatar], [aria-label="Profile, not signed in"], [aria-label="Profile and account"], [aria-label="Profile and settings"]');
     const ar = a ? a.getBoundingClientRect() : null;
     return { text: b.innerText.trim(), left: r.left, right: r.right, top: r.top, bottom: r.bottom, height: r.height,
       color: getComputedStyle(b).color, avatarLeft: ar ? ar.left : null, avatarTop: ar ? ar.top : null, avatarBottom: ar ? ar.bottom : null,

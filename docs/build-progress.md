@@ -1054,3 +1054,13 @@ What: the phone's Calendar Day view draws a shift as a shell with the blocks ins
 Choices on my own: the shell is the pale raised surface with its label colour edge; what is inside is inset 5 px each side; the summary (planned/free) is not drawn on the phone's shell (the Today and Tasks shift card already shows it).
 Tests: phoneDay.test.ts (+4); real new phone-p31 (8); phone-p19 changed on purpose (scroll the row into view).
 Gates: tsc clean; the full regression follows this entry.
+
+## Final regression (after 3.64.0)
+- tsc clean; mobile 1301/1301; desktop 118/118; iOS export + markers OK; security scan passed.
+- 86 quiet Electron checks: 82 passed first time. Failures, each rerun alone:
+  - phone-p14: timeout on the first run, passed alone (28/28): flake.
+  - p68: stale check (looked for an old avatar label; the label has been "Profile" since 3.59.1). Fixed in the check only.
+  - phone-p26: stale check (Add label button sat under the footer after the 8 px band). Fixed in the check only.
+  - phone-p11: light-mode contrast of the Today "Now" marker (accent text, 4.41:1). Not my code (3.60.0 element, appears only when the marker is on screen). Reported, not changed.
+- phone-p30 flaked once in 22 runs (rerun 22/22): flake.
+- Pointer-only checks NOT run (waiting for the user to clear the mouse).

@@ -231,6 +231,8 @@ async function run() {
   await typeText('Errands');
   await tap('[data-step-color="blue"]', 600);
   await shot('phone-p26-new-label');
+  await P.js(`document.querySelector('[data-step-make-add="label"]').scrollIntoView({ block: 'center' })`);
+  await C.sleep(300);
   await tap('[data-step-make-add="label"]', 1400);
   const errands = read('belific_projects').find((p) => p.name === 'Errands');
   check('Add label stores it with the colour chosen', !!errands && errands.colorKey === 'blue', JSON.stringify(errands));

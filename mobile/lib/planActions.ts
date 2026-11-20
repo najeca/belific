@@ -7,6 +7,8 @@ import { breakRefusal } from './hostActions';
 import { timePatch } from './detailsPatches';
 import { taskDuration } from './drag';
 import type { PlanAnswer, PlanStep } from './planQueue';
+import { isUnstartedSeriesDay, UNSTARTED_NOTE } from './planGuard';
+import { loadTasksRaw } from './storage';
 
 export async function runPlanAnswer(step: PlanStep, answer: PlanAnswer, todayKey: string, tomorrowKey: string, time?: string): Promise<string | null> {
   const { item, source } = step;
@@ -22,6 +24,7 @@ export async function runPlanAnswer(step: PlanStep, answer: PlanAnswer, todayKey
   }
   if (answer === 'notToday') {
     // A task still in its list has nothing to take off today: it is left as it is.
+    if (item.series && isUnstartedSeriesDay(await loadTasksRaw(), task)) return UNSTARTED_NOTE;
     if (source !== 'list') await notToday(item);
     return null;
   }

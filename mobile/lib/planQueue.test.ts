@@ -60,3 +60,17 @@ test('readTime reads a 24 hour time', () => {
   assert.equal(readTime('24:00'), null);
   assert.equal(readTime('ab'), null);
 });
+
+import { isUnstartedSeriesDay } from './planGuard.ts';
+test('3.64.1: a series that never started (one template row, today its own day) is not skippable in Plan my day', () => {
+  const tpl = T('rep', { recurrence: 'daily', dueDate: TODAY });
+  assert.equal(isUnstartedSeriesDay([tpl], tpl), true);
+  assert.equal(isUnstartedSeriesDay([tpl], { ...tpl, id: `rep:${TODAY}` }), true);
+});
+test('3.64.1: a started series, a template of an earlier day, and a one off are skippable as before', () => {
+  const tpl = T('rep', { recurrence: 'daily', dueDate: TODAY });
+  const started = T(`rep:2026-11-17`, { dueDate: '2026-11-17', completed: true });
+  assert.equal(isUnstartedSeriesDay([tpl, started], tpl), false);
+  const old = T('rep2', { recurrence: 'daily', dueDate: '2026-11-10' });
+  assert.equal(isUnstartedSeriesDay([old], { ...old, id: `rep2:${TODAY}`, dueDate: TODAY }), false);
+});

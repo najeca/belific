@@ -1,7 +1,8 @@
 'use strict';
 // @real-input: quiet
 // Real touch check for PLAN_phone P4 (2.52.0): Today at 390 x 844. Only today, timed in time order,
-// Anytime below (routines first, top priority next); a tap opens a row in place; a step ticks; a tick
+// Anytime below (routines first, top priority next); a tap opens the task's card (3.60.0: it used to open the row in
+// place); a step ticks; a tick
 // takes the row away with Undo; Done today shows it again; a projected repeating day is stored by
 // its tick; press and hold opens Edit, Duplicate, Move to list, Delete; a routine ticks as before and a
 // converted routine shows once; old events are grey read only rows.
@@ -73,8 +74,21 @@ async function run() {
   };
   const text = () => P.js('document.body.innerText');
   const rows = () => P.js(`[...document.querySelectorAll('[data-today-row]')].map((e) => e.getAttribute('data-today-row'))`);
-  const body = (title) => `[...document.querySelectorAll('[data-today-row]')].find((e) => e.getAttribute('data-today-row') === ${JSON.stringify(title)})?.querySelector('[data-today-body]')`;
+  const body = (title) => `[...document.querySelectorAll('[data-today-row]')].find((e) => e.getAttribute('data-today-row') === ${JSON.stringify(title)})?.querySelector('[data-today-body], [data-anytime-body]')`;
   const tickOf = (title) => `[...document.querySelectorAll('[data-today-row]')].find((e) => e.getAttribute('data-today-row') === ${JSON.stringify(title)})?.querySelector('[data-tick]')`;
+  // 3.60.0: Today is taller (the Now card, the strip, the timeline): a row is scrolled into view before a finger touches it.
+  const intoView = async (expr) => {
+    await P.js(`(() => { const e = ${expr}; if (e) e.scrollIntoView({ block: 'center' }); })()`);
+    await C.sleep(350);
+  };
+  const tapIn = async (expr, wait) => {
+    await intoView(expr);
+    await P.finger.tap(expr, wait);
+  };
+  const holdIn = async (expr, ms, wait) => {
+    await intoView(expr);
+    await P.finger.hold(expr, ms, wait);
+  };
   const menuItems = () => P.js(`[...document.querySelectorAll('[data-action-menu] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
   const holdItems = () => P.js(`[...document.querySelectorAll('[data-hold-card] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
   const holdTap = (label) => P.finger.tap(`document.querySelector('[data-hold-card] [aria-label=${JSON.stringify(label)}]')`, 900);
@@ -90,21 +104,24 @@ async function run() {
   check('Anytime: the routine first, then top priority, then oldest first (a converted routine is a task)', JSON.stringify(any) === JSON.stringify(['Stretch', 'Pay rent', 'Old habit', 'Buy milk']), JSON.stringify(any));
   check('a converted routine shows once (the series, not the routine)', order.filter((t) => t === 'Old habit').length === 1);
   check('an old event is a grey row among the timed ones', await P.js(`!!document.querySelector('[data-today-event="Gym class"]')`));
-  check('the Now and Next line is there', /Now/.test(await text()) && !!(await P.js(`document.querySelector('[data-now-next]')`)));
+  // 3.60.0 (on purpose): the Now and Next lines became the Now card.
+  check('the Now card is there', /NOW/.test(await text()) && !!(await P.js(`document.querySelector('[data-now-card]')`)));
   await shot('phone-p4-today');
 
-  // Expand in place, tick a step.
-  await P.finger.tap(body('Standup'), 700);
-  const ex = await P.js(`(document.querySelector('[data-today-expanded]') || {}).innerText || ''`);
-  check('a tap opens the row in place: notes, steps and Edit', ex.includes('Bring the numbers') && ex.includes('Check the board') && ex.includes('Edit'), ex);
+  // 3.60.0 (on purpose): a tap opens the task's card (notes and steps there), no longer the row in place.
+  await P.finger.tap(body('Standup'), 1200);
+  const ex = await P.js(`document.querySelector('[data-task-details="standup"]') ? document.body.innerText + ' ' + [...document.querySelectorAll('input, textarea')].map((e) => e.value).join(' ') : ''`);
+  check('a tap opens the task card: notes and steps', ex.includes('Bring the numbers') && ex.includes('Check the board'), ex.slice(0, 200));
   await shot('phone-p4-expanded');
-  await P.finger.tap(`document.querySelector('[data-step="Check the board"]')`, 900);
-  check('a step ticks from the open row (the task stays open: one step is left)', task('standup').subtasks[0].done === true && !task('standup').completed, JSON.stringify(task('standup').subtasks));
-  await P.finger.tap(body('Standup'), 500);
-  check('a second tap closes it', !(await P.js(`!!document.querySelector('[data-today-expanded]')`)));
+  await P.js(`(() => { const e = [...document.querySelectorAll('[aria-label="Step Check the board"]')].find((x) => x.getBoundingClientRect().height > 0); if (e) e.scrollIntoView({ block: 'center' }); })()`);
+  await C.sleep(300);
+  await P.finger.tap(`[...document.querySelectorAll('[aria-label="Step Check the board"]')].find((x) => x.getBoundingClientRect().height > 0)`, 900);
+  check('a step ticks from the card (the task stays open: one step is left)', task('standup').subtasks[0].done === true && !task('standup').completed, JSON.stringify(task('standup').subtasks));
+  await P.finger.tap(`[...document.querySelectorAll('[aria-label="Done"]')].pop()`, 900);
+  check('Done closes the card', !(await P.js(`!!document.querySelector('[data-task-details="standup"]')`)));
 
   // Tick, Undo, Done today.
-  await P.finger.tap(tickOf('Buy milk'), 900);
+  await tapIn(tickOf('Buy milk'), 900);
   check('a tick stores the task as done', task('milk').completed === true);
   check('the ticked row leaves the list', !(await rows()).includes('Buy milk'));
   const undoText = await P.js(`(document.querySelector('[data-undo-bar]') || {}).innerText || ''`);
@@ -112,48 +129,48 @@ async function run() {
   await shot('phone-p4-undo');
   await P.finger.tap(`document.querySelector('[data-undo-bar] [aria-label="Undo"]')`, 900);
   check('Undo puts it back', task('milk').completed === false && (await rows()).includes('Buy milk'));
-  await P.finger.tap(tickOf('Buy milk'), 900);
+  await tapIn(tickOf('Buy milk'), 900);
   await C.waitFor(async () => !(await P.js(`!!document.querySelector('[data-undo-bar]')`)), 7000).catch(() => {});
   check('the Undo message goes away by itself after a few seconds', !(await P.js(`!!document.querySelector('[data-undo-bar]')`)));
   check('"Done today, 1" shows', /Done today, 1/.test(await text()));
-  await P.finger.tap(`document.querySelector('[data-done-today]')`, 700);
+  await tapIn(`document.querySelector('[data-done-today]')`, 700);
   check('Done today opens and shows the ticked task', (await rows()).includes('Buy milk'));
 
   // A projected repeating day.
-  await P.finger.tap(tickOf('Morning walk'), 900);
+  await tapIn(tickOf('Morning walk'), 900);
   const walked = task(`walk:${today}`);
   check('ticking a projected repeating day stores that day, done', !!walked && walked.completed === true && walked.dueDate === today, JSON.stringify(walked));
   check('the series itself is untouched', task('walk').completed === false);
 
   // A routine.
-  await P.finger.tap(tickOf('Stretch'), 900);
+  await tapIn(tickOf('Stretch'), 900);
   check('a routine ticks as before (a routine completion for today)', read('belific_routine_completions').some((c) => c.routineId === 'r1' && c.date === today));
 
   // Press and hold.
-  await P.finger.hold(body('Pay rent'), 480, 700);
+  await holdIn(body('Pay rent'), 480, 700);
   check('hold opens the centred card: Done, Edit, Move, Delete, More', JSON.stringify(await holdItems()) === JSON.stringify(['Done', 'Edit', 'Move', 'Delete', 'More', 'Cancel']), JSON.stringify(await holdItems()));
   await shot('phone-p4-menu');
   await holdTap('More');
   await C.sleep(500);
   await menuTap('Duplicate');
   check('Duplicate makes a copy', read('belific_tasks').filter((t) => t.title === 'Pay rent' && !t.deletedAt).length === 2);
-  await P.finger.hold(body('Pay rent'), 480, 700);
+  await holdIn(body('Pay rent'), 480, 700);
   await holdTap('Move');
   await C.sleep(500);
   check('Move offers Tomorrow, Next week, Pick a day, Brain Dump and the lists', JSON.stringify(await menuItems()) === JSON.stringify(['Tomorrow', 'Next week', 'Pick a day', 'Brain Dump', '🏢 Office', 'Cancel']), JSON.stringify(await menuItems()));
   await menuTap('🏢 Office');
   check('the task moves to the list', task('rent').listKey === 'L1');
-  await P.finger.hold(body('Pay rent'), 480, 700);
+  await holdIn(body('Pay rent'), 480, 700);
   await holdTap('Delete');
   check('Delete deletes it (to Trash)', !!task('rent').deletedAt);
-  await P.finger.hold(body('Evening review'), 480, 700);
+  await holdIn(body('Evening review'), 480, 700);
   await holdTap('Edit');
   // 2.54.0 (P6): Edit opens the task details (it was the old task form).
   check('Edit opens the task details', await P.js(`!!document.querySelector('[data-task-details="review"]')`));
   await P.finger.tap(`[...document.querySelectorAll('[aria-label="Done"]')].pop()`, 800);
 
   // A repeating task's menu.
-  await P.finger.hold(body('Old habit'), 480, 700);
+  await holdIn(body('Old habit'), 480, 700);
   check('a repeating task also offers Skip today, with its plain line', JSON.stringify(await holdItems()) === JSON.stringify(['Done', 'Edit', 'Skip today', 'Move', 'Delete', 'More', 'Cancel']) && (await P.js(`(document.querySelector('[data-hold-skip-note]') || {}).innerText || ''`)).includes('not today. It still repeats next time.'), JSON.stringify(await holdItems()));
   await holdTap('Cancel');
 

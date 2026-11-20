@@ -83,14 +83,12 @@ async function run() {
   await P.finger.tap(visible('[data-phone-streaks] [data-toggle]'), 500);
   await P.finger.tap(visible('[aria-label="Back"]'), 900);
   await C.sleep(600);
-  await P.finger.tap(`[...document.querySelectorAll('div, span')].find((e) => e.children.length === 0 && e.textContent.trim() === 'Switch thing')`, 900);
-  await P.finger.tap(visible('[aria-label="Edit Switch thing"]'), 1400);
-  await audit('dark task sheet', 1);
-  check('the task sheet has Top priority', (await switches()).some((x) => x.label === 'Top priority'));
+  // 3.60.0 (on purpose): a tap on a Today row opens the task card itself, and the card has no Top priority switch
+  // (decision 7 of 2026-11-18); its other switches, if any, still follow the switch rules.
+  await P.finger.tap(`document.querySelector('[data-today-row="Switch thing"] [data-today-body]')`, 1400);
+  await audit('dark task sheet', 0);
+  check('the task sheet has no Top priority switch', !(await switches()).some((x) => x.label === 'Top priority') && (await P.js(`!!document.querySelector('[data-task-details]')`)));
   await shot('phone-p16-switches-sheet-dark');
-  await P.finger.tap(visible('[data-toggle][aria-label="Top priority"]'), 600);
-  await shot('phone-p16-switches-sheet-dark-on');
-  check('Top priority on: the switch reads on', (await switches()).some((x) => x.label === 'Top priority' && x.checked === 'true'));
 
   await P.finger.tap(visible('[aria-label="Done"]'), 900);
 
@@ -99,9 +97,10 @@ async function run() {
   const mode3 = async (mode) => {
     await P.finger.tap(tab('Today'), 1200);
     const lg = await todayRow('Long task');
-    check(`${mode}: Today: Long task has the bold length 3h and its start 6:00am in the meta line`, !!lg && lg.len === '3h' && /6:00s*am/i.test(lg.start || ''), JSON.stringify(lg));
+    // 3.60.0 (on purpose): on the timeline the start and the length share the small line under the title ("6:00am · 3h").
+    check(`${mode}: Today: Long task reads 6:00am · 3h under its title`, !!lg && /^6:00\s*am · 3h$/i.test(lg.start || ''), JSON.stringify(lg));
     const sw = await todayRow('Switch thing');
-    check(`${mode}: Today: Switch thing has 1h and 10:00am`, !!sw && sw.len === '1h' && /10:00s*am/i.test(sw.start || ''), JSON.stringify(sw));
+    check(`${mode}: Today: Switch thing reads 10:00am · 1h`, !!sw && /^10:00\s*am · 1h$/i.test(sw.start || ''), JSON.stringify(sw));
     await shot(`phone-p16-card-time-today-${mode}`);
     await P.finger.tap(tab('Tasks'), 1500);
     const ud = await P.js(`(() => { const r = document.querySelector('[data-task-row="Undated length"]'); if (!r) return null; const l = r.querySelector('[data-task-length]'); return { len: l ? l.innerText.trim() : null, text: r.innerText.replace(/\s+/g, ' ') }; })()`);

@@ -108,7 +108,9 @@ async function run() {
   const shiftText = await text('[data-shift-body="Shift"]');
   check('Today: Shift shows its summary "3h 30m of 10h planned" and "0 of 3 done"', !!shiftText && shiftText.includes('of 10h planned') && shiftText.includes('0 of 3 done'), String(shiftText));
   check('the blocks inside are rows of the shift, not rows of their own', (await P.js(`document.querySelectorAll('[data-today-row="Briefing"], [data-today-row="Teams press meeting"], [data-today-row="Ring patients"]').length`)) === 0 && (await P.js(`document.querySelectorAll('[data-shift-body="Shift"] [data-inside-row]').length`)) === 3);
-  check('the day total reads the shift once: "10h planned"', (await text('[data-today-planned]')) === '10h planned', String(await text('[data-today-planned]')));
+  // 3.60.0 (on purpose): the "planned" line became the hours strip; it still counts the shift once (600 minutes, "10h").
+  const strip = () => P.js(`(() => { const e = document.querySelector('[data-hours-strip]'); return e ? e.getAttribute('data-hours-strip') + ' ' + e.innerText.replace(/\\s+/g, ' ') : null; })()`);
+  check('the day total reads the shift once: the hours strip says 10h', /^600 Hours today 10h/.test(String(await strip())), String(await strip()));
   check('rows and the button are 44 pt, text 14 px or more, nothing red', (await tall('[data-shift-body="Shift"] [data-inside-row]')) && (await tall('[data-add-inside="Shift"]')) && (await minFont('[data-shift-body="Shift"]')) >= 14 && (await notRed('[data-shift-body="Shift"]')));
   await shot('phone-p19-today');
 
@@ -140,7 +142,7 @@ async function run() {
   check('tick Lunch in place: stored done, "1 of 5 done"', task(lunch.id).completed === true && ((await text('[data-shift-body="Shift"]')) || '').includes('1 of 5 done'), String(await text('[data-shift-body="Shift"]')));
   await tapSel('[data-inside-tick="Call other departments"]', 1500);
   check('tick the to do in place: its step is done, the shift itself is not completed, "2 of 5 done"', (task('sh').subtasks.find((s) => s.title === 'Call other departments') || {}).done === true && !task('sh').completed && ((await text('[data-shift-body="Shift"]')) || '').includes('2 of 5 done'), String(await text('[data-shift-body="Shift"]')));
-  check('the day total still reads 10h (ticked blocks leave the "still to do" figure, never double count)', ((await text('[data-today-planned]')) || '').startsWith('10h') || ((await text('[data-today-planned]')) || '').startsWith('9h'), String(await text('[data-today-planned]')));
+  check('the day total still reads 10h (the strip counts done and planned, never double)', /^600 Hours today 10h/.test(String(await strip())), String(await strip()));
   check('an Undo bar says "Done: Call other departments"', ((await text('[data-undo-bar]')) || '').includes('Done: Call other departments'), String(await text('[data-undo-bar]')));
   await shot('phone-p19-ticked');
   await P.finger.tap(visible('[data-undo-bar] [aria-label="Undo"]'), 1500);
@@ -149,8 +151,10 @@ async function run() {
   check('the same tick unticks Lunch', task(lunch.id).completed === false);
 
   // ---- the details: no Task | Break ----
-  await P.finger.tap(visible('[data-today-row="Shift"] [data-today-body]'), 700);
-  await P.finger.tap(visible('[aria-label="Edit Shift"]'), 1400);
+  // 3.60.0 (on purpose): a tap on the row opens the task card itself.
+  await P.js(`(() => { const e = document.querySelector('[data-today-row="Shift"] [data-today-body]'); if (e) e.scrollIntoView({ block: 'center' }); })()`);
+  await C.sleep(350);
+  await P.finger.tap(visible('[data-today-row="Shift"] [data-today-body]'), 1400);
   check('the details of Shift open', await P.js(`!!document.querySelector('[data-task-details="sh"]')`));
   const sheet = await P.js(`(() => { const r = document.querySelector('[data-task-details]'); return r && r.parentElement ? r.parentElement.innerText.replace(/\\s+/g, ' ') : ''; })()`);
   check('no Task | Break choice and no "Task or Break" wording in the phone details', !(await P.js(`!!document.querySelector('[data-kind-choice]')`)) && !sheet.includes('Task or Break') && !sheet.includes('Cuts the tasks it overlaps'), sheet.slice(0, 200));

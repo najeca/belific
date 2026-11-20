@@ -70,7 +70,8 @@ async function run() {
   };
   const tabEls = `[...document.querySelectorAll('a, [role="tab"], [role="button"], [role="link"]')].filter((e) => { const r = e.getBoundingClientRect(); return r.top > 760 && r.height > 20 && r.width > 40 && r.width < 200; })`;
   const tab = (name) => `${tabEls}.find((e) => e.textContent.replace(/[^ -~]/g, '').trim() === '${name}')`;
-  const body = (title) => `[...document.querySelectorAll('[data-today-row="${title}"] [data-today-body]')][0]`;
+  // 3.60.0 (on purpose): an untimed task is an Anytime card; its body is [data-anytime-body].
+  const body = (title) => `[...document.querySelectorAll('[data-today-row="${title}"] [data-today-body], [data-today-row="${title}"] [data-anytime-body]')][0]`;
   const cardOpen = () => P.js(`!!document.querySelector('[data-hold-card]')`);
   const holdItems = () => P.js(`[...document.querySelectorAll('[data-hold-card] [role="button"]')].map((e) => e.getAttribute('aria-label'))`);
   const holdTap = (label) => P.finger.tap(`document.querySelector('[data-hold-card] [aria-label=${JSON.stringify(label)}]')`, 1000);

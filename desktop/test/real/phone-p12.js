@@ -87,8 +87,8 @@ async function run() {
     await P.finger.tap(inSheet(sel), wait);
   };
   const openFromToday = async (title) => {
-    await P.finger.tap(`[...document.querySelectorAll('[data-today-row="${title}"] [data-today-body]')][0]`, 700);
-    await P.finger.tap(`[...document.querySelectorAll('[data-today-expanded] [aria-label="Edit ${title}"]')][0]`, 1200);
+    // 3.60.0 (on purpose): a tap on the row opens the task card itself (no row in place with Edit).
+    await P.finger.tap(`[...document.querySelectorAll('[data-today-row="${title}"] [data-today-body], [data-today-row="${title}"] [data-anytime-body]')][0]`, 1400);
   };
   const todayRows = (title) => P.js(`document.querySelectorAll('[data-today-row="${title}"]').length`);
 

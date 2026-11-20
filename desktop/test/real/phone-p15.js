@@ -194,7 +194,8 @@ async function run() {
   check('Tasks: the chips show Brain Dump with its brain and each list with its emoji (a plain list the default)', chipTexts.some((t) => t.startsWith('dump=') && t.includes('🧠')) && chipTexts.some((t) => t.startsWith('LG=') && t.includes('🐶')) && chipTexts.some((t) => t.startsWith('LR=') && t.includes('📚') && t.includes('Studies')), JSON.stringify(chipTexts));
   const surfaces = async (mode) => {
     await P.finger.tap(tab('Today'), 1200);
-    const rowText = (title) => P.js(`(() => { const r = [...document.querySelectorAll('[data-today-row]')].find((e) => e.getAttribute('data-today-row') === ${JSON.stringify(title)}); return r ? r.innerText.replace(/\\s+/g, ' ') : null; })()`);
+    const rowText = (title) => P.js(`(() => { const r = [...document.querySelectorAll('[data-today-row]')].find((e) => e.getAttribute('data-today-row') === ${JSON.stringify(title)}); if (!r) return null; const b = r.querySelector('[data-today-body]'); return (r.innerText + ' ' + (b ? b.getAttribute('aria-label') : '')).replace(/\\s+/g, ' '); })()`);
+    // 3.60.0 (on purpose): a timeline row shows its list as the emoji in its bubble; its name is in the row's spoken label.
     const want = [['Brain dump thing', '🧠 Brain Dump'], ['Play a game', 'Games'], ['Plain list thing', 'Plain'], ['Renamed list thing', '📚 Studies']];
     for (const [title, text] of want) {
       const t = await rowText(title);

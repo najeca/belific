@@ -1,7 +1,7 @@
 'use strict';
 // @real-input: quiet
 // Real touch check for PLAN_phone P6 (2.54.0): a task's details on the phone at 390 x 844. Title,
-// emoji, top priority, date (chips and the month grid), time, length (presets and typed), label (and
+// emoji, (3.60.0: no top priority), date (chips and the month grid), time, length (presets and typed), label (and
 // a new one), list, notes, steps (add, tick, rename, delete) and Delete; every edit is stored at once
 // and keeps the fields the phone does not show (cutsBelow, reminders, extra times, times done, the
 // timer). A projected repeating day edits its series; its date moves only that day.
@@ -120,9 +120,8 @@ async function run() {
   await C.sleep(700);
   check('the emoji is saved', (task('full').emoji || '').replace(/️/g, '') === '🏃');
 
-  // Priority.
-  await tapIn('[data-detail-row="priority"] [role="switch"]');
-  check('top priority is saved (red mark)', task('full').priority === 'high' && /❗/.test(await rowValue('priority')));
+  // 3.60.0 (on purpose): no Top priority on the phone's card (decision 7 of 2026-11-18); the desktop sets it.
+  check('the card has no Top priority row', !(await P.js(`!!document.querySelector('[data-detail-row="priority"]')`)));
 
   // Date: chips and the month grid.
   await tapIn('[data-detail-row="date"]');
@@ -197,8 +196,10 @@ async function run() {
 
   // A projected repeating day from Today.
   await P.finger.tap(tab('Today'), 1200);
-  await P.finger.tap(`[...document.querySelectorAll('[data-today-row="Morning walk"] [data-today-body]')][0]`, 700);
-  await P.finger.tap(`[...document.querySelectorAll('[data-today-expanded] [aria-label="Edit Morning walk"]')][0]`, 1200);
+  // 3.60.0 (on purpose): a tap on the timeline row opens the task card itself.
+  await P.js(`(() => { const e = document.querySelector('[data-today-row="Morning walk"] [data-today-body]'); if (e) e.scrollIntoView({ block: 'center' }); })()`);
+  await C.sleep(350);
+  await P.finger.tap(`[...document.querySelectorAll('[data-today-row="Morning walk"] [data-today-body]')][0]`, 1400);
   check('Edit on Today opens the details of the repeating day', await P.js(`(document.querySelector('[data-task-details]') || {}).parentElement?.innerText.includes('Repeating task')`));
   await replaceIn('[aria-label="Task title"]', 'Morning run');
   await blur();

@@ -183,8 +183,10 @@ async function run() {
 
   // ---- 4. Smaller tasks and Checklist on the card ----
   await P.finger.tap(tab('Today'), 1200);
-  await P.finger.tap(visible('[data-today-body="parts"]'), 900);
-  await tap('[aria-label="Edit Parts task"]', 1500);
+  // 3.60.0 (on purpose): a tap on a Today row opens the task card itself.
+  await scrollTo('[data-today-body="parts"]');
+  await C.sleep(300);
+  await P.finger.tap(visible('[data-today-body="parts"]'), 1500);
   await scrollTo('[data-parts-hint]');
   await C.sleep(400);
   check('Smaller tasks: "Their own times and lengths, shown inside this block"', (await P.js(`document.querySelector('[data-parts-hint]').innerText`)).trim() === 'Their own times and lengths, shown inside this block');

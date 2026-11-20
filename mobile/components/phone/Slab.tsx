@@ -14,9 +14,9 @@ export function Slab({ children, style }: { children: React.ReactNode; style?: S
   return (
     <View style={{ marginRight: SLAB_OFFSET, marginBottom: SLAB_OFFSET }}>
       {name !== 'dark' ? (
-        <View pointerEvents="none" style={{ position: 'absolute', left: SLAB_OFFSET, top: SLAB_OFFSET, right: -SLAB_OFFSET, bottom: -SLAB_OFFSET, borderRadius: radius.card, backgroundColor: c.borderStrong }} {...({ dataSet: { slabShape: '1' } } as object)} />
+        <View pointerEvents="none" style={{ position: 'absolute', left: SLAB_OFFSET, top: SLAB_OFFSET, right: -SLAB_OFFSET, bottom: -SLAB_OFFSET, borderRadius: radius.lg, backgroundColor: c.borderStrong }} {...({ dataSet: { slabShape: '1' } } as object)} />
       ) : null}
-      <View style={[{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.borderStrong, overflow: 'hidden' }, style]}>{children}</View>
+      <View style={[{ backgroundColor: c.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: c.borderStrong, overflow: 'hidden' }, style]}>{children}</View>
     </View>
   );
 }

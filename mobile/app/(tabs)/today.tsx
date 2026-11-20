@@ -536,10 +536,17 @@ export default function TodayScreen() {
       const t = item.task;
       const end = formatTime(hhmm(item.endMin ?? item.startMin ?? 0));
       return (
-        <PressRow key={item.key} onTap={() => void openEdit(t, item.projected)} onHold={() => openMenu(item)} a11y={`${t.title}, free time, ${start} to ${end}`} hint="Tap to open." style={s.gapRow} data={{ todayGap: t.title }}>
-          <View style={s.rail} />
-          <Text style={s.gapText}>{`${t.title}, free time · ${start} to ${end}`}</Text>
-        </PressRow>
+        <View key={item.key} {...({ dataSet: { todayRow: t.title, todayKey: item.key } } as object)}>
+          <PressRow onTap={() => void openEdit(t, item.projected)} onHold={() => openMenu(item)} a11y={`${t.title}, free time, ${start} to ${end}${hosts.inside.get(t.id) ? `, ${insidePill(hosts.inside.get(t.id) ?? 0)}` : ''}`} hint="Tap to open." style={s.gapRow} data={{ todayGap: t.title }}>
+            <View style={s.rail} />
+            <Text style={s.gapText}>{`${t.title}, free time · ${start} to ${end}`}</Text>
+            {hosts.inside.get(t.id) ? (
+              <View style={[s.hostPill, { marginLeft: 8 }]} {...({ dataSet: { hostPill: String(hosts.inside.get(t.id)) } } as object)}>
+                <Text style={s.hostPillText}>{insidePill(hosts.inside.get(t.id) ?? 0)}</Text>
+              </View>
+            ) : null}
+          </PressRow>
+        </View>
       );
     }
     const t = item.kind === 'task' ? item.task : null;
@@ -569,7 +576,7 @@ export default function TodayScreen() {
             style={s.tlBody}
             onTap={() => (t ? void openEdit(t, projected) : editable ? openMenu(item) : undefined)}
             onHold={t && !done ? () => openMenu(item) : undefined}
-            a11y={`${title}, ${timeText}${done ? ', done' : ''}`}
+            a11y={`${title}, ${timeText}${t ? `, ${listOf(t)}` : ''}${done ? ', done' : ''}`}
             hint={t ? 'Tap to open. Press and hold for more.' : undefined}
             data={{ todayBody: item.key }}
           >

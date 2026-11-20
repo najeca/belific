@@ -396,3 +396,4 @@ All eight defaults are confirmed as written. Notes:
 **Built:** the Today redesign (phase 2) as 3.60.0, 2026-11-20. The Tasks tab redesign (phase 4) is not started.
 
 **Built:** the Tasks tab redesign (phase 4) as 3.61.0, 2026-11-20.
+**Built:** Plan my day on the phone (phase 3) as 3.62.0, 2026-11-20.

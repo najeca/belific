@@ -1036,3 +1036,9 @@ Choices on my own: the Search and Trash screens are full screen modals; the labe
 Reported, not changed: phone-p11 light contrast of the Today Now marker (4.41:1, 3.60.0, only at some times of day).
 Tests: repeatWords.test.ts; real new phone-p28 (22); phone-p5 changed on purpose.
 Gates: tsc clean; mobile 1290/1290. Full regression NOT run (after phase 4 of the batch).
+## PLAN_phone_stepflow phase 3 (2026-11-20): 3.62.0, Plan my day on the phone (batch build phase 2)
+What: the Plan button in the Today header; a full screen flow one task at a time (Today, Tomorrow, A time, Not today), the order from lib/planQueue.ts, the desktop's writes, an Undo per answer and a summary with an Undo per row.
+Choices on my own: the answers' Undo writes back the rows an answer changed (lib/earlierUndo.ts, as Earlier does) because the phone's undo stack does not record; the queue is fixed when the screen opens; the time field starts empty on the web export and at 09:00 on the iPhone picker; a repeating day offers no Tomorrow (the desktop never moves a series day that way).
+Found, not changed (shared desktop logic, not written this session): skipping the only stored row of a repeating task (its template, with no other stored day) tombstones that row and leaves no row to carry the series (lib/series.ts planSkip, `if (!heir) return { tombstone }`); the real check seeds a started series so today's day is only projected.
+Tests: planQueue.test.ts; real new phone-p29 (23).
+Gates: tsc clean; mobile 1297/1297. Full regression NOT run (after phase 4).

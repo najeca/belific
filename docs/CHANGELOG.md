@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.62.0 — 2026-11-20 (Phone: Plan my day)
+Phone only; the desktop does not change. No database change, no native change.
+- A **Plan** button in the Today header, beside the avatar, always shown. It opens Plan my day: a full screen, one task at a time, with a progress line ("3 of 9"), the day's planned total, and "When will you do this?": **Today**, **Tomorrow**, **A time** (today, with the time picker) and **Not today**.
+- The order (`lib/planQueue.ts`): today's tasks with no time, then Earlier, then the tasks with no Day from Brain Dump and each list; a task already timed on today is not asked about, nothing is asked twice.
+- The writes are the desktop's (`lib/wrapActions.ts`, `lib/taskOps.ts`, through `lib/planActions.ts`). A repeating day offers no Tomorrow and Not today skips only that day; Not today on a task still in its list leaves it as it is; a time keeps the length (the default when none) and is refused when it does not fit a break.
+- Each answer saves at once and the next task shows. Undo (the bar) puts the last answer back and asks it again; the summary at the end lists each answer with its own Undo. Closing keeps what was answered; Done only closes.
+Tests: new planQueue.test.ts (7); easConfig (version); real new phone-p29 (23).
+Gates: tsc clean; mobile `npm test` 1297/1297. Targeted real checks at 390 x 844 (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p29 23/23, p2, p3, p4, p26, p27 pass. Full regression NOT run (once after phase 4).
+
 ## 3.61.0 — 2026-11-20 (Phone: Tasks tab redesign: slab cards, Repeats groups, labels, Search, Trash)
 Phone only; the desktop does not change. No database change, no native change.
 - Every task on the Tasks tab is its own slab card with a visible gap (the Today `Slab`), the list name small with its emoji, and the label as a 4 px colour edge and a dot before its name. Swipes, tap and press and hold are as before.

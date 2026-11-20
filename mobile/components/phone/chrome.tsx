@@ -31,7 +31,7 @@ const make = (c: ColorTokens) => ({
   segTextOn: { color: c.textPrimary },
 });
 
-export function ScreenHeader({ title, sub, left }: { title: string; sub?: string; left?: React.ReactNode }) {
+export function ScreenHeader({ title, sub, left, right }: { title: string; sub?: string; left?: React.ReactNode; right?: React.ReactNode }) {
   const s = useStyles(make);
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -59,6 +59,8 @@ export function ScreenHeader({ title, sub, left }: { title: string; sub?: string
           </Text>
         </View>
       </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      {right}
       <Pressable
         onPress={() => setProfile(true)}
         style={s.avatar}
@@ -69,6 +71,7 @@ export function ScreenHeader({ title, sub, left }: { title: string; sub?: string
       >
         <AvatarFace avatar={avatar} />
       </Pressable>
+      </View>
       <ProfileSheet
         visible={profile}
         onClose={() => setProfile(false)}

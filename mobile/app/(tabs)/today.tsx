@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, RefreshControl, Text, View } from 'react-native';
+import { AppState, Pressable, RefreshControl, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +49,7 @@ import { ShiftRows } from '../../components/phone/ShiftRows';
 import { AddInside, type InsideTarget } from '../../components/phone/AddInside';
 import type { CustomEvent, Project, Routine, ScheduleEvent, Task, TaskList } from '../../lib/types';
 import { AddButton, ScreenHeader } from '../../components/phone/chrome';
+import { PlanMyDay } from '../../components/phone/PlanMyDay';
 import { StepAdd, type StepAddTarget } from '../../components/phone/StepAdd';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { HoldCard } from '../../components/phone/HoldCard';
@@ -166,6 +167,7 @@ export default function TodayScreen() {
   // 3.59.1: one off tasks of earlier days that are not ticked wait in the Earlier pill (never on Today).
   const [earlier, setEarlier] = useState(0);
   const [earlierOpen, setEarlierOpen] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
   // S5: the smallest piece free time may leave, and the shift whose Add inside form is open.
   const [cutMin, setCutMin] = useState(30);
   const [inside, setInside] = useState<InsideTarget | null>(null);
@@ -703,7 +705,22 @@ export default function TodayScreen() {
 
   return (
     <View style={s.screen}>
-      <ScreenHeader title="Today" sub={headerSub} />
+      <ScreenHeader
+        title="Today"
+        sub={headerSub}
+        right={
+          <Pressable
+            onPress={() => setPlanOpen(true)}
+            style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: radius.full, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Plan my day"
+            {...({ dataSet: { planButton: '1' } } as object)}
+          >
+            <Ionicons name="calendar-outline" size={16} color={c.textPrimary} />
+            <Text style={{ ...inter(600), fontSize: 14, color: c.textPrimary }}>Plan</Text>
+          </Pressable>
+        }
+      />
       {earlier > 0 ? (
         <View style={{ paddingHorizontal: 16, paddingBottom: 6 }}>
           <EarlierPill count={earlier} onPress={() => setEarlierOpen(true)} />
@@ -766,6 +783,7 @@ export default function TodayScreen() {
       <ActionMenu visible={!!menu} title={menu?.title} items={menu?.items ?? []} onClose={() => setMenu(null)} />
       {hold ? <HoldCard task={hold.item.task} projected={hold.item.projected} labels={projects} lists={lists} todayKey={todayKey} actions={holdActions(hold.item)} onClose={() => setHold(null)} /> : null}
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
+      <PlanMyDay visible={planOpen} onClose={() => setPlanOpen(false)} onChanged={() => void load()} />
       <EarlierSheet visible={earlierOpen} onClose={() => setEarlierOpen(false)} onChanged={() => void load()} />
       <AddEventModal
         visible={!!editEvent}

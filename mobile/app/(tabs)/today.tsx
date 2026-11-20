@@ -35,6 +35,8 @@ import { hhmm, nowCard, type NowCardItem } from '../../lib/nowCard';
 import { bubbleHeight, nowMarker, type TimelineSpan } from '../../lib/todayTimeline';
 import { applyOrder, dropIndex, moveKey, orderKey, parseOrder, staleOrderKeys } from '../../lib/anytimeOrder';
 import { AnytimeCard } from '../../components/phone/AnytimeCard';
+import { labelHours, HOURS_COUNT_PREFIX } from '../../lib/labelHours';
+import { HoursStrip } from '../../components/phone/HoursStrip';
 import { isQuickReminder } from '../../lib/quickReminder';
 import { NowCard, type NowLabel } from '../../components/phone/NowCard';
 import { BRAIN_DUMP_EMOJI } from '../../lib/emoji';
@@ -43,7 +45,6 @@ import { counter } from '../../lib/subtasks';
 import { deleteOne, deleteRepeating, duplicate, loadCutMin, moveToList, skipDay, tickRoutine, tickTask, toggleSubtask } from '../../lib/phoneActions';
 import { shiftsOfDay, type ShiftRow } from '../../lib/shifts';
 import { tickRow } from '../../lib/shiftActions';
-import { plannedText } from '../../lib/taskTotals';
 import { ShiftRows } from '../../components/phone/ShiftRows';
 import { AddInside, type InsideTarget } from '../../components/phone/AddInside';
 import type { CustomEvent, Project, Routine, ScheduleEvent, Task, TaskList } from '../../lib/types';
@@ -80,7 +81,6 @@ const nowMinutes = () => {
 
 const make = (c: ColorTokens) => ({
   screen: { flex: 1, backgroundColor: c.background },
-  nowLine: { ...type.meta, color: c.textSecondary },
   row: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, minHeight: 56 },
   rowSep: { borderTopWidth: 1, borderTopColor: c.border },
   tick: { width: 52, minHeight: 56, alignItems: 'center' as const, justifyContent: 'center' as const },
@@ -174,6 +174,8 @@ export default function TodayScreen() {
   const [editRoutine, setEditRoutine] = useState<Routine | undefined>();
   // 3.60.0: the Anytime cards' do first order (one user_settings row a day), a drag in progress, the cards' places.
   const [order, setOrder] = useState<string[]>([]);
+  // 3.60.0: the "Count in daily hours" switches (hours.count.<labelKey> rows), by label key.
+  const [hoursStored, setHoursStored] = useState<Map<string, string>>(new Map());
   const [dragging, setDragging] = useState(false);
   const places = useRef(new Map<string, { y: number; h: number }>());
 
@@ -207,7 +209,9 @@ export default function TodayScreen() {
     setLists(ls);
     setOrder(parseOrder(await loadUserSetting(orderKey(key))));
     // Order rows of days long gone are deleted (they sync like any setting).
-    const stale = staleOrderKeys((await loadUserSettingsRaw()).filter((x) => !x.deletedAt).map((x) => x.key), key);
+    const settings = (await loadUserSettingsRaw()).filter((x) => !x.deletedAt);
+    setHoursStored(new Map(settings.filter((x) => x.key.startsWith(HOURS_COUNT_PREFIX)).map((x) => [x.key.slice(HOURS_COUNT_PREFIX.length), x.value])));
+    const stale = staleOrderKeys(settings.map((x) => x.key), key);
     for (const k of stale) await deleteUserSetting(k);
   }, []);
 
@@ -241,7 +245,8 @@ export default function TodayScreen() {
     const keep = (i: TodayItem) => i.kind !== 'task' || !shifts.hidden.has(i.task.id);
     return { ...full, timed: full.timed.filter(keep), anytime: full.anytime.filter(keep), done: full.done.filter(keep) };
   }, [full, shifts]);
-  const planned = useMemo(() => plannedText(ownTasks.filter((t) => t.dueDate === todayKey)), [ownTasks, todayKey]);
+  // 3.60.0: the hours strip: today's tasks done and planned, per label (lib/labelHours.ts).
+  const hours = useMemo(() => labelHours({ tasks: ownTasks.filter((t) => t.dueDate === todayKey), labels: projects, stored: hoursStored, cutMin }), [ownTasks, todayKey, projects, hoursStored, cutMin]);
   const hosts = useMemo(() => hostIndex(tasks, [todayKey], todayKey), [tasks, todayKey]);
   const live = liveLists(lists);
   // 3.60.0: the Now card reads every timed item of today (a ticked one is left out by nowCard itself).
@@ -704,7 +709,7 @@ export default function TodayScreen() {
           label={nowItem?.kind === 'task' ? nowLabel(nowItem.task) : null}
           onDone={nowItem?.kind === 'task' ? () => void tick(nowItem, true) : undefined}
         />
-        {planned ? <Text style={s.nowLine} numberOfLines={1} {...({ dataSet: { todayPlanned: planned } } as object)}>{planned}</Text> : null}
+        <HoursStrip parts={hours.parts} total={hours.total} />
       </View>
       <ScrollView
         scrollEnabled={!dragging}

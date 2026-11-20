@@ -186,6 +186,9 @@ async function run() {
   check('"This day only" adds the to do to that day row (the desktop rule), a task is not made', nc.some((t) => (t.subtasks || []).some((s) => s.title === 'Hand over')) && !byTitle('Hand over'), JSON.stringify(nc.map((t) => [t.id, (t.subtasks || []).map((s) => s.title)])));
 
   // ---- free time: Make it a normal block ----
+  // 3.61.0 (on purpose): the Tasks tab has Lists and Labels above the rows, so the row is scrolled to the middle before a finger touches it.
+  await P.js(`document.querySelector('[data-task-row="Quiet hour"]').scrollIntoView({ block: 'center' })`);
+  await C.sleep(400);
   await P.finger.tap(visible('[data-task-row="Quiet hour"] [data-task-body]'), 1400);
   check('free time: the details say "Free time" with "Make it a normal block", and no Task | Break', (await P.js(`!!document.querySelector('[data-free-time]')`)) && (await P.js(`!!document.querySelector('[data-make-normal]')`)) && !(await P.js(`!!document.querySelector('[data-kind-choice]')`)));
   check('"Make it a normal block" is 44 pt', await tall('[data-make-normal]'));

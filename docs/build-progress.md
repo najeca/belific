@@ -1049,3 +1049,8 @@ Choices on my own: the band is a thick top border on sheets (no extra view); Set
 Reported, not changed: phone-p11's light contrast of the Today Now marker (4.41:1, 3.60.0).
 Tests: real new phone-p30 (22).
 Gates: tsc clean; mobile 1297/1297. Full regression NOT run (after phase 4).
+## PLAN_phone_parity phase 10 (2026-11-20): 3.64.0, Calendar shells (batch build phase 4)
+What: the phone's Calendar Day view draws a shift as a shell with the blocks inside on top at real size (the desktop's nesting rules); outside a shift, overlapping blocks stay side by side. Found and fixed by phone-p8: a shift cut into pieces by a break lost its inside blocks (lane now from the shell).
+Choices on my own: the shell is the pale raised surface with its label colour edge; what is inside is inset 5 px each side; the summary (planned/free) is not drawn on the phone's shell (the Today and Tasks shift card already shows it).
+Tests: phoneDay.test.ts (+4); real new phone-p31 (8); phone-p19 changed on purpose (scroll the row into view).
+Gates: tsc clean; the full regression follows this entry.

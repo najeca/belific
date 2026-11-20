@@ -8,6 +8,13 @@ to know the current version and recent history.
 
 ---
 
+## 3.64.0 — 2026-11-20 (Phone: Calendar shells)
+Phone only; the desktop does not change. No database change, no native change.
+- The Calendar's Day view draws a **shift as a wide shell** with the blocks inside it on top, at real size: full width of the shell when they do not overlap, sharing the shell when they do (they used to share the whole day beside the shift, so a shift with three blocks inside drew four thin columns). Blocks that overlap outside a shift stay side by side. The rules are the desktop's (`lib/nesting.ts` `nestPlan`, `lib/timebox.ts` `layoutNested`, a shift being two hours or more); a tap on an inside block opens it, a tap on the shell outside them opens the shift, and the hold to drag works on both (`lib/phoneDay.ts` returns `shells`, `components/phone/calendar/DayView.tsx` draws them).
+Tests: phoneDay.test.ts (+4: inside a shell, overlapping inside blocks, equal blocks, a shell cut into pieces by a break); easConfig (version); real new phone-p31 (8). Changed on purpose (a separate commit): phone-p19 scrolls the Quiet hour row to the middle before touching it (the Tasks tab has Lists and Labels above the rows since 3.61.0).
+Found by phone-p8 and fixed in the app: a shift cut into pieces by a break lost the blocks inside it (their lane is now taken from the shell itself).
+Gates: tsc clean; mobile `npm test` run in the full regression. Targeted real checks at 390 x 844 (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p31 8/8, p8, p10, p13, p14, p15, p19 pass. Full regression: see the batch report in build-progress.md.
+
 ## 3.63.0 — 2026-11-20 (Phone: look and clean up: no red, no sample events, fonts, bands)
 Phone only; the desktop does not change. No database change. The Inter 800 font was already in the build (`phoneFonts.native.ts`); nothing native is new, and the changes need the next EAS build to be seen on the iPhone.
 - **No red on the phone.** Delete rows and buttons are quiet ink with a clear word (menus, the task card, the list sheet, Settings' Delete Account and Clear All Data, the Calendars turn off), the swipe action Delete and Skip are dark ink, warnings and problems are ink, the failed sync line is ink, a stored high priority is not drawn red on the Calendar week and month, and the Day view's now line and dot are the accent. The desktop's colours are unchanged.

@@ -3,10 +3,13 @@
 // the same way: today's stored and projected tasks (timeboxTasks.ts), one block per time (times.ts),
 // yesterday's overnight rest, breaks that split the tasks under them (cuts.ts), the old events
 // (decision 4: grey, read only), the iPhone's own calendar events, all laid out side by side where they
-// overlap (timebox.ts layoutItems).
+// overlap (timebox.ts layoutItems). 3.64.0: a block fully inside a longer one (a shift, lib/nesting.ts) is not laid out
+// beside it: the longer block is a shell and what is inside it is laid out on its own, inside the shell's lane
+// (timebox.ts layoutNested), as on the desktop.
 import type { ScheduleEvent, Task } from './types.ts';
 import { tasksForTimebox, type DayTask } from './timeboxTasks.ts';
-import { continuationOf, layoutItems, taskToItem, toMinutes, type PlacedBlock, type TimeboxItem } from './timebox.ts';
+import { continuationOf, layoutNested, taskToItem, toMinutes, type NestedItem, type PlacedBlock, type ShellLane } from './timebox.ts';
+import { nestPlan } from './nesting.ts';
 import { timeViews } from './times.ts';
 import { planCuts, DEFAULT_CUT_MIN, type CutEntry, type CutPiece } from './cuts.ts';
 import { hostDay, hostSnapshot, type HostEntry, type HostSnapshot } from './hosting.ts';
@@ -35,6 +38,8 @@ export interface PhoneDay {
   allDay: DayTask[];
   deviceAllDay: DaySegment[];
   blocks: Array<PlacedBlock & { source: DaySource }>;
+  // 3.64.0: the shells (a block with blocks inside it): the shell's lane and what is inside, laid out among themselves.
+  shells: Array<Omit<ShellLane, 'blocks'> & { blocks: Array<PlacedBlock & { source: DaySource }> }>;
   // A break that could not split a task: the sentence, by the break's block id.
   notes: Map<string, string>;
   // 3.11.0: the day's hosting, to tell when a moved or shrunk break left tasks out (hosting.lostGuests).
@@ -44,7 +49,7 @@ export interface PhoneDay {
 export function buildPhoneDay(input: { tasks: Task[]; dayKey: string; todayKey: string; events?: ScheduleEvent[]; device?: Occurrence[]; cutMin?: number }): PhoneDay {
   const { tasks, dayKey, todayKey } = input;
   const sources = new Map<string, DaySource>();
-  const items: TimeboxItem[] = [];
+  const items: NestedItem[] = [];
   for (const e of input.events ?? []) {
     const s = toMinutes(e.start);
     const en = toMinutes(e.end);
@@ -94,12 +99,15 @@ export function buildPhoneDay(input: { tasks: Task[]; dayKey: string; todayKey: 
     sources.set(breakId, { ...b, hosted });
   }
   const plan = planCuts(entries.filter((e) => !host.hostOf.has(e.id)), input.cutMin ?? DEFAULT_CUT_MIN, titleOf);
+  const nest = nestPlan(entries, host.hostOf, plan.items);
   for (const it of plan.items) {
     if (it.piece) {
       const host = sources.get(it.piece.hostId);
       if (host && host.kind === 'task') sources.set(it.id, { ...host, piece: it.piece });
     }
-    items.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id) });
+    const inside = nest.insideOf.get(it.id);
+    const group = nest.groupOf.get(it.id);
+    items.push({ id: it.id, startMin: it.startMin, endMin: it.endMin, high: high.get(it.piece?.hostId ?? it.id), ...(inside ? { inside } : {}), ...(group ? { group } : {}) });
   }
   const deviceAllDay: DaySegment[] = [];
   for (const seg of segmentsForDay(input.device ?? [], dayKey)) {
@@ -111,10 +119,11 @@ export function buildPhoneDay(input: { tasks: Task[]; dayKey: string; todayKey: 
     sources.set(id, { kind: 'device', seg });
     items.push({ id, startMin: seg.startMin, endMin: seg.endMin });
   }
-  const blocks = layoutItems(items)
-    .blocks.map((b) => ({ ...b, source: sources.get(b.id) as DaySource }))
-    .filter((b) => !!b.source);
-  return { key: dayKey, allDay, deviceAllDay, blocks, notes: plan.notes, snap: hostSnapshot(entries) };
+  const laid = layoutNested(items);
+  const withSource = (list: PlacedBlock[]) => list.map((b) => ({ ...b, source: sources.get(b.id) as DaySource })).filter((b) => !!b.source);
+  const blocks = withSource(laid.blocks);
+  const shells = laid.shells.map((sh) => ({ ...sh, blocks: withSource(sh.blocks) }));
+  return { key: dayKey, allDay, deviceAllDay, blocks, shells, notes: plan.notes, snap: hostSnapshot(entries) };
 }
 
 // The time a tap on an empty part of the timeline stands for: the quarter hour under the finger

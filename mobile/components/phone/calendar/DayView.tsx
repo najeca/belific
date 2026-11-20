@@ -29,6 +29,8 @@ import { DraggableBlock, type DragTarget } from './DraggableBlock';
 // empty part of the timeline opens the quick add with that quarter hour filled in (the tap layer sits
 // under the blocks, so a tap never counts twice).
 const GUTTER = 52;
+// 3.64.0: the shell's edge left and right of what is inside it.
+const SHELL_INSET = 5;
 
 const make = (c: ColorTokens) => ({
   allDay: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.border },
@@ -112,14 +114,14 @@ export function DayView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dayKey]);
 
-  const lookOf = (src: DaySource): BlockLook => {
+  const lookOf = (src: DaySource, shell = false): BlockLook => {
     if (src.kind === 'event') return { bg: c.breakTint, edge: c.borderStrong };
     if (src.kind === 'device') return { bg: c.surfaceRaised, edge: (src.seg.occ as DeviceOccurrence).color ?? c.textTertiary };
     const t = src.task;
     const p = t.projectKey ? data.projects.find((x) => x.key === t.projectKey) : undefined;
     const col = labelColor(p?.colorKey);
     const dots = src.hosted ? Object.fromEntries(src.hosted.map((h) => [h.id, dotOf(h.task)])) : undefined;
-    return { bg: col ? tintFor(col, name === 'dark') : t.cutsBelow ? c.breakTint : c.plainBlock, edge: col?.edge ?? (t.cutsBelow ? c.textSecondary : c.accent), listEmoji: listEmojiOf(t, data.lists), ...(dots ? { dots } : {}) };
+    return { bg: shell ? c.surfaceRaised : col ? tintFor(col, name === 'dark') : t.cutsBelow ? c.breakTint : c.plainBlock, edge: col?.edge ?? (t.cutsBelow ? c.textSecondary : c.accent), listEmoji: listEmojiOf(t, data.lists), ...(dots ? { dots } : {}) };
   };
   // The label colour of a task during a break (its chip's dot), else a neutral.
   const dotOf = (t: Task) => labelColor(data.projects.find((x) => x.key === t.projectKey)?.colorKey)?.edge ?? c.textSecondary;
@@ -155,6 +157,21 @@ export function DayView({
     if (r.ok) onNote?.(r.text, () => void r.undo().then(() => onChanged?.()));
     else onNote?.(r.note);
   };
+
+  const shellIds = new Set(day.shells.map((x) => x.id));
+  const renderBlock = (b: (typeof day.blocks)[number], left: number, w: number, isShell: boolean) => (
+    <View key={b.id} style={{ position: 'absolute', top: b.top, height: b.height, left, width: w, paddingBottom: 1 }} {...({ dataSet: { phoneBlock: b.id, ...(isShell ? { shell: '1' } : {}) } } as object)}>
+      {b.source.kind === 'task' && !b.source.continuation && onDrop ? (
+        <DraggableBlock source={b.source} a11y={a11yOf(b.source)} onTap={() => tap(b.source)} onDrop={onDrop} onDragging={setDragging} autoScroll={autoScroll} data={{ blockTap: b.id }}>
+          <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source, isShell)} />
+        </DraggableBlock>
+      ) : (
+        <PressRow onTap={() => tap(b.source)} a11y={a11yOf(b.source)} style={{ flex: 1 }} data={{ blockTap: b.id }}>
+          <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source, isShell)} />
+        </PressRow>
+      )}
+    </View>
+  );
 
   return (
     <View style={{ flex: 1 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} {...({ dataSet: { dayView: dayKey } } as object)}>
@@ -209,27 +226,15 @@ export function DayView({
           </GestureDetector>
           {day.blocks.map((b) => {
             const w = area / b.cols;
-            return (
-              <View key={b.id} style={{ position: 'absolute', top: b.top, height: b.height, left: GUTTER + 2 + b.col * w, width: w - 2, paddingBottom: 1 }} {...({ dataSet: { phoneBlock: b.id } } as object)}>
-                {b.source.kind === 'task' && !b.source.continuation && onDrop ? (
-                  <DraggableBlock
-                    source={b.source}
-                    a11y={a11yOf(b.source)}
-                    onTap={() => tap(b.source)}
-                    onDrop={onDrop}
-                    onDragging={setDragging}
-                    autoScroll={autoScroll}
-                    data={{ blockTap: b.id }}
-                  >
-                    <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source)} />
-                  </DraggableBlock>
-                ) : (
-                  <PressRow onTap={() => tap(b.source)} a11y={a11yOf(b.source)} style={{ flex: 1 }} data={{ blockTap: b.id }}>
-                    <PhoneBlock source={b.source} height={b.height} look={lookOf(b.source)} />
-                  </PressRow>
-                )}
-              </View>
-            );
+            return renderBlock(b, GUTTER + 2 + b.col * w, w - 2, shellIds.has(b.id));
+          })}
+          {/* 3.64.0: what is inside a shift is drawn on top of it, in its lane, at real size (a shell, as on the desktop). */}
+          {day.shells.flatMap((sh) => {
+            // The shell's lane comes with it (a shell cut into pieces by a break has no block of its own id).
+            const laneW = area / sh.cols;
+            const laneLeft = GUTTER + 2 + sh.col * laneW;
+            const innerArea = laneW - 2 - SHELL_INSET * 2;
+            return sh.blocks.map((b) => renderBlock(b, laneLeft + SHELL_INSET + b.col * (innerArea / b.cols), innerArea / b.cols - 2, false));
           })}
           {dayKey === todayKey ? (
             <>

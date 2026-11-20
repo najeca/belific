@@ -74,3 +74,48 @@ test('3.7.0: a task fully inside a break is hosted (no block of its own); one pa
   assert.equal(pieces.length, 2, 'the long task is cut around the break as before');
   assert.equal(d.notes.size, 0, 'no "it would cover the task" note for the hosted ones');
 });
+
+// 3.64.0: a shift is a shell; what is inside it is laid out inside its lane, at real size, not beside it.
+test('a block inside a longer one is inside its shell, not a column beside it', () => {
+  const d = buildPhoneDay({
+    tasks: [T('shift', { startTime: '09:00', durationMinutes: 360 }), T('a', { startTime: '10:00', durationMinutes: 60 }), T('b', { startTime: '12:00', durationMinutes: 60 }), T('c', { startTime: '16:00', durationMinutes: 60 })],
+    dayKey: DAY,
+    todayKey: DAY,
+  });
+  assert.deepEqual(ids(d), ['task:c', 'task:shift'], 'the outer blocks: the shift and the one after it');
+  const shell = d.shells.find((x) => x.id === 'task:shift');
+  assert.ok(shell, 'the shift is a shell');
+  assert.deepEqual(shell.blocks.map((b) => b.id).sort(), ['task:a', 'task:b']);
+  assert.ok(shell.blocks.every((b) => b.cols === 1), 'inside blocks that do not overlap are full width of the shell');
+  const shift = d.blocks.find((b) => b.id === 'task:shift')!;
+  assert.equal(shift.cols, 1, 'the shell keeps its full lane');
+});
+
+test('inside blocks that overlap each other share the shell, not the day', () => {
+  const d = buildPhoneDay({
+    tasks: [T('shift', { startTime: '09:00', durationMinutes: 360 }), T('a', { startTime: '10:00', durationMinutes: 60 }), T('b', { startTime: '10:30', durationMinutes: 60 })],
+    dayKey: DAY,
+    todayKey: DAY,
+  });
+  const shell = d.shells.find((x) => x.id === 'task:shift')!;
+  assert.deepEqual(shell.blocks.map((b) => b.cols), [2, 2]);
+  assert.equal(d.blocks.find((b) => b.id === 'task:shift')!.cols, 1);
+});
+
+test('equal blocks are not inside each other: still side by side; no shells', () => {
+  const d = buildPhoneDay({ tasks: [T('a', { startTime: '09:00', durationMinutes: 60 }), T('b', { startTime: '09:00', durationMinutes: 60 })], dayKey: DAY, todayKey: DAY });
+  assert.equal(d.shells.length, 0);
+  assert.deepEqual(d.blocks.map((b) => b.cols), [2, 2]);
+});
+
+test('a shift cut into pieces by a break still holds what is inside it (its lane comes with the shell)', () => {
+  const d = buildPhoneDay({
+    tasks: [T('camp', { startTime: '09:30', durationMinutes: 420 }), T('brk', { startTime: '11:00', durationMinutes: 20, cutsBelow: true }), T('tiny', { startTime: '10:00', durationMinutes: 15 })],
+    dayKey: DAY,
+    todayKey: DAY,
+  });
+  const inner = d.shells.flatMap((x) => x.blocks.map((b) => b.id));
+  const all = [...d.blocks.map((b) => b.id), ...inner];
+  assert.ok(all.includes('task:tiny'), 'the small task is drawn somewhere');
+  for (const sh of d.shells) assert.ok(sh.cols >= 1 && sh.col >= 0, 'every shell has its lane');
+});

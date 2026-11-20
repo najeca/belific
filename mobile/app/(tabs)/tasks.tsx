@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView as RNScrollView, Text, TextInput, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
@@ -33,6 +33,12 @@ import { ListSheet } from '../../components/phone/ListSheet';
 import { ActionMenu, type MenuItem } from '../../components/phone/menu';
 import { HoldCard } from '../../components/phone/HoldCard';
 import { PressRow, SwipeRow, haptic } from '../../components/phone/touch';
+import { Slab } from '../../components/phone/Slab';
+import { LabelSheet } from '../../components/phone/LabelSheet';
+import { SearchScreen, TrashScreen } from '../../components/phone/TasksOverlays';
+import { repeatWords } from '../../lib/repeatWords';
+import { REPEAT_FOLDS_KEY, parseFolds, toggleFold } from '../../lib/repeatFolds';
+import { kv } from '../../lib/kv';
 import { PartRows } from '../../components/phone/PartRows';
 import { partsFor, partsProgress, withParts } from '../../lib/parts';
 import { setPartDone } from '../../lib/partActions';
@@ -53,7 +59,9 @@ import { inter, mono, type } from '../../components/phone/type';
 // press and hold for Edit, Duplicate, Move to list, Delete. Press and hold a list to edit it.
 
 const REPEATING = '__repeating__';
-type Chosen = string | undefined; // a list key, undefined for Brain Dump, or REPEATING
+// 3.61.0: a label chip shows every task with that label, grouped by list (chosen = 'label:<key>').
+const LABEL_PREFIX = 'label:';
+type Chosen = string | undefined; // a list key, undefined for Brain Dump, REPEATING, or LABEL_PREFIX + a label key
 
 const make = (c: ColorTokens) => ({
   screen: { flex: 1, backgroundColor: c.background },
@@ -66,7 +74,14 @@ const make = (c: ColorTokens) => ({
   addRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, paddingHorizontal: 16, paddingBottom: 6 },
   addInput: { flex: 1, ...inter(400), fontSize: 16, color: c.textPrimary, minHeight: 46, paddingHorizontal: 14, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface },
   addBtn: { width: 46, height: 46, borderRadius: radius.lg, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: c.surfaceRaised, borderWidth: 1, borderColor: c.border },
-  rowWrap: { backgroundColor: c.surface },
+  rowWrap: { marginBottom: 10 },
+  secHead: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: 16, minHeight: 36 },
+  secTitle: { ...inter(600), fontSize: 13, color: c.textSecondary },
+  secBtn: { minHeight: 44, paddingHorizontal: 6, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 },
+  secBtnText: { ...inter(600), fontSize: 14, color: c.textPrimary },
+  groupHead: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, minHeight: 44, paddingTop: 6 },
+  groupTitle: { ...inter(600), fontSize: 15, color: c.textPrimary },
+  listHead: { ...inter(600), fontSize: 13, color: c.textSecondary, paddingTop: 10, paddingBottom: 6 },
   row: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, minHeight: 56 },
   sep: { borderTopWidth: 1, borderTopColor: c.border },
   tick: { width: 52, minHeight: 56, alignItems: 'center' as const, justifyContent: 'center' as const },
@@ -118,6 +133,18 @@ export default function TasksTab() {
   const [details, setDetails] = useState<DetailsTarget | null>(null);
   const [listSheet, setListSheet] = useState<{ list: TaskList | null } | null>(null);
   const [showStreaks] = usePhonePref('showStreaks');
+  const [folds, setFolds] = useState<string[]>([]);
+  const [labelSheet, setLabelSheet] = useState<{ label: Project | null } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
+  useEffect(() => {
+    kv.getItem(REPEAT_FOLDS_KEY).then((v) => setFolds(parseFolds(v))).catch(() => {});
+  }, []);
+  const fold = (key: string) => {
+    const next = toggleFold(folds, key);
+    setFolds(next);
+    kv.setItem(REPEAT_FOLDS_KEY, JSON.stringify(next)).catch(() => {});
+  };
   const input = useRef<TextInput>(null);
   // Phase 3: with no lists, the three example lists sit in the chip row; one tap makes one (nothing is made without a tap).
   const addListPreset = async (presetName: string, presetEmoji: string) => {
@@ -148,11 +175,26 @@ export default function TasksTab() {
   );
 
   const live = liveLists(lists);
-  const listKey = chosen === REPEATING ? undefined : chosen && live.some((l) => l.key === chosen) ? chosen : undefined;
+  const labelKey = chosen?.startsWith(LABEL_PREFIX) ? chosen.slice(LABEL_PREFIX.length) : undefined;
+  const shownLabel = labelKey ? projects.find((p) => p.key === labelKey && !p.deletedAt) : undefined;
+  const listKey = chosen === REPEATING || labelKey ? undefined : chosen && live.some((l) => l.key === chosen) ? chosen : undefined;
   // 3.59.1: a one off task of an earlier day that is not ticked waits in the Earlier pill, not in its list (nor its count).
   const current = useMemo(() => withoutEarlier(tasks, todayKey), [tasks, todayKey]);
   const earlier = useMemo(() => earlierCount(all, todayKey), [all, todayKey]);
   const counts = useMemo(() => listCounts(current, lists), [current, lists]);
+  // 3.61.0: open tasks per label (the chips), and the label's tasks grouped by list (Brain Dump first).
+  const labelCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of current) if (!t.deletedAt && !t.completed && t.projectKey) m.set(t.projectKey, (m.get(t.projectKey) ?? 0) + 1);
+    return m;
+  }, [current]);
+  const labelGroups = useMemo(() => {
+    if (!labelKey) return [];
+    const labeled = current.filter((t) => t.projectKey === labelKey);
+    return [undefined, ...liveLists(lists).map((l) => l.key)]
+      .map((k) => ({ key: k, rows: splitThoughts(tasksInList(labeled, k, lists), [], todayKey, { includeDated: true }).rows }))
+      .filter((g) => g.rows.length > 0);
+  }, [labelKey, current, lists, todayKey]);
   const { rows, doneToday } = useMemo(
     () => splitThoughts(tasksInList(current, listKey, lists), listKey === undefined ? items : [], todayKey, { includeDated: listKey !== undefined }),
     [current, items, lists, listKey, todayKey],
@@ -166,7 +208,7 @@ export default function TasksTab() {
   }, [tasks, rows, todayKey, cutMin]);
   const shownRows = useMemo(() => rows.filter((r) => r.kind !== 'task' || !shifts.hidden.has(r.task.id)), [rows, shifts]);
   const quests = useMemo(() => (chosen === REPEATING ? buildQuests(tasks, completions, todayKey) : []), [chosen, tasks, completions, todayKey]);
-  const listName = chosen === REPEATING ? 'Repeating' : listKey ? (live.find((l) => l.key === listKey)?.name ?? 'Brain Dump') : 'Brain Dump';
+  const listName = chosen === REPEATING ? 'Repeats' : shownLabel ? shownLabel.name : listKey ? (live.find((l) => l.key === listKey)?.name ?? 'Brain Dump') : 'Brain Dump';
 
   // A legacy phone Brain Dump item becomes a task on its first action (lib/dumpConvert.ts, as on the desktop).
   async function asTask(row: ThoughtRow): Promise<Task> {
@@ -248,7 +290,7 @@ export default function TasksTab() {
 
   // 3.23.0: a new task card in the shown list; nothing is stored until it has a title.
   function newCard() {
-    setDetails(newTaskTarget({ listKey, label: chosen === REPEATING ? 'Brain Dump' : listName }));
+    setDetails(newTaskTarget({ listKey, label: chosen === REPEATING || labelKey ? 'Brain Dump' : listName }));
   }
 
   async function addFromRow() {
@@ -264,11 +306,14 @@ export default function TasksTab() {
     return p ? { name: `${p.emoji ? `${p.emoji} ` : ''}${p.name}`, color: labelColor(p.colorKey)?.edge ?? c.textTertiary } : null;
   };
 
-  function renderRow(row: ThoughtRow, first: boolean) {
+  function renderRow(row: ThoughtRow) {
     const id = rowId(row);
     const t = row.kind === 'task' ? row.task : null;
     const title = row.kind === 'task' ? `${row.task.emoji ? `${row.task.emoji} ` : ''}${row.task.title}` : row.item.title;
     const lab = t ? label(t) : null;
+    // 3.61.0: the list name small, with its emoji (a task in no list is in Brain Dump).
+    const ownList = t?.listKey ? live.find((l) => l.key === t.listKey) : undefined;
+    const listText = row.kind === 'dump' || !t ? '🧠 Brain Dump' : ownList ? `${ownList.emoji ?? '📋'} ${ownList.name}` : '🧠 Brain Dump';
     const steps = counter(t?.subtasks);
     const ps = t ? partsFor(all, t) : [];
     const when = t?.dueDate ? `${formatDayTitle(t.dueDate, todayKey)}${t.startTime ? `, ${formatTime(t.startTime)}` : ''}` : null;
@@ -276,7 +321,8 @@ export default function TasksTab() {
     // 3.3.0: a day of a repeating task moved on its own says where it came from.
     const moved = t ? movedCaption(t) : undefined;
     return (
-      <View key={id} style={[s.rowWrap, !first && s.sep]}>
+      <View key={id} style={s.rowWrap} {...({ dataSet: { slabRow: id } } as object)}>
+        <Slab style={lab ? { borderLeftWidth: 4, borderLeftColor: lab.color } : undefined}>
         <SwipeRow
           data={{ taskRow: row.kind === 'task' ? row.task.title : row.item.title }}
           right={{ label: 'Done', icon: 'checkmark', tone: 'accent', run: () => void done(row) }}
@@ -315,12 +361,16 @@ export default function TasksTab() {
                 {t?.durationMinutes ? <Text style={[s.meta, { ...mono(500), fontSize: 13, color: c.textPrimary, marginLeft: 'auto' }]} accessibilityLabel={`Estimate ${formatDuration(t.durationMinutes)}`} {...({ dataSet: { taskLength: '1' } } as object)}>{formatDuration(t.durationMinutes)}</Text> : null}
               </View>
               {/* 3.23.0: two lines, the label on its own line (its name never cut to a dot), then the date and time. */}
-              {lab ? (
-                <View style={[s.line, { gap: 5, marginTop: 3 }]} {...({ dataSet: { rowLabel: '1' } } as object)}>
-                  <LabelDot color={lab.color} />
-                  <Text style={[s.meta, { flexShrink: 1 }]}>{lab.name}</Text>
-                </View>
-              ) : null}
+              <View style={[s.line, { gap: 5, marginTop: 3, flexWrap: 'wrap' }]}>
+                <Text style={s.meta} {...({ dataSet: { rowList: '1' } } as object)}>{listText}</Text>
+                {lab ? (
+                  <View style={[s.line, { gap: 5, flexShrink: 1 }]} {...({ dataSet: { rowLabel: '1' } } as object)}>
+                    <Text style={s.meta}>·</Text>
+                    <LabelDot color={lab.color} />
+                    <Text style={[s.meta, { flexShrink: 1 }]}>{lab.name}</Text>
+                  </View>
+                ) : null}
+              </View>
               {when || steps.total || ps.length ? (
                 <View style={s.metaRow} {...({ dataSet: { rowWhen: '1' } } as object)}>
                   {when ? <Text style={[s.meta, { ...mono(400), fontSize: 12 }]}>{when}</Text> : null}
@@ -347,6 +397,7 @@ export default function TasksTab() {
             onAdd={() => setInside({ task: t, projected: false })}
           />
         ) : null}
+        </Slab>
       </View>
     );
   }
@@ -355,12 +406,17 @@ export default function TasksTab() {
     const isDone = q.due.kind === 'done';
     const target = q.target;
     const streak = showStreaks ? streakText(q) : null;
+    // 3.61.0: the pattern in words, with "Until 17 Dec" when it ends.
+    const template = q.rows.find((r) => r.recurrence && !r.deletedAt) ?? q.target?.task;
+    const words = (template ? repeatWords(template, todayKey) : undefined) ?? q.repeat;
     const emoji = q.emoji ?? QUEST_SECTIONS.find((x) => x.key === q.section)?.emoji ?? '🔁';
     const act = (fn: () => Promise<unknown>) => () => {
       fn().then(load);
     };
     return (
-      <View key={q.root} style={s.quest} {...({ dataSet: { quest: q.title } } as object)}>
+      <View key={q.root} style={s.rowWrap} {...({ dataSet: { quest: q.title } } as object)}>
+      <Slab>
+      <View style={s.quest}>
         <View style={s.line}>
           <PressRow
             onTap={isDone && q.undo ? act(() => reopenQuest(q.undo!)) : target ? act(() => completeQuest(target)) : undefined}
@@ -372,7 +428,7 @@ export default function TasksTab() {
           </PressRow>
           <View style={{ flex: 1 }}>
             <Text style={[s.questTitle, isDone && s.done]}>{`${emoji} ${q.title}`}</Text>
-            <Text style={s.meta}>{q.repeat}</Text>
+            <Text style={s.meta} {...({ dataSet: { questWords: '1' } } as object)}>{words}</Text>
           </View>
         </View>
         <View style={[s.line, { flexWrap: 'wrap', paddingLeft: 50 }]}>
@@ -394,6 +450,8 @@ export default function TasksTab() {
           </View>
         ) : null}
       </View>
+      </Slab>
+      </View>
     );
   }
 
@@ -403,7 +461,7 @@ export default function TasksTab() {
   const routineDone = new Set(completions.filter((x) => x.date === todayKey).map((x) => x.routineId));
 
   const chip = (key: Chosen, labelText: string, count: number | null, icon?: string) => {
-    const on = chosen === key || (key === undefined && chosen !== REPEATING && listKey === undefined);
+    const on = chosen === key || (key === undefined && chosen !== REPEATING && !labelKey && listKey === undefined);
     const list = key && key !== REPEATING ? live.find((l) => l.key === key) : undefined;
     return (
       <PressRow
@@ -431,6 +489,13 @@ export default function TasksTab() {
           <EarlierPill count={earlier} onPress={() => setEarlierOpen(true)} />
         </View>
       ) : null}
+      <View style={s.secHead}>
+        <Text style={s.secTitle} accessibilityRole="header">Lists</Text>
+        <PressRow onTap={() => setListSheet({ list: null })} a11y="New list" style={s.secBtn} data={{ listChip: 'new' }}>
+          <Ionicons name="add" size={16} color={c.textPrimary} />
+          <Text style={s.secBtnText}>New list</Text>
+        </PressRow>
+      </View>
       <View>
         {/* React Native's own scroll view: gesture handler's horizontal one cancels a chip's hold on the web export. */}
         <RNScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
@@ -441,14 +506,45 @@ export default function TasksTab() {
               <Text style={[s.chipText, { color: c.textSecondary }]}>{`${p.emoji} ${p.name}`}</Text>
             </PressRow>
           )) : null}
-          {chip(REPEATING, 'Repeating', null, '🔁')}
-          <PressRow onTap={() => setListSheet({ list: null })} a11y="New list" style={[s.chip, { borderStyle: 'dashed' }]} touchAction="pan-x" data={{ listChip: 'new' }}>
-            <Ionicons name="add" size={16} color={c.textSecondary} />
-            <Text style={[s.chipText, { color: c.textSecondary }]}>New list</Text>
-          </PressRow>
+          {chip(REPEATING, 'Repeats', null, '🔁')}
         </RNScrollView>
       </View>
-      {chosen !== REPEATING ? (
+      <View style={s.secHead}>
+        <Text style={s.secTitle} accessibilityRole="header">Labels</Text>
+        <PressRow onTap={() => setLabelSheet({ label: null })} a11y="New label" style={s.secBtn} data={{ labelChip: 'new' }}>
+          <Ionicons name="add" size={16} color={c.textPrimary} />
+          <Text style={s.secBtnText}>New label</Text>
+        </PressRow>
+      </View>
+      <View>
+        <RNScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+          {projects.filter((p) => !p.deletedAt).map((p) => {
+            const key = `${LABEL_PREFIX}${p.key}`;
+            const on = chosen === key;
+            const col = labelColor(p.colorKey)?.edge ?? c.textTertiary;
+            const n = labelCounts.get(p.key) ?? 0;
+            return (
+              <PressRow key={p.key} onTap={() => setChosen(key)} onHold={() => setLabelSheet({ label: p })} a11y={`${p.name}, ${n} waiting${on ? ', shown' : ''}`} hint="Press and hold to edit the label." style={[s.chip, on && s.chipOn]} touchAction="pan-x" data={{ labelFilter: p.name }}>
+                <LabelDot color={col} size={10} />
+                <Text style={[s.chipText, on && s.chipTextOn]}>{`${p.emoji ? `${p.emoji} ` : ''}${p.name}`}</Text>
+                <Text style={[s.chipCount, on && s.chipTextOn]}>{n}</Text>
+              </PressRow>
+            );
+          })}
+          {projects.filter((p) => !p.deletedAt).length === 0 ? <Text style={[s.meta, { alignSelf: 'center' }]}>No labels yet.</Text> : null}
+        </RNScrollView>
+      </View>
+      <View style={[s.secHead, { gap: 8, justifyContent: 'flex-start' }]}>
+        <PressRow onTap={() => setSearchOpen(true)} a11y="Search" style={s.chip} data={{ openSearch: '1' }}>
+          <Ionicons name="search" size={16} color={c.textPrimary} />
+          <Text style={s.chipText}>Search</Text>
+        </PressRow>
+        <PressRow onTap={() => setTrashOpen(true)} a11y="Trash" style={s.chip} data={{ openTrash: '1' }}>
+          <Ionicons name="trash-outline" size={16} color={c.textPrimary} />
+          <Text style={s.chipText}>Trash</Text>
+        </PressRow>
+      </View>
+      {chosen !== REPEATING && !labelKey ? (
         <View style={s.addRow}>
           <TextInput
             ref={input}
@@ -468,20 +564,17 @@ export default function TasksTab() {
           </Pressable>
         </View>
       ) : null}
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 170 }}>
         {chosen === REPEATING ? (
           <>
             {quests.length === 0 && oldRoutines.length === 0 ? <Text style={s.empty}>No repeating tasks yet. Give a task a repeat and it shows here.</Text> : null}
             {questsBySection(quests).map(({ section, quests: qs }) => (
-              <View key={section.key}>
-                <SectionHeader>{`${section.emoji} ${section.title}`}</SectionHeader>
-                <Card>
-                  {qs.map((q, n) => (
-                    <View key={q.root} style={n > 0 ? s.sep : undefined}>
-                      {renderQuest(q)}
-                    </View>
-                  ))}
-                </Card>
+              <View key={section.key} {...({ dataSet: { repeatGroup: section.key } } as object)}>
+                <PressRow onTap={() => fold(section.key)} a11y={`${section.title}, ${qs.length}. ${folds.includes(section.key) ? 'Folded, tap to show' : 'Tap to fold'}`} style={s.groupHead} data={{ groupHead: section.key }}>
+                  <Text style={s.groupTitle}>{`${section.emoji} ${section.title} · ${qs.length}`}</Text>
+                  <Ionicons name={folds.includes(section.key) ? 'chevron-down' : 'chevron-up'} size={20} color={c.textSecondary} />
+                </PressRow>
+                {folds.includes(section.key) ? null : qs.map((q) => renderQuest(q))}
               </View>
             ))}
             {oldRoutines.length > 0 ? (
@@ -508,13 +601,28 @@ export default function TasksTab() {
           </>
         ) : (
           <>
-            <Card style={{ overflow: 'hidden', marginTop: 8 }}>
-              {shownRows.length === 0 ? (
-                <Text style={s.empty}>{listKey === undefined ? 'Nothing waiting. Type above to capture a thought; add the details later.' : 'This list is empty. Type above to add to it.'}</Text>
-              ) : (
-                shownRows.map((r, n) => renderRow(r, n === 0))
-              )}
-            </Card>
+            {labelKey ? (
+              <View style={{ marginTop: 4 }} {...({ dataSet: { labelView: labelKey } } as object)}>
+                {labelGroups.length === 0 ? <Text style={s.empty}>Nothing waiting with this label.</Text> : null}
+                {labelGroups.map((g) => {
+                  const gl = g.key ? live.find((l) => l.key === g.key) : undefined;
+                  return (
+                    <View key={g.key ?? 'dump'}>
+                      <Text style={s.listHead}>{gl ? `${gl.emoji ?? '📋'} ${gl.name}` : '🧠 Brain Dump'}</Text>
+                      {g.rows.map((r) => renderRow(r))}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={{ marginTop: 8 }}>
+                {shownRows.length === 0 ? (
+                  <Text style={s.empty}>{listKey === undefined ? 'Nothing waiting. Type above to capture a thought; add the details later.' : 'This list is empty. Type above to add to it.'}</Text>
+                ) : (
+                  shownRows.map((r) => renderRow(r))
+                )}
+              </View>
+            )}
             {doneToday.length > 0 ? (
               <Card style={{ marginTop: 18 }}>
                 <PressRow onTap={() => setShowDone((v) => !v)} a11y={`Done today, ${doneToday.length}. ${showDone ? 'Hide' : 'Show'}`} style={s.doneHead} data={{ doneToday: String(doneToday.length) }}>
@@ -540,7 +648,7 @@ export default function TasksTab() {
       </ScrollView>
       <UndoBar message={undo} onDone={() => setUndo(null)} />
       <AddInside target={inside} onClose={() => setInside(null)} onAdded={() => void load()} />
-      <AddButton onPress={() => setStepAdd({ listKey })} a11y={`Add to ${chosen === REPEATING ? 'Brain Dump' : listName}`} />
+      <AddButton onPress={() => setStepAdd({ listKey })} a11y={`Add to ${chosen === REPEATING || labelKey ? 'Brain Dump' : listName}`} />
       <StepAdd
         target={stepAdd}
         onClose={(note) => {
@@ -565,6 +673,19 @@ export default function TasksTab() {
           void load();
         }}
       />
+      <LabelSheet
+        visible={!!labelSheet}
+        label={labelSheet?.label ?? null}
+        labels={projects.filter((p) => !p.deletedAt)}
+        onClose={() => setLabelSheet(null)}
+        onSaved={(key) => {
+          setLabelSheet(null);
+          setChosen(`${LABEL_PREFIX}${key}`);
+          void load();
+        }}
+      />
+      <SearchScreen visible={searchOpen} tasks={all} labels={projects} lists={lists} onClose={() => setSearchOpen(false)} onOpen={(t) => { setSearchOpen(false); setDetails({ task: t, projected: false }); }} />
+      <TrashScreen visible={trashOpen} onClose={() => setTrashOpen(false)} onChanged={() => void load()} />
       <TaskDetails target={details} onClose={() => setDetails(null)} onChanged={() => void load()} />
       <EarlierSheet visible={earlierOpen} onClose={() => setEarlierOpen(false)} onChanged={() => void load()} />
     </View>

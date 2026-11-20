@@ -720,7 +720,7 @@ export default function TodayScreen() {
       </View>
       <ScrollView
         scrollEnabled={!dragging}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 170 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

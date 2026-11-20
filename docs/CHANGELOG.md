@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.61.0 — 2026-11-20 (Phone: Tasks tab redesign: slab cards, Repeats groups, labels, Search, Trash)
+Phone only; the desktop does not change. No database change, no native change.
+- Every task on the Tasks tab is its own slab card with a visible gap (the Today `Slab`), the list name small with its emoji, and the label as a 4 px colour edge and a dot before its name. Swipes, tap and press and hold are as before.
+- The Repeating chip is now **Repeats**. Its tasks are grouped by how often (Daily, Weekly, Every 2 weeks, Monthly, and, only when there are some, Every few weeks, Every year, Other repeats); each group folds with a 44 pt header and the fold is remembered on this phone only (kv `belific_phone_repeat_folds`, never synced). Each row says its pattern in words ("Every day", "Every Monday and Wednesday", "Every 2 weeks on Friday", "Monthly on the 3rd") and, when it ends, "· Until 17 Dec" (`lib/repeatWords.ts`, `lib/repeatFolds.ts`).
+- The top of the tab: **Lists** (+ New list) and **Labels** (+ New label) with open counts, a colour dot on each label chip; a label chip shows every task with that label grouped by list; press and hold a label to edit it (name, colour, emoji, and the Count in daily hours switch, the same synced row as Settings). **Search** (a full screen over titles, notes, steps, label and list names, the shared `lib/taskSearch.ts`) and **Trash** (deleted tasks of the last 30 days with Restore, the shared `lib/trash.ts` and `trashActions.ts`).
+- More room at the bottom of Today and Tasks, so the round + never covers the last card's tick.
+Tests: new repeatWords.test.ts (9); easConfig (version); real new phone-p28 (22). Changed on purpose (a separate commit): phone-p5 (the switcher order and the Repeats chip scrolled into view).
+Gates: tsc clean; mobile `npm test` 1290/1290. Targeted real checks at 390 x 844 (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p28 22/22, p5, p9, p17, p22, p23, p25, p26 pass; phone-p11 fails only its light-mode contrast audit of the Today Now marker (4.41:1 for "Now 5:33pm", a 3.60.0 element that shows only at some times of day; reported, not changed). Full regression NOT run (once after phase 4).
+
 ## 3.60.0 — 2026-11-20 (Phone: Today redesign: Now card, timeline, Anytime cards, hours per label)
 
 **Phone only; the desktop does not change. No database change, no new data field, no new native module.** PLAN_phone_stepflow phase 2 (section 2; decisions B1.1 to B1.4 of 2026-11-20).

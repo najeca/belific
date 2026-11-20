@@ -394,3 +394,5 @@ All eight defaults are confirmed as written. Notes:
 - The Top priority switch leaves the phone's card as part of the Today phase.
 
 **Built:** the Today redesign (phase 2) as 3.60.0, 2026-11-20. The Tasks tab redesign (phase 4) is not started.
+
+**Built:** the Tasks tab redesign (phase 4) as 3.61.0, 2026-11-20.

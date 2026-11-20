@@ -27,7 +27,8 @@ import { duringCaption, hostIndex, insidePill } from '../../lib/hosting';
 import { buildToday, itemTitle, type TodayItem } from '../../lib/todayView';
 import { formatDuration } from '../../lib/duration';
 import { labelColor, tintFor } from '../../lib/labelColors';
-import { nowCard, type NowCardItem } from '../../lib/nowCard';
+import { hhmm, nowCard, type NowCardItem } from '../../lib/nowCard';
+import { bubbleHeight, nowMarker, type TimelineSpan } from '../../lib/todayTimeline';
 import { isQuickReminder } from '../../lib/quickReminder';
 import { NowCard, type NowLabel } from '../../components/phone/NowCard';
 import { BRAIN_DUMP_EMOJI } from '../../lib/emoji';
@@ -100,7 +101,34 @@ const make = (c: ColorTokens) => ({
   empty: { ...type.meta, color: c.textSecondary, padding: 16 },
   doneHead: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, minHeight: 48, paddingHorizontal: 14 },
   doneText: { ...inter(600), fontSize: 15, color: c.textSecondary },
+  // 3.60.0: the timeline. A rail (the line and the bubble), the title and time, the tick on the right.
+  tlRow: { flexDirection: 'row' as const, alignItems: 'stretch' as const, position: 'relative' as const },
+  rail: { width: 52, alignItems: 'center' as const },
+  railLine: { position: 'absolute' as const, top: 0, bottom: 0, left: 25, width: 2, backgroundColor: c.border },
+  bubble: { width: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center' as const, paddingTop: 9, marginVertical: 6 },
+  bubbleEmoji: { fontSize: 18, lineHeight: 22 },
+  tlBody: { flex: 1, minHeight: 56, paddingTop: 10, paddingBottom: 10, paddingLeft: 6, paddingRight: 4 },
+  tlTitle: { ...inter(600), fontSize: 16, lineHeight: 21, color: c.textPrimary },
+  tlTime: { ...mono(500), fontSize: 13, color: c.textSecondary, marginTop: 2 },
+  tlTick: { width: 52, height: 56, alignItems: 'center' as const, justifyContent: 'center' as const },
+  tlNested: { marginLeft: -4, position: 'relative' as const },
+  gapRow: { flexDirection: 'row' as const, alignItems: 'center' as const, minHeight: 44 },
+  gapText: { ...type.meta, color: c.textSecondary, fontStyle: 'italic' as const, flexShrink: 1, paddingLeft: 6 },
+  markerLine: { flexDirection: 'row' as const, alignItems: 'center' as const, height: 22 },
+  markerDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: c.accent, borderWidth: 2, borderColor: c.background },
+  markerRule: { flex: 1, height: 2, backgroundColor: c.accent, opacity: 0.6 },
+  markerText: { ...mono(500), fontSize: 12, color: c.accent, paddingLeft: 8 },
+  markerInside: { position: 'absolute' as const, left: 2, width: 60, height: 12, flexDirection: 'row' as const, alignItems: 'center' as const },
 });
+
+// 3.60.0: the round tick on the right of a timeline row, in the label's colour (ring, filled when done).
+function LabelTick({ done, color, onColor }: { done: boolean; color: string; onColor: string }) {
+  return (
+    <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: color, backgroundColor: done ? color : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+      {done ? <Ionicons name="checkmark" size={16} color={onColor} /> : null}
+    </View>
+  );
+}
 
 export default function TodayScreen() {
   const s = useStyles(make);
@@ -211,6 +239,21 @@ export default function TodayScreen() {
     return nowCard(items, nowMin);
   }, [timedAll, nowMin]);
   const nowItem = now.now ? timedAll.find((i) => i.key === now.now?.key) : undefined;
+  // 3.60.0: the timeline is every timed item of today in time order, ticked ones kept (struck through).
+  const timeline = useMemo(
+    () =>
+      timedAll
+        .filter((i) => i.kind !== 'routine' && i.startMin !== undefined)
+        .sort((a, b) => (a.kind === 'routine' || b.kind === 'routine' ? 0 : (a.startMin ?? 0) - (b.startMin ?? 0)) || itemTitle(a).localeCompare(itemTitle(b)))
+        .map((item) => {
+          const t = item.kind === 'task' ? item.task : null;
+          const startMin = item.kind === 'routine' ? 0 : (item.startMin ?? 0);
+          const span: TimelineSpan = { key: item.key, startMin, endMin: item.kind === 'routine' ? 0 : (item.endMin ?? startMin), reminder: !!t && isQuickReminder(t), free: !!t?.cutsBelow, done: item.kind === 'task' && item.done };
+          return { item, span };
+        }),
+    [timedAll],
+  );
+  const doneUntimed = view.done.filter((i) => i.kind === 'routine' || i.startMin === undefined);
 
   async function tick(item: TodayItem, done: boolean, withUndo = true) {
     if (item.kind === 'event') return;
@@ -437,6 +480,120 @@ export default function TodayScreen() {
     );
   }
 
+  // 3.60.0: the bubble's colours: the label's tint and edge, or the neutral grey; an event is grey.
+  const bubbleColors = (t: Task | null) => {
+    const p = t?.projectKey ? projects.find((x) => x.key === t.projectKey && !x.deletedAt) : undefined;
+    const col = p ? labelColor(p.colorKey) : undefined;
+    return col ? { fill: tintFor(col, themeName === 'dark'), edge: col.edge } : { fill: c.plainBlock, edge: c.borderStrong };
+  };
+  const listEmojiOf = (t: Task) => {
+    const l = t.listKey ? live.find((x) => x.key === t.listKey) : undefined;
+    return l?.emoji || BRAIN_DUMP_EMOJI;
+  };
+  const marker = nowMarker(timeline.map((i) => i.span), nowMin);
+  const markerLine = (
+    <View key="now-marker" style={s.markerLine} accessible accessibilityLabel={`Now, ${formatTime(hhmm(nowMin))}`} {...({ dataSet: { nowMarker: 'line' } } as object)}>
+      <View style={[s.rail, { height: 22, justifyContent: 'center' }]}>
+        <View style={s.railLine} />
+        <View style={s.markerDot} />
+      </View>
+      <View style={s.markerRule} />
+      <Text style={s.markerText}>{`Now ${formatTime(hhmm(nowMin))}`}</Text>
+    </View>
+  );
+
+  function renderTimed(row: (typeof timeline)[number]) {
+    const item = row.item;
+    if (item.kind === 'routine') return null;
+    const start = formatTime(hhmm(item.startMin ?? 0));
+    if (row.span.free && item.kind === 'task') {
+      const t = item.task;
+      const end = formatTime(hhmm(item.endMin ?? item.startMin ?? 0));
+      return (
+        <PressRow key={item.key} onTap={() => void openEdit(t, item.projected)} onHold={() => openMenu(item)} a11y={`${t.title}, free time, ${start} to ${end}`} hint="Tap to open." style={s.gapRow} data={{ todayGap: t.title }}>
+          <View style={s.rail} />
+          <Text style={s.gapText}>{`${t.title}, free time · ${start} to ${end}`}</Text>
+        </PressRow>
+      );
+    }
+    const t = item.kind === 'task' ? item.task : null;
+    const reminder = !!t && isQuickReminder(t);
+    const minutes = (item.endMin ?? 0) - (item.startMin ?? 0);
+    const h = bubbleHeight(minutes, reminder);
+    const col = t ? bubbleColors(t) : { fill: c.plainBlock, edge: c.border };
+    const done = item.kind === 'task' && item.done;
+    const title = itemTitle(item);
+    const len = t?.durationMinutes ? formatDuration(t.durationMinutes) : '';
+    const timeText = item.kind === 'event' ? `${start} to ${formatTime(item.event.end)}` : `${start}${len ? ` · ${len}` : ''}`;
+    const emoji = t ? listEmojiOf(t) : item.kind === 'event' ? item.event.icon || '' : '';
+    const ps = t ? partsFor(all, t) : [];
+    const inside = marker.inside && marker.key === item.key ? marker.share : null;
+    const editable = item.kind === 'event' && item.event.isCustom && customEvents.some((x) => x.id === item.event.id);
+    const projected = item.kind === 'task' && item.projected;
+    return (
+      <View key={item.key} {...({ dataSet: item.kind === 'task' ? { todayRow: item.task.title, todayKey: item.key, tlRow: done ? 'done' : 'open' } : { todayEvent: item.event.title, tlRow: 'event' } } as object)}>
+        <View style={s.tlRow}>
+          <View style={s.rail}>
+            <View style={s.railLine} />
+            <View style={[s.bubble, { height: h, backgroundColor: col.fill, borderColor: col.edge }, reminder && { paddingTop: 0, justifyContent: 'center' }]} {...({ dataSet: { bubble: String(h), bubbleEdge: col.edge } } as object)}>
+              <Text style={s.bubbleEmoji}>{emoji}</Text>
+            </View>
+          </View>
+          <PressRow
+            style={s.tlBody}
+            onTap={() => (t ? void openEdit(t, projected) : editable ? openMenu(item) : undefined)}
+            onHold={t && !done ? () => openMenu(item) : undefined}
+            a11y={`${title}, ${timeText}${done ? ', done' : ''}`}
+            hint={t ? 'Tap to open. Press and hold for more.' : undefined}
+            data={{ todayBody: item.key }}
+          >
+            <Text style={[s.tlTitle, done && s.titleDone, item.kind === 'event' && s.eventTitle]} numberOfLines={2}>{title}</Text>
+            <Text style={s.tlTime} {...({ dataSet: { todayStart: '1' } } as object)}>{timeText}</Text>
+            {t && hosts.during.get(t.id) ? <Text style={[s.hostCaption, { marginTop: 3 }]} {...({ dataSet: { hostCaption: hosts.during.get(t.id) } } as object)}>{duringCaption(hosts.during.get(t.id) ?? '')}</Text> : null}
+            {t && movedCaption(t) ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t) } } as object)}>{`↪ ${movedCaption(t)}`}</Text> : null}
+          </PressRow>
+          {item.kind === 'task' ? (
+            <PressRow onTap={() => void tick(item, !done)} a11y={done ? `Mark ${title} not done` : `Mark ${title} done`} style={s.tlTick} data={{ tick: item.key }}>
+              <LabelTick done={done} color={col.edge === c.borderStrong ? c.accent : col.edge} onColor={c.onAccent} />
+            </PressRow>
+          ) : (
+            <View style={s.tlTick} />
+          )}
+          {inside !== null ? (
+            <View pointerEvents="none" style={[s.markerInside, { top: 6 + Math.round(inside * h) - 6 }]} accessible accessibilityLabel={`Now, ${formatTime(hhmm(nowMin))}`} {...({ dataSet: { nowMarker: 'inside' } } as object)}>
+              <View style={s.markerDot} />
+              <View style={s.markerRule} />
+            </View>
+          ) : null}
+        </View>
+        {t && ps.length > 0 ? (
+          <View style={s.tlNested}>
+            <View style={[s.railLine, { left: 29 }]} />
+            <PartRows parent={t} parts={ps} onTick={(p, d) => void setPartDone(t, p, d).then(load)} onMore={() => void openEdit(t, projected)} />
+          </View>
+        ) : null}
+        {t && shifts.byTask.has(t.id) ? (
+          <View style={s.tlNested}>
+            <View style={[s.railLine, { left: 29 }]} />
+            <ShiftRows
+              info={shifts.byTask.get(t.id)!}
+              onTick={(r) => void tickInside(t, projected, r)}
+              onOpen={(r) => r.full && void openEdit(r.full, !!r.projected)}
+              onAdd={() => setInside({ task: t, projected })}
+            />
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  const timelineRows: React.ReactNode[] = [];
+  timeline.forEach((row, n) => {
+    if (!marker.inside && marker.index === n) timelineRows.push(markerLine);
+    timelineRows.push(renderTimed(row));
+  });
+  if (!marker.inside && marker.index === timeline.length && timeline.length > 0) timelineRows.push(markerLine);
+
   const today = new Date();
   const headerSub = `${DAYS[today.getDay()]} ${today.getDate()} ${MONTHS[today.getMonth()]}`;
 
@@ -470,21 +627,16 @@ export default function TodayScreen() {
           />
         }
       >
-        {view.timed.length > 0 ? (
-          <>
-            <SectionHeader>Planned</SectionHeader>
-            <Card>{view.timed.map((i, n) => renderRow(i, n === 0))}</Card>
-          </>
-        ) : null}
+        {timeline.length > 0 ? <View style={{ marginTop: 8 }} {...({ dataSet: { timeline: String(timeline.length) } } as object)}>{timelineRows}</View> : null}
         <SectionHeader>Anytime</SectionHeader>
         <Card>{view.anytime.length === 0 ? <Text style={s.empty}>Nothing without a time. Tap + to add a task for today.</Text> : view.anytime.map((i, n) => renderRow(i, n === 0))}</Card>
-        {view.done.length > 0 ? (
+        {doneUntimed.length > 0 ? (
           <Card style={{ marginTop: 18 }}>
-            <PressRow onTap={() => setShowDone((v) => !v)} a11y={`Done today, ${view.done.length}. ${showDone ? 'Hide' : 'Show'}`} style={s.doneHead} data={{ doneToday: String(view.done.length) }}>
-              <Text style={s.doneText}>{`Done today, ${view.done.length}`}</Text>
+            <PressRow onTap={() => setShowDone((v) => !v)} a11y={`Done today, ${doneUntimed.length}. ${showDone ? 'Hide' : 'Show'}`} style={s.doneHead} data={{ doneToday: String(doneUntimed.length) }}>
+              <Text style={s.doneText}>{`Done today, ${doneUntimed.length}`}</Text>
               <Ionicons name={showDone ? 'chevron-up' : 'chevron-down'} size={18} color={c.textSecondary} />
             </PressRow>
-            {showDone ? view.done.map((i) => renderRow(i, false)) : null}
+            {showDone ? doneUntimed.map((i) => renderRow(i, false)) : null}
           </Card>
         ) : null}
       </ScrollView>

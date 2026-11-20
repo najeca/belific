@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, RefreshControl, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
@@ -18,6 +18,10 @@ import {
   loadRoutineCompletions,
   loadRoutines,
   loadTasksRaw,
+  loadUserSetting,
+  loadUserSettingsRaw,
+  deleteUserSetting,
+  setUserSetting,
   shouldShowStarterRoutine,
   updateTask,
 } from '../../lib/storage';
@@ -29,6 +33,8 @@ import { formatDuration } from '../../lib/duration';
 import { labelColor, tintFor } from '../../lib/labelColors';
 import { hhmm, nowCard, type NowCardItem } from '../../lib/nowCard';
 import { bubbleHeight, nowMarker, type TimelineSpan } from '../../lib/todayTimeline';
+import { applyOrder, dropIndex, moveKey, orderKey, parseOrder, staleOrderKeys } from '../../lib/anytimeOrder';
+import { AnytimeCard } from '../../components/phone/AnytimeCard';
 import { isQuickReminder } from '../../lib/quickReminder';
 import { NowCard, type NowLabel } from '../../components/phone/NowCard';
 import { BRAIN_DUMP_EMOJI } from '../../lib/emoji';
@@ -118,6 +124,9 @@ const make = (c: ColorTokens) => ({
   markerDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: c.accent, borderWidth: 2, borderColor: c.background },
   markerRule: { flex: 1, height: 2, backgroundColor: c.accent, opacity: 0.6 },
   markerText: { ...mono(500), fontSize: 12, color: c.accent, paddingLeft: 8 },
+  slabRow: { flexDirection: 'row' as const, alignItems: 'stretch' as const, minHeight: 60 },
+  slabEdge: { width: 5 },
+  slabBody: { flex: 1, paddingVertical: 10, paddingLeft: 11, paddingRight: 4, justifyContent: 'center' as const },
   markerInside: { position: 'absolute' as const, left: 2, width: 60, height: 12, flexDirection: 'row' as const, alignItems: 'center' as const },
 });
 
@@ -163,6 +172,10 @@ export default function TodayScreen() {
   const [details, setDetails] = useState<DetailsTarget | null>(null);
   const [editEvent, setEditEvent] = useState<CustomEvent | undefined>();
   const [editRoutine, setEditRoutine] = useState<Routine | undefined>();
+  // 3.60.0: the Anytime cards' do first order (one user_settings row a day), a drag in progress, the cards' places.
+  const [order, setOrder] = useState<string[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const places = useRef(new Map<string, { y: number; h: number }>());
 
   const load = useCallback(async () => {
     const now = new Date();
@@ -192,6 +205,10 @@ export default function TodayScreen() {
     setRoutinesDone(new Set(comps.filter((x) => x.date === key).map((x) => x.routineId)));
     setProjects(ps);
     setLists(ls);
+    setOrder(parseOrder(await loadUserSetting(orderKey(key))));
+    // Order rows of days long gone are deleted (they sync like any setting).
+    const stale = staleOrderKeys((await loadUserSettingsRaw()).filter((x) => !x.deletedAt).map((x) => x.key), key);
+    for (const k of stale) await deleteUserSetting(k);
   }, []);
 
   useFocusEffect(
@@ -254,6 +271,10 @@ export default function TodayScreen() {
     [timedAll],
   );
   const doneUntimed = view.done.filter((i) => i.kind === 'routine' || i.startMin === undefined);
+  const anytime = useMemo(() => {
+    const byKey = new Map(view.anytime.map((i) => [i.key, i]));
+    return applyOrder(view.anytime.map((i) => i.key), order).map((k) => byKey.get(k) as TodayItem);
+  }, [view, order]);
 
   async function tick(item: TodayItem, done: boolean, withUndo = true) {
     if (item.kind === 'event') return;
@@ -587,6 +608,77 @@ export default function TodayScreen() {
     );
   }
 
+  // 3.60.0: a card was dragged and let go, or moved by a screen reader: the new order is stored at once.
+  function reorder(from: number, to: number) {
+    const keys = anytime.map((i) => i.key);
+    if (to === from || to < 0 || to >= keys.length) return;
+    const next = moveKey(keys, from, to);
+    setOrder(next);
+    haptic('light');
+    void setUserSetting(orderKey(todayKey), JSON.stringify(next));
+  }
+  function dropAt(from: number, dy: number) {
+    const keys = anytime.map((i) => i.key);
+    const tops = keys.map((k) => places.current.get(k)?.y ?? 0);
+    const heights = keys.map((k) => places.current.get(k)?.h ?? 0);
+    reorder(from, dropIndex(tops, heights, from, dy));
+  }
+
+  function renderAnytime(item: TodayItem, index: number) {
+    if (item.kind === 'event') return null;
+    const t = item.kind === 'task' ? item.task : null;
+    const projected = item.kind === 'task' && item.projected;
+    const title = item.kind === 'task' ? `${item.task.emoji ? `${item.task.emoji} ` : ''}${item.task.title}` : item.routine.title;
+    const col = bubbleColors(t);
+    const tickColor = col.edge === c.borderStrong ? c.accent : col.edge;
+    const lab = t ? label(t) : null;
+    const lst = t ? listOf(t) : null;
+    const count = counter(t?.subtasks ?? []);
+    const ps = t ? partsFor(all, t) : [];
+    return (
+      <AnytimeCard
+        key={item.key}
+        a11y={`${title}${lst ? `, ${lst}` : ''}${lab ? `, ${lab.name}` : ''}`}
+        onTap={() => (t ? void openEdit(t, projected) : openMenu(item))}
+        onHold={() => openMenu(item)}
+        onDrop={(dy) => dropAt(index, dy)}
+        onMoveBy={(step) => reorder(index, index + step)}
+        onDragging={setDragging}
+        onLayout={(e) => places.current.set(item.key, { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height })}
+        data={{ anytimeCard: title, todayRow: item.kind === 'task' ? item.task.title : item.routine.title, todayKey: item.key }}
+        tick={
+          <PressRow onTap={() => void tick(item, true)} a11y={`Mark ${title} done`} style={s.tlTick} data={{ tick: item.key }}>
+            <LabelTick done={false} color={tickColor} onColor={c.onAccent} />
+          </PressRow>
+        }
+        below={t && ps.length > 0 ? <PartRows parent={t} parts={ps} onTick={(p, d) => void setPartDone(t, p, d).then(load)} onMore={() => void openEdit(t, projected)} /> : null}
+      >
+        <View style={s.slabRow}>
+          <View style={[s.slabEdge, { backgroundColor: col.edge === c.borderStrong ? 'transparent' : col.edge }]} {...({ dataSet: { slabEdge: col.edge } } as object)} />
+          <View style={s.slabBody}>
+            <View style={s.line}>
+              <Text style={s.title} numberOfLines={2}>{title}</Text>
+              {t?.recurrence || item.kind === 'routine' ? <Ionicons name="repeat" size={14} color={c.textSecondary} accessibilityLabel="Repeats" /> : null}
+              {t?.durationMinutes ? <Text style={s.length} {...({ dataSet: { todayLength: '1' } } as object)}>{formatDuration(t.durationMinutes)}</Text> : null}
+            </View>
+            <View style={s.metaRow} {...({ dataSet: { rowLabel: '1' } } as object)}>
+              {lst ? <Text style={s.meta} numberOfLines={1}>{lst}</Text> : null}
+              {lab ? (
+                <View style={[s.detail, { flexShrink: 1 }]}>
+                  <LabelDot color={lab.color} />
+                  <Text style={[s.meta, { flexShrink: 1 }]} numberOfLines={1}>{lab.name}</Text>
+                </View>
+              ) : null}
+              {item.kind === 'routine' ? <Text style={s.meta}>{TIME_OF_DAY[item.routine.timeOfDay]} routine</Text> : null}
+              {count.total ? <Text style={s.meta}>{`${count.done}/${count.total} steps`}</Text> : null}
+              {t && movedCaption(t) ? <Text style={s.meta} {...({ dataSet: { movedFrom: movedFrom(t) } } as object)}>{`↪ ${movedCaption(t)}`}</Text> : null}
+            </View>
+          </View>
+        </View>
+      </AnytimeCard>
+    );
+  }
+
   const timelineRows: React.ReactNode[] = [];
   timeline.forEach((row, n) => {
     if (!marker.inside && marker.index === n) timelineRows.push(markerLine);
@@ -615,6 +707,7 @@ export default function TodayScreen() {
         {planned ? <Text style={s.nowLine} numberOfLines={1} {...({ dataSet: { todayPlanned: planned } } as object)}>{planned}</Text> : null}
       </View>
       <ScrollView
+        scrollEnabled={!dragging}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
         refreshControl={
           <RefreshControl
@@ -629,7 +722,13 @@ export default function TodayScreen() {
       >
         {timeline.length > 0 ? <View style={{ marginTop: 8 }} {...({ dataSet: { timeline: String(timeline.length) } } as object)}>{timelineRows}</View> : null}
         <SectionHeader>Anytime</SectionHeader>
-        <Card>{view.anytime.length === 0 ? <Text style={s.empty}>Nothing without a time. Tap + to add a task for today.</Text> : view.anytime.map((i, n) => renderRow(i, n === 0))}</Card>
+        {anytime.length === 0 ? (
+          <Card>
+            <Text style={s.empty}>Nothing without a time. Tap + to add a task for today.</Text>
+          </Card>
+        ) : (
+          <View style={{ gap: 4 }} {...({ dataSet: { anytime: String(anytime.length) } } as object)}>{anytime.map((i, n) => renderAnytime(i, n))}</View>
+        )}
         {doneUntimed.length > 0 ? (
           <Card style={{ marginTop: 18 }}>
             <PressRow onTap={() => setShowDone((v) => !v)} a11y={`Done today, ${doneUntimed.length}. ${showDone ? 'Hide' : 'Show'}`} style={s.doneHead} data={{ doneToday: String(doneUntimed.length) }}>

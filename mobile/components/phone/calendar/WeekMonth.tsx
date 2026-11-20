@@ -96,7 +96,7 @@ export function MonthView({ anchor, todayKey, itemsOf, onPick }: { anchor: strin
                   <>
                     <View style={s.dots}>
                       {open.slice(0, 3).map((i) => (
-                        <View key={i.key} style={[s.dot, { backgroundColor: i.kind === 'task' ? (i.high ? c.danger : c.accent) : c.borderStrong }]} />
+                        <View key={i.key} style={[s.dot, { backgroundColor: i.kind === 'task' ? (c.accent) : c.borderStrong }]} />
                       ))}
                     </View>
                     {items.length > 3 ? <Text style={s.count}>{items.length}</Text> : null}

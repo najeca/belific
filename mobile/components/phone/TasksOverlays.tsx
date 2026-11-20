@@ -14,7 +14,7 @@ import { Button, Card } from './ui';
 // Search and Trash on the phone's Tasks tab (PLAN_phone_stepflow section 4, 3.61.0): two full screens that use the
 // shared rules (lib/taskSearch.ts, lib/trash.ts and lib/trashActions.ts), never a phone copy.
 const make = (c: ColorTokens) => ({
-  screen: { flex: 1, backgroundColor: c.background },
+  screen: { flex: 1, backgroundColor: c.background, borderTopWidth: 8, borderTopColor: c.accent },
   head: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
   title: { ...type.sheetTitle, color: c.textPrimary, flex: 1 },
   close: { width: 44, height: 44, alignItems: 'center' as const, justifyContent: 'center' as const },

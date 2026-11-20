@@ -5,7 +5,6 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { radius, type ColorTokens } from '../../lib/tokens';
 import {
-  getStarterEventsForDate,
   getWeeklyEventsForDate,
   customToScheduleEvent,
   formatTime,
@@ -22,7 +21,6 @@ import {
   loadUserSettingsRaw,
   deleteUserSetting,
   setUserSetting,
-  shouldShowStarterRoutine,
   updateTask,
 } from '../../lib/storage';
 import { addDays, dateKey, parseDateKey } from '../../lib/kanban';
@@ -184,9 +182,8 @@ export default function TodayScreen() {
   const load = useCallback(async () => {
     const now = new Date();
     const key = dateKey(now);
-    const [raw, starter, custom, categories, rs, comps, ps, ls] = await Promise.all([
+    const [raw, custom, categories, rs, comps, ps, ls] = await Promise.all([
       loadTasksRaw(),
-      shouldShowStarterRoutine(),
       loadCustomEvents(),
       loadCustomCategories(),
       loadRoutines(),
@@ -203,7 +200,8 @@ export default function TodayScreen() {
     // Any change made here (a tick, an edit) is followed by a load: the reminders follow it.
     refreshTaskReminders();
     setCustomEvents(custom);
-    const template = starter ? getStarterEventsForDate(now) : getWeeklyEventsForDate(now);
+    // 3.63.0: the starter sample events (Morning routine, Work block...) are no longer drawn on the phone.
+    const template = getWeeklyEventsForDate(now);
     setEvents([...template, ...custom.filter((e) => e.date === key).map((e) => customToScheduleEvent(e, categories))]);
     setRoutines(rs);
     setRoutinesDone(new Set(comps.filter((x) => x.date === key).map((x) => x.routineId)));

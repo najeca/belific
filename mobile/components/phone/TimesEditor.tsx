@@ -17,7 +17,7 @@ const make = (c: ColorTokens) => ({
   label: { ...type.label, color: c.textPrimary, flex: 1 },
   done: { ...type.small, color: c.success },
   note: { ...type.meta, color: c.textSecondary },
-  warn: { ...type.meta, color: c.danger },
+  warn: { ...type.meta, color: c.textPrimary },
   add: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, minHeight: 44 },
   addText: { ...type.label, color: c.accentText },
 });

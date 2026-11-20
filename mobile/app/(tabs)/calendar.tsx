@@ -3,8 +3,8 @@ import { withParts } from '../../lib/parts';
 import { AppState, Pressable, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { radius, type ColorTokens } from '../../lib/tokens';
-import { customToScheduleEvent, formatTime, getStarterEventsForDate, getWeeklyEventsForDate } from '../../lib/data';
-import { loadCustomCategories, loadCustomEvents, loadListsRaw, loadProjects, loadTasksRaw, shouldShowStarterRoutine } from '../../lib/storage';
+import { customToScheduleEvent, formatTime, getWeeklyEventsForDate } from '../../lib/data';
+import { loadCustomCategories, loadCustomEvents, loadListsRaw, loadProjects, loadTasksRaw } from '../../lib/storage';
 import { dateKey, formatDayLabel, parseDateKey } from '../../lib/kanban';
 import { calendarTitle, minutesOfDay, stepAnchor, visibleDayKeys } from '../../lib/calendarView';
 import type { CalendarView } from '../../lib/paneState';
@@ -65,7 +65,6 @@ export default function CalendarScreen() {
   const [data, setData] = useState<DayData>({ tasks: [], events: [], device: [], projects: [], lists: [] });
   const [custom, setCustom] = useState<CustomEvent[]>([]);
   const [categories, setCategories] = useState<CustomCategory[]>([]);
-  const [starter, setStarter] = useState(false);
   const [device, setDevice] = useState<DeviceOccurrence[]>([]);
   const [access, setAccess] = useState<CalendarAccess | null>(null);
   const [promptDismissed, setPromptDismissed] = useState(true);
@@ -77,12 +76,11 @@ export default function CalendarScreen() {
   const [stepAdd, setStepAdd] = useState<StepAddTarget | null>(null);
 
   const load = useCallback(async () => {
-    const [tasks, ev, cats, st, projects, lists] = await Promise.all([loadTasksRaw(), loadCustomEvents(), loadCustomCategories(), shouldShowStarterRoutine(), loadProjects(), loadListsRaw()]);
+    const [tasks, ev, cats, projects, lists] = await Promise.all([loadTasksRaw(), loadCustomEvents(), loadCustomCategories(), loadProjects(), loadListsRaw()]);
     setTodayKey(dateKey(new Date()));
     setNowMin(minutesOfDay(new Date()));
     setCustom(ev);
     setCategories(cats);
-    setStarter(st);
     // R6: a part is a row in its parent's card, never a block of its own; a parent with no estimate counts its parts'.
     setData((d) => ({ ...d, tasks: withParts(tasks), projects, lists }));
     refreshTaskReminders();
@@ -126,10 +124,10 @@ export default function CalendarScreen() {
   const eventsOn = useCallback(
     (key: string): ScheduleEvent[] => {
       const d = parseDateKey(key);
-      const template = starter ? getStarterEventsForDate(d) : getWeeklyEventsForDate(d);
+      const template = getWeeklyEventsForDate(d);
       return [...template, ...custom.filter((e) => e.date === key).map((e) => customToScheduleEvent(e, categories))];
     },
-    [starter, custom, categories],
+    [custom, categories],
   );
   const dayData = useMemo<DayData>(() => ({ ...data, events: eventsOn(anchor), device }), [data, eventsOn, anchor, device]);
 

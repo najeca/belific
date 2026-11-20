@@ -35,7 +35,7 @@ export interface HoldActions {
 
 const make = (c: ColorTokens) => ({
   scrim: { flex: 1, backgroundColor: c.scrim, justifyContent: 'center' as const, paddingHorizontal: 20 },
-  card: { backgroundColor: c.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: c.border, padding: 18, gap: 14 },
+  card: { backgroundColor: c.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: c.border, borderTopWidth: 8, borderTopColor: c.accent, padding: 18, gap: 14 },
   labelRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
   labelText: { ...inter(600), fontSize: 14, color: c.textSecondary },
   title: { ...inter(700), fontSize: 20, lineHeight: 26, color: c.textPrimary },

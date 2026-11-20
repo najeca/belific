@@ -52,8 +52,10 @@ import type { Session } from '@supabase/supabase-js';
 const APP_VERSION = Constants.expoConfig?.version ?? '—';
 
 export default function SettingsScreen() {
-  const { c: Colors, mode, setMode } = useTheme();
+  const { c: Colors, mode, setMode, name: themeName } = useTheme();
   const styles = useThemed(make);
+  // 3.63.0: one slab card per section (a solid edge right and below, the Slab look; off in dark mode).
+  const slab = themeName !== 'dark' ? { borderWidth: 1, borderColor: Colors.borderStrong, borderRightWidth: 6, borderBottomWidth: 6 } : null;
   const [showStreaks, setShowStreaks] = usePhonePref('showStreaks');
   const [remindTasks, setRemindTasks] = usePhonePref('remindTasks');
   const insets = useSafeAreaInsets();
@@ -262,7 +264,7 @@ export default function SettingsScreen() {
 
         {/* Notifications section */}
         <Text style={styles.sectionHeader}>Notifications</Text>
-        <View style={styles.card}>
+        <View style={[styles.card, slab]}>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Daily Notifications</Text>
             <Toggle value={notificationsEnabled} onValueChange={handleNotificationsToggle} label="Daily Notifications" colors={Colors} />
@@ -283,7 +285,7 @@ export default function SettingsScreen() {
 
         {/* On this iPhone (PLAN_phone P5): settings that stay on this phone, never synced. */}
         <Text style={styles.sectionHeader}>On this iPhone</Text>
-        <View style={styles.card}>
+        <View style={[styles.card, slab]}>
           {/* The Theme (PLAN_phone P11): Light (the default), Dark or Match system, on this phone only. */}
           <View style={[styles.row, { flexDirection: 'column', alignItems: 'stretch', gap: 8 }]} {...({ dataSet: { phoneTheme: mode } } as object)}>
             <Text style={styles.rowLabel}>Theme</Text>
@@ -313,7 +315,7 @@ export default function SettingsScreen() {
 
         {/* Account section — optional, app is fully usable signed out */}
         <Text style={styles.sectionHeader}>Account</Text>
-        <View style={styles.card}>
+        <View style={[styles.card, slab]}>
           {session ? (
             <>
               <View style={styles.aboutRow}>
@@ -343,7 +345,7 @@ export default function SettingsScreen() {
                 accessibilityLabel="Delete account"
                 accessibilityRole="button"
               >
-                <Ionicons name="person-remove-outline" size={18} color={Colors.danger} style={{ marginRight: 10 }} />
+                <Ionicons name="person-remove-outline" size={18} color={Colors.textPrimary} style={{ marginRight: 10 }} />
                 <Text style={styles.dangerText}>Delete Account</Text>
               </TouchableOpacity>
             </>
@@ -372,7 +374,7 @@ export default function SettingsScreen() {
 
         {/* Data section */}
         <Text style={styles.sectionHeader}>Data</Text>
-        <View style={styles.card}>
+        <View style={[styles.card, slab]}>
           <RoutineConvertSection />
           <TouchableOpacity
             style={styles.dangerRow}
@@ -381,14 +383,14 @@ export default function SettingsScreen() {
             accessibilityLabel="Clear all data"
             accessibilityRole="button"
           >
-            <Ionicons name="trash-outline" size={18} color={Colors.danger} style={{ marginRight: 10 }} />
+            <Ionicons name="trash-outline" size={18} color={Colors.textPrimary} style={{ marginRight: 10 }} />
             <Text style={styles.dangerText}>Clear All Data</Text>
           </TouchableOpacity>
         </View>
 
         {/* About section */}
         <Text style={styles.sectionHeader}>About</Text>
-        <View style={styles.card}>
+        <View style={[styles.card, slab]}>
           <View style={styles.aboutRow}>
             <Text style={styles.aboutLabel}>App</Text>
             <Text style={styles.aboutValue}>Belific</Text>
@@ -412,7 +414,7 @@ export default function SettingsScreen() {
         {ownerVisible && (
           <>
             <Text style={styles.sectionHeader}>Owner</Text>
-            <View style={styles.card}>
+            <View style={[styles.card, slab]}>
               <TouchableOpacity
                 style={styles.row}
                 onPress={handleSeedSchedule}
@@ -515,7 +517,7 @@ const make = (Colors: ColorTokens) =>
   },
   dangerText: {
     fontSize: 16,
-    color: Colors.danger,
+    color: Colors.textPrimary,
     fontWeight: '600',
   },
   authNote: {

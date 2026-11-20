@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.63.0 — 2026-11-20 (Phone: look and clean up: no red, no sample events, fonts, bands)
+Phone only; the desktop does not change. No database change. The Inter 800 font was already in the build (`phoneFonts.native.ts`); nothing native is new, and the changes need the next EAS build to be seen on the iPhone.
+- **No red on the phone.** Delete rows and buttons are quiet ink with a clear word (menus, the task card, the list sheet, Settings' Delete Account and Clear All Data, the Calendars turn off), the swipe action Delete and Skip are dark ink, warnings and problems are ink, the failed sync line is ink, a stored high priority is not drawn red on the Calendar week and month, and the Day view's now line and dot are the accent. The desktop's colours are unchanged.
+- **Sample events are gone** from Today and the Calendar of the phone (the starter Morning routine, Work block, Lunch break, Gym, Evening wind down). The presets (three lists, three labels) are the way in.
+- **Fonts:** the page title is Inter 800 at 36; the Now card's title is Inter 800 at 24. Sheet titles stay Newsreader.
+- **Look:** an 8 px accent band on top of every sheet and card (the task card, the hold card, Plan my day, the Earlier, Profile and add flow screens, the list, label, add inside and hosted sheets, the menus); Settings sections are slab cards (a solid edge right and below, light mode only); buttons have a radius of 10; the selected tab is filled with the accent.
+Tests: easConfig (version); real new phone-p30 (22: sample events, no red on every screen incl. the swipe, hold card, Delete menu, Calendar day, week and month, Settings and Plan, light and dark, Inter 800 at 36, the bands, the tab, radius 10, the slab sections).
+Gates: tsc clean; mobile `npm test` 1297/1297. Targeted real checks at 390 x 844 (BELIFIC_TEST_DISPLAY=2, BELIFIC_QUIET=1): phone-p30 22/22, p7, p13, p14, p15, p24, p25 pass; phone-p11 fails only its light mode contrast audit of the Today Now marker (4.41:1, 3.60.0, reported, not changed). Full regression NOT run (once after phase 4).
+
 ## 3.62.0 — 2026-11-20 (Phone: Plan my day)
 Phone only; the desktop does not change. No database change, no native change.
 - A **Plan** button in the Today header, beside the avatar, always shown. It opens Plan my day: a full screen, one task at a time, with a progress line ("3 of 9"), the day's planned total, and "When will you do this?": **Today**, **Tomorrow**, **A time** (today, with the time picker) and **Not today**.

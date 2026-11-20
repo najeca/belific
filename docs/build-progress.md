@@ -1042,3 +1042,10 @@ Choices on my own: the answers' Undo writes back the rows an answer changed (lib
 Found, not changed (shared desktop logic, not written this session): skipping the only stored row of a repeating task (its template, with no other stored day) tombstones that row and leaves no row to carry the series (lib/series.ts planSkip, `if (!heir) return { tombstone }`); the real check seeds a started series so today's day is only projected.
 Tests: planQueue.test.ts; real new phone-p29 (23).
 Gates: tsc clean; mobile 1297/1297. Full regression NOT run (after phase 4).
+## PLAN_phone_parity phase 8 (2026-11-20): 3.63.0, look and clean up (batch build phase 3)
+What: no red on the phone (ink for Delete, swipe Delete/Skip, warnings, the sync fail line, the high priority dot, the Day view's now line), no sample events on Today and the Calendar, Inter 800 titles (page 36, Now card 24), the 8 px accent band on sheets and cards, slab Settings sections (light), radius 10 buttons, the filled selected tab.
+Needs the EAS build at the end to be seen on the iPhone; no native module or font file is new (Inter-800.ttf was already loaded).
+Choices on my own: the band is a thick top border on sheets (no extra view); Settings' slab is a 6 px right and bottom edge, not the Slab shape view, because the Settings sections are many separate Views; sheet titles keep Newsreader; the routine conversion offer on Today (item 10) is not part of this phase and was not built.
+Reported, not changed: phone-p11's light contrast of the Today Now marker (4.41:1, 3.60.0).
+Tests: real new phone-p30 (22).
+Gates: tsc clean; mobile 1297/1297. Full regression NOT run (after phase 4).

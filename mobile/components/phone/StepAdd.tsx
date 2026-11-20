@@ -43,7 +43,7 @@ export interface StepAddTarget {
 }
 
 const make = (c: ColorTokens) => ({
-  screen: { flex: 1, backgroundColor: c.background },
+  screen: { flex: 1, backgroundColor: c.background, borderTopWidth: 8, borderTopColor: c.accent },
   head: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: 8, paddingBottom: 6 },
   close: { width: 48, height: 48, alignItems: 'center' as const, justifyContent: 'center' as const },
   dots: { flexDirection: 'row' as const, gap: 8, paddingHorizontal: 12, minHeight: 44, alignItems: 'center' as const },

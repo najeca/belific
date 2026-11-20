@@ -24,7 +24,7 @@ export interface InsideTarget {
 
 const make = (c: ColorTokens) => ({
   scrim: { flex: 1, backgroundColor: c.scrim, justifyContent: 'flex-end' as const },
-  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, padding: 16, gap: 10, maxHeight: '90%' as const },
+  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, borderTopWidth: 8, borderTopColor: c.accent, padding: 16, gap: 10, maxHeight: '90%' as const },
   head: { ...inter(700), fontSize: 18, color: c.textPrimary },
   label: { ...inter(700), fontSize: 14, color: c.textSecondary, marginTop: 4 },
   input: { ...inter(500), fontSize: 17, color: c.textPrimary, minHeight: 48, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.pane },

@@ -133,7 +133,7 @@ export default function CalendarsSection({ signedIn }: { signedIn: boolean }) {
               <Text style={styles.link} selectable numberOfLines={2}>
                 {link}
               </Text>
-              <Text style={[styles.hint, pending && { color: Colors.danger }]}>{pending ? FEED_TEXT.pending : FEED_TEXT.active}</Text>
+              <Text style={[styles.hint, pending && { color: Colors.textPrimary }]}>{pending ? FEED_TEXT.pending : FEED_TEXT.active}</Text>
               <View style={styles.row}>
                 <TouchableOpacity onPress={onShare} style={styles.btn} accessibilityRole="button" accessibilityLabel="Share or copy feed link">
                   <Text style={styles.btnText}>📋 Share or copy</Text>
@@ -172,6 +172,6 @@ const make = (Colors: ColorTokens) =>
   primaryText: { fontSize: 15, fontWeight: '600', color: Colors.onAccent },
   btn: { marginTop: 12, minHeight: 44, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', alignSelf: 'flex-start' },
   btnText: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  dangerText: { fontSize: 15, fontWeight: '600', color: Colors.danger },
+  dangerText: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
   disabled: { opacity: 0.5 },
 });

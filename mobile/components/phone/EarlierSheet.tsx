@@ -28,7 +28,7 @@ const make = (c: ColorTokens) => ({
   pill: { alignSelf: 'flex-start' as const, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: radius.full, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface },
   pillText: { ...inter(600), fontSize: 14, color: c.textPrimary },
   pillCount: { ...inter(600), fontSize: 13, color: c.textSecondary },
-  screen: { flex: 1, backgroundColor: c.background },
+  screen: { flex: 1, backgroundColor: c.background, borderTopWidth: 8, borderTopColor: c.accent },
   head: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.pane },
   title: { ...type.sheetTitle, color: c.textPrimary },
   close: { minWidth: 64, minHeight: 44, alignItems: 'flex-end' as const, justifyContent: 'center' as const },

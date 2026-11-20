@@ -39,7 +39,7 @@ const make = (c: ColorTokens) => ({
   chipText: { ...inter(600), fontSize: 14, color: c.textPrimary },
   chipTextOn: { color: c.onAccent },
   summary: { ...type.meta, color: c.textSecondary },
-  warn: { ...type.meta, color: c.danger },
+  warn: { ...type.meta, color: c.textPrimary },
   input: { ...inter(500), fontSize: 16, color: c.textPrimary, minHeight: 44, width: 72, paddingHorizontal: 10, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.pane, textAlign: 'center' as const },
   link: { ...inter(600), fontSize: 14, color: c.accentText, paddingVertical: 8 },
 });

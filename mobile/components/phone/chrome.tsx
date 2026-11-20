@@ -21,7 +21,7 @@ const make = (c: ColorTokens) => ({
   sub: { ...type.meta, color: c.textSecondary, marginTop: 2 },
   // 3.53.2: the sync line under the title, on every tab; in the danger colour while the last sync failed.
   sync: { ...type.meta, color: c.textSecondary, marginTop: 2 },
-  syncWarn: { color: c.danger },
+  syncWarn: { color: c.textPrimary },
   avatar: { width: MIN_TOUCH, height: MIN_TOUCH, alignItems: 'center' as const, justifyContent: 'center' as const },
   fab: { position: 'absolute' as const, right: 18, width: 58, height: 58, borderRadius: 29, backgroundColor: c.accent, alignItems: 'center' as const, justifyContent: 'center' as const, borderWidth: 1, borderColor: c.accent },
   segTrack: { flexDirection: 'row' as const, borderRadius: radius.lg, padding: 3, gap: 2, backgroundColor: c.surfaceRaised, borderWidth: 1, borderColor: c.border },

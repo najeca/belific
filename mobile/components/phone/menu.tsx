@@ -23,11 +23,11 @@ export interface MenuItem {
 
 const make = (c: ColorTokens) => ({
   scrim: { flex: 1, backgroundColor: c.scrim, justifyContent: 'flex-end' as const },
-  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, paddingHorizontal: 8, paddingTop: 8 },
+  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, borderTopWidth: 8, borderTopColor: c.accent, paddingHorizontal: 8, paddingTop: 8 },
   title: { ...type.meta, color: c.textSecondary, paddingHorizontal: 12, paddingVertical: 10 },
   row: { minHeight: 52, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingHorizontal: 12, borderRadius: radius.md },
   rowText: { ...inter(500), fontSize: 17, color: c.textPrimary },
-  danger: { color: c.danger },
+  danger: { color: c.textPrimary },
   cancel: { ...inter(600), fontSize: 17, color: c.textPrimary, textAlign: 'center' as const, flex: 1 },
 });
 
@@ -60,7 +60,7 @@ export function ActionMenu({ visible, title, items, onClose }: { visible: boolea
               accessibilityLabel={it.label}
               accessibilityState={{ selected: !!it.selected }}
             >
-              {it.leading ?? <Ionicons name={it.icon} size={22} color={it.danger ? c.danger : c.textSecondary} />}
+              {it.leading ?? <Ionicons name={it.icon} size={22} color={it.danger ? c.textPrimary : c.textSecondary} />}
               <Text style={[s.rowText, it.danger && s.danger, { flex: 1 }]}>{it.label}</Text>
               {it.selected ? <Ionicons name="checkmark" size={20} color={c.accentText} /> : null}
             </Pressable>

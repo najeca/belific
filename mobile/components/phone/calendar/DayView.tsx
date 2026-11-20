@@ -37,8 +37,8 @@ const make = (c: ColorTokens) => ({
   allDayLabel: { ...type.small, color: c.textSecondary, alignSelf: 'center' as const, marginRight: 4 },
   hour: { position: 'absolute' as const, left: 0, width: GUTTER - 6, textAlign: 'right' as const, ...mono(400), fontSize: 10, color: c.textSecondary },
   line: { position: 'absolute' as const, left: GUTTER, right: 0, height: 1, backgroundColor: c.border },
-  now: { position: 'absolute' as const, left: GUTTER - 4, right: 0, height: 2, backgroundColor: c.now },
-  nowDot: { position: 'absolute' as const, left: GUTTER - 6, width: 8, height: 8, borderRadius: 4, backgroundColor: c.now },
+  now: { position: 'absolute' as const, left: GUTTER - 4, right: 0, height: 2, backgroundColor: c.accent },
+  nowDot: { position: 'absolute' as const, left: GUTTER - 6, width: 8, height: 8, borderRadius: 4, backgroundColor: c.accent },
 });
 
 export interface DayData {

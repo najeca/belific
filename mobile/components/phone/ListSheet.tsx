@@ -18,13 +18,13 @@ import { EmojiPick } from './EmojiPick';
 // or typed with the iPhone's emoji keyboard; the first emoji is kept.
 const make = (c: ColorTokens) => ({
   scrim: { flex: 1, backgroundColor: c.scrim, justifyContent: 'flex-end' as const },
-  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, padding: 16, maxHeight: '92%' as const },
+  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, borderTopWidth: 8, borderTopColor: c.accent, padding: 16, maxHeight: '92%' as const },
   title: { ...type.sheetTitle, color: c.textPrimary },
   label: { ...type.small, color: c.textSecondary },
   input: { ...inter(500), fontSize: 17, color: c.textPrimary, minHeight: 48, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.pane },
-  problem: { ...type.meta, color: c.danger },
+  problem: { ...type.meta, color: c.textPrimary },
   row: { flexDirection: 'row' as const, gap: 10, justifyContent: 'flex-end' as const },
-  danger: { ...inter(600), fontSize: 15, color: c.danger },
+  danger: { ...inter(600), fontSize: 15, color: c.textPrimary },
   note: { ...type.meta, color: c.textSecondary },
   preset: { minHeight: 44, paddingHorizontal: 14, borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed' as const, borderColor: c.borderStrong, justifyContent: 'center' as const },
   presetText: { ...inter(600), fontSize: 15, color: c.textPrimary },

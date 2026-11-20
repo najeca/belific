@@ -17,7 +17,8 @@ export const mono = (w: 400 | 500 = 400): TextStyle => ({ ...face('Roboto Mono',
 
 // The type scale (the desktop's sizes, a step larger where a finger reads at arm's length).
 export const type = {
-  screenTitle: { ...newsreader(600), fontSize: 30, lineHeight: 36, letterSpacing: -0.3 },
+  // 3.63.0: the page title is Inter 800 at 36 (Motorways); sheet titles stay Newsreader.
+  screenTitle: { ...inter(800), fontSize: 36, lineHeight: 42, letterSpacing: -0.5 },
   sheetTitle: { ...newsreader(600), fontSize: 22, lineHeight: 28 },
   section: { ...inter(700), fontSize: 12, lineHeight: 16, letterSpacing: 0.8, textTransform: 'uppercase' },
   body: { ...inter(400), fontSize: 16, lineHeight: 22 },

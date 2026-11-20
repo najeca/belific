@@ -24,7 +24,7 @@ const make = (c: ColorTokens) => ({
   pill: { marginLeft: 'auto' as const, flexShrink: 1, maxWidth: '55%' as const, paddingHorizontal: 10, minHeight: 26, borderRadius: radius.full, borderWidth: 1, justifyContent: 'center' as const },
   pillText: { ...inter(600), fontSize: 13, color: c.textPrimary },
   titleRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
-  title: { ...inter(600), fontSize: 20, lineHeight: 26, color: c.textPrimary, flexShrink: 1, flex: 1 },
+  title: { ...inter(800), fontSize: 24, lineHeight: 30, color: c.textPrimary, flexShrink: 1, flex: 1 },
   quiet: { ...inter(500), fontSize: 17, lineHeight: 23, color: c.textSecondary, flex: 1 },
   left: { ...type.meta, ...inter(500), color: c.textSecondary },
   rule: { width: 48, height: 1, backgroundColor: c.borderStrong, marginVertical: 6 },

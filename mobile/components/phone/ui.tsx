@@ -18,11 +18,11 @@ const make = (c: ColorTokens) => ({
   pillAccent: { backgroundColor: c.accentSoft },
   pillText: { ...inter(600), fontSize: 12, lineHeight: 16, color: c.textSecondary },
   pillAccentText: { color: c.accentText },
-  btn: { minHeight: MIN_TOUCH, paddingHorizontal: 16, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6 },
+  btn: { minHeight: MIN_TOUCH, paddingHorizontal: 16, borderRadius: radius.lg, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6 },
   btnPrimary: { backgroundColor: c.accent, borderColor: c.accent },
   btnText: { ...inter(600), fontSize: 15, color: c.textPrimary },
   btnPrimaryText: { color: c.onAccent },
-  btnDangerText: { color: c.danger },
+  btnDangerText: { color: c.textPrimary },
   iconBtn: { width: MIN_TOUCH, height: MIN_TOUCH, borderRadius: radius.full, alignItems: 'center' as const, justifyContent: 'center' as const },
   section: { ...type.section, color: c.textSecondary },
 });
@@ -107,7 +107,7 @@ export function Button({
       accessibilityLabel={a11y ?? label}
       accessibilityState={{ disabled: !!disabled }}
     >
-      {icon ? <Ionicons name={icon} size={18} color={kind === 'primary' ? c.onAccent : kind === 'danger' ? c.danger : c.textPrimary} /> : null}
+      {icon ? <Ionicons name={icon} size={18} color={kind === 'primary' ? c.onAccent : kind === 'danger' ? c.textPrimary : c.textPrimary} /> : null}
       <Text style={textStyle}>{label}</Text>
     </Pressable>
   );

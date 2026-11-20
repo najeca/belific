@@ -19,7 +19,7 @@ import { EmojiPick } from './EmojiPick';
 // commands (createLabel, renameLabel, setLabelColor, setLabelEmoji) keep the name and colour rules of the desktop.
 const make = (c: ColorTokens) => ({
   scrim: { flex: 1, backgroundColor: c.scrim, justifyContent: 'flex-end' as const },
-  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, padding: 16, maxHeight: '92%' as const },
+  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, borderTopWidth: 8, borderTopColor: c.accent, padding: 16, maxHeight: '92%' as const },
   title: { ...type.sheetTitle, color: c.textPrimary },
   label: { ...type.small, color: c.textSecondary },
   input: { ...inter(500), fontSize: 17, color: c.textPrimary, minHeight: 48, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.pane },

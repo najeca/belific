@@ -422,3 +422,5 @@ for Inter 800.
    affect Landis and Proload. Item A's email parts (the third button, the code entry, the custom SMTP sender) are out of
    scope until this is decided again.
 5. **"Smaller tasks" replaces "Parts" on desktop and phone at the same time** (one shared wording change, phase 3).
+
+**Built (2026-11-20):** phase 8, the look and clean up, as 3.63.0 (no red, sample events off, Inter 800 titles, accent bands, slab Settings, radius 10, filled tab). The routine conversion offer on Today (item 10) is still open.

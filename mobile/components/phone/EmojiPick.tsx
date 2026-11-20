@@ -100,7 +100,7 @@ export function EmojiPick({ value, onChange, taken }: { value: string; onChange:
         ) : null}
       </View>
       {taken ? (
-        <Text style={[s.hint, note ? { color: c.danger } : null]} {...({ dataSet: { emojiCaption: '1' } } as object)}>
+        <Text style={[s.hint, note ? { color: c.textPrimary } : null]} {...({ dataSet: { emojiCaption: '1' } } as object)}>
           {note ?? 'Greyed out emoji belong to another list.'}
         </Text>
       ) : null}

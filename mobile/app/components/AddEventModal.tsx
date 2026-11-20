@@ -647,7 +647,7 @@ export function EventForm({ date, onClose, onSaved, editEvent, initialTitle, ori
               accessibilityLabel="Delete event"
               accessibilityRole="button"
             >
-              <Ionicons name="trash-outline" size={18} color={Colors.danger} style={{ marginRight: 8 }} />
+              <Ionicons name="trash-outline" size={18} color={Colors.textPrimary} style={{ marginRight: 8 }} />
               <Text style={styles.deleteText}>Delete event</Text>
             </TouchableOpacity>
           )}
@@ -881,11 +881,11 @@ const make = (Colors: ColorTokens) =>
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.danger + '60',
-    backgroundColor: Colors.danger + '15',
+    borderColor: Colors.borderStrong,
+    backgroundColor: Colors.surfaceRaised,
   },
   deleteText: {
-    color: Colors.danger,
+    color: Colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

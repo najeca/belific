@@ -66,7 +66,7 @@ export interface DetailsTarget {
 type Open = 'date' | 'time' | 'duration' | 'repeat' | 'until' | 'times' | 'reminders' | null;
 
 const make = (c: ColorTokens) => ({
-  screen: { flex: 1, backgroundColor: c.background },
+  screen: { flex: 1, backgroundColor: c.background, borderTopWidth: 8, borderTopColor: c.accent },
   head: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.pane },
   headTitle: { ...type.sheetTitle, color: c.textPrimary },
   doneBtn: { minHeight: 44, minWidth: 64, alignItems: 'flex-end' as const, justifyContent: 'center' as const },
@@ -97,7 +97,7 @@ const make = (c: ColorTokens) => ({
   stepInput: { flex: 1, ...inter(400), fontSize: 16, color: c.textPrimary, minHeight: 44, minWidth: 0 },
   section: { ...type.section, color: c.textSecondary, marginTop: 18, marginBottom: 8, marginLeft: 4 },
   note: { ...type.meta, color: c.textSecondary },
-  warn: { ...type.meta, color: c.danger },
+  warn: { ...type.meta, color: c.textPrimary },
   // 3.10.0: "Inside this break" and "Shows inside Lunch" (3.27.0; was "During: Lunch").
   hostBox: { backgroundColor: c.hostPill, borderRadius: radius.lg, paddingHorizontal: 6, paddingVertical: 4, marginTop: 10 },
   hostHead: { ...type.meta, ...inter(700), color: c.onHostPill, paddingHorizontal: 8, paddingTop: 6 },

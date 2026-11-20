@@ -16,7 +16,7 @@ import { LabelDot, RoundCheck } from '../ui';
 // right after the break, with Undo). The last row opens the break itself.
 const make = (c: ColorTokens) => ({
   scrim: { flex: 1, backgroundColor: c.scrim, justifyContent: 'flex-end' as const },
-  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, paddingHorizontal: 8, paddingTop: 8 },
+  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: c.border, borderTopWidth: 8, borderTopColor: c.accent, paddingHorizontal: 8, paddingTop: 8 },
   title: { ...type.meta, color: c.textSecondary, paddingHorizontal: 12, paddingVertical: 10 },
   row: { minHeight: 56, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, borderRadius: radius.md },
   tick: { width: 44, height: 44, alignItems: 'center' as const, justifyContent: 'center' as const },

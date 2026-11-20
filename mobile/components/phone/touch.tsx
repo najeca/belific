@@ -166,8 +166,8 @@ export function SwipeRow({
   const [width, setWidth] = useState(360);
   const { c } = useTheme();
   const reduced = useReducedMotion();
-  const fill = (tone: SwipeAction['tone']) => (tone === 'accent' ? c.accent : tone === 'danger' ? c.danger : c.surfaceRaised);
-  const ink = (tone: SwipeAction['tone']) => (tone === 'quiet' ? c.textPrimary : c.onAccent);
+  const fill = (tone: SwipeAction['tone']) => (tone === 'accent' ? c.accent : tone === 'danger' ? c.inverseBg : c.surfaceRaised);
+  const ink = (tone: SwipeAction['tone']) => (tone === 'quiet' ? c.textPrimary : tone === 'danger' ? c.inverseText : c.onAccent);
 
   return (
     <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} {...({ dataSet: data } as object)}>

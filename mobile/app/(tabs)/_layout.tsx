@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../components/phone/theme';
 import { inter } from '../../components/phone/type';
+import { radius } from '../../lib/tokens';
 
 type IconProps = { color: string; size: number };
 
@@ -14,7 +15,10 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: c.accentText,
+        // 3.63.0: the selected tab is filled with the accent, as on the desktop.
+        tabBarActiveTintColor: c.onAccent,
+        tabBarActiveBackgroundColor: c.accent,
+        tabBarItemStyle: { borderRadius: radius.lg, marginHorizontal: 8, marginVertical: 4 },
         tabBarInactiveTintColor: c.textSecondary,
         tabBarStyle: {
           backgroundColor: c.pane,

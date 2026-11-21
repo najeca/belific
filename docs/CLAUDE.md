@@ -120,11 +120,13 @@ capitalised exactly this way.
 ## Session protocol
 Opening message every session:
 Read docs/CURRENT_TRUTH.md, docs/UBIQUITOUS_LANGUAGE.md and
-docs/CLAUDE.md, then summarise. (architecture.md and
-current-state-audit.md are historical, July 2026.)
+docs/CLAUDE.md, then summarise. Current status lives in
+docs/PROJECT_HANDOVER.md, written by the belific-handover skill at the
+end of every batch.
 
 Closing message every session:
-Run /workflow/session-close
+Run /workflow/session-close (it only runs the security scan and the
+belific-handover skill; no session logs are written)
 
 ## Claude Code Skills
 
@@ -132,7 +134,8 @@ Run /workflow/session-close
 |-------|------|---------|
 | `design-identity` | — | Sage/cream palette + locked-in product-psychology rules — read before any UI work |
 | `workflow/ios-build` | — | Full iOS build sequence with all Podfile patches |
-| `workflow/session-close` | `user_invocable: false` | End-of-session housekeeping |
+| `workflow/session-close` | `user_invocable: false` | Runs the security scan, then belific-handover |
+| `belific-handover` | — | Regenerates docs/PROJECT_HANDOVER.md; the last step of every batch |
 | `workflow/security-review` | `disable_model_invocation: true` | Quality gates before commit |
 | `workflow/testing` | — | Device testing checklist |
 | `features/notifications` | — | Local notification types and scheduling |

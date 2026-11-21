@@ -4,7 +4,7 @@
 // at 390 x 844 (Chrome DevTools Protocol, Emulation.setDeviceMetricsOverride, mobile) and fingers
 // are real touch events (Input.dispatchTouchEvent: touchStart, touchMove in small timed steps,
 // touchEnd). Gesture handler's web build reads these as pointer events, the same path a finger takes.
-// What this cannot prove (native gesture feel, haptics, notifications): docs/PLAN_phone.md section 7.
+// What this cannot prove (native gesture feel, haptics, notifications): those need a real iPhone.
 const C = require('./common');
 
 async function phoneWindow(win, { width = 390, height = 844 } = {}) {

@@ -75,7 +75,8 @@ async function run() {
   const answer = (a) => tap(`[data-plan-answer="${a}"]`, 1100);
 
   check('Today has a Plan button (44 pt high)', (await P.js(`(() => { const e = document.querySelector('[data-plan-button]'); return !!e && e.getBoundingClientRect().height >= 44; })()`)));
-  await tap('[data-plan-button]', 1500);
+  await tap('[data-plan-menu]', 800);
+  await tap('[aria-label="Plan my day"]', 1500);
   check('Plan my day opens full screen on the first task, "1 of 6"', (await has('[data-plan-screen]')) && (await progress()) === '1 of 6', `${await progress()} ${await current()}`);
   check('the timed task on today is not asked about; the first is the untimed one of today', (await current()) === 'A today');
   check('the planned line is there', await has('[data-plan-figure]'));
@@ -114,7 +115,8 @@ async function run() {
   // close half way keeps what was answered
   await tap('[data-plan-done]', 1200);
   check('Done only closes: the answers stay', byId('old').dueDate === day(1) && byId('da').dueDate === day(0) && !(await has('[data-plan-screen]')));
-  await tap('[data-plan-button]', 1500);
+  await tap('[data-plan-menu]', 800);
+  await tap('[aria-label="Plan my day"]', 1500);
   check('opening again asks only what is left (Not today left the repeat day skipped)', (await current()) !== 'C old one' && (await current()) !== 'B repeat', await current());
 
   // finish: leave E in its list (Not today), F to tomorrow, then the summary

@@ -155,7 +155,8 @@ async function run() {
   check('dark mode has no slab edge', !darkEdge);
   await tap('[aria-label="Back"]', 1200);
   await P.finger.tap(tab('Today'), 1200);
-  await tap('[data-plan-button]', 1500);
+  await tap('[data-plan-menu]', 800);
+  await tap('[aria-label="Plan my day"]', 1500);
   await noRed('Plan my day, dark');
   await shot('phone-p30-plan-dark');
   await tap('[data-plan-done]', 1000);

@@ -86,7 +86,8 @@ async function run() {
   check('light: the Now marker text is at least 4.5:1 (or the marker is off screen at this hour)', mk === null || mk >= 4.5, String(mk));
 
   // ---- 2. Plan my day: Not today on a repeat that never started ----
-  await tap('[data-plan-button]', 1500);
+  await tap('[data-plan-menu]', 800);
+  await tap('[aria-label="Plan my day"]', 1500);
   const cur = () => P.js(`(document.querySelector('[data-plan-task]') || { getAttribute: () => null }).getAttribute('data-plan-task')`);
   check('Plan my day opens on the repeat (due today, never started)', (await cur()) === 'Daily thing', String(await cur()));
   await tap('[data-plan-answer="notToday"]', 1300);

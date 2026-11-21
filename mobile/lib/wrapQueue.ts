@@ -8,8 +8,12 @@ import { isQuickReminder } from './quickReminder.ts';
 export type WrapAnswer = 'done' | 'tomorrow' | 'list' | 'letGo' | 'steps' | 'parts';
 
 // Today's tasks that are not done, in time order (a shift is one; the rows inside it are not asked one by one).
+// D6 of PLAN_desktop_parity (3.68.0): the day's rows Wrap up shows, for both apps. The desktop's one screen shows them
+// all (done ones without buttons); the phone asks only the open ones (wrapQueue). `todayKey` is the real today.
+export const wrapDayItems = (raw: Task[], dayKey: string, todayKey: string, cutMin: number): WrapItem[] => dayItems(raw, dayKey, todayKey, cutMin);
+
 export function wrapQueue(raw: Task[], todayKey: string, cutMin: number): WrapItem[] {
-  return dayItems(raw, todayKey, todayKey, cutMin).filter((i) => !i.done && !i.row && !isQuickReminder(i.task));
+  return wrapDayItems(raw, todayKey, todayKey, cutMin).filter((i) => !i.done && !i.row && !isQuickReminder(i.task));
 }
 
 export interface WrapOffer {

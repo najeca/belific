@@ -8,6 +8,13 @@ to know the current version and recent history.
 
 ---
 
+## 3.68.0 — 2026-11-21 (desktop Plan flows read the shared queues; PLAN_desktop_parity D6)
+No change in what either app shows; no database change. The desktop keeps its one screen Plan my day, Wrap up and Plan week and the same time of day rule (`planEntry.planFlowAt`).
+- What each desktop screen lists now comes from the queue files the phone uses, so a rule changed there changes both apps: Plan my day's On today, Add to today and the Earlier line (`lib/planQueue.ts`: `planTodayItems`, `planListItems`, `planEarlierItems`, `planRepeatingItems`, the last desktop only), Wrap up's rows (`lib/wrapQueue.ts` `wrapDayItems`), Plan week's list rows, day columns and last week count (`lib/weekQueue.ts` `weekListItems`, `weekDayItems`, `weekEarlierItems`). The phone's queues are built from the same functions.
+- Tests: `planSets.test.ts` (3): the phone asks exactly the open rows of the desktop's sets.
+- Also written (plan only, no code): `docs/PLAN_push_after.md` (D7).
+- Fix (3.67.0 Today segment): at 1440 px with all three panes the third centre segment pushed the avatar out of the top row (p56). On a squeezed row the centre views not shown are now icons only (their names stay for the screen reader).
+
 ## 3.67.0 — 2026-11-21 (desktop Today view; PLAN_desktop_parity D3)
 Desktop only; the phone is unchanged; no database change.
 - **Today**, a third centre view beside Tasks and Calendar (the segment, or **Y**). The Timebox stays on the right. Wide layout: the **Now card** (what runs now, time left, Next with "in 55 min", the label pill or Free time, a Done tick) and the **hours strip per label** side by side; under them the **timeline** (one bubble per timed item, height by length 44 to 160, the list emoji, label colours, the Now marker in the running bubble or as a line, free time as a gap, a shift's rows under it) beside **Anytime** (one card per untimed task of today, label edge) and **Done today**. Under 760 px the columns stack. All of it from the shared `lib/todayModel.ts`, as the phone.

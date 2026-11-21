@@ -1100,3 +1100,10 @@ Gates: tsc clean; the full regression follows this entry.
 - Choices made here: the Anytime drag is the view's own pointer drag, not DragProvider (an Anytime card cannot be dragged onto the Timebox from here yet; it can from the left pane and the board as before). The jump to today button hides on Today. V from Today goes to the Calendar. Launch still opens the Calendar (unchanged). The Now marker uses the accent, not the red `now` token. Columns stack under 760 px of centre width.
 - Tests: mobile 1323/1323, desktop 118/118; p70 25/25 (new, quiet); cp6 61, p69 6, p60 33, p36 18.
 - Check by hand: drag with a real mouse and a touchpad; the minute update after sleep; Larger window widths and a narrow window (stacking); dark mode; the label form switch; Narrator on the cards (Alt+arrows).
+
+## 3.68.0 D6 of PLAN_desktop_parity: desktop Plan flows read the shared queues (2026-11-21)
+- PlanMyDay.tsx, WrapUp.tsx and PlanWeek.tsx list their rows through lib/planQueue.ts, wrapQueue.ts and weekQueue.ts (the phone's queues use the same functions). One screen style and planFlowAt kept. No visible change.
+- Found by the targeted checks: p56 failed at 1440 px (the 3.67.0 Today segment pushed the avatar out). Fixed: unselected centre segments are icons only on a squeezed row. p56 20/20 after.
+- D7 written as a plan only: docs/PLAN_push_after.md (the phone does not carry a shift's inside tasks on a drag; deciding file app/(tabs)/calendar.tsx).
+- Tests: mobile 1326/1326 (3 new in planSets.test.ts), desktop 118/118; p5 20, p56 20, p58 37, p59 29, p60 33, p61 27, p66 17, phone-p29 23, phone-p30 21, phone-p32 12, phone-p33 31.
+- Check by hand: the three desktop Plan screens look and act as before; the top row at 1440 px and narrower.

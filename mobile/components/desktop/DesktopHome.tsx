@@ -54,6 +54,7 @@ import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, t
 import { dateKey as todayDateKey } from '../../lib/kanban';
 import { SIDEBAR_DOCK_MIN, SIDEBAR_WIDTH, TIMEBOX_WIDTH, responsiveLayout, showCalendar, showCenter, sidebarToggle, timeboxToggle, toggleCenter, toggleOnlyToday, type CalendarView } from '../../lib/paneState';
 import TodayPane from './TodayPane';
+import { TOP_ROW_NEEDS_PX } from '../../lib/planEntry';
 import { kv } from '../../lib/kv';
 import { isTextEntryTarget } from '../../lib/editable';
 import { dateKey } from '../../lib/kanban';
@@ -270,6 +271,9 @@ export default function DesktopHome() {
   const kanbanAtToday = useAtToday('kanban');
   const calendarAtToday = useAtToday('calendar');
   const centerAtToday = paneState.center === 'today' ? true : paneState.center === 'calendar' ? calendarAtToday : kanbanAtToday;
+  // D3 (3.67.0): three centre views make the row longer; on a squeezed row the ones not shown are icons only (their
+  // names stay for the screen reader), so the Plan button and the avatar keep their room.
+  const compactSeg = topRowW > 0 && topRowW < TOP_ROW_NEEDS_PX;
   const toggleSidebar = useCallback(() => {
     const r = sidebarToggle(paneState, windowWidth, overlayOpen.sidebar);
     if (r.state !== paneState) updatePanes(() => r.state);
@@ -484,7 +488,7 @@ export default function DesktopHome() {
                 >
                   <View style={styles.segInner}>
                     <Ionicons name={icon} size={17} color={paneState.center === v ? Colors.onAccent : Colors.onHostPill} />
-                    <Text style={[styles.segText, paneState.center === v && styles.segTextOn]}>{text}</Text>
+                    {compactSeg && paneState.center !== v ? null : <Text style={[styles.segText, paneState.center === v && styles.segTextOn]}>{text}</Text>}
                   </View>
                 </Pressable>
               ))}

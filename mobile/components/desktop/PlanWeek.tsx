@@ -8,8 +8,9 @@ import { formatTime } from '../../lib/data';
 import { listTitle } from '../../lib/lists';
 import { loadLists } from '../../lib/storage';
 import { weekToPlan } from '../../lib/planEntry';
-import { dayItems, partsCaption, type WrapItem } from '../../lib/wrapUp';
-import { addRows, dayOpen, dayTotalText, lastWeekCount, lastWeekLine } from '../../lib/planDay';
+import { partsCaption, type WrapItem } from '../../lib/wrapUp';
+import { weekDayItems, weekEarlierItems, weekListItems } from '../../lib/weekQueue';
+import { dayOpen, dayTotalText, lastWeekLine } from '../../lib/planDay';
 import { addToday } from '../../lib/wrapActions';
 import type { Task, TaskList } from '../../lib/types';
 import { useCutMin } from './cutStore';
@@ -38,14 +39,15 @@ export default function PlanWeek({ refreshKey }: { refreshKey: number }) {
   useEffect(() => {
     loadLists().then(setLists);
   }, [refreshKey]);
-  const list = useCallback((raw: Task[]) => addRows(raw, listKey || undefined, lists), [listKey, lists]);
+  // D6 (3.68.0): what is shown is lib/weekQueue.ts, the phone's Plan week rules.
+  const list = useCallback((raw: Task[]) => weekListItems(raw, listKey || undefined, lists), [listKey, lists]);
   const { raw, rows, act, undoRow } = useWrapRows(list, refreshKey, true, listKey);
   const away = useAwayDays(refreshKey);
   const start = parseDateKey(days[0]);
   const end = parseDateKey(days[6]);
   const sameMonth = start.getMonth() === end.getMonth();
   const heading = `Plan week · ${start.getDate()}${sameMonth ? '' : ` ${start.toLocaleDateString('en-GB', { month: 'long' })}`} to ${end.getDate()} ${end.toLocaleDateString('en-GB', { month: 'long' })}`;
-  const leftover = raw ? lastWeekCount(raw, todayKey) : 0;
+  const leftover = raw ? weekEarlierItems(raw, todayKey).length : 0;
   const scroller = useRef<HTMLElement | null>(null);
 
   const put = (day: string) => {
@@ -147,7 +149,7 @@ function DayColumn({ day, raw, todayKey, cutMin, away, choosing, onPut, clip }: 
     },
     [registerZone, day, open, clip],
   );
-  const items = raw ? dayItems(raw, day, todayKey, cutMin) : [];
+  const items = raw ? weekDayItems(raw, day, todayKey, cutMin) : [];
   const d = parseDateKey(day);
   const name = d.toLocaleDateString('en-GB', { weekday: 'short' });
   return (

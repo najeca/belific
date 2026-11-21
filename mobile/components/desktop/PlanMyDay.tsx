@@ -8,8 +8,9 @@ import { formatMinutes } from '../../lib/timebox';
 import { taskDuration } from '../../lib/drag';
 import { listTitle } from '../../lib/lists';
 import { loadLists } from '../../lib/storage';
-import { dayItems, earlierItems, partsCaption, type WrapChoice, type WrapItem } from '../../lib/wrapUp';
-import { addRows, earlierLine, insideText, plannedText, repeatingNotToday } from '../../lib/planDay';
+import { partsCaption, type WrapChoice, type WrapItem } from '../../lib/wrapUp';
+import { earlierLine, insideText, plannedText } from '../../lib/planDay';
+import { planEarlierItems, planListItems, planRepeatingItems, planTodayItems } from '../../lib/planQueue';
 import { addToday, notToday } from '../../lib/wrapActions';
 import type { Task, TaskList } from '../../lib/types';
 import { useCutMin } from './cutStore';
@@ -32,7 +33,8 @@ export default function PlanMyDay({ refreshKey }: { refreshKey: number }) {
   const cutMin = useCutMin();
   // The day planned, fixed when it opens.
   const todayKey = useRef(dateKey(new Date())).current;
-  const list = useCallback((raw: Task[]) => dayItems(raw, todayKey, dateKey(new Date()), cutMin), [todayKey, cutMin]);
+  // D6 (3.68.0): what is shown is lib/planQueue.ts, the phone's Plan my day rules.
+  const list = useCallback((raw: Task[]) => planTodayItems(raw, todayKey, dateKey(new Date()), cutMin), [todayKey, cutMin]);
   const { raw, rows, act, undoRow } = useWrapRows(list, refreshKey);
   const [lists, setLists] = useState<TaskList[]>([]);
   const [listKey, setListKey] = useState('');
@@ -40,7 +42,7 @@ export default function PlanMyDay({ refreshKey }: { refreshKey: number }) {
     loadLists().then(setLists);
   }, [refreshKey]);
   const day = parseDateKey(todayKey).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-  const earlier = raw ? earlierItems(raw, todayKey).length : 0;
+  const earlier = raw ? planEarlierItems(raw, todayKey).length : 0;
   // Away days (2.27.0): one line when today or tomorrow is one.
   const away = useAwayDays(refreshKey);
   const awayNote = [away.has(todayKey) && 'Today', away.has(tomorrowOf(todayKey)) && 'Tomorrow'].filter(Boolean).join(' and ');
@@ -160,7 +162,7 @@ function TodayRow({ row, onUntick, onUndo }: { row: ShownRow; onUntick: (item: W
 }
 
 function AddColumn({ listKey, lists, todayKey, refreshKey }: { listKey: string; lists: TaskList[]; todayKey: string; refreshKey: number }) {
-  const list = useCallback((raw: Task[]) => [...addRows(raw, listKey || undefined, lists), ...repeatingNotToday(raw, todayKey)], [listKey, lists, todayKey]);
+  const list = useCallback((raw: Task[]) => [...planListItems(raw, listKey || undefined, lists), ...planRepeatingItems(raw, todayKey)], [listKey, lists, todayKey]);
   // On today's list handles Ctrl+Z for the screen.
   const { rows, act, undoRow } = useWrapRows(list, refreshKey, false);
   const add = (item: WrapItem) => void act(item, 'addToday' as WrapChoice, () => addToday(item, todayKey));

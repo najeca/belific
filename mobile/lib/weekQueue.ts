@@ -3,7 +3,7 @@
 // siblings; see weekQueue.test.ts. The days and the rule that a day takes a task only from today on are the desktop's
 // (planEntry.weekToPlan, planDay.dayOpen); the writes are wrapActions.ts, put together in weekPhoneActions.ts.
 import type { Task, TaskList } from './types.ts';
-import { earlierItems, type WrapItem } from './wrapUp.ts';
+import { dayItems, earlierItems, type WrapItem } from './wrapUp.ts';
 import { addRows, dayOpen, dayTotalText } from './planDay.ts';
 import { liveLists } from './lists.ts';
 import { WEEKDAYS, parseDateKey } from './kanban.ts';
@@ -13,6 +13,13 @@ export interface WeekStep {
   item: WrapItem;
   source: WeekSource;
 }
+
+// D6 of PLAN_desktop_parity (3.68.0): which tasks Plan week shows, for both apps. The phone asks them one at a time
+// (weekQueue); the desktop's one screen shows a list's tasks with no Day beside the week's days.
+export const weekListItems = (raw: Task[], listKey: string | undefined, lists: TaskList[]): WrapItem[] => addRows(raw, listKey, lists);
+export const weekEarlierItems = (raw: Task[], todayKey: string): WrapItem[] => earlierItems(raw, todayKey);
+// One day's rows of the week (a shift is one).
+export const weekDayItems = (raw: Task[], day: string, todayKey: string, cutMin: number): WrapItem[] => dayItems(raw, day, todayKey, cutMin);
 
 export function weekQueue(raw: Task[], todayKey: string, lists: TaskList[]): WeekStep[] {
   const seen = new Set<string>();
@@ -25,9 +32,9 @@ export function weekQueue(raw: Task[], todayKey: string, lists: TaskList[]): Wee
       out.push({ item, source });
     }
   };
-  add(earlierItems(raw, todayKey), 'earlier');
-  add(addRows(raw, undefined, lists), 'list');
-  for (const l of liveLists(lists)) add(addRows(raw, l.key, lists), 'list');
+  add(weekEarlierItems(raw, todayKey), 'earlier');
+  add(weekListItems(raw, undefined, lists), 'list');
+  for (const l of liveLists(lists)) add(weekListItems(raw, l.key, lists), 'list');
   return out;
 }
 

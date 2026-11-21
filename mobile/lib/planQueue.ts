@@ -5,7 +5,7 @@
 // A task already timed on today is not asked about; no task is asked twice.
 import type { Task, TaskList } from './types.ts';
 import { dayItems, earlierItems, type WrapItem } from './wrapUp.ts';
-import { addRows } from './planDay.ts';
+import { addRows, repeatingNotToday } from './planDay.ts';
 import { liveLists } from './lists.ts';
 
 export type PlanSource = 'today' | 'earlier' | 'list';
@@ -15,6 +15,16 @@ export interface PlanStep {
 }
 
 export type PlanAnswer = 'today' | 'tomorrow' | 'time' | 'notToday';
+
+// D6 of PLAN_desktop_parity (3.68.0): which tasks Plan my day shows, for both apps. The phone asks them one at a time
+// (planQueue); the desktop's one screen shows the same sets in columns (On today, Add to today per list, Earlier).
+// `dayKey` is the day planned, `todayKey` the real today (the desktop fixes the day when the screen opens).
+export const planTodayItems = (raw: Task[], dayKey: string, todayKey: string, cutMin: number): WrapItem[] => dayItems(raw, dayKey, todayKey, cutMin);
+export const planEarlierItems = (raw: Task[], todayKey: string): WrapItem[] => earlierItems(raw, todayKey);
+// One list's tasks with no Day (undefined: Brain Dump), a part offered with its parent only.
+export const planListItems = (raw: Task[], listKey: string | undefined, lists: TaskList[]): WrapItem[] => addRows(raw, listKey, lists);
+// Desktop only: the repeating tasks whose next day is not today (the phone does not offer them).
+export const planRepeatingItems = (raw: Task[], todayKey: string): WrapItem[] => repeatingNotToday(raw, todayKey);
 
 export function planQueue(raw: Task[], todayKey: string, lists: TaskList[], cutMin: number): PlanStep[] {
   const seen = new Set<string>();
@@ -28,12 +38,12 @@ export function planQueue(raw: Task[], todayKey: string, lists: TaskList[], cutM
     }
   };
   add(
-    dayItems(raw, todayKey, todayKey, cutMin).filter((i) => !i.done && !i.row && !i.task.startTime && !i.inside),
+    planTodayItems(raw, todayKey, todayKey, cutMin).filter((i) => !i.done && !i.row && !i.task.startTime && !i.inside),
     'today',
   );
-  add(earlierItems(raw, todayKey), 'earlier');
-  add(addRows(raw, undefined, lists), 'list');
-  for (const l of liveLists(lists)) add(addRows(raw, l.key, lists), 'list');
+  add(planEarlierItems(raw, todayKey), 'earlier');
+  add(planListItems(raw, undefined, lists), 'list');
+  for (const l of liveLists(lists)) add(planListItems(raw, l.key, lists), 'list');
   return out;
 }
 

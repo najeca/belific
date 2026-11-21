@@ -10,7 +10,8 @@ import { isEditableTarget } from '../../lib/editable';
 import { loadTasksRaw } from '../../lib/storage';
 import { stack, type UndoEntry } from '../../lib/undoStack';
 import { undoEntry } from '../../lib/undoActions';
-import { buttonsFor, choiceText, dayItems, partsButton, partsCaption, stepsButton, tomorrowText, type WrapChoice, type WrapItem } from '../../lib/wrapUp';
+import { wrapDayItems } from '../../lib/wrapQueue';
+import { buttonsFor, choiceText, partsButton, partsCaption, stepsButton, tomorrowText, type WrapChoice, type WrapItem } from '../../lib/wrapUp';
 import { wrapLetGo, wrapMove, wrapParts, wrapSteps, wrapTick, wrapToList } from '../../lib/wrapActions';
 import type { Task } from '../../lib/types';
 import { useCutMin } from './cutStore';
@@ -233,7 +234,8 @@ export default function WrapUp({ refreshKey }: { refreshKey: number }) {
   // The day Wrap up is about, fixed when it opens (left open past midnight, it still wraps up that day).
   const todayKey = useRef(dateKey(new Date())).current;
   const tomorrow = tomorrowOf(todayKey);
-  const list = useCallback((raw: Task[]) => dayItems(raw, todayKey, dateKey(new Date()), cutMin), [todayKey, cutMin]);
+  // D6 (3.68.0): what is shown is lib/wrapQueue.ts, the phone's Wrap up rules.
+  const list = useCallback((raw: Task[]) => wrapDayItems(raw, todayKey, dateKey(new Date()), cutMin), [todayKey, cutMin]);
   const { raw, rows, act, undoRow } = useWrapRows(list, refreshKey);
   const day = parseDateKey(todayKey).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
   const onTick = (item: WrapItem) => void act(item, null, () => wrapTick(item));

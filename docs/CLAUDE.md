@@ -30,8 +30,7 @@ older artifact and shares no code or data with `mobile/`.
   Settings and Tasks are pushed screens (Focus/Pomodoro was removed in 2.1.0)
 - No WebView, no `react-native-webview` dependency
 - expo-notifications for local notifications only (see Notifications
-  below) — expo-font manually linked (autolinking skips it, see
-  `docs/IOS_BUILD_NOTES.md`)
+  below) — expo-font manually linked (autolinking skips it)
 - EAS Build — iOS bundle ID `com.najeca.belific`; Android package is
   still `com.belific.app` (these were never reconciled — flag this to
   Jethro if it becomes relevant, don't silently "fix" it)

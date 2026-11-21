@@ -1069,3 +1069,8 @@ Gates: tsc clean; the full regression follows this entry.
 - Now marker text -> accentText (light 4.5:1+). Plan my day: Not today on a never-started series refuses with a note (planGuard.ts, phone path only; planSkip untouched). Delete label in the label sheet through the shared deleteLabel, with a confirm.
 - Trash chip icon: report only. Ionicons trash-outline in textPrimary; no emoji character for it in the phone code.
 - A phone-only Skip on a never-started series can still be done from its card (shared logic, unchanged).
+
+## 3.65.0 Wrap up and Plan week on the phone (parity phase 9)
+- Plan button follows `planFlowAt`; a chevron lists all three. FlowScreen (one task at a time, Undo, summary) over wrapQueue and weekQueue; writes are the desktop's wrapActions. Phone only, no database change.
+- Choices: Plan week asks only tasks with no Day plus last week's (a task already on a day moves from its own card); Not now leaves a task as it is; Wrap up skips quick reminders and the rows inside a shift.
+- Check by hand: after 14:00 the button says Wrap up; Sunday 16:00 and Monday morning it says Plan week; each answer, Undo and the summary on a real iPhone; Larger Text.

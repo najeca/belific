@@ -425,3 +425,5 @@ for Inter 800.
 
 **Built (2026-11-20):** phase 8, the look and clean up, as 3.63.0 (no red, sample events off, Inter 800 titles, accent bands, slab Settings, radius 10, filled tab). The routine conversion offer on Today (item 10) is still open.
 **Built (2026-11-20):** phase 10 (item 9), the Calendar day grid draws shifts as shells, as 3.64.0.
+
+**Built (2026-11-21):** phase 9, Wrap up and Plan week on the phone, as 3.65.0.

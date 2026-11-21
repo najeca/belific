@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.65.0 — 2026-11-21 (Phone: Wrap up and Plan week)
+Phone only; the desktop does not change. No database change, no native change. PLAN_phone_parity phase 9.
+- **The Plan button on Today** opens the flow that fits the time, by the desktop's own rule (`planFlowAt`): Plan my day from 04:00 to 13:59, Wrap up from 14:00, Plan week on Sunday from 16:00 and on Monday from 04:00 to 13:59. A chevron beside it lists all three, the one the button opens first.
+- **Wrap up** (`PlanFlows.tsx`, `lib/wrapQueue.ts`): today's open tasks, one at a time, "How did this go?": Done, Tomorrow, Back to its list, Let go (to the Trash), and "Only the N steps (smaller tasks) left to tomorrow" when some are ticked. A repeating day offers only Done and Let go for today (it skips that day only). A shift is one task; the line under the title says what tomorrow holds so far.
+- **Plan week** (`lib/weekQueue.ts`): the tasks left from last week first, then Brain Dump, then each list, one at a time, "Which day?": a button for each day of the week from today on (on Sunday from 16:00 the week is next week), and Not now. A task from a list gets the day with no time; one from last week keeps its time. A line at the top shows each day's planned total.
+- Both are the same style as Plan my day (`FlowScreen.tsx`): each answer is stored at once with the desktop's writes (`wrapActions.ts` through `lib/flowActions.ts`), an Undo bar for the last answer, and a summary with an Undo per row. Closing keeps what was answered.
+- Not on the phone: dragging between day columns, a task already on a day moved to another in Plan week (use its card).
+Tests: wrapQueue.test.ts (5), weekQueue.test.ts (4); easConfig (version); real new phone-p33 (31 checks); phone-p29, phone-p30 and phone-p32 open Plan my day through the chevron now (the button follows the time).
+
 ## 3.64.1 — 2026-11-20 (Phone: fix pack)
 Phone only; the desktop does not change. No database change, no native change.
 - **Today "Now" marker:** its text uses the accent text colour (`accentText`), so it is at least 4.5:1 in light mode. Same look otherwise.

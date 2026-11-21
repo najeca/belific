@@ -1078,3 +1078,7 @@ Gates: tsc clean; the full regression follows this entry.
 ## privacy.html and terms.html (2026-11-21), no app change, not copied to main
 - Both now say Google and Apple sign in work on the iPhone and on Windows (the iPhone's Google sign in runs in an in app sheet), add a request line for deleting or exporting data (privacy section 6, privacy section 9, terms section 7), and have `[EDIT THIS LINE: contact email]` where the contact address goes (the GitHub issues link is gone). Jethro must replace that line, then copy the two files to main.
 - Flagged, not changed: terms sections 4 (No Warranties) and 5 (Limitation of Liability) are old legal wording nobody has reviewed as law. The effective date (8 October 2026) was not changed; a changed page normally gets a new one. The delete account sentence still says the Belific account is removed from the server, but the delete-account function is not deployed and the shared login cannot be deleted.
+
+## Full regression on 3.65.1 (2026-11-21)
+- Quiet Electron set: 88 checks, 2418 passes, 0 failures, nothing rerun. Gates green (tsc, mobile 1312, desktop 118, iOS export, security).
+- Pointer-only checks (26) NOT run; ready for the user to run with the mouse cleared.

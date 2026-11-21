@@ -17,23 +17,20 @@ import {
   loadRoutineCompletions,
   loadRoutines,
   loadTasksRaw,
-  loadUserSetting,
-  loadUserSettingsRaw,
-  deleteUserSetting,
-  setUserSetting,
   updateTask,
 } from '../../lib/storage';
 import { addDays, dateKey, parseDateKey } from '../../lib/kanban';
 import { movedCaption, movedFrom } from '../../lib/series';
-import { duringCaption, hostIndex, insidePill } from '../../lib/hosting';
-import { buildToday, itemTitle, type TodayItem } from '../../lib/todayView';
+import { duringCaption, insidePill } from '../../lib/hosting';
+import { itemTitle, type TodayItem } from '../../lib/todayView';
+import { todayModel } from '../../lib/todayModel';
+import { loadTodaySettings, saveAnytimeOrder } from '../../lib/todayModelActions';
 import { formatDuration } from '../../lib/duration';
 import { labelColor, tintFor } from '../../lib/labelColors';
-import { hhmm, nowCard, type NowCardItem } from '../../lib/nowCard';
-import { bubbleHeight, nowMarker, type TimelineSpan } from '../../lib/todayTimeline';
-import { applyOrder, dropIndex, moveKey, orderKey, parseOrder, staleOrderKeys } from '../../lib/anytimeOrder';
+import { hhmm } from '../../lib/nowCard';
+import { bubbleHeight, nowMarker } from '../../lib/todayTimeline';
+import { dropIndex, moveKey } from '../../lib/anytimeOrder';
 import { AnytimeCard } from '../../components/phone/AnytimeCard';
-import { labelHours, HOURS_COUNT_PREFIX } from '../../lib/labelHours';
 import { HoursStrip } from '../../components/phone/HoursStrip';
 import { isQuickReminder } from '../../lib/quickReminder';
 import { NowCard, type NowLabel } from '../../components/phone/NowCard';
@@ -41,7 +38,7 @@ import { BRAIN_DUMP_EMOJI } from '../../lib/emoji';
 import { BRAIN_DUMP_NAME, liveLists } from '../../lib/lists';
 import { counter } from '../../lib/subtasks';
 import { deleteOne, deleteRepeating, duplicate, loadCutMin, moveToList, skipDay, tickRoutine, tickTask, toggleSubtask } from '../../lib/phoneActions';
-import { shiftsOfDay, type ShiftRow } from '../../lib/shifts';
+import { type ShiftRow } from '../../lib/shifts';
 import { tickRow } from '../../lib/shiftActions';
 import { ShiftRows } from '../../components/phone/ShiftRows';
 import { AddInside, type InsideTarget } from '../../components/phone/AddInside';
@@ -211,12 +208,10 @@ export default function TodayScreen() {
     setRoutinesDone(new Set(comps.filter((x) => x.date === key).map((x) => x.routineId)));
     setProjects(ps);
     setLists(ls);
-    setOrder(parseOrder(await loadUserSetting(orderKey(key))));
-    // Order rows of days long gone are deleted (they sync like any setting).
-    const settings = (await loadUserSettingsRaw()).filter((x) => !x.deletedAt);
-    setHoursStored(new Map(settings.filter((x) => x.key.startsWith(HOURS_COUNT_PREFIX)).map((x) => [x.key.slice(HOURS_COUNT_PREFIX.length), x.value])));
-    const stale = staleOrderKeys(settings.map((x) => x.key), key);
-    for (const k of stale) await deleteUserSetting(k);
+    // D1 (3.66.0): the order row, the hours switches, and old order rows deleted: lib/todayModelActions.ts.
+    const stored = await loadTodaySettings(key);
+    setOrder(stored.order);
+    setHoursStored(stored.hoursStored);
   }, []);
 
   useFocusEffect(
@@ -237,53 +232,14 @@ export default function TodayScreen() {
     return () => sub.remove();
   }, [load, todayKey]);
 
-  const full = useMemo(() => buildToday({ tasks, todayKey, nowMin, events, routines, routinesDone }), [tasks, todayKey, nowMin, events, routines, routinesDone]);
-  // S5: a block inside a shift is a row of the shift's card, not a row of its own (D2); the day's total counts the shift once.
-  const ownTasks = useMemo(() => {
-    const seen = new Map<string, Task>();
-    for (const i of [...full.timed, ...full.anytime, ...full.done]) if (i.kind === 'task' && !seen.has(i.task.id)) seen.set(i.task.id, i.task);
-    return [...seen.values()];
-  }, [full]);
-  const shifts = useMemo(() => shiftsOfDay(tasks, todayKey, todayKey, cutMin, new Set(ownTasks.map((t) => t.id))), [tasks, todayKey, cutMin, ownTasks]);
-  const view = useMemo(() => {
-    const keep = (i: TodayItem) => i.kind !== 'task' || !shifts.hidden.has(i.task.id);
-    return { ...full, timed: full.timed.filter(keep), anytime: full.anytime.filter(keep), done: full.done.filter(keep) };
-  }, [full, shifts]);
-  // 3.60.0: the hours strip: today's tasks done and planned, per label (lib/labelHours.ts).
-  const hours = useMemo(() => labelHours({ tasks: ownTasks.filter((t) => t.dueDate === todayKey), labels: projects, stored: hoursStored, cutMin }), [ownTasks, todayKey, projects, hoursStored, cutMin]);
-  const hosts = useMemo(() => hostIndex(tasks, [todayKey], todayKey), [tasks, todayKey]);
-  const live = liveLists(lists);
-  // 3.60.0: the Now card reads every timed item of today (a ticked one is left out by nowCard itself).
-  const timedAll = useMemo(() => [...view.timed, ...view.done.filter((i) => i.kind !== 'routine' && i.startMin !== undefined)], [view]);
-  const now = useMemo(() => {
-    const items: NowCardItem[] = [];
-    for (const i of timedAll) {
-      if (i.kind === 'routine' || i.startMin === undefined) continue;
-      const t = i.kind === 'task' ? i.task : null;
-      items.push({ key: i.key, title: itemTitle(i), startMin: i.startMin, endMin: i.endMin ?? i.startMin, reminder: !!t && isQuickReminder(t), free: !!t?.cutsBelow, done: i.kind === 'task' && i.done });
-    }
-    return nowCard(items, nowMin);
-  }, [timedAll, nowMin]);
-  const nowItem = now.now ? timedAll.find((i) => i.key === now.now?.key) : undefined;
-  // 3.60.0: the timeline is every timed item of today in time order, ticked ones kept (struck through).
-  const timeline = useMemo(
-    () =>
-      timedAll
-        .filter((i) => i.kind !== 'routine' && i.startMin !== undefined)
-        .sort((a, b) => (a.kind === 'routine' || b.kind === 'routine' ? 0 : (a.startMin ?? 0) - (b.startMin ?? 0)) || itemTitle(a).localeCompare(itemTitle(b)))
-        .map((item) => {
-          const t = item.kind === 'task' ? item.task : null;
-          const startMin = item.kind === 'routine' ? 0 : (item.startMin ?? 0);
-          const span: TimelineSpan = { key: item.key, startMin, endMin: item.kind === 'routine' ? 0 : (item.endMin ?? startMin), reminder: !!t && isQuickReminder(t), free: !!t?.cutsBelow, done: item.kind === 'task' && item.done };
-          return { item, span };
-        }),
-    [timedAll],
+  // D1 (3.66.0): what Today shows (shift rows left out, the Now card, the timeline order, Anytime in its stored order,
+  // the hours strip) is lib/todayModel.ts, shared with the desktop Today view.
+  const model = useMemo(
+    () => todayModel({ tasks, todayKey, nowMin, cutMin, events, routines, routinesDone, order, labels: projects, hoursStored }),
+    [tasks, todayKey, nowMin, cutMin, events, routines, routinesDone, order, projects, hoursStored],
   );
-  const doneUntimed = view.done.filter((i) => i.kind === 'routine' || i.startMin === undefined);
-  const anytime = useMemo(() => {
-    const byKey = new Map(view.anytime.map((i) => [i.key, i]));
-    return applyOrder(view.anytime.map((i) => i.key), order).map((k) => byKey.get(k) as TodayItem);
-  }, [view, order]);
+  const { view, shifts, hours, hosts, now, nowItem, timeline, doneUntimed, anytime } = model;
+  const live = liveLists(lists);
 
   async function tick(item: TodayItem, done: boolean, withUndo = true) {
     if (item.kind === 'event') return;
@@ -631,7 +587,7 @@ export default function TodayScreen() {
     const next = moveKey(keys, from, to);
     setOrder(next);
     haptic('light');
-    void setUserSetting(orderKey(todayKey), JSON.stringify(next));
+    void saveAnytimeOrder(todayKey, next);
   }
   function dropAt(from: number, dy: number) {
     const keys = anytime.map((i) => i.key);

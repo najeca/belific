@@ -15,15 +15,14 @@ import { DURATION_PRESETS, presetLabel } from '../../lib/duration';
 import { LABEL_COLORS, colorClash, labelColor, nextColorKey } from '../../lib/labelColors';
 import { createLabel, loadLabels } from '../../lib/labels';
 import { LIST_PRESETS, PRESET_HINT, availableLabelPresets } from '../../lib/presets';
-import { KEEP_AS_TEXT, parseQuick, previewText, quickFields } from '../../lib/quickParse';
+import { KEEP_AS_TEXT, previewText } from '../../lib/quickParse';
 import { createListState, liveLists, takenEmojis } from '../../lib/lists';
 import { createList } from '../../lib/taskCommands';
-import { opsForTask } from '../../lib/taskOps';
-import { addTask, loadListsRaw, loadTasksRaw } from '../../lib/storage';
+import { loadListsRaw, loadTasksRaw } from '../../lib/storage';
+import { stepDraft, stepPatch, stepPhrase, stepStore } from '../../lib/stepAddActions';
 import { ADD_PART, PARTS, PARTS_HINT, canHaveParts, partsFor } from '../../lib/parts';
 import { addPart } from '../../lib/partActions';
 import { datePatch, durationPatch, labelPatch, listPatch, notesPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
-import { breakRefusal } from '../../lib/hostActions';
 import { STEP_QUESTION, STEPS, answeredBy, closedNote, nextStep, prevStep, stepLabel, type Step } from '../../lib/stepFlow';
 import type { Project, Task, TaskList } from '../../lib/types';
 import { useStyles, useTheme } from './theme';
@@ -33,7 +32,6 @@ import { TimeField } from './TimeField';
 import { inter, newsreader, type } from './type';
 import { LabelDot, RoundCheck } from './ui';
 import { EmojiPick } from './EmojiPick';
-import { newTaskTarget } from './newTask';
 
 // Where the + was pressed: a list to fill in at once (the Tasks tab), and a day to suggest on screen 2 (Today: today; the
 // Calendar: the day shown). Nothing is written for the suggestion until it is tapped.
@@ -156,22 +154,21 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
     const t = taskRef.current;
     if (!t || !fields || Object.keys(fields).length === 0) return true;
     // A day, a time or a length that would leave the task sticking out of a break is refused, as in the details (3.11.0).
-    const refused = await breakRefusal(t, fields, 'details');
-    if (refused) {
-      setWarn(refused);
+    // D1 (3.66.0): the write is lib/stepAddActions.ts, shared with the desktop.
+    const res = await stepPatch(t, fields);
+    if ('refused' in res) {
+      setWarn(res.refused);
       return false;
     }
     setWarn(null);
-    await opsForTask(t).patch(fields);
-    const stored = (await loadTasksRaw()).find((x) => x.id === t.id && !x.deletedAt);
-    keep(stored ?? { ...t, ...fields });
+    keep(res.task);
     onChanged();
     return true;
   }
 
   // Screen 1: the desktop's phrase reader ("Dentist tomorrow 3pm 30m") shows what it understood as chips; Next stores it.
   const now = new Date();
-  const phrase = !task && !plain && text.trim() ? parseQuick(text, now) : null;
+  const phrase = !task ? stepPhrase(text, plain, now) : null;
   const understood = phrase && phrase.found ? previewText(phrase, now).split(' · ').filter(Boolean) : [];
 
   // Stores the task once (screen 1's Next, or closing with words typed); back on screen 1 later, it renames it.
@@ -181,23 +178,18 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
       await patch(titlePatch(t, text));
       return taskRef.current;
     }
-    const usePhrase = !!(phrase && phrase.found && phrase.title.trim());
-    const title = (usePhrase && phrase ? phrase.title : text).trim().replace(/\s+/g, ' ');
-    if (!title) return null;
-    const fields = usePhrase && phrase ? quickFields(phrase, now) : {};
-    const base = newTaskTarget({ listKey: target?.listKey, label: '' }).task;
-    const next: Task = { ...base, title, ...fields };
-    if (next.startTime) {
-      const refused = await breakRefusal(null, { dueDate: next.dueDate, startTime: next.startTime, durationMinutes: next.durationMinutes }, 'drop');
-      if (refused) {
-        setWarn(refused);
-        return null;
-      }
+    // D1 (3.66.0): what is stored is lib/stepAddActions.ts, shared with the desktop.
+    const draft = stepDraft(text, phrase, target?.listKey, now);
+    if (!draft) return null;
+    const { fields } = draft;
+    const title = draft.task.title;
+    const res = await stepStore(draft.task);
+    if ('refused' in res) {
+      setWarn(res.refused);
+      return null;
     }
     setWarn(null);
-    const stamp = new Date().toISOString();
-    const made = { ...next, createdAt: stamp, updatedAt: stamp };
-    await addTask(made);
+    const made = res.task;
     keep(made);
     setText(title);
     setAnswered(answeredBy(fields));

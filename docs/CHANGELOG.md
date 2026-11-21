@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.66.0 — 2026-11-21 (shared Today, add, Repeats and card rules; PLAN_desktop_parity D1)
+No behaviour change on either app; no database change. The phone screens now read rules that live in shared files, so the desktop (D3 onward) uses the same ones:
+- **`lib/todayModel.ts`** (pure): what Today shows, moved unchanged from `app/(tabs)/today.tsx`: rows inside a shift left out, the Now card items, the timeline order (time, then title, ticked kept), Anytime in its stored order, the done split, the hours strip. `todaySettings` reads the hours switches and finds order rows older than 14 days.
+- **`lib/todayModelActions.ts`**: loads the day's order row and switches and deletes stale order rows; `saveAnytimeOrder` writes `today.order.<day>`.
+- **`lib/stepAddActions.ts`**: what the step by step add flow stores (`stepDraft`, `stepStore`, `stepPatch`, `stepPhrase`), moved from `components/phone/StepAdd.tsx`.
+- **`lib/repeatGroups.ts`** (pure): a Repeats row's words with Until and its emoji, moved from `app/(tabs)/tasks.tsx` (the grouping was already shared in `lib/quests.ts`).
+- **`lib/cardActions.ts`** (pure): the press and hold card's actions, their words and order, and the delete question, moved from `components/phone/HoldCard.tsx`.
+- Tests: `todayModel.test.ts` (7), `cardActions.test.ts` (2), `repeatGroups.test.ts` (1). Every existing test passes unchanged.
+
 ## 3.65.1 — 2026-11-21 (Windows: Electron 44.11.5)
 Desktop packaging only; no app behaviour, no phone change, no database change.
 - Electron 44.5.1 to **44.11.5**, the latest 44.x (the same major). The high advisory (GHSA-jr5w-w6x2-84p9, "compromised eMudhra intermediate certificates", affects 44.0.0 to 44.9.0) is fixed from 44.9.1. Pinned exactly in `desktop/package.json`; `npm audit fix` was not run.

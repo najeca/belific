@@ -1088,3 +1088,9 @@ Gates: tsc clean; the full regression follows this entry.
 - INTERIM wording: deletion and export are by email, because the in-app Delete account function is not deployed. Change it back when the function is deployed.
 - Other contact lines (code, not changed): SettingsPage.tsx ISSUES_URL (GitHub issues, "Report an issue"), desktop/src/externalLinks.js issue tracker allowlist, README.md has no contact line and an old YOUR_USERNAME Pages placeholder.
 - Terms sections 4 and 5 untouched.
+
+## 3.66.0 D1 of PLAN_desktop_parity: phone screen rules moved to shared (2026-11-21)
+- New shared: lib/todayModel.ts, lib/todayModelActions.ts, lib/stepAddActions.ts, lib/repeatGroups.ts, lib/cardActions.ts. The phone's today.tsx, StepAdd.tsx, tasks.tsx and HoldCard.tsx read them. No behaviour change.
+- Choice: the Repeats grouping was already shared (quests.ts), so only the row words and emoji moved. HoldCard keeps exporting SKIP_TODAY_NOTE and DELETE_ASK (re exported) so nothing that imports them changes.
+- Tests: mobile 1322/1322 (10 new), desktop 118/118, phone real checks unchanged and passing: phone-p3 15, p4 26, p11 51, p12 19, p23 16, p25 38, p26 57, p27 55, p28 22.
+- Check by hand: nothing new; the phone should look and act exactly as 3.65.1.

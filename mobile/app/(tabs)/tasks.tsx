@@ -14,7 +14,7 @@ import { createList, createTaskIn } from '../../lib/taskCommands';
 import { LIST_PRESETS } from '../../lib/presets';
 import { listCounts, liveLists, tasksInList } from '../../lib/lists';
 import { rowId, splitThoughts, type ThoughtRow } from '../../lib/thoughts';
-import { buildQuests, canPlanToday, questsBySection, streakText, QUEST_SECTIONS, type Quest } from '../../lib/quests';
+import { buildQuests, canPlanToday, questsBySection, streakText, type Quest } from '../../lib/quests';
 import { completeQuest, planQuestToday, reopenQuest, skipQuest } from '../../lib/questActions';
 import { labelColor } from '../../lib/labelColors';
 import { counter } from '../../lib/subtasks';
@@ -36,7 +36,7 @@ import { PressRow, SwipeRow, haptic } from '../../components/phone/touch';
 import { Slab } from '../../components/phone/Slab';
 import { LabelSheet } from '../../components/phone/LabelSheet';
 import { SearchScreen, TrashScreen } from '../../components/phone/TasksOverlays';
-import { repeatWords } from '../../lib/repeatWords';
+import { questEmoji, questWords } from '../../lib/repeatGroups';
 import { REPEAT_FOLDS_KEY, parseFolds, toggleFold } from '../../lib/repeatFolds';
 import { kv } from '../../lib/kv';
 import { PartRows } from '../../components/phone/PartRows';
@@ -406,10 +406,9 @@ export default function TasksTab() {
     const isDone = q.due.kind === 'done';
     const target = q.target;
     const streak = showStreaks ? streakText(q) : null;
-    // 3.61.0: the pattern in words, with "Until 17 Dec" when it ends.
-    const template = q.rows.find((r) => r.recurrence && !r.deletedAt) ?? q.target?.task;
-    const words = (template ? repeatWords(template, todayKey) : undefined) ?? q.repeat;
-    const emoji = q.emoji ?? QUEST_SECTIONS.find((x) => x.key === q.section)?.emoji ?? '🔁';
+    // 3.61.0: the pattern in words, with "Until 17 Dec" when it ends (D1, 3.66.0: lib/repeatGroups.ts, shared).
+    const words = questWords(q, todayKey);
+    const emoji = questEmoji(q);
     const act = (fn: () => Promise<unknown>) => () => {
       fn().then(load);
     };

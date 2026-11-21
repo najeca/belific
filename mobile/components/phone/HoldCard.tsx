@@ -12,14 +12,15 @@ import { useStyles, useTheme } from './theme';
 import { useReducedMotion, useSettled } from './touch';
 import { inter, type } from './type';
 import { LabelDot } from './ui';
+import { DELETE_ASK, DELETE_CHOICES, SKIP_TODAY_NOTE, cardActions, deleteAsks, skipNote, type CardActionId, type CardDeleteId } from '../../lib/cardActions';
 
 // Phase 5 of PLAN_phone_parity (item 3): what a press and hold on a task opens. The screen dims and a card in the middle
 // shows the task larger (label, title, day and time, length, list, repeat), with large buttons under it: Done, Edit,
 // Skip today (repeating tasks, with a plain line saying what it does), Move, Delete and More. Delete is plain dark text
 // with its word, never red; on a repeating task it asks "Only today, or every day?" on this same card. A tap on the dim
 // area closes it. Text 14 px or more, buttons 48 pt high.
-export const SKIP_TODAY_NOTE = 'Not today. It still repeats next time.';
-export const DELETE_ASK = 'Only today, or every day?';
+// D1 (3.66.0): which buttons, their words and order are lib/cardActions.ts, shared with the desktop's right click menu.
+export { SKIP_TODAY_NOTE, DELETE_ASK };
 
 export interface HoldActions {
   completed: boolean;
@@ -71,6 +72,8 @@ export function HoldCard({ task, projected, labels, lists, todayKey, actions, on
   const length = task.durationMinutes ? formatDuration(task.durationMinutes) : undefined;
   const repeats = task.recurrence ? repeatLine(task, todayKey) : undefined;
   const repeating = !!task.recurrence;
+  const onAction: Record<Exclude<CardActionId, 'delete'>, () => void> = { done: actions.done, edit: actions.edit, skip: actions.skip, move: actions.move, more: actions.more };
+  const onDelete: Record<CardDeleteId, () => void> = { 'delete-today': actions.deleteOne, 'delete-all': actions.deleteSeries };
   // Each choice closes the card first, then acts (the same order as the menu it replaces).
   const choose = (run: () => void) => () => {
     if (!settled()) return;
@@ -105,21 +108,19 @@ export function HoldCard({ task, projected, labels, lists, todayKey, actions, on
             <View style={{ gap: 10 }} {...({ dataSet: { holdAsk: '1' } } as object)}>
               <Text style={[s.meta, { color: c.textPrimary }]}>{DELETE_ASK}</Text>
               <View style={s.grid}>
-                <Btn id="delete-today" text="Only today" onPress={choose(actions.deleteOne)} />
-                <Btn id="delete-all" text="Every day" onPress={choose(actions.deleteSeries)} />
+                {DELETE_CHOICES.map((b) => (
+                  <Btn key={b.id} id={b.id} text={b.label} onPress={choose(onDelete[b.id])} />
+                ))}
               </View>
             </View>
           ) : (
             <View style={{ gap: 10 }}>
               <View style={s.grid}>
-                <Btn id="done" primary text={actions.completed ? 'Not done' : 'Done'} onPress={choose(actions.done)} />
-                <Btn id="edit" text="Edit" onPress={choose(actions.edit)} />
-                {repeating ? <Btn id="skip" text="Skip today" onPress={choose(actions.skip)} /> : null}
-                <Btn id="move" text="Move" onPress={choose(actions.move)} />
-                <Btn id="delete" text="Delete" onPress={() => (repeating ? settled() && setAsking(true) : choose(actions.deleteOne)())} />
-                <Btn id="more" text="More" onPress={choose(actions.more)} />
+                {cardActions(task, actions.completed).map((b) => (
+                  <Btn key={b.id} id={b.id} primary={b.primary} text={b.label} onPress={b.id === 'delete' ? () => (deleteAsks(task) ? settled() && setAsking(true) : choose(actions.deleteOne)()) : choose(onAction[b.id])} />
+                ))}
               </View>
-              {repeating ? <Text style={s.note} {...({ dataSet: { holdSkipNote: '1' } } as object)}>{`Skip today: ${SKIP_TODAY_NOTE.charAt(0).toLowerCase()}${SKIP_TODAY_NOTE.slice(1)}`}</Text> : null}
+              {repeating ? <Text style={s.note} {...({ dataSet: { holdSkipNote: '1' } } as object)}>{skipNote()}</Text> : null}
             </View>
           )}
           <Pressable style={s.cancel} onPress={() => settled() && onClose()} accessibilityRole="button" accessibilityLabel="Cancel">

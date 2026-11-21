@@ -15,7 +15,7 @@ disable_model_invocation: true
 
 2. For every FAIL line, classify it:
    - **New finding** (introduced this session): fix it before proceeding.
-   - **Acknowledged finding** (already in `docs/current-state-audit.md` under Security Issues): report but do not block.
+   - **Acknowledged finding** (already listed as accepted in `docs/PROJECT_HANDOVER.md` or `docs/CURRENT_TRUTH.md`): report but do not block.
 
 3. Report a clear verdict: **PASS**, **PASS (acknowledged findings only)**, or **FAIL (new findings — do not commit)**.
 

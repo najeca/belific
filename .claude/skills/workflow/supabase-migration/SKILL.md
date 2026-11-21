@@ -13,7 +13,7 @@ description: Generate and apply a Supabase migration for the Landis database. Va
 4. Call `mcp__claude_ai_Supabase__apply_migration` with the approved SQL.
 5. Call `mcp__claude_ai_Supabase__generate_typescript_types` — save output to `packages/types/supabase.ts`.
 6. Run `/security-review` to confirm no RLS gaps were introduced.
-7. Update `docs/current-state-audit.md` with the schema change.
+7. Record the schema change in `docs/CURRENT_TRUTH.md` and `mobile/supabase/belific_schema/README.md`, then run the belific-handover skill.
 
 ## RLS Rules (mandatory on every new table)
 

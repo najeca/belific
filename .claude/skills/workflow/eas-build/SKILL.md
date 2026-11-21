@@ -14,7 +14,7 @@ disable_model_invocation: true
 2. Confirm the target profile with the user: `preview` or `production`.
 3. Run `bash .claude/skills/eas-build/scripts/eas-build.sh <profile>`.
 4. Paste the EAS build URL back to the user.
-5. Update `docs/current-state-audit.md` — move "EAS build queued" to the appropriate status.
+5. Record the build in `docs/PROJECT_HANDOVER.md` by running the belific-handover skill.
 
 ## Invariants
 

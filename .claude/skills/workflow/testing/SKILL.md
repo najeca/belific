@@ -43,5 +43,5 @@ Or open the installed build directly on Jethro's iPhone (`00008150-000438D40A924
 If all pass: **TESTING PASSED**
 If any fail: **TESTING FAILED** — list exact failures
 
-### Step 4 — Update audit
-Update `docs/current-state-audit.md` with test results and date.
+### Step 4 — Record the result
+Run the belific-handover skill so `docs/PROJECT_HANDOVER.md` carries the test results and date.

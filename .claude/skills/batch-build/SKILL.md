@@ -19,7 +19,8 @@ The plan file (docs/PLAN.md or the repo's equivalent), the progress file (docs/b
 4. Commit each phase on its own. Put the version bump and changelog entry in the same commit, following the repo's rule. Do not push unless the user says so. Never use destructive git commands.
 5. After each phase, update the progress file with what changed, the choices you made on your own, and what to check by hand.
 6. Before moving on, compare your work with the plan and any reference screenshots. Fix differences, and list the ones that are deliberate.
-7. At the end give one short report: what was built, screenshots for any interface work, the hand test checklist, every choice made on your own, and anything not done or not verified.
+7. Run the belific-handover skill as the final step: regenerate and commit docs/PROJECT_HANDOVER.md before the report.
+8. At the end give one short report: what was built, screenshots for any interface work, the hand test checklist, every choice made on your own, and anything not done or not verified. The last line of the report is: Paste docs/PROJECT_HANDOVER.md into the Belific chat.
 
 ## Rules
 

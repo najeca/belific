@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import PaletteSwitch from './PaletteSwitch';
 import RoutineConvertRow from './RoutineConvertRow';
+import DailyHoursRows from './DailyHoursRows';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../lib/theme';
 import { deleteAccountDesktop, signOutDesktop } from '../../lib/desktopAuth';
@@ -299,6 +300,10 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               <Text style={styles.hint}>
                 A short line under a day's tasks on the Tasks board, like "Free time · 1h 40m". It is off unless you turn it on. The gaps on the Calendar and the Timebox always show your free time.
               </Text>
+            </Section>
+
+            <Section title="Daily hours" icon="time-outline">
+              <DailyHoursRows />
             </Section>
 
             <Section title="Appearance" icon="color-palette-outline">

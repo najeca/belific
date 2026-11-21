@@ -14,6 +14,9 @@ import {
   serializePaneState,
   showCalendar,
   toggleCenter,
+  showCenter,
+  responsiveLayout,
+  timeboxToggle,
   toggleLeft,
   toggleOnlyToday,
   toggleRight,
@@ -162,4 +165,16 @@ test('every launch opens on the Calendar in Week mode, keeping the pane widths',
   const remembered: PaneState = { leftCollapsed: true, rightCollapsed: true, center: 'kanban', calendar: 'month', onlyToday: true };
   assert.deepEqual(launchPaneState(remembered), { leftCollapsed: true, rightCollapsed: true, center: 'calendar', calendar: 'week', onlyToday: false });
   assert.deepEqual(launchPaneState(DEFAULT_PANE_STATE), { ...DEFAULT_PANE_STATE, center: 'calendar', calendar: 'week' });
+});
+
+test('D3: the Today view is a centre view; the Timebox stays beside it; V goes to the Calendar from it', () => {
+  const t: PaneState = { ...DEFAULT_PANE_STATE, center: 'today' };
+  assert.deepEqual(parsePaneState(JSON.stringify(t)), t);
+  assert.equal(responsiveLayout(t, 1440).timeboxAvailable, true);
+  assert.equal(responsiveLayout(t, 1440).timebox, 'docked');
+  assert.equal(responsiveLayout({ ...t, center: 'calendar' }, 1440).timeboxAvailable, false);
+  assert.equal(timeboxToggle(t, 1440, false).state.rightCollapsed, true);
+  assert.equal(toggleCenter(t).center, 'calendar');
+  assert.equal(showCenter(DEFAULT_PANE_STATE, 'today').center, 'today');
+  assert.equal(showCenter(t, 'today'), t);
 });

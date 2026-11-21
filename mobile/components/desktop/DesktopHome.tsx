@@ -52,7 +52,8 @@ import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
 import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, toggleBlade, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
 import { dateKey as todayDateKey } from '../../lib/kanban';
-import { SIDEBAR_DOCK_MIN, SIDEBAR_WIDTH, TIMEBOX_WIDTH, responsiveLayout, showCalendar, sidebarToggle, timeboxToggle, toggleCenter, toggleOnlyToday, type CalendarView } from '../../lib/paneState';
+import { SIDEBAR_DOCK_MIN, SIDEBAR_WIDTH, TIMEBOX_WIDTH, responsiveLayout, showCalendar, showCenter, sidebarToggle, timeboxToggle, toggleCenter, toggleOnlyToday, type CalendarView } from '../../lib/paneState';
+import TodayPane from './TodayPane';
 import { kv } from '../../lib/kv';
 import { isTextEntryTarget } from '../../lib/editable';
 import { dateKey } from '../../lib/kanban';
@@ -268,7 +269,7 @@ export default function DesktopHome() {
   // 3.17.0: the Today button beside the Tasks / Calendar toggle is off while the shown pane already shows today.
   const kanbanAtToday = useAtToday('kanban');
   const calendarAtToday = useAtToday('calendar');
-  const centerAtToday = paneState.center === 'calendar' ? calendarAtToday : kanbanAtToday;
+  const centerAtToday = paneState.center === 'today' ? true : paneState.center === 'calendar' ? calendarAtToday : kanbanAtToday;
   const toggleSidebar = useCallback(() => {
     const r = sidebarToggle(paneState, windowWidth, overlayOpen.sidebar);
     if (r.state !== paneState) updatePanes(() => r.state);
@@ -321,6 +322,7 @@ export default function DesktopHome() {
     toggleLeftPane: toggleSidebar,
     toggleRightPane: toggleTimebox,
     toggleCenter: () => updatePanes(toggleCenter),
+    todayView: () => updatePanes((s) => showCenter(s, 'today')),
     dayView: () => updatePanes((s) => showCalendar(s, 'day')),
     weekView: () => updatePanes((s) => showCalendar(s, 'week')),
     monthView: () => updatePanes((s) => showCalendar(s, 'month')),
@@ -469,14 +471,16 @@ export default function DesktopHome() {
               </Pressable>
             )}
             <View style={styles.seg} accessibilityRole="radiogroup" accessibilityLabel="Centre view">
-              {([['kanban', 'checkbox-outline', 'Tasks', 'Show Tasks'], ['calendar', 'calendar-outline', 'Calendar', 'Show the Calendar']] as const).map(([v, icon, text, label]) => (
+              {/* D3 (3.67.0): Today, the third centre view (the Now card, hours, timeline and Anytime). */}
+              {([['kanban', 'checkbox-outline', 'Tasks', 'Show Tasks'], ['calendar', 'calendar-outline', 'Calendar', 'Show the Calendar'], ['today', 'sunny-outline', 'Today', 'Show the Today view']] as const).map(([v, icon, text, label]) => (
                 <Pressable
                   key={v}
-                  onPress={() => updatePanes((s) => (s.center === v ? s : toggleCenter(s)))}
+                  onPress={() => updatePanes((s) => showCenter(s, v))}
                   style={pressStyle(({ hovered }) => [styles.segBtn, paneState.center === v ? styles.segOn : hovered && styles.segHover])}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: paneState.center === v }}
                   accessibilityLabel={label}
+                  {...({ dataSet: { centerView: v } } as object)}
                 >
                   <View style={styles.segInner}>
                     <Ionicons name={icon} size={17} color={paneState.center === v ? Colors.onAccent : Colors.onHostPill} />
@@ -485,7 +489,8 @@ export default function DesktopHome() {
                 </Pressable>
               ))}
             </View>
-            {/* 3.17.0: Today (jump to today) sits beside the Tasks / Calendar toggle; Only today moved next to Day / Week / Month and Filter. */}
+            {/* 3.17.0: Today (jump to today) sits beside the Tasks / Calendar toggle; Only today moved next to Day / Week / Month and Filter. D3: not on the Today view (it is always today). */}
+            {paneState.center !== 'today' && (
             <Pressable
               ref={tipRef(JUMP_TODAY_TIP) as never}
               onPress={() => (paneState.center === 'calendar' ? requestCalendarToday() : requestGoToday())}
@@ -499,6 +504,7 @@ export default function DesktopHome() {
               <Ionicons name="locate-outline" size={17} color={Colors.onHostPill} />
               <Text style={styles.rowText}>Today</Text>
             </Pressable>
+            )}
             <Pressable onPress={() => showView('quests')} style={pressStyle(({ hovered }) => [styles.rowBtn, hovered && styles.segHover])} accessibilityRole="button" accessibilityLabel="Quests">
               <Ionicons name="trophy-outline" size={17} color={Colors.onHostPill} />
               <Text style={styles.rowText}>Quests</Text>
@@ -517,6 +523,11 @@ export default function DesktopHome() {
           <View style={[{ flex: 1 }, paneState.center !== 'kanban' && styles.hidden]}>
             <KanbanPane refreshKey={refreshKey} onChanged={onChanged} filter={effectiveFilter} onFilterChange={setFilter} onlyToday={paneState.onlyToday} onToggleOnlyToday={() => updatePanes(toggleOnlyToday)} />
           </View>
+          {paneState.center === 'today' && (
+            <View style={{ flex: 1 }}>
+              <TodayPane refreshKey={refreshKey} onChanged={onChanged} active={view === 'home'} />
+            </View>
+          )}
           {calendarShown && (
             <View style={[{ flex: 1 }, paneState.center !== 'calendar' && styles.hidden]}>
               <CalendarPane

@@ -5,6 +5,7 @@ import { Colors } from '../../lib/theme';
 import type { Project } from '../../lib/types';
 import EmojiField from './EmojiField';
 import { LabelColorPicker } from './LabelColorPicker';
+import { HoursSwitch } from './DailyHoursRows';
 
 export interface LabelValues {
   name: string;
@@ -96,6 +97,8 @@ export default function LabelForm({
       />
       <EmojiField label={mode === 'new' ? 'New label emoji' : `Emoji for ${who}`} value={values.emoji} onChange={(emoji) => live({ emoji })} />
       <LabelColorPicker value={values.colorKey} forName={who} labels={labels} exceptKey={editKey} onPick={(colorKey) => live({ colorKey })} />
+      {/* D3 (3.67.0): the label's Count in daily hours switch, as in the phone's label sheet (edit only). */}
+      {mode === 'edit' && editKey ? <HoursSwitch label={{ key: editKey, name: values.name || initial.name }} /> : null}
       {problem && (
         <Text style={styles.problem} accessibilityLabel="Label note">
           {problem}

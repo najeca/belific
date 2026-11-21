@@ -1094,3 +1094,9 @@ Gates: tsc clean; the full regression follows this entry.
 - Choice: the Repeats grouping was already shared (quests.ts), so only the row words and emoji moved. HoldCard keeps exporting SKIP_TODAY_NOTE and DELETE_ASK (re exported) so nothing that imports them changes.
 - Tests: mobile 1322/1322 (10 new), desktop 118/118, phone real checks unchanged and passing: phone-p3 15, p4 26, p11 51, p12 19, p23 16, p25 38, p26 57, p27 55, p28 22.
 - Check by hand: nothing new; the phone should look and act exactly as 3.65.1.
+
+## 3.67.0 D3 of PLAN_desktop_parity: desktop Today view (2026-11-21)
+- Built: Today as a third centre view (segment and Y), Timebox beside it; Now card, hours strip, timeline, Anytime with mouse drag and Alt+arrow order into today.order.<day>, Done today; Daily hours switches in Settings and the label form.
+- Choices made here: the Anytime drag is the view's own pointer drag, not DragProvider (an Anytime card cannot be dragged onto the Timebox from here yet; it can from the left pane and the board as before). The jump to today button hides on Today. V from Today goes to the Calendar. Launch still opens the Calendar (unchanged). The Now marker uses the accent, not the red `now` token. Columns stack under 760 px of centre width.
+- Tests: mobile 1323/1323, desktop 118/118; p70 25/25 (new, quiet); cp6 61, p69 6, p60 33, p36 18.
+- Check by hand: drag with a real mouse and a touchpad; the minute update after sleep; Larger window widths and a narrow window (stacking); dark mode; the label form switch; Narrator on the cards (Alt+arrows).

@@ -37,6 +37,7 @@ export type ShortcutId =
   | 'weekView'
   | 'monthView'
   | 'toggleCenter'
+  | 'todayView'
   | 'nextTask'
   | 'prevTask'
   // Task (on the focused card)
@@ -101,6 +102,7 @@ export const PHASE3_SHORTCUTS: ShortcutDef[] = [
   { id: 'toggleRightPane', keys: ']', label: 'Hide or show the Timebox', group: 'General', scope: 'home' },
 
   { id: 'toggleCenter', keys: 'V', label: 'Switch between Tasks and Calendar', group: 'Navigation', scope: 'home' },
+  { id: 'todayView', keys: 'Y', label: 'The Today view (Now, hours, timeline, Anytime)', group: 'Navigation', scope: 'home' },
   { id: 'dayView', keys: 'D', label: 'Calendar day view', group: 'Navigation', scope: 'home' },
   { id: 'weekView', keys: 'W', label: 'Calendar week view', group: 'Navigation', scope: 'home' },
   { id: 'monthView', keys: 'M', label: 'Calendar month view', group: 'Navigation', scope: 'home' },

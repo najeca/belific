@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 3.67.0 — 2026-11-21 (desktop Today view; PLAN_desktop_parity D3)
+Desktop only; the phone is unchanged; no database change.
+- **Today**, a third centre view beside Tasks and Calendar (the segment, or **Y**). The Timebox stays on the right. Wide layout: the **Now card** (what runs now, time left, Next with "in 55 min", the label pill or Free time, a Done tick) and the **hours strip per label** side by side; under them the **timeline** (one bubble per timed item, height by length 44 to 160, the list emoji, label colours, the Now marker in the running bubble or as a line, free time as a gap, a shift's rows under it) beside **Anytime** (one card per untimed task of today, label edge) and **Done today**. Under 760 px the columns stack. All of it from the shared `lib/todayModel.ts`, as the phone.
+- **Anytime order**: drag a card with the mouse (a 4 px move starts it; a drag never opens the details) or Alt+Up and Alt+Down on a focused card. Stored at once in the same synced row as the phone (`user_settings` `today.order.<day>`). The Tasks board's today column keeps its own order.
+- A tick is the usual write (Ctrl+Z works) with the Undo bar; a click opens the details. The card updates every minute and at once when the window comes back (focus, wake, a new day). Nothing red, no priority mark.
+- **Count in daily hours** on the desktop: Settings, **Daily hours** (a switch per label) and a switch in the label form when editing a label. Same synced rows as the phone (`hours.count.<labelKey>`); Sleep and Break start off.
+- The jump to today button is hidden on the Today view. V still switches Tasks and Calendar (from Today it goes to the Calendar). Every launch still opens on the Calendar.
+- Files: `components/desktop/TodayPane.tsx`, `DailyHoursRows.tsx`, `hoursStore.ts` (new); `DesktopHome.tsx`, `SettingsPage.tsx`, `LabelForm.tsx`, `todayStore.ts`, `lib/paneState.ts` (a `today` centre, the Timebox allowed beside it), `lib/shortcuts.ts` (Y).
+- Tests: `paneState.test.ts` (+1); new quiet real check `p70` (25 checks).
+
 ## 3.66.0 — 2026-11-21 (shared Today, add, Repeats and card rules; PLAN_desktop_parity D1)
 No behaviour change on either app; no database change. The phone screens now read rules that live in shared files, so the desktop (D3 onward) uses the same ones:
 - **`lib/todayModel.ts`** (pure): what Today shows, moved unchanged from `app/(tabs)/today.tsx`: rows inside a shift left out, the Now card items, the timeline order (time, then title, ticked kept), Anytime in its stored order, the done split, the hours strip. `todaySettings` reads the hours switches and finds order rows older than 14 days.

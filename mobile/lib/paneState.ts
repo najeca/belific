@@ -11,7 +11,9 @@
 // store below writes both and reads the setting first. A damaged value in
 // either place never breaks the screen: anything unreadable falls back to the
 // default layout (all panes open, Kanban).
-export type CenterView = 'kanban' | 'calendar';
+// D3 of PLAN_desktop_parity (3.67.0): 'today' is the desktop Today view (the Now card, the hours strip, the timeline and
+// Anytime); the Timebox stays beside it, as beside Tasks.
+export type CenterView = 'kanban' | 'calendar' | 'today';
 export type CalendarView = 'day' | 'week' | 'month';
 
 export interface PaneState {
@@ -33,7 +35,7 @@ export const DEFAULT_PANE_STATE: PaneState = {
 export const PANE_SETTING_KEY = 'ui.panes';
 export const PANE_LOCAL_KEY = 'belific_desktop_panes';
 
-const CENTERS: CenterView[] = ['kanban', 'calendar'];
+const CENTERS: CenterView[] = ['kanban', 'calendar', 'today'];
 const CALENDARS: CalendarView[] = ['day', 'week', 'month'];
 
 // Null when the text is not a JSON object at all; otherwise a complete state in
@@ -80,7 +82,9 @@ export const launchPaneState = (s: PaneState): PaneState => ({ ...s, center: 'ca
 // ---- changes (each returns a new state) ----
 export const toggleLeft = (s: PaneState): PaneState => ({ ...s, leftCollapsed: !s.leftCollapsed });
 export const toggleRight = (s: PaneState): PaneState => ({ ...s, rightCollapsed: !s.rightCollapsed });
-export const toggleCenter = (s: PaneState): PaneState => ({ ...s, center: s.center === 'kanban' ? 'calendar' : 'kanban' });
+// V switches between Tasks and the Calendar; from Today it goes to the Calendar.
+export const toggleCenter = (s: PaneState): PaneState => ({ ...s, center: s.center === 'calendar' ? 'kanban' : 'calendar' });
+export const showCenter = (s: PaneState, center: CenterView): PaneState => (s.center === center ? s : { ...s, center });
 export const toggleOnlyToday = (s: PaneState): PaneState => ({ ...s, onlyToday: !s.onlyToday });
 // D, W and M open the Calendar in that view, from either centre view.
 export const showCalendar = (s: PaneState, view: CalendarView): PaneState => ({ ...s, center: 'calendar', calendar: view });
@@ -167,7 +171,7 @@ export interface ResponsiveLayout {
 export function responsiveLayout(s: PaneState, width: number, open: { sidebar: boolean; timebox: boolean } = { sidebar: false, timebox: false }): ResponsiveLayout {
   const sidebarFits = width >= SIDEBAR_DOCK_MIN;
   const sidebar: PanelPlace = sidebarFits ? (s.leftCollapsed ? (open.sidebar ? 'overlay' : 'hidden') : 'docked') : open.sidebar ? 'overlay' : 'hidden';
-  const timeboxAvailable = s.center === 'kanban';
+  const timeboxAvailable = s.center !== 'calendar';
   const timeboxFits = width >= TIMEBOX_DOCK_MIN;
   const timebox: PanelPlace = !timeboxAvailable ? 'hidden' : timeboxFits ? (s.rightCollapsed ? (open.timebox ? 'overlay' : 'hidden') : 'docked') : open.timebox ? 'overlay' : 'hidden';
   return { sidebar, timebox, timeboxAvailable };
@@ -181,7 +185,7 @@ export function sidebarToggle(s: PaneState, width: number, overlayOpen: boolean)
 }
 
 export function timeboxToggle(s: PaneState, width: number, overlayOpen: boolean): { state: PaneState; overlayOpen: boolean } {
-  if (s.center !== 'kanban') return { state: s, overlayOpen: false };
+  if (s.center === 'calendar') return { state: s, overlayOpen: false };
   if (width >= TIMEBOX_DOCK_MIN) return { state: toggleRight(s), overlayOpen: false };
   return { state: s, overlayOpen: !overlayOpen };
 }

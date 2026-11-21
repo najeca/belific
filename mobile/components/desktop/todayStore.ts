@@ -3,9 +3,9 @@ import { useSyncExternalStore } from 'react';
 // 3.17.0: the Today button sits in the top row beside the Tasks / Calendar toggle, outside the two panes. Each pane
 // says whether it already shows today (so the button can switch itself off, as the per pane buttons did), and the
 // Calendar is asked to jump with a counter, as the board is by uiStore.requestGoToday.
-export type CenterView = 'kanban' | 'calendar';
+export type CenterView = 'kanban' | 'calendar' | 'today';
 
-let at: Record<CenterView, boolean> = { kanban: false, calendar: false };
+let at: Record<CenterView, boolean> = { kanban: false, calendar: false, today: true };
 let calendarNonce = 0;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());

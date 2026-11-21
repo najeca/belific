@@ -1082,3 +1082,9 @@ Gates: tsc clean; the full regression follows this entry.
 ## Full regression on 3.65.1 (2026-11-21)
 - Quiet Electron set: 88 checks, 2418 passes, 0 failures, nothing rerun. Gates green (tsc, mobile 1312, desktop 118, iOS export, security).
 - Pointer-only checks (26) NOT run; ready for the user to run with the mouse cleared.
+
+## privacy.html and terms.html finished (2026-11-21), not copied to main
+- Contact is belificapp@gmail.com as a mailto link. Effective date 21 November 2026 on both.
+- INTERIM wording: deletion and export are by email, because the in-app Delete account function is not deployed. Change it back when the function is deployed.
+- Other contact lines (code, not changed): SettingsPage.tsx ISSUES_URL (GitHub issues, "Report an issue"), desktop/src/externalLinks.js issue tracker allowlist, README.md has no contact line and an old YOUR_USERNAME Pages placeholder.
+- Terms sections 4 and 5 untouched.

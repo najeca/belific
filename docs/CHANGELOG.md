@@ -8,6 +8,13 @@ to know the current version and recent history.
 
 ---
 
+## 3.65.1 — 2026-11-21 (Windows: Electron 44.11.5)
+Desktop packaging only; no app behaviour, no phone change, no database change.
+- Electron 44.5.1 to **44.11.5**, the latest 44.x (the same major). The high advisory (GHSA-jr5w-w6x2-84p9, "compromised eMudhra intermediate certificates", affects 44.0.0 to 44.9.0) is fixed from 44.9.1. Pinned exactly in `desktop/package.json`; `npm audit fix` was not run.
+- Still reported by `npm audit` (not changed): moderate findings in the electron-builder chain (build tools only, the fix is a breaking electron-builder downgrade), and `undici`, `fast-uri` (dev tools).
+- The installer was rebuilt locally with `npm run dist` (`desktop/dist/Belific-Setup-3.65.1.exe`, unsigned, not installed).
+Tests: easConfig (version).
+
 ## 3.65.0 — 2026-11-21 (Phone: Wrap up and Plan week)
 Phone only; the desktop does not change. No database change, no native change. PLAN_phone_parity phase 9.
 - **The Plan button on Today** opens the flow that fits the time, by the desktop's own rule (`planFlowAt`): Plan my day from 04:00 to 13:59, Wrap up from 14:00, Plan week on Sunday from 16:00 and on Monday from 04:00 to 13:59. A chevron beside it lists all three, the one the button opens first.

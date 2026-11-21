@@ -1074,3 +1074,7 @@ Gates: tsc clean; the full regression follows this entry.
 - Plan button follows `planFlowAt`; a chevron lists all three. FlowScreen (one task at a time, Undo, summary) over wrapQueue and weekQueue; writes are the desktop's wrapActions. Phone only, no database change.
 - Choices: Plan week asks only tasks with no Day plus last week's (a task already on a day moves from its own card); Not now leaves a task as it is; Wrap up skips quick reminders and the rows inside a shift.
 - Check by hand: after 14:00 the button says Wrap up; Sunday 16:00 and Monday morning it says Plan week; each answer, Undo and the summary on a real iPhone; Larger Text.
+
+## privacy.html and terms.html (2026-11-21), no app change, not copied to main
+- Both now say Google and Apple sign in work on the iPhone and on Windows (the iPhone's Google sign in runs in an in app sheet), add a request line for deleting or exporting data (privacy section 6, privacy section 9, terms section 7), and have `[EDIT THIS LINE: contact email]` where the contact address goes (the GitHub issues link is gone). Jethro must replace that line, then copy the two files to main.
+- Flagged, not changed: terms sections 4 (No Warranties) and 5 (Limitation of Liability) are old legal wording nobody has reviewed as law. The effective date (8 October 2026) was not changed; a changed page normally gets a new one. The delete account sentence still says the Belific account is removed from the server, but the delete-account function is not deployed and the shared login cannot be deleted.

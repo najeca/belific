@@ -73,7 +73,7 @@ async function run() {
   const openDetails = async () => {
     await I.click(I.byLabel('Show Tasks'), 900).catch(() => {});
     await I.click(I.byLabel('Title Switch task'), 900);
-    await C.waitFor(() => I.exists(`document.querySelector('[data-must-do-switch]')`), 8000);
+    await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 8000);
   };
 
   // ---- Settings, light ----
@@ -100,16 +100,11 @@ async function run() {
 
   // ---- The details: Must do and Split, dark then light ----
   await openDetails();
-  // 3.27.0: the Split switch became the Task | Break control, so the details have one switch (Must do). 3.37.0 (Shifts S2):
+  // 3.27.0: the Split switch became the Task | Break control, so the details had one switch (Must do); 3.69.0: Must do is gone too, so none. 3.37.0 (Shifts S2):
   // the control is gone on the desktop.
-  const d = await audit('dark details', 1);
-  check('the details have the Must do switch and no Task | Break control', d.length === 1 && !(await I.exists(`document.querySelector('[data-detail-panel] [data-kind-choice]')`)), JSON.stringify(d.map((x) => x.label)));
+  const d = await audit('dark details', 0);
+  check('the details have no Must do switch (3.69.0) and no Task | Break control', d.length === 0 && !(await I.exists(`document.querySelector('[data-detail-panel] [data-kind-choice]')`)), JSON.stringify(d.map((x) => x.label)));
   await I.shot('p31-details-dark');
-  await I.click(`document.querySelector('[data-must-do-switch]')`, 600);
-  const on = await switches();
-  check('dark details: Must do on has the knob right', on.some((x) => x.checked === 'true' && x.right), JSON.stringify(on.map((x) => [x.label, x.checked])));
-  await I.shot('p31-details-dark-on');
-  await I.click(`document.querySelector('[data-must-do-switch]')`, 600);
   await I.key('Escape', [], 400);
 
   await openSettings();
@@ -119,7 +114,7 @@ async function run() {
   check('light is back (cream page)', (await pageBg()) === 'rgb(250, 247, 240)', await pageBg());
   await I.click(I.byLabel('Back'), 900);
   await openDetails();
-  await audit('light details', 1);
+  await audit('light details', 0);
   await I.shot('p31-details-light');
 
   const failed = summary();

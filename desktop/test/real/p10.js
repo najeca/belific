@@ -289,7 +289,7 @@ async function run() {
   const btn = (key, id) => `document.querySelector('[data-earlier] [data-wrap-for="${key}"][data-wrap-btn="${id}"]')`;
   const rows = () => I.js(`[...document.querySelectorAll('[data-earlier] [data-wrap-row]:not([data-wrap-decided])')].map((r) => r.getAttribute('data-wrap-row'))`);
   const r0 = await rows();
-  check('6: the panel lists the five, Must do first, and no repeating day', r0.length === 5 && r0[0] === 'om' && !r0.some((id) => id === 'gym' || id.startsWith('gym:')), JSON.stringify(r0));
+  check('6: the panel lists the five, the oldest day first (3.69.0: a stored high priority no longer sorts), and no repeating day', r0.length === 5 && r0[0] === 'om' && !r0.some((id) => id === 'gym' || id.startsWith('gym:')), JSON.stringify(r0));
   check('6: a missed task is not shown in today\'s column', !(await I.exists(card(today, 'Old one'))));
   check('6: one off tasks offer a tick, Tomorrow, Back to its list and Let go', (await I.exists(`document.querySelector('[data-earlier] [data-wrap-tick="o1"]')`)) && (await I.exists(btn('o1', 'tomorrow'))) && (await I.exists(btn('o1', 'list'))) && (await I.exists(btn('o1', 'letgo'))));
   await I.click(btn('o1', 'tomorrow'), 800);
@@ -382,33 +382,18 @@ async function run() {
   await C.waitFor(() => awayRow(day(1))?.value === '0', 4000).catch(() => {});
   check('8: Not away any more writes the row back to 0 (not a tombstone, so it can be marked again)', awayRow(day(1))?.value === '0' && !awayRow(day(1))?.deletedAt && (await I.js(`${col(day(1))}.getAttribute('data-away')`)) === null);
 
-  // ======== 9. Must do ========
-  const mustPill = async (k, title) => (await I.textOf(card(k, title))).includes('❗') // 2.28.0: the red ! mark;
-  check('9: a task already stored as high counts as Must do (the marker on its card)', await mustPill(day(1), 'Already high'));
+  // ======== 9. No priority on the desktop (3.69.0, changed on purpose: was Must do) ========
+  const mustPill = async (k, title) => (await I.textOf(card(k, title))).includes('❗');
+  check('9: a task stored as high shows no marker on its card', !(await mustPill(day(1), 'Already high')));
   await I.click(`${card(day(1), 'Already high')}.querySelector('[aria-label="Title Already high"]')`, 600);
-  check('9: and the switch in the details is on', (await I.js(`document.querySelector('[data-must-do-switch]')?.getAttribute('aria-checked') ?? null`)) === 'true');
+  check('9: the details have no Must do switch and no Must do row', (await I.js(`document.querySelectorAll('[data-must-do-switch]').length`)) === 0 && !(await I.exists(`document.querySelector('[data-detail-row="Must do"]')`)));
   await closeModal();
-  await I.click(`${card(day(1), 'Shift me')}.querySelector('[aria-label="Title Shift me"]')`, 600);
-  check('9: the details have one Must do switch, off for a new task', (await I.js(`document.querySelectorAll('[data-must-do-switch]').length`)) === 1 && (await I.js(`document.querySelector('[data-must-do-switch]').getAttribute('aria-checked')`)) === 'false');
-  await I.click(`document.querySelector('[data-must-do-switch]')`, 600);
-  await C.waitFor(() => byId('s10a').priority === 'high', 4000).catch(() => {});
-  check('9: on stores priority high', byId('s10a').priority === 'high');
-  await I.click(`document.querySelector('[data-must-do-switch]')`, 600);
-  await C.waitFor(() => byId('s10a').priority === undefined, 4000).catch(() => {});
-  check('9: off goes back to the new task default (no priority)', byId('s10a').priority === undefined && !('priority' in byId('s10a')), JSON.stringify(byId('s10a')));
-  await closeModal();
+  check('9: the stored value is kept (Already high is still high)', byId('hi').priority === 'high');
   await hoverIcons(card(day(1), 'Shift me too'));
   await I.click(`${card(day(1), 'Shift me too')}.querySelector('[data-ctl="more"]')`, 500);
-  await I.click(I.byLabel('High priority, off: turn it on'), 600);
-  await C.waitFor(() => byId('s10b').priority === 'high', 4000).catch(() => {});
-  await C.sleep(300);
-  check('9: the ⋮ menu has the same toggle, and the card shows the marker', byId('s10b').priority === 'high' && (await mustPill(day(1), 'Shift me too')));
-  await hoverIcons(card(day(1), 'Shift me too'));
-  await I.click(`${card(day(1), 'Shift me too')}.querySelector('[data-ctl="more"]')`, 500);
-  await I.click(I.byLabel('High priority, on: turn it off'), 600);
-  await C.waitFor(() => byId('s10b').priority === undefined, 4000).catch(() => {});
-  check('9: and turns it off', byId('s10b').priority === undefined);
-  check('9: Must do is nowhere else on the card (no inline control)', !(await I.exists(`${card(day(1), 'Shift me')}.querySelector('[aria-label*="High priority"][role="button"]')`)));
+  check('9: the more menu has no High priority row', !(await I.exists(`document.querySelector('[aria-label^="High priority"]')`)));
+  await I.key('Escape');
+  check('9: no priority control anywhere on the card', !(await I.exists(`${card(day(1), 'Shift me')}.querySelector('[aria-label*="High priority"]')`)));
 
   // ======== 10. Shift a day ========
   const movableOn = (k) => tasks().filter((t) => !t.deletedAt && !t.completed && t.dueDate === k && !t.recurrence && !t.id.includes(':'));

@@ -4,7 +4,7 @@
 //  * Today's tasks only (stored with today's Day, plus today's projected occurrences of repeating
 //    series, exactly as the desktop's Timebox reads a day: timeboxTasks.ts).
 //  * Timed items in time order; a task with several times a day is one item per time (times.ts).
-//  * Tasks with no time in an "Anytime" group: top priority first, then oldest first.
+//  * Tasks with no time in an "Anytime" group: oldest first.
 //  * The phone's old events (decision 4: kept) are timed, read only items among the tasks.
 //  * Routines not yet converted (PLAN_phone section 5) are untimed items at the top of Anytime,
 //    ordered morning, afternoon, evening. A routine whose series `rt_<id>` exists is never shown,
@@ -15,7 +15,6 @@ import type { Routine, ScheduleEvent, Task, TimeOfDay } from './types.ts';
 import { tasksForTimebox } from './timeboxTasks.ts';
 import { DEFAULT_TASK_MINUTES } from './timebox.ts';
 import { isMultiTime, isTimeDone, timeViews } from './times.ts';
-import { isMustDo } from './mustDo.ts';
 import { SERIES_PREFIX } from './routineConvert.ts';
 import { rootTaskId } from './recurrence.ts';
 
@@ -102,7 +101,7 @@ export function buildToday(input: {
   timed.sort((a, b) => startOf(a) - startOf(b) || (a.kind === b.kind ? 0 : a.kind === 'task' ? -1 : 1) || titleOf(a).localeCompare(titleOf(b)));
   anytime.sort((a, b) => {
     if (a.kind !== 'task' || b.kind !== 'task') return 0;
-    return Number(isMustDo(b.task)) - Number(isMustDo(a.task)) || a.task.createdAt.localeCompare(b.task.createdAt) || a.task.title.localeCompare(b.task.title);
+    return a.task.createdAt.localeCompare(b.task.createdAt) || a.task.title.localeCompare(b.task.title);
   });
 
   const endOf = (i: TodayItem) => (i.kind === 'routine' ? 0 : (i.endMin ?? startOf(i) + DEFAULT_TASK_MINUTES));

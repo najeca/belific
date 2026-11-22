@@ -24,9 +24,7 @@ import { carryBreaks } from '../../lib/breakCarry';
 import { openDetail, showNotice } from './uiStore';
 import { isLate } from '../../lib/lateTasks';
 import { tipRef } from './tip';
-import PriorityMark from './PriorityMark';
 import ListEmoji from './ListEmoji';
-import { isMustDo } from '../../lib/mustDo';
 import { useTint } from './themeStore';
 import { useVibrant, vibrantLook, vibrantMeta, vibrantText, VIBRANT_WHITE } from './vibrantStore';
 import { HostMenu, type HostBreak, type HostedGuest } from './HostChips';
@@ -300,7 +298,7 @@ export default function TimeBlock({
   const sized = resizedH !== undefined && lastPiece ? { ...positioned, height: resizedH } : positioned;
   const shownH = resizedH !== undefined && lastPiece ? resizedH : height;
   // What the block shows at this height (lib/blockLayout.ts); the width then takes parts away one at a time.
-  const fitKey = `${shownH}|${boxW}|${task.title}|${task.emoji ?? ''}|${task.startTime}|${task.durationMinutes}|${!!task.recurrence}|${listEmoji ?? ''}|${piece?.index ?? ''}|${isMustDo(task)}|${resizing ?? ''}|${badge ?? ''}`;
+  const fitKey = `${shownH}|${boxW}|${task.title}|${task.emoji ?? ''}|${task.startTime}|${task.durationMinutes}|${!!task.recurrence}|${listEmoji ?? ''}|${piece?.index ?? ''}|${resizing ?? ''}|${badge ?? ''}`;
   const plan = blockPlan(shownH, fit.key === fitKey ? fit.dropped : 0);
   const tier = plan.tier;
   useLayoutEffect(() => {
@@ -369,7 +367,6 @@ export default function TimeBlock({
                   </Text>
                 )}
 
-                {isMustDo(task) && <PriorityMark chip={!!look} />}
                 {task.recurrence && (
                   <View style={fullText ? styles.repeatTop : styles.noShrink}>
                     <Ionicons name="repeat" size={12} color={look ? VIBRANT_WHITE : Colors.textSecondary} accessibilityLabel="Repeats" />
@@ -424,7 +421,6 @@ export default function TimeBlock({
                     {'ⓘ'}
                   </Text>
                 )}
-                {isMustDo(task) && plan.showPriority && <PriorityMark chip={!!look} />}
                 {/* One line: the length (or the snapped time while resizing) on the right, if it fits. */}
                 {tier === 1 && (resizing !== undefined || (plan.showTime && !!inlineText)) && (
                   <Text style={[styles.timeInline, styles.rightText, vm]} numberOfLines={1}>

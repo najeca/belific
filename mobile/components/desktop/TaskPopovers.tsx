@@ -43,7 +43,6 @@ import { setLabelEmoji } from '../../lib/labels';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import type { Project, Task, WeekDay } from '../../lib/types';
 import HoverPressable from './HoverPressable';
-import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
 import { notifyChanged, openDetail, openOverlay, useNewColorsOk } from './uiStore';
 import { EACH_TIME_NOTE, isMultiTime } from '../../lib/times';
 import { END_REPEAT_HERE, END_REPEAT_HERE_NOTE, MOVE_THIS_DAY, MOVE_THIS_DAY_NOTE, ownDay } from '../../lib/series';
@@ -755,21 +754,6 @@ export function OverflowBody({
         a11y="Start a pomodoro"
       />
     ) : null;
-  // Must do (2.27.0): the same switch as in the details (on = priority high, off = none).
-  const mustRow =
-    task && (onOpen || !task.id.startsWith('dump:')) ? (
-      <Row
-        label={MUST_DO_MARK}
-        tip={MUST_DO_TIP}
-        selected={isMustDo(task)}
-        onPress={async () => {
-          await ops.patch(mustDoPatch(!isMustDo(task)));
-          notifyChanged();
-          done();
-        }}
-        a11y={isMustDo(task) ? `${MUST_DO_TIP}, on: turn it off` : `${MUST_DO_TIP}, off: turn it on`}
-      />
-    ) : null;
   // A repeating task (stored or projected): skip one day, or delete the series.
   if (series) {
     const canSkip = !!task?.dueDate && !task.completed;
@@ -825,7 +809,6 @@ export function OverflowBody({
           <>
             {openRow}
             {timerRows}
-            {mustRow}
             {breakRow}
             {canSkip && (
               <Row label={MOVE_THIS_DAY} sub="Only this day" onPress={() => setMoving(true)} a11y={MOVE_THIS_DAY} />
@@ -906,7 +889,6 @@ export function OverflowBody({
         <>
           {openRow}
           {timerRows}
-          {mustRow}
           {breakRow}
           {task?.id && !task.id.startsWith('dump:') && (
             <>

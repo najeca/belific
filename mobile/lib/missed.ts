@@ -13,7 +13,6 @@
 import type { Task } from './types.ts';
 import { isAfterEndRow, isDateKey, parseDateKey } from './kanban.ts';
 import { isSeriesRow } from './rollover.ts';
-import { isMustDo } from './mustDo.ts';
 import { isQuickReminder } from './quickReminder.ts';
 
 export interface MissedItem {
@@ -33,7 +32,7 @@ export function missedItems(tasks: Task[], todayKey: string): MissedItem[] {
   const out: MissedItem[] = [];
   for (const t of tasks) if (isMissedTask(t, todayKey)) out.push({ kind: 'task', task: t, day: t.dueDate as string, stored: true });
   return out.sort(
-    (a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)) || a.day.localeCompare(b.day) || a.task.title.localeCompare(b.task.title) || a.task.id.localeCompare(b.task.id),
+    (a, b) => a.day.localeCompare(b.day) || a.task.title.localeCompare(b.task.title) || a.task.id.localeCompare(b.task.id),
   );
 }
 

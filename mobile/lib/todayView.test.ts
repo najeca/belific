@@ -10,7 +10,7 @@ const keys = (items: TodayItem[]) => items.map((i) => i.key);
 const routine = (id: string, timeOfDay: Routine['timeOfDay'], extra: Partial<Routine> = {}): Routine => ({ id, title: `R ${id}`, timeOfDay, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z', ...extra });
 const event = (id: string, start: string, end: string): ScheduleEvent => ({ id, title: `E ${id}`, category: 'x', icon: '📌', color: '#888888', start, end, notes: '', isCustom: true });
 
-test('only today: timed tasks in time order, untimed in Anytime with top priority first', () => {
+test('only today: timed tasks in time order, untimed in Anytime oldest first (priority no longer sorts, 3.69.0)', () => {
   const v = buildToday({
     tasks: [
       T('late', { startTime: '15:00' }),
@@ -25,7 +25,7 @@ test('only today: timed tasks in time order, untimed in Anytime with top priorit
     nowMin: 7 * 60,
   });
   assert.deepEqual(keys(v.timed), ['early', 'late']);
-  assert.deepEqual(keys(v.anytime), ['urgent', 'free']);
+  assert.deepEqual(keys(v.anytime), ['free', 'urgent']);
   assert.equal(v.done.length, 0);
 });
 

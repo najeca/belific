@@ -50,8 +50,6 @@ import { useDayStart } from './useDayStart';
 import { followToday } from '../../lib/dayStrip';
 import { domNode, useDrag } from './DragProvider';
 import TimeBlock, { SlotPreview } from './TimeBlock';
-import PriorityMark from './PriorityMark';
-import { isMustDo } from '../../lib/mustDo';
 import { taskVisible, type TaskFilter } from '../../lib/taskFilter';
 import usePaneScroll from './usePaneScroll';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -288,7 +286,7 @@ export default function TimeboxPane({
         tasksById.current.set(t.id, t);
         if (projected) projectedIds.current.add(t.id);
         entries.push({ id: bid, startMin: item.startMin, endMin: item.endMin, breaks: !!t.cutsBelow });
-        high.set(bid, isMustDo(t));
+        high.set(bid, false);
       }
     }
     for (const { task: t, projected } of spill) {
@@ -299,7 +297,7 @@ export default function TimeboxPane({
         const cid = `${rest.id}${v.suffix}`;
         map.set(cid, { kind: 'continuation', task: v.task, projected, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
         entries.push({ id: cid, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow, cont: true });
-        high.set(cid, isMustDo(t));
+        high.set(cid, false);
       }
     }
     // 3.34.0 (PLAN_breaks_as_gaps P2): a break is a gap under the blocks; a task fully inside it (lib/hosting.ts) is an
@@ -422,7 +420,6 @@ export default function TimeboxPane({
                             {t.title}
                           </Text>
                           {isCompactBlock(b.height) && <Text style={[styles.blockTimeInline, look ? vibrantMeta : undefined]}>{timeText}</Text>}
-                          {isMustDo(t) && <PriorityMark chip={!!look} />}
                         </View>
                         {!isCompactBlock(b.height) && (
                           <Text style={[styles.blockTime, look ? vibrantMeta : undefined]}>

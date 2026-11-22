@@ -28,7 +28,6 @@ import type { DayHostEntry } from '../../lib/hosting';
 import { useCutMin } from './cutStore';
 import { isTextEntryTarget, ownsKeys } from '../../lib/editable';
 import type { Project, Task, TaskList } from '../../lib/types';
-import { MUST_DO_MARK, MUST_DO_TIP, isMustDo, mustDoPatch } from '../../lib/mustDo';
 import { tipRef } from './tip';
 import EmojiField from './EmojiField';
 import DurationSelect from './DurationSelect';
@@ -548,14 +547,6 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
         {!partOf && (<>
         <DetailRow icon="pricetag-outline" label="Label">
           <LabelField task={task} labels={labels} ops={ops} onSaved={onSaved} />
-        </DetailRow>
-
-        {/* Must do (2.27.0): one switch over the stored priority (on = high, off = none). */}
-        <DetailRow glyph={MUST_DO_MARK} label="Must do" shown="" tip={MUST_DO_TIP}>
-          <View style={styles.row}>
-            <Toggle value={isMustDo(task)} onValueChange={(v) => patch(mustDoPatch(v))} label={MUST_DO_TIP} dataSet={{ mustDoSwitch: isMustDo(task) ? '1' : '0' }} />
-            <Text style={styles.quietText}>{isMustDo(task) ? 'Shown first in its day, with a ❗ marker' : 'Off'}</Text>
-          </View>
         </DetailRow>
 
         <DetailRow icon="repeat-outline" label="Repeats">

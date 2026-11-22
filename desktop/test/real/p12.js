@@ -106,28 +106,26 @@ async function run() {
   await I.click(`Array.from(document.querySelectorAll('[aria-label="Filter"]')).find((e) => e.getBoundingClientRect().width > 0)`, 600);
   check('A1: Filter on Tasks opens one menu (the hidden Calendar draws no copy)', (await I.js(`document.querySelectorAll('[data-popover]').length`)) === 1);
   await I.key('Escape', [], 300);
-  const mark = await I.js(`(() => { const m = document.querySelector('[data-must-do="1"]'); return m ? { text: m.textContent, tip: m.getAttribute('title'), aria: m.getAttribute('aria-label') } : null; })()`);
-  check('A2: the card shows the exclamation mark (U+2757)', !!mark && mark.text === '❗', JSON.stringify(mark));
-  check('A2: it has the tooltip and aria-label "High priority"', !!mark && mark.tip === 'High priority' && mark.aria === 'High priority', JSON.stringify(mark));
+  const mark = await I.js(`document.querySelectorAll('[data-must-do="1"]').length`);
+  check('A2: no exclamation mark on any card (3.69.0, changed on purpose)', mark === 0, String(mark));
   check('A2: no "Must do" words remain on the board', !(await I.js(`document.body.innerText.includes('Must do')`)));
   await I.click(`document.querySelector('[data-day-col="${today}"] [aria-label="Title Plain task"]')`, 600);
   await C.waitFor(() => I.exists(`document.querySelector('[data-detail-panel]')`), 4000).catch(() => {});
-  const row = await I.js(`(() => { const r = document.querySelector('[data-detail-row="Must do"]'); return r ? { text: r.firstElementChild.textContent.trim(), tip: r.firstElementChild.getAttribute('title'), sw: r.querySelector('[role="switch"]')?.getAttribute('aria-label') } : null; })()`);
-  check('A2: the details row shows only the mark, with the tooltip', !!row && row.text === '❗' && row.tip === 'High priority' && row.sw === 'High priority', JSON.stringify(row));
+  const row = await I.exists(`document.querySelector('[data-detail-row="Must do"]')`);
+  check('A2: the details have no Must do row and no switch', !row && !(await I.exists(`document.querySelector('[data-must-do-switch]')`)));
   await I.shot('p12-A2-details');
-  await I.click(`document.querySelector('[data-detail-row="Must do"] [role="switch"]')`, 500);
-  const stored = () => JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_tasks.kv'), 'utf8')).find((t) => t.id === 'plain');
-  check('A2: the switch still stores priority "high" (no data change)', stored().priority === 'high', JSON.stringify(stored()));
+  const stored = (id) => JSON.parse(fs.readFileSync(path.join(dataDir, 'belific_tasks.kv'), 'utf8')).find((t) => t.id === id);
+  check('A2: the stored priority "high" is kept on the seeded task and nothing set it on the plain one', stored('must').priority === 'high' && stored('plain').priority === undefined, JSON.stringify([stored('must').priority, stored('plain').priority]));
   await I.blur();
   await I.key('Escape');
   await C.sleep(400);
 
   // ======== A5 (2.28.1). The ! mark on Timebox cards and Calendar blocks ========
   const marks = (sel) => I.js(`(() => { const els = [...document.querySelectorAll(${JSON.stringify(sel)})].filter((e) => e.getBoundingClientRect().width > 0); return els.map((e) => { const m = e.querySelector('[data-priority-mark]'); return m ? { text: m.textContent, tip: m.getAttribute('title'), aria: m.getAttribute('aria-label') } : null; }); })()`);
-  const okMark = (m) => !!m && m.text === '❗' && m.tip === 'High priority' && m.aria === 'High priority';
+  const okMark = (m) => m === null; // 3.69.0: no mark anywhere
   // The Timebox (Tasks view): a timed block, an overnight block and the piece continued from yesterday.
   const tb = await marks('[data-block-id="mustTimed"]');
-  check('A5: a Timebox block of a top priority task has the mark (tooltip and aria-label)', tb.length === 1 && okMark(tb[0]), JSON.stringify(tb));
+  check('A5: a Timebox block of a top priority task has no mark (3.69.0)', tb.length === 1 && okMark(tb[0]), JSON.stringify(tb));
   const tn = await marks('[data-block-id="night"]');
   check('A5: the Timebox block that runs past midnight has it', tn.length === 1 && okMark(tn[0]), JSON.stringify(tn));
   const tc = await marks('[data-continuation="1"][data-block-id="ynight"]');
@@ -149,9 +147,6 @@ async function run() {
   check('A5: tasks without top priority have no mark on the Calendar', cp.length === 1 && cp.every((m) => m === null), JSON.stringify(cp));
   const ev = await I.js(`document.querySelectorAll('[data-ext-block] [data-priority-mark]').length`);
   check('A5: imported events get no mark', ev === 0);
-  // Never over the title: the mark sits to the right of the title text.
-  const apart = await I.js(`(() => { const b = document.querySelector('[data-cal-block$=":mustTimed"]'); const m = b.querySelector('[data-priority-mark]').getBoundingClientRect(); const t = [...b.querySelectorAll('div,span')].find((e) => e.textContent.trim() === 'High timed').getBoundingClientRect(); return m.left >= t.right - 1 || m.top >= t.bottom - 1; })()`);
-  check('A5: the mark does not overlap the title', apart);
   await I.shot('p12-A5-calendar');
   // Month chips.
   await I.click(`document.querySelector('[aria-label="Month view"]')`, 800);

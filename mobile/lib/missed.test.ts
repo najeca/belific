@@ -18,9 +18,9 @@ test('a one off task before today, not done, not deleted, is missed; today, done
   assert.deepEqual(missedOneOffs(rows, TODAY).map((t) => t.id), ['old']);
 });
 
-test('Must do first, then the oldest day, then the title', () => {
+test('3.69.0: the oldest day, then the title (a stored High priority no longer sorts)', () => {
   const rows = [T('b', { dueDate: '2026-10-16' }), T('a', { dueDate: '2026-10-16' }), T('z', { dueDate: '2026-10-10' }), T('m', { dueDate: '2026-10-17', priority: 'high' })];
-  assert.deepEqual(missedItems(rows, TODAY).map((m) => m.task.id), ['m', 'z', 'a', 'b']);
+  assert.deepEqual(missedItems(rows, TODAY).map((m) => m.task.id), ['z', 'a', 'b', 'm']);
 });
 
 // 3.25.0 (changed on purpose; the 2.27.0 tests listed the past days of repeating tasks): they are never listed.

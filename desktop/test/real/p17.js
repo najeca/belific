@@ -172,7 +172,7 @@ async function run() {
   check('P3: the break is the slate grey at 6:1 or better', !!brk && ratio(W, brk.bg) >= 6, `${brk && brk.bg} ${brk && ratio(W, brk.bg).toFixed(2)}`);
   check('P3: the time line is taller than before (more line height)', !!morn && parseFloat(morn.time.lh) >= 14, String(morn && morn.time.lh));
   const hi = await info(cal(D, 'noemoji'));
-  check('P3: the red ❗ keeps its white chip', !!hi && hi.markBg === W, String(hi && hi.markBg));
+  check('P3: no ❗ on a stored high priority task (3.69.0)', !!hi && hi.markBg === null, String(hi && hi.markBg));
 
   // Timebox: the emoji after the duration and the same readable text.
   await I.click(`document.querySelector('[aria-label="Show Tasks"]')`, 900);

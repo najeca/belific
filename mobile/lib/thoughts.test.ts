@@ -196,9 +196,9 @@ test('2.27.0: a named list keeps its scheduled tasks, after the unscheduled ones
   assert.deepEqual(splitThoughts(rows, [], TODAY).rows.map(rowId), ['free']);
 });
 
-test('2.29.0: an undated top priority task is listed first, the rest keep newest first', async () => {
+test('3.69.0: a stored top priority no longer sorts, undated tasks are newest first', async () => {
   const { splitThoughts } = await import('./thoughts.ts');
   const t = (id: string, createdAt: string, extra: object = {}) => ({ id, title: id, completed: false, createdAt, updatedAt: createdAt, ...extra }) as never;
   const out = splitThoughts([t('old-high', '2026-10-01T00:00:00.000Z', { priority: 'high' }), t('new', '2026-10-03T00:00:00.000Z'), t('mid', '2026-10-02T00:00:00.000Z')], [], '2026-10-05');
-  assert.deepEqual(out.rows.map((r) => (r.kind === 'task' ? r.task.id : r.item.id)), ['old-high', 'new', 'mid']);
+  assert.deepEqual(out.rows.map((r) => (r.kind === 'task' ? r.task.id : r.item.id)), ['new', 'mid', 'old-high']);
 });

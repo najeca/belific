@@ -1112,3 +1112,9 @@ Gates: tsc clean; the full regression follows this entry.
 - Gates: tsc clean, mobile 1326/1326, desktop 118/118, iOS export OK (49 markers, 0 hits), security scan passed.
 - Quiet Electron set: 89 checks (88 plus the new p70). 82 passed in the batch; 7 failed in it and all passed alone, so all 7 are flakes: p34 (50/50 alone), p62 (19/19), p66 (17/17), p8 (44/44), phone-p12 (19/19), phone-p13 (17/17), phone-p14 (28/28). The batch ran across midnight and a long pause; the phone-p12 log shows the Electron network service crashing, and p8 depends on a subscription "due 2 hours ago". No stale check, no real bug.
 - Pointer only checks (26) NOT run; ready for Jethro. Most likely touched this round: p3 and p9 (the home top row now has a third centre segment), cp9 (the profile menu row), p7 (the label form has the hours switch), cp8b and p37 (drag, beside the new Anytime drag), cp8e and p43 (cards).
+
+## 3.69.0 D2 of PLAN_desktop_parity: no red and no priority on the desktop (2026-11-22)
+- Removed the ❗ (PriorityMark.tsx) from cards, Timebox and Calendar; removed the Must do row (details) and High priority row (more menu); stopped every sort by the stored priority (kanban + feed copy, thoughts, missed, todayView, Calendar all day row, lane order via `high` now always false). Stored value kept.
+- Choices made here: delete actions keep their style (not requested); phoneDay.ts and phoneWeek.ts left alone (phone only, hidden sort); `lib/mustDo.ts` kept (its test and the phone still import it).
+- Tests: mobile 1326/1326 (6 changed on purpose); quiet p12 34, p13 11, p16 42, p17 32, p31 26, p24 146, p70 25. Pointer only p9, p10, p11, p43 edited, NOT run.
+- Check by hand: p9, p10, p11, p43 (pointer only); no ❗ anywhere on a task stored as high; details have no Must do row.

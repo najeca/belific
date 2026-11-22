@@ -102,7 +102,7 @@ async function run() {
   // ======== 1. A compact details modal, no lines ========
   await openModal('Modal task');
   const rows = await I.js(`[...${panel}.querySelectorAll('[data-detail-row]')].map((r) => { const s = getComputedStyle(r); const b = r.getBoundingClientRect(); return { name: r.dataset.detailRow, h: Math.round(b.height), lines: parseFloat(s.borderTopWidth) + parseFloat(s.borderBottomWidth) }; })`);
-  check('1: the rows keep their order', rows.slice(0, 5).map((r) => r.name).join('|') === 'Task date|Estimated time|Label|Must do|Repeats' && !rows.some((r) => r.name === 'Actual time'), JSON.stringify(rows.map((r) => r.name)));
+  check('1: the rows keep their order', rows.slice(0, 4).map((r) => r.name).join('|') === 'Task date|Estimated time|Label|Repeats' && !rows.some((r) => r.name === 'Actual time'), JSON.stringify(rows.map((r) => r.name)));
   // The Split row (2.33.0) carries a plain sentence that wraps to two lines (at most 46 px); every other row stays one line.
   // 3.32.0 (Motorways restyle, on purpose): a row is at least 44 px (the mock's 52, kept tighter), values 16/700.
   check('1: every row is one line (at most 44 px; the Task or Break row, with its control and sentence, at most 84)', rows.length >= 7 && rows.every((r) => r.h <= (r.name === 'Task or Break' ? 84 : 44)), JSON.stringify(rows));

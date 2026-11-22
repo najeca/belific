@@ -6,7 +6,6 @@ import { formatDuration } from '../../lib/duration';
 import { counter } from '../../lib/subtasks';
 import { carryToDay } from '../../lib/breakCarry';
 import { dateKey } from '../../lib/kanban';
-import { MUST_DO_MARK, MUST_DO_TIP, isMustDo } from '../../lib/mustDo';
 import { BREAK_CUP, BREAK_TAG } from '../../lib/taskKind';
 import { tipRef } from './tip';
 import { isLastDay, LAST_DAY, movedCaption, movedCaptionLong, movedFrom } from '../../lib/series';
@@ -127,7 +126,6 @@ export default function TaskCard({
   const id = task.id;
   const placed = !!task.dueDate && !!task.startTime;
   const steps = inside ? { done: 0, total: 0 } : counter(task.subtasks);
-  const mustDo = isMustDo(task);
   // A projected day moves that day only (3.2.0, taskOps), like a stored one.
   const canMoveToday = !task.completed && task.dueDate !== todayKey;
   const open = (focus: DetailFocus = 'title') => (onOpen ? onOpen(focus) : openDetail(id, focus));
@@ -266,8 +264,8 @@ export default function TaskCard({
   const whenText = [dayText, placed ? timesLabel(task) : null].filter(Boolean).join(' · ');
   const lengthText = formatDuration(task.durationMinutes);
   const isBreak = !!task.cutsBelow;
-  const hasLine2 = !!whenText || steps.total > 0 || mustDo || !!moved || lastDay || !!during || isBreak;
-  const hasMeta = isBreak || !!whenText || !!listEmoji || !!label || steps.total > 0 || mustDo || !!dayText || !!moved || lastDay || !!during;
+  const hasLine2 = !!whenText || steps.total > 0 || !!moved || lastDay || !!during || isBreak;
+  const hasMeta = isBreak || !!whenText || !!listEmoji || !!label || steps.total > 0 || !!dayText || !!moved || lastDay || !!during;
 
   return (
     <HoverPressable
@@ -292,7 +290,7 @@ export default function TaskCard({
       // Not a button: RN web renders role button as a native <button>, and a
       // field inside a <button> turns a typed Space into a click on it.
       accessibilityLabel={`Task ${task.title}`}
-      accessibilityHint={[label ? `Label ${label.name}` : '', mustDo ? MUST_DO_TIP : ''].filter(Boolean).join(', ') || undefined}
+      accessibilityHint={label ? `Label ${label.name}` : undefined}
       {...(task.id.startsWith('dump:') || projected ? {} : ({ dataSet: { taskCard: task.id } } as object))}
       {...(projected ? ({ dataSet: { projected: '1' } } as object) : {})}
     >
@@ -424,16 +422,6 @@ export default function TaskCard({
                           {steps.done}/{steps.total}
                         </Text>
                       </Pressable>
-                    )}
-                    {mustDo && (
-                      <Text
-                        ref={tipRef(MUST_DO_TIP) as never}
-                        style={styles.mustDo}
-                        accessibilityLabel={MUST_DO_TIP}
-                        {...({ dataSet: { mustDo: '1' }, 'aria-label': MUST_DO_TIP } as object)}
-                      >
-                        {MUST_DO_MARK}
-                      </Text>
                     )}
                   </View>
                 ) : null}
@@ -601,7 +589,6 @@ const styles = StyleSheet.create({
   ringBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingRight: 2 },
   counter: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
   counterDone: { color: Colors.accentText, fontWeight: '700' },
-  mustDo: { fontSize: 12, lineHeight: 16, color: Colors.textPrimary },
   icons: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: 8, paddingLeft: 4 },
   quiet: { opacity: 0, pointerEvents: 'none' } as object,
   icon: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },

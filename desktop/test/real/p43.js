@@ -91,7 +91,7 @@ async function run() {
       check(`${tag}: card found`, !!a, JSON.stringify(a));
       if (!a) continue;
       check(`${tag}: line 1 has the list emoji and the label NAME (not just a dot)`, /🎮/.test(a.l1 || '') && /Quarterly planning/.test(a.l1 || '') && !a.labCut, JSON.stringify(a));
-      check(`${tag}: line 2 has the day, the time and the Must do mark, on its own line below`, /\d/.test(a.l2 || '') && /09:30|9:30/.test(a.l2 || '') && /❗/.test(a.l2 || '') && a.l2Top >= a.l1Bottom - 1, JSON.stringify(a));
+      check(`${tag}: line 2 has the day and the time, on its own line below, and no priority mark (3.69.0)`, /\d/.test(a.l2 || '') && /09:30|9:30/.test(a.l2 || '') && !/❗/.test(a.l2 || '') && a.l2Top >= a.l1Bottom - 1, JSON.stringify(a));
       check(`${tag}: the day and time are not cut and nothing spills out of the card`, a.dayCut === false && !a.metaOverflow && a.inCard, JSON.stringify(a));
       const b = await probe('Long label task');
       check(`${tag}: a very long label name still shows (ellipsis only because it truly cannot fit) and line 2 is intact`, !!b && b.labW >= 60 && /14:00|2:00/.test(b.l2 || '') && b.l2Top >= b.l1Bottom - 1 && !b.metaOverflow, JSON.stringify(b));

@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.69.0 — 2026-11-22 (no red and no priority on the desktop; PLAN_desktop_parity D2)
+Desktop display only; the phone is unchanged; no database change. The stored `priority` value is kept and still syncs.
+- The red ❗ is gone from the task cards, Timebox blocks and Calendar blocks, chips and all day chips (`PriorityMark.tsx` deleted). The **Must do** row is gone from the task details and the **High priority** row from the card's more menu.
+- Nothing sorts by the stored priority any more: the Tasks board and Anytime fall back to oldest first (`lib/kanban.ts`, also its copy in the calendar feed function), the left pane to newest first (`lib/thoughts.ts`), the Earlier list to oldest day then title (`lib/missed.ts`), Today's Anytime (`lib/todayView.ts`), the Calendar all day row, and Timebox/Calendar lanes (no lane goes first for priority).
+- Delete actions keep their existing style (the plan's "quiet delete" was not asked for in this phase).
+- Not changed: the phone's own day and week models (`phoneDay.ts`, `phoneWeek.ts`) still read the stored value for their order; the phone draws no mark.
+- Tests: kanban, missed, thoughts and todayView unit tests changed on purpose (6). Real checks changed on purpose: p9, p10, p11, p43 (pointer only), p12, p13, p16, p17, p31 (quiet).
+
 ## 3.68.0 — 2026-11-21 (desktop Plan flows read the shared queues; PLAN_desktop_parity D6)
 No change in what either app shows; no database change. The desktop keeps its one screen Plan my day, Wrap up and Plan week and the same time of day rule (`planEntry.planFlowAt`).
 - What each desktop screen lists now comes from the queue files the phone uses, so a rule changed there changes both apps: Plan my day's On today, Add to today and the Earlier line (`lib/planQueue.ts`: `planTodayItems`, `planListItems`, `planEarlierItems`, `planRepeatingItems`, the last desktop only), Wrap up's rows (`lib/wrapQueue.ts` `wrapDayItems`), Plan week's list rows, day columns and last week count (`lib/weekQueue.ts` `weekListItems`, `weekDayItems`, `weekEarlierItems`). The phone's queues are built from the same functions.

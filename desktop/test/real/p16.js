@@ -139,7 +139,7 @@ async function run() {
   await C.sleep(400);
   const offWeek = await week();
   check('OFF: the blocks use the soft label tints and dark text as before (blue tint, orange chip)', offWeek.p1.bg === 'rgb(233, 239, 244)' && offWeek.chip.bg === 'rgb(255, 235, 220)' && offWeek.p1.texts.every((n) => n.color !== 'rgb(255, 255, 255)'), JSON.stringify([offWeek.p1.bg, offWeek.chip.bg]));
-  check('OFF: the priority mark has no chip', offWeek.red.markBg === 'rgba(0, 0, 0, 0)', String(offWeek.red.markBg));
+  check('OFF: no priority mark (3.69.0)', offWeek.red.markBg === null, String(offWeek.red.markBg));
   await I.shot('p16-WEEK-off');
 
   // Day view, a split day.
@@ -203,7 +203,7 @@ async function run() {
   }
   check('ON Timebox: the break is a gap: no fill, no text', onBox.brk.bg === 'rgba(0, 0, 0, 0)' && onBox.brk.texts.length === 0, JSON.stringify([onBox.brk.bg, onBox.brk.texts]));
   check('ON Timebox: the repeat icon is white', onBox.yel.repeatColor === 'rgb(255, 255, 255)', String(onBox.yel.repeatColor));
-  check('ON Timebox: the ❗ sits on a small white rounded chip', onBox.red.markBg === 'rgb(255, 255, 255)', String(onBox.red.markBg));
+  check('ON Timebox: no ❗ (3.69.0)', onBox.red.markBg === null, String(onBox.red.markBg));
   check('ON Timebox: the pieces of one task share one colour', onBox.p1.bg === onBox.p2.bg && onBox.p1.bg !== offBox.p1.bg, JSON.stringify([onBox.p1.bg, onBox.p2.bg]));
   check('ON Timebox: the later piece still says "left" in white', onBox.p2.texts.some((n) => n.t.includes('left') && n.color === 'rgb(255, 255, 255)'), JSON.stringify(onBox.p2.texts));
   check('ON Timebox: the continuation card (the rest of yesterday) is vibrant too', !!onBox.cont && whiteBold(onBox.cont) && ratio('rgb(255, 255, 255)', onBox.cont.bg) >= 6, JSON.stringify(onBox.cont && [onBox.cont.bg, onBox.cont.texts]));
@@ -227,7 +227,7 @@ async function run() {
   check('ON Week: the break is a gap: no fill, no text', onWeek.brk.bg === 'rgba(0, 0, 0, 0)' && onWeek.brk.texts.length === 0, JSON.stringify([onWeek.brk.bg, onWeek.brk.texts]));
   check('ON Week: the unlabelled task keeps its plain block (white text would not show on it)', onWeek.plain.bg === offWeek.plain.bg && !whiteBold(onWeek.plain), onWeek.plain.bg);
   check('ON Week: the all-day chip is vibrant with white bold text', whiteBold(onWeek.chip) && ratio('rgb(255, 255, 255)', onWeek.chip.bg) >= 6 && onWeek.chip.bg !== offWeek.chip.bg, JSON.stringify([onWeek.chip.bg, onWeek.chip.texts]));
-  check('ON Week: the ❗ is on a white chip (all-day chip and red block)', onWeek.chip.markBg === 'rgb(255, 255, 255)' && onWeek.red.markBg === 'rgb(255, 255, 255)', JSON.stringify([onWeek.chip.markBg, onWeek.red.markBg]));
+  check('ON Week: no ❗ on the all-day chip or the block (3.69.0)', onWeek.chip.markBg === null && onWeek.red.markBg === null, JSON.stringify([onWeek.chip.markBg, onWeek.red.markBg]));
   check('ON Week: the repeat icon is white', onWeek.yel.repeatColor === 'rgb(255, 255, 255)', String(onWeek.yel.repeatColor));
   check('ON Week: the continued block (the rest of yesterday) is vibrant with white text', !!onWeek.cont && whiteBold(onWeek.cont) && ratio('rgb(255, 255, 255)', onWeek.cont.bg) >= 6, JSON.stringify(onWeek.cont && [onWeek.cont.bg, onWeek.cont.texts]));
   const sameWeek = Object.keys(offWeek).every((k) => geom(offWeek[k]) === geom(onWeek[k]) && offWeek[k].title === onWeek[k].title && offWeek[k].markTip === onWeek[k].markTip);
@@ -247,7 +247,7 @@ async function run() {
   // Month chip.
   await I.click(`document.querySelector('[aria-label="Month view"]')`, 900);
   const onMonth = await look(`document.querySelector('[aria-label="Calendar task Red urgent"]')`);
-  check('ON Month: the chip is vibrant red with bold white text and the ❗ on a white chip', !!onMonth && whiteBold(onMonth) && ratio('rgb(255, 255, 255)', onMonth.bg) >= 6 && onMonth.bg !== offMonth.bg && onMonth.markBg === 'rgb(255, 255, 255)', JSON.stringify(onMonth && [onMonth.bg, onMonth.markBg]));
+  check('ON Month: the chip is vibrant red with bold white text and no ❗ (3.69.0)', !!onMonth && whiteBold(onMonth) && ratio('rgb(255, 255, 255)', onMonth.bg) >= 6 && onMonth.bg !== offMonth.bg && onMonth.markBg === null, JSON.stringify(onMonth && [onMonth.bg, onMonth.markBg]));
   check('ON Month: the chip is the same size and place', geom(onMonth) === geom(offMonth), `${geom(offMonth)} vs ${geom(onMonth)}`);
   await I.click(`document.querySelector('[aria-label="Week view"]')`, 800);
 

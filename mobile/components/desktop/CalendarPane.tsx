@@ -4,8 +4,6 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { domNode, useDrag } from './DragProvider';
 import TimeBlock, { SlotPreview } from './TimeBlock';
 import { tipRef } from './tip';
-import PriorityMark from './PriorityMark';
-import { isMustDo } from '../../lib/mustDo';
 import { pieceTimeText, type CutEntry, type CutPiece } from '../../lib/cuts';
 import { gapLayout } from '../../lib/gaps';
 import { WeekMenu } from './ClearTools';
@@ -265,7 +263,7 @@ export default function CalendarPane({
           const bid = `task:${t.id}${v.suffix}`;
           sources.set(bid, { kind: 'task', task: v.task, projected, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
           entries.push({ id: bid, startMin: item.startMin, endMin: item.endMin, breaks: !!t.cutsBelow });
-          high.set(bid, isMustDo(t));
+          high.set(bid, false);
         }
       }
       for (const { task: t, projected } of spill) {
@@ -276,7 +274,7 @@ export default function CalendarPane({
           const cid = `${rest.id}${v.suffix}`;
           sources.set(cid, { kind: 'continuation', task: v.task, projected, ...(v.multi ? { full: t, time: v.time, suffix: v.suffix } : {}) });
           entries.push({ id: cid, startMin: rest.startMin, endMin: rest.endMin, breaks: !!t.cutsBelow, cont: true });
-          high.set(cid, isMustDo(t));
+          high.set(cid, false);
         }
       }
       const titleOf = (id: string) => {
@@ -344,8 +342,6 @@ export default function CalendarPane({
         sources.set(id, { kind: 'imported', seg });
         items.push({ id, startMin: seg.startMin, endMin: seg.endMin });
       }
-      // 2.29.0: top priority first in the all day row (a stable sort; nothing stored).
-      allDay.sort((a, b) => Number(isMustDo(b.task)) - Number(isMustDo(a.task)));
       return { key: dayKey, allDay, importedAllDay, sources, notes: plan.hostNotes, badges: plan.hostBadges, ...layoutNested(items), shellOf, gaps, inGap, bladeHosts, bladeBreaks, breaks, snap: hostSnapshot(entries), reminders };
     });
   }, [effView, keys, tasks, events, categories, filter, todayKey, imported, cutMin, labels]);
@@ -595,7 +591,6 @@ export default function CalendarPane({
                                 {t.emoji ? `${t.emoji} ` : ''}
                                 {t.title}
                               </Text>
-                              {isMustDo(t) && <PriorityMark chip={!!look} />}
                             </View>
                             {!isCompactBlock(b.height) && (
                               <Text style={[styles.blockTime, look ? vibrantMeta : undefined]}>
@@ -751,7 +746,6 @@ export default function CalendarPane({
                                 {t.title}
                               </Text>
                               <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
-                              {isMustDo(t) && <PriorityMark chip={!!look} />}
                             </View>
                           </Pressable>
                         );
@@ -853,7 +847,6 @@ export default function CalendarPane({
                                     </Text>
                                   ) : null}
                                   <ListEmoji emoji={listEmojiOf(t, lists)} name={listNameOf(t, lists)} />
-                                  {isMustDo(t) && <PriorityMark chip={!!look} />}
                                 </View>
                               </Pressable>
                             </View>

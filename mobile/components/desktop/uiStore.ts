@@ -14,6 +14,8 @@ export type Overlay =
   | { kind: 'help' }
   | { kind: 'search' }
   | { kind: 'capture'; mode: 'list' | 'today' }
+  // 3.70.0 (D4): the step by step add dialog; `listKey` is the list the left pane shows, `suggestDay` a day to offer.
+  | { kind: 'stepadd'; listKey?: string; suggestDay?: string }
   | { kind: 'flow'; mode: 'planning' | 'shutdown' | 'week' }
   | { kind: 'labels' }
   // F4: `back` 'planning': opened from Plan my day's folded line; closing it goes back there.

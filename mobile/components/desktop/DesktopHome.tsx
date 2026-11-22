@@ -40,6 +40,7 @@ import { useBladeKeys } from './BladeLayer';
 import CalendarPane from './CalendarPane';
 import Sidebar from './Sidebar';
 import QuickCapture from './QuickCapture';
+import StepAddDialog from './StepAddDialog';
 import SearchPalette from './SearchPalette';
 import { usePaneState } from './usePaneState';
 import { refreshFeatures, useFeatures } from './featureStore';
@@ -50,7 +51,8 @@ import { refreshTheme } from './themeStore';
 import { PaneBand, outlinedBtn, outlinedBtnOn, outlinedBtnText, paneSlab, segBtn, segBtnHover, segBtnOn, segLabel, segLabelOn, segTrack } from './ui';
 import { restorePomodoro } from './pomodoroStore';
 import { startIcsRefresh } from './icsStore';
-import { closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, toggleBlade, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
+import { resolveSelectedList } from '../../lib/lists';
+import { getSelectedList, closeOverlay, isOverlayOpen, openDetail, openOverlay, requestGoToday, toggleBlade, restoreNewColorsOk, restoreSelectedList, selectList, setChangeNotifier, useOverlay, useReveal } from './uiStore';
 import { dateKey as todayDateKey } from '../../lib/kanban';
 import { SIDEBAR_DOCK_MIN, SIDEBAR_WIDTH, TIMEBOX_WIDTH, responsiveLayout, showCalendar, showCenter, sidebarToggle, timeboxToggle, toggleCenter, toggleOnlyToday, type CalendarView } from '../../lib/paneState';
 import TodayPane from './TodayPane';
@@ -59,7 +61,7 @@ import { kv } from '../../lib/kv';
 import { isTextEntryTarget } from '../../lib/editable';
 import { dateKey } from '../../lib/kanban';
 import { computeStreaks } from '../../lib/seriesStreak';
-import { loadRoutineCompletions, loadTasksRaw } from '../../lib/storage';
+import { loadLists, loadRoutineCompletions, loadTasksRaw } from '../../lib/storage';
 import { loadLabels } from '../../lib/labels';
 import { EMPTY_FILTER, FILTER_KEY, parseFilter, pruneFilter, serializeFilter, type TaskFilter } from '../../lib/taskFilter';
 import { listenForAuthCallbacks, refreshRevokePending, restoreAccountChoice, retryPendingRevoke } from '../../lib/desktopAuth';
@@ -309,6 +311,10 @@ export default function DesktopHome() {
   // panes are the page showing; the registry keeps them out of every field.
   useUndoRecording();
   useBladeKeys();
+  // 3.70.0 (D4): the step by step add dialog, into the list the left pane shows (as Q does).
+  const openAddSteps = () => {
+    void loadLists().then((ls) => openOverlay({ kind: 'stepadd', listKey: resolveSelectedList(getSelectedList(), ls) }));
+  };
   useHomeShortcuts(view === 'home', {
     help: () => openOverlay({ kind: 'help' }),
     // 3.35.0 (D2): C turns the scissors on and off, unless a card has the keyboard (C then completes it).
@@ -322,6 +328,7 @@ export default function DesktopHome() {
     search: () => openOverlay({ kind: 'search' }),
     quickCapture: () => openOverlay({ kind: 'capture', mode: 'list' }),
     newTaskToday: () => openOverlay({ kind: 'capture', mode: 'today' }),
+    addSteps: openAddSteps,
     onlyToday: () => updatePanes(toggleOnlyToday),
     toggleLeftPane: toggleSidebar,
     toggleRightPane: toggleTimebox,
@@ -355,7 +362,8 @@ export default function DesktopHome() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
       // The Labels overlay has fields of its own that use Escape; it closes itself.
-      if (overlay.kind === 'labels' || overlay.kind === 'missed') return;
+      // The step by step add dialog uses Escape for Back (and closes itself on its first screen).
+      if (overlay.kind === 'labels' || overlay.kind === 'missed' || overlay.kind === 'stepadd') return;
       e.preventDefault();
       closeOverlay();
     };
@@ -509,6 +517,16 @@ export default function DesktopHome() {
               <Text style={styles.rowText}>Today</Text>
             </Pressable>
             )}
+            <Pressable
+              onPress={() => onHome(openAddSteps)()}
+              style={pressStyle(({ hovered }) => [styles.rowBtn, hovered && styles.segHover])}
+              accessibilityRole="button"
+              accessibilityLabel="Add a task step by step"
+              {...({ dataSet: { ctl: 'addSteps' } } as object)}
+            >
+              <Ionicons name="add" size={19} color={Colors.onHostPill} />
+              {compactSeg ? null : <Text style={styles.rowText}>Add</Text>}
+            </Pressable>
             <Pressable onPress={() => showView('quests')} style={pressStyle(({ hovered }) => [styles.rowBtn, hovered && styles.segHover])} accessibilityRole="button" accessibilityLabel="Quests">
               <Ionicons name="trophy-outline" size={17} color={Colors.onHostPill} />
               <Text style={styles.rowText}>Quests</Text>
@@ -578,6 +596,7 @@ export default function DesktopHome() {
       {view === 'home' && overlay?.kind === 'help' && <ShortcutHelp />}
       {view === 'home' && overlay?.kind === 'capture' && <QuickCapture key={overlay.mode} mode={overlay.mode} />}
       {view === 'home' && overlay?.kind === 'search' && <SearchPalette />}
+      {view === 'home' && overlay?.kind === 'stepadd' && <StepAddDialog where={{ listKey: overlay.listKey, suggestDay: overlay.suggestDay }} />}
       {overlay?.kind === 'labels' && <LabelsOverlay onChanged={onChanged} />}
       {/* F3 of PLAN_daily_flow: Wrap up is one screen of its own; Earlier is always there (D5). */}
       {view === 'home' && overlay?.kind === 'flow' && overlay.mode === 'shutdown' && <WrapUp refreshKey={refreshKey} />}

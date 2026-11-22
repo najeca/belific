@@ -1118,3 +1118,9 @@ Gates: tsc clean; the full regression follows this entry.
 - Choices made here: delete actions keep their style (not requested); phoneDay.ts and phoneWeek.ts left alone (phone only, hidden sort); `lib/mustDo.ts` kept (its test and the phone still import it).
 - Tests: mobile 1326/1326 (6 changed on purpose); quiet p12 34, p13 11, p16 42, p17 32, p31 26, p24 146, p70 25. Pointer only p9, p10, p11, p43 edited, NOT run.
 - Check by hand: p9, p10, p11, p43 (pointer only); no ❗ anywhere on a task stored as high; details have no Must do row.
+
+## 3.70.0 D4 of PLAN_desktop_parity: desktop step by step add dialog (2026-11-22)
+- New StepAddDialog.tsx (raw HTML in the desktop style) over the shared stepFlow, stepAddActions and detailsPatches; Add button in the top row and N.
+- Choices made here: no inline New list / New label on screen 4 (a one line note points to the left pane and the Labels page); N chosen as the key (free in every scope); the dialog is not a Modal but an overlay like Quick capture; scrim click closes and keeps the task; Pick a date uses the native date input; the suggested day option exists in the dialog but nothing passes one yet.
+- Tests: mobile shortcuts 19/19; quiet p73 33/33, p56 20, p70 25, p60 33.
+- Check by hand: the dialog with a real keyboard (Tab order, Enter, Esc, 1 to 3), Narrator reading "Step 2 of 5", dark mode, a narrow window, the top row at 1440 px with the new Add button (p56 passes), p3 and p9 (pointer only, layout) not run.

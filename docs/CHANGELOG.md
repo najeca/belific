@@ -8,6 +8,14 @@ to know the current version and recent history.
 
 ---
 
+## 3.70.0 — 2026-11-22 (desktop step by step add dialog; PLAN_desktop_parity D4)
+Desktop only; the phone is unchanged; no database change.
+- **Add a task step by step**: a centred dialog about 560 px wide with the phone's five screens (What's on your mind, When, What time, Which list or label, Anything else). Opened by the **Add** button in the top row (icon only on a squeezed row) or **N**. Quick capture (Q, T) stays as the fast path.
+- Same rules and writes as the phone through shared files (`lib/stepFlow.ts`, `lib/stepAddActions.ts`, `lib/detailsPatches.ts`): Next on screen 1 stores the task at once with no Day; a phrase ("Dentist tomorrow 3pm") answers its screens, which are passed over; each later answer is an ordinary edit; a time or length that does not fit a break is refused with the same note; Just a reminder stores 0 minutes; closing keeps the task and says where it is when it has no Day.
+- Keyboard: focus starts in the text box; **Enter** is Next (Shift+Enter a new line on screen 1; Ctrl+Enter is Done in the notes); **Esc** goes Back (on screen 1 it closes and keeps what was typed); **Tab** goes through the answers, then Back, Skip, Next, Close, and wraps inside the dialog; **1 to 3** pick Today, Tomorrow, Pick a date on screen 2 and the first three lists on screen 4. "Step 2 of 5" is read out by the dots.
+- Files: `components/desktop/StepAddDialog.tsx` (new), `DesktopHome.tsx`, `uiStore.ts` (`stepadd` overlay), `lib/shortcuts.ts` (N, listed in the help overlay).
+- Tests: `shortcuts.test.ts` (+1); new quiet real check `p73` (33 checks).
+
 ## 3.69.0 — 2026-11-22 (no red and no priority on the desktop; PLAN_desktop_parity D2)
 Desktop display only; the phone is unchanged; no database change. The stored `priority` value is kept and still syncs.
 - The red ❗ is gone from the task cards, Timebox blocks and Calendar blocks, chips and all day chips (`PriorityMark.tsx` deleted). The **Must do** row is gone from the task details and the **High priority** row from the card's more menu.

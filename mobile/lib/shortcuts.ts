@@ -26,6 +26,7 @@ export type ShortcutId =
   | 'onlyToday'
   | 'quickCapture'
   | 'newTaskToday'
+  | 'addSteps'
   | 'toggleLeftPane'
   | 'toggleRightPane'
   | 'undo'
@@ -144,7 +145,12 @@ export const BLADE_SHORTCUTS: ShortcutDef[] = [
   { id: 'blade', keys: 'C', label: 'Scissors: cut a break into a task (when no card has the keyboard)', group: 'General', scope: 'home' },
 ];
 
-export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS, ...PHASE5_SHORTCUTS, ...UNDO_SHORTCUTS, ...BLOCK_SHORTCUTS, ...BLADE_SHORTCUTS];
+// 3.70.0 (PLAN_desktop_parity D4): the step by step add dialog. N is free in every scope.
+export const STEPADD_SHORTCUTS: ShortcutDef[] = [
+  { id: 'addSteps', keys: 'N', label: 'Add a task step by step', group: 'General', scope: 'home' },
+];
+
+export const SHORTCUTS: ShortcutDef[] = [...PHASE2_SHORTCUTS, ...PHASE3_SHORTCUTS, ...PHASE5_SHORTCUTS, ...UNDO_SHORTCUTS, ...BLOCK_SHORTCUTS, ...BLADE_SHORTCUTS, ...STEPADD_SHORTCUTS];
 
 // ---- matching ----
 

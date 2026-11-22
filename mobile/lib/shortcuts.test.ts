@@ -232,3 +232,11 @@ test('undo and redo: Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z on the home screen, never w
     assert.equal(shortcutFor(press(k, mods), { typing: false, blocked: true, scope: 'home' }), null, `${id} while a popover is open`);
   }
 });
+
+test('3.70.0: N opens the step by step add dialog at home, never while typing, never on a card', () => {
+  assert.equal(shortcutFor(press('n'), home), 'addSteps');
+  assert.equal(shortcutFor(press('N'), home), 'addSteps', 'caps lock');
+  assert.equal(shortcutFor(press('n'), { typing: true, scope: 'home' }), null);
+  assert.equal(shortcutFor(press('n'), card), null);
+  assert.equal(shortcutFor(press('n', { shift: true }), home), null);
+});

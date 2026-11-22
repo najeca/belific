@@ -8,13 +8,14 @@ import { splitThoughts, rowId } from '../../lib/thoughts';
 import { loadBrainDumpItems, loadLists, loadTasks, loadTasksRaw } from '../../lib/storage';
 import { hostIndex } from '../../lib/hosting';
 import { listCounts, listEmojiOf, resolveSelectedList, tasksInList } from '../../lib/lists';
+import { buildQuests } from '../../lib/quests';
 import { plannedText } from '../../lib/taskTotals';
 import { createTaskIn } from '../../lib/taskCommands';
 import { loadLabels } from '../../lib/labels';
 import { labelColor } from '../../lib/labelColors';
 import { setTaskCompleted } from '../../lib/taskActions';
 import TaskCard from './TaskCard';
-import MissedButton from './MissedButton';
+import EarlierButton from './EarlierButton';
 import AddTaskBox from './AddTaskBox';
 import { matchesLabels, type TaskFilter } from '../../lib/taskFilter';
 import { dumpAsTask, opsForDump, opsForTask } from './taskOps';
@@ -23,7 +24,8 @@ import usePaneScroll from './usePaneScroll';
 import { taskDuration } from '../../lib/drag';
 import type { BrainDumpItem, Project, Task, TaskList } from '../../lib/types';
 import ListSwitcher from './ListSwitcher';
-import { openDetail, openNewTask, useSelectedList } from './uiStore';
+import { REPEATS_KEY, openDetail, openNewTask, useSelectedList } from './uiStore';
+import RepeatsList from './RepeatsList';
 import { editDumpItem } from '../../lib/taskActions';
 import { useFeature } from './featureStore';
 import TemplatePicker from './TemplatePicker';
@@ -87,7 +89,8 @@ export default function BrainDumpPane({
   // item has no label, so it shows with "No label" or with no label filter.
   // The list shown: a named list, or Brain Dump (the default, and the fallback
   // when the remembered list was deleted). Legacy phone items live in Brain Dump.
-  const selected = resolveSelectedList(selectedRaw, lists);
+  const repeating = selectedRaw === REPEATS_KEY;
+  const selected = repeating ? undefined : resolveSelectedList(selectedRaw, lists);
   const counts = useMemo(() => listCounts(tasks, lists), [tasks, lists]);
   const { rows, doneToday } = useMemo(
     () =>
@@ -100,6 +103,8 @@ export default function BrainDumpPane({
       ),
     [tasks, dumpItems, todayKey, filter, selected, lists],
   );
+  // 3.71.0 (D5): how many repeating tasks, for the Repeats row of the switcher.
+  const repeatCount = useMemo(() => buildQuests(raw, [], todayKey).length, [raw, todayKey]);
   // The add task box's total (2.26.0): "5h planned" for what is still to do.
   const planned = useMemo(() => plannedText(rows.map((r) => (r.kind === 'task' ? r.task : dumpAsTask(r.item)))), [rows]);
 
@@ -111,23 +116,24 @@ export default function BrainDumpPane({
   return (
     <View ref={paneRef as never} style={[styles.pane, isTarget && styles.paneTarget]}>
       <View style={styles.headRow}>
-        <ListSwitcher lists={lists} counts={counts} selected={selected} />
+        <ListSwitcher lists={lists} counts={counts} selected={selected} repeating={repeating} repeatCount={repeatCount} />
         {/* F3 of PLAN_daily_flow (D5): always there, as earlier days' unticked tasks wait here, not on the board. */}
-        <MissedButton refreshKey={refreshKey} />
+        <EarlierButton refreshKey={refreshKey} />
       </View>
       {/* 3.31.0: Brain Dump says how many tasks have no day yet, the number in bold (never a nag: nothing at zero). */}
-      {selected === undefined && rows.length > 0 ? (
+      {!repeating && selected === undefined && rows.length > 0 ? (
         <Text style={styles.countLine} {...({ dataSet: { noDayCount: String(rows.length) } } as object)}>
           <Text style={styles.countNum}>{rows.length}</Text> {rows.length === 1 ? 'task' : 'tasks'}, no day yet
         </Text>
       ) : null}
       {/* 3.16.0: the total is a quiet caption under the list header, not a pill in the Add row. */}
-      {planned ? (
+      {!repeating && planned ? (
         <Text style={styles.plannedCaption} accessibilityLabel={`Estimated time still to do in this list: ${planned}`} {...({ dataSet: { planned: '1' } } as object)}>
           {planned}
         </Text>
       ) : null}
 
+      {!repeating && (
       <View style={styles.captureRow}>
         <View style={styles.captureBox}>
           <AddTaskBox
@@ -146,9 +152,12 @@ export default function BrainDumpPane({
         </View>
         {templatesOn && <TemplatePicker listKey={selected} refreshKey={refreshKey} onChanged={onChanged} />}
       </View>
+      )}
 
       <ScrollView ref={scrollRef('left') as never} style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        {rows.length === 0 ? (
+        {repeating ? (
+          <RepeatsList refreshKey={refreshKey} onChanged={onChanged} />
+        ) : rows.length === 0 ? (
           <Text style={styles.empty}>
             {selected === undefined ? '🧠 Nothing waiting. Type above and press Enter; add the details later.' : '📋 This list is empty. Type above and press Enter to add to it.'}
           </Text>
@@ -189,7 +198,7 @@ export default function BrainDumpPane({
         )}
       </ScrollView>
 
-      {doneToday.length > 0 && (
+      {!repeating && doneToday.length > 0 && (
         <View style={styles.doneSection}>
           <ShortDivider width={70} style={{ marginBottom: 4 }} />
           <Pressable

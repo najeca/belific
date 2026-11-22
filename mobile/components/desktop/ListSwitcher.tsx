@@ -11,7 +11,7 @@ import type { TaskList } from '../../lib/types';
 import EmojiField from './EmojiField';
 import Popover, { PopoverHeading, Row, closePopover, togglePopover, useIsOpen, usePopoverAnchor, popoverStyles } from './Popover';
 import { compactBtnText, outlinedBtn, outlinedBtnHover } from './ui';
-import { notifyChanged, selectList } from './uiStore';
+import { REPEATS_KEY, notifyChanged, selectList } from './uiStore';
 
 const POPOVER_ID = 'list-switcher';
 
@@ -25,11 +25,16 @@ export default function ListSwitcher({
   lists,
   counts,
   selected,
+  repeating = false,
+  repeatCount = 0,
 }: {
   lists: TaskList[];
   counts: Map<string, number>;
   // The key of the shown list; undefined is Brain Dump.
   selected: string | undefined;
+  // 3.71.0 (D5): the pane shows Repeats (the groups of repeating tasks) instead of a list.
+  repeating?: boolean;
+  repeatCount?: number;
 }) {
   const { ref, get } = usePopoverAnchor();
   const open = useIsOpen(POPOVER_ID);
@@ -42,22 +47,22 @@ export default function ListSwitcher({
         style={[styles.button, open && styles.buttonOpen]}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={`List: ${current?.name ?? BRAIN_DUMP_NAME}. Change list`}
+        accessibilityLabel={`List: ${repeating ? 'Repeats' : current?.name ?? BRAIN_DUMP_NAME}. Change list`}
         {...({ dataSet: { ctl: 'lists' } } as object)}
       >
         <Text style={styles.buttonText} numberOfLines={1}>
-          {listTitle(current)}
+          {repeating ? '🔁 Repeats' : listTitle(current)}
         </Text>
         <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
       </Pressable>
       <Popover id={POPOVER_ID} anchor={get} width={360} maxHeight={640} label="Lists">
-        <Body lists={lists} counts={counts} selected={selected} />
+        <Body lists={lists} counts={counts} selected={selected} repeating={repeating} repeatCount={repeatCount} />
       </Popover>
     </>
   );
 }
 
-function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<string, number>; selected: string | undefined }) {
+function Body({ lists, counts, selected, repeating, repeatCount }: { lists: TaskList[]; counts: Map<string, number>; selected: string | undefined; repeating: boolean; repeatCount: number }) {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState<string | undefined>();
   const [problem, setProblem] = useState<string | null>(null);
@@ -106,7 +111,7 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
         label={BRAIN_DUMP_NAME}
         leading={<Text style={styles.emoji}>{BRAIN_DUMP_EMOJI}</Text>}
         trailing={<Text style={styles.count}>{counts.get('') ?? 0}</Text>}
-        selected={selected === undefined}
+        selected={selected === undefined && !repeating}
         onPress={() => choose(null)}
         a11y={`Show ${BRAIN_DUMP_NAME}`}
       />
@@ -132,11 +137,19 @@ function Body({ lists, counts, selected }: { lists: TaskList[]; counts: Map<stri
               </Pressable>
             </>
           }
-          selected={selected === l.key}
+          selected={selected === l.key && !repeating}
           onPress={() => choose(l.key)}
           a11y={`Show list ${l.name}`}
         />
       ))}
+      <Row
+        label="Repeats"
+        leading={<Text style={styles.emoji}>🔁</Text>}
+        trailing={repeatCount > 0 ? <Text style={styles.count}>{repeatCount}</Text> : undefined}
+        selected={repeating}
+        onPress={() => choose(REPEATS_KEY)}
+        a11y="Show Repeats"
+      />
 
       <PopoverHeading>New list</PopoverHeading>
       <View style={popoverStyles.pad}>

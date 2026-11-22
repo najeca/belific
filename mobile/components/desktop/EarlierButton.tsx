@@ -9,12 +9,12 @@ import { pressStyle } from './pressStyle';
 import { openOverlay } from './uiStore';
 import { Ionicons } from '@expo/vector-icons';
 
-// The Missed button in the left pane (2.27.0, item 6): opens the Missed panel,
+// The Earlier button in the left pane (2.27.0, item 6; it was MissedButton until 3.71.0): opens the Earlier panel,
 // with how many are waiting. It reads "Earlier": the board never shows loss
 // wording (no "missed", no zero; design identity, checked by cp11), so the word
 // stays inside the panel and the flows, which the person opens. Worked out afresh on every change and every minute
 // (so it updates at midnight); nothing is stored for it.
-export default function MissedButton({ refreshKey }: { refreshKey: number }) {
+export default function EarlierButton({ refreshKey }: { refreshKey: number }) {
   const [count, setCount] = useState(0);
   const tick = useTick(60000);
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function MissedButton({ refreshKey }: { refreshKey: number }) {
   }, [refreshKey, tick]);
   return (
     <Pressable
-      onPress={() => openOverlay({ kind: 'missed' })}
+      onPress={() => openOverlay({ kind: 'earlier' })}
       style={pressStyle(({ hovered }) => [styles.btn, hovered && styles.hover])}
       accessibilityRole="button"
       accessibilityLabel={count === 0 ? 'Earlier days: nothing waiting' : `Earlier days: ${count} to look at`}

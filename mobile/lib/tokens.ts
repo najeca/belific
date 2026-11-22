@@ -193,6 +193,9 @@ export const focusRing = { width: 2, offset: 2, color: 'textPrimary' } as const 
 // right and down. `offset` is the one switch (0 turns every slab off). The window's is 3 px more. Light theme on the
 // desktop only: none in dark, none on the phone.
 export const slab = { offset: 7 } as const;
+// 3.71.0 (D5): the same offset shape behind a task card, as on the phone (components/phone/Slab.tsx: 6 px right and down,
+// in the control outline colour). Light theme only; the card's own radius is the shape's.
+export const cardSlab = { offset: 6 } as const;
 export function slabOffset(kind: 'pane' | 'window', theme: ThemeName, phone = false): number {
   if (phone || theme === 'dark' || slab.offset <= 0) return 0;
   return kind === 'pane' ? slab.offset : slab.offset + 3;

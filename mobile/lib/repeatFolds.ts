@@ -2,6 +2,9 @@
 // belific_phone_repeat_folds), never synced. Pure; see repeatWords.test.ts.
 export const REPEAT_FOLDS_KEY = 'belific_phone_repeat_folds';
 
+// 3.71.0 (D5): the desktop's own key (the Repeats list in the left pane), local to the computer, never synced.
+export const DESKTOP_REPEAT_FOLDS_KEY = 'belific_desktop_repeat_folds';
+
 export function parseFolds(raw: string | null | undefined): string[] {
   if (!raw) return [];
   try {

@@ -6,7 +6,7 @@ import { pressStyle } from './pressStyle';
 import { tipRef } from './tip';
 import { requestCalendarToday, useAtToday } from './todayStore';
 import BrainDumpPane from './BrainDumpPane';
-import MissedPanel from './MissedPanel';
+import EarlierPanel from './EarlierPanel';
 import UndoBar from './UndoBar';
 import KanbanPane from './KanbanPane';
 import TimeboxPane from './TimeboxPane';
@@ -41,6 +41,7 @@ import CalendarPane from './CalendarPane';
 import Sidebar from './Sidebar';
 import QuickCapture from './QuickCapture';
 import StepAddDialog from './StepAddDialog';
+import TaskContextMenu from './TaskContextMenu';
 import SearchPalette from './SearchPalette';
 import { usePaneState } from './usePaneState';
 import { refreshFeatures, useFeatures } from './featureStore';
@@ -363,7 +364,7 @@ export default function DesktopHome() {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
       // The Labels overlay has fields of its own that use Escape; it closes itself.
       // The step by step add dialog uses Escape for Back (and closes itself on its first screen).
-      if (overlay.kind === 'labels' || overlay.kind === 'missed' || overlay.kind === 'stepadd') return;
+      if (overlay.kind === 'labels' || overlay.kind === 'earlier' || overlay.kind === 'stepadd') return;
       e.preventDefault();
       closeOverlay();
     };
@@ -596,11 +597,12 @@ export default function DesktopHome() {
       {view === 'home' && overlay?.kind === 'help' && <ShortcutHelp />}
       {view === 'home' && overlay?.kind === 'capture' && <QuickCapture key={overlay.mode} mode={overlay.mode} />}
       {view === 'home' && overlay?.kind === 'search' && <SearchPalette />}
+      <TaskContextMenu />
       {view === 'home' && overlay?.kind === 'stepadd' && <StepAddDialog where={{ listKey: overlay.listKey, suggestDay: overlay.suggestDay }} />}
       {overlay?.kind === 'labels' && <LabelsOverlay onChanged={onChanged} />}
       {/* F3 of PLAN_daily_flow: Wrap up is one screen of its own; Earlier is always there (D5). */}
       {view === 'home' && overlay?.kind === 'flow' && overlay.mode === 'shutdown' && <WrapUp refreshKey={refreshKey} />}
-      {view === 'home' && overlay?.kind === 'missed' && <MissedPanel refreshKey={refreshKey} back={overlay.back} />}
+      {view === 'home' && overlay?.kind === 'earlier' && <EarlierPanel refreshKey={refreshKey} back={overlay.back} />}
       {view === 'home' && <UndoBar />}
       <TimerWidget refreshKey={refreshKey} />
       <MiddlePan />

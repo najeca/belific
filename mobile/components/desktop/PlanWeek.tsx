@@ -91,7 +91,7 @@ export default function PlanWeek({ refreshKey }: { refreshKey: number }) {
           </ScrollView>
           {leftover > 0 && (
             <Pressable
-              onPress={() => openOverlay({ kind: 'missed', back: 'week' })}
+              onPress={() => openOverlay({ kind: 'earlier', back: 'week' })}
               style={[wrap.row, styles.leftover]}
               accessibilityRole="button"
               accessibilityLabel={`Open Earlier: ${lastWeekLine(leftover)}`}

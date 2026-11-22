@@ -1124,3 +1124,9 @@ Gates: tsc clean; the full regression follows this entry.
 - Choices made here: no inline New list / New label on screen 4 (a one line note points to the left pane and the Labels page); N chosen as the key (free in every scope); the dialog is not a Modal but an overlay like Quick capture; scrim click closes and keeps the task; Pick a date uses the native date input; the suggested day option exists in the dialog but nothing passes one yet.
 - Tests: mobile shortcuts 19/19; quiet p73 33/33, p56 20, p70 25, p60 33.
 - Check by hand: the dialog with a real keyboard (Tab order, Enter, Esc, 1 to 3), Narrator reading "Step 2 of 5", dark mode, a narrow window, the top row at 1440 px with the new Add button (p56 passes), p3 and p9 (pointer only, layout) not run.
+
+## 3.71.0 D5 of PLAN_desktop_parity: Repeats groups, slab cards, right click menu, Earlier (2026-11-22)
+- Built RepeatsList (left pane, via the list switcher), the slab on TaskCard, TaskContextMenu over lib/cardActions.ts, the Missed to Earlier file rename.
+- Choices made here: the label colour stays the 6 px top band (the plan's 4 px left edge was not built, it would change every card check); the slab is 6 px as on the phone (the pane slab is 7); Repeats is a choice in the same remembered list setting (`__repeating__`), so it comes back after a restart; the Repeats count in the switcher ignores old routines (not shown there either); Move in the menu offers Tomorrow, Next week, Pick a day (opens the details) and lists, never a day for a repeating task (as the phone); the data-missed-* test hooks and lib/missed.ts were not renamed (they are shared with the phone and with 6 checks).
+- Tests: tsc clean; quiet p74 25/25.
+- Check by hand: right click on cards in the board, left pane, Today (Anytime card, bubble) and Repeats; Shift+F10 and the Menu key; the slab at the pane edge and in the board columns (is it clipped?); dark mode; the pointer only p43, cp8e, cp8b, p37 (cards, drag), p3, p9.

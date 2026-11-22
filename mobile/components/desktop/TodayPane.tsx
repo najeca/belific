@@ -34,6 +34,8 @@ import { useCutMin } from './cutStore';
 import { useHoursNonce } from './hoursStore';
 import { useTint } from './themeStore';
 import { offerUndo, openDetail } from './uiStore';
+import { contextMenuProps, isMenuKey, openCardMenu } from './cardMenuStore';
+import { opsForProjected, opsForTask } from '../../lib/taskOps';
 import { pressStyle } from './pressStyle';
 
 const nowMinutes = () => {
@@ -119,6 +121,23 @@ export default function TodayPane({ refreshKey, onChanged, active }: { refreshKe
     return l ? `${l.emoji ? `${l.emoji} ` : ''}${l.name}` : `${BRAIN_DUMP_EMOJI} ${BRAIN_DUMP_NAME}`;
   };
   const emojiOf = (t: Task) => (t.listKey ? live.find((x) => x.key === t.listKey)?.emoji : undefined) || BRAIN_DUMP_EMOJI;
+
+  // 3.71.0 (D5): the right click menu (and Shift+F10 / the Menu key) of a task item, the same one every card opens.
+  const menuTarget = (item: TodayItem) =>
+    item.kind === 'task'
+      ? { task: item.task, projected: item.projected, ops: item.projected ? opsForProjected(item.task) : opsForTask(item.task), open: () => openDetail(item.task.id), onChanged }
+      : null;
+  const menuProps = (item: TodayItem): object => {
+    const m = menuTarget(item);
+    return m ? contextMenuProps(() => m) : {};
+  };
+  const menuKey = (item: TodayItem) => (e: React.KeyboardEvent) => {
+    const m = menuTarget(item);
+    if (!m || !isMenuKey(e)) return;
+    e.preventDefault();
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    openCardMenu({ ...m, x: r.left + 24, y: r.top + 24 });
+  };
 
   async function tick(item: TodayItem, done: boolean, withUndo = true) {
     if (item.kind === 'event') return;
@@ -226,7 +245,7 @@ export default function TodayPane({ refreshKey, onChanged, active }: { refreshKe
     const inside = marker.inside && marker.key === item.key ? marker.share : null;
     const shift = t ? shifts.byTask.get(t.id) : undefined;
     return (
-      <View key={item.key} style={styles.tlRow} {...({ dataSet: item.kind === 'task' ? { tlRow: done ? 'done' : 'open', todayKey: item.key, todayRow: title } : { tlRow: 'event', todayEvent: title } } as object)}>
+      <View key={item.key} style={styles.tlRow} {...menuProps(item)} {...({ dataSet: item.kind === 'task' ? { tlRow: done ? 'done' : 'open', todayKey: item.key, todayRow: title } : { tlRow: 'event', todayEvent: title } } as object)}>
         <View style={[styles.bubble, { height: h, backgroundColor: col.fill, borderColor: col.edge }, reminder && styles.round]} {...({ dataSet: { bubble: String(h), bubbleEdge: col.edge } } as object)}>
           <Text style={styles.bubbleEmoji}>{t ? emojiOf(t) : item.kind === 'event' ? item.event.icon || '' : ''}</Text>
           {inside !== null ? <View style={[styles.insideMark, { top: Math.round(h * inside) }]} {...({ dataSet: { nowMarker: 'inside' } } as object)} /> : null}
@@ -333,7 +352,8 @@ export default function TodayPane({ refreshKey, onChanged, active }: { refreshKe
                     focusable
                     style={[styles.card, { borderLeftColor: col.edge }, dragging && { transform: [{ translateY: drag.dy }], zIndex: 5, boxShadow: Colors.shadowMd } as object]}
                     accessibilityLabel={`${title}${t ? `, ${listOf(t)}` : ''}. Drag, or Alt and the arrow keys, to change the order.`}
-                    {...({ dataSet: { anytimeCard: item.key, anytimeTitle: title }, onPointerDown: (e: never) => startDrag(e, index, item.key), onKeyDown: onCardKey(index), tabIndex: 0 } as object)}
+                    {...({ dataSet: { anytimeCard: item.key, anytimeTitle: title }, onPointerDown: (e: never) => startDrag(e, index, item.key), onKeyDown: (e: React.KeyboardEvent) => { menuKey(item)(e); onCardKey(index)(e as never); }, tabIndex: 0 } as object)}
+                    {...menuProps(item)}
                   >
                     <Pressable onPress={() => open(item)} style={{ flex: 1 }} accessibilityRole={t ? 'button' : undefined} accessibilityLabel={`Open ${title}`}>
                       <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>

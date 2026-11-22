@@ -19,7 +19,7 @@ export type Overlay =
   | { kind: 'flow'; mode: 'planning' | 'shutdown' | 'week' }
   | { kind: 'labels' }
   // F4: `back` 'planning': opened from Plan my day's folded line; closing it goes back there.
-  | { kind: 'missed'; back?: 'planning' | 'week' }
+  | { kind: 'earlier'; back?: 'planning' | 'week' }
   | null;
 
 export interface TimerConfirm {
@@ -152,6 +152,8 @@ export function openNewTask(where: NewTaskWhere = {}): void {
 
 // ---- the list the left pane shows (null = Brain Dump) ----
 export const LIST_KEY = 'belific_desktop_list';
+// 3.71.0 (D5): the left pane can show Repeats (the groups) instead of a list; kept in the same remembered choice.
+export const REPEATS_KEY = '__repeating__';
 export const useSelectedList = () => use((s) => s.selectedList);
 export const getSelectedList = () => state.selectedList;
 export function selectList(key: string | null): void {

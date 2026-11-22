@@ -15,6 +15,7 @@ import type { Project, Task } from '../../lib/types';
 import { isEditableTarget } from '../../lib/editable';
 import { cardKeyAction } from '../../lib/cardKeys';
 import { shortcutFor } from '../../lib/shortcuts';
+import { contextMenuProps, isMenuKey, openCardMenu } from './cardMenuStore';
 import { duplicateTaskById } from '../../lib/taskCommands';
 import { ensureFocusRingStyle } from './focusRing';
 import HoverPressable from './HoverPressable';
@@ -25,7 +26,7 @@ import { notifyChanged, openDetail, type DetailFocus } from './uiStore';
 import { timesLabel } from '../../lib/times';
 import StreakLine from './StreakLine';
 import { useResolvedTheme, useTint } from './themeStore';
-import { THEMES, band, labelTint, radius } from '../../lib/tokens';
+import { THEMES, band, cardSlab, labelTint, radius } from '../../lib/tokens';
 import { checkRing, checkRingDone } from './ui';
 
 // A task on the board, in the left list, or in any list (2.27.0). The card is a
@@ -211,6 +212,14 @@ export default function TaskCard({
       el.setAttribute('data-card-focus', '1');
       ensureFocusRingStyle();
       const onKey = (e: KeyboardEvent) => {
+        // 3.71.0 (D5): Shift+F10 and the Menu key open the right click menu at the card.
+        if (isMenuKey(e) && !isEditableTarget(e.target)) {
+          e.preventDefault();
+          e.stopPropagation();
+          const r = el.getBoundingClientRect();
+          openCardMenu({ x: r.left + 24, y: r.top + 24, task: live.current.task, projected: live.current.projected, ops: live.current.wrapped as TaskOps, open: () => openRef.current('title'), onChanged: () => notifyChanged() });
+          return;
+        }
         const action = cardKeyAction({
           key: e.key,
           onCardItself: e.target === el,
@@ -285,8 +294,11 @@ export default function TaskCard({
         task.completed && styles.done,
         dragging && styles.dragging,
         projected && styles.projected,
+        // 3.71.0 (D5): the slab behind every card in light, as on the phone; none in dark.
+        theme !== 'dark' && ({ boxShadow: `${cardSlab.offset}px ${cardSlab.offset}px 0 0 ${Colors.borderStrong}` } as object),
       ]}
       hoverStyle={styles.hover}
+      {...contextMenuProps(() => ({ task: live.current.task, projected: live.current.projected, ops: live.current.wrapped as TaskOps, open: () => openRef.current('title'), onChanged }))}
       // Not a button: RN web renders role button as a native <button>, and a
       // field inside a <button> turns a typed Space into a click on it.
       accessibilityLabel={`Task ${task.title}`}

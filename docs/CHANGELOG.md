@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.71.0 — 2026-11-22 (desktop Repeats groups, slab cards, right click menu, Earlier rename; PLAN_desktop_parity D5)
+Desktop only; the phone is unchanged; no database change.
+- **Repeats** in the left pane: the list switcher has a **Repeats** row (with a count). It shows the repeating tasks grouped Daily, Weekly, Every 2 weeks, Every few weeks, Monthly, Every year, Other, each group a heading you click (or Enter) to fold, the fold kept on this computer only (local `belific_desktop_repeat_folds`, never synced). Each row says the pattern in words with "Until 17 Dec" when it ends, the same words as the phone (`lib/repeatGroups.ts`, `lib/repeatWords.ts`), with the usual tick, Skip and Today.
+- **Slab cards**: a task card (board, left pane, Repeats rows) has the phone's solid offset shape behind it, 6 px right and down in the control outline colour (`cardSlab` in `lib/tokens.ts`); none in dark. The label colour stays as the band across the top of the card (the desktop's own look since 3.32.0).
+- **Right click menu** on a task card, an Anytime card, a timeline bubble and a Repeats row (also Shift+F10 or the Menu key on a focused card): the phone's hold card actions from the shared list `lib/cardActions.ts`: Done (Not done), Edit, Skip today (repeating only), Move (Tomorrow, Next week, Pick a day, a list), Delete, More (Duplicate, Open details). Delete on a repeating task asks "Only today, or every day?" first; a task with smaller tasks or a shift with blocks inside asks as the ⋮ menu does. Delete is never red. Up and Down move, Enter does, Esc closes or goes back.
+- **Earlier**: the pill already said Earlier; the files and the overlay are renamed to match (`EarlierButton.tsx`, `EarlierPanel.tsx`, overlay kind `earlier`). The test hooks (`data-missed-*`) and the shared `lib/missed.ts` keep their names.
+- Files: `RepeatsList.tsx`, `TaskContextMenu.tsx`, `cardMenuStore.ts` (new); `ListSwitcher.tsx`, `BrainDumpPane.tsx`, `TaskCard.tsx`, `TodayPane.tsx`, `DesktopHome.tsx`, `uiStore.ts`, `lib/repeatFolds.ts`, `lib/tokens.ts`.
+- Tests: new quiet real check `p74` (25 checks).
+
 ## 3.70.0 — 2026-11-22 (desktop step by step add dialog; PLAN_desktop_parity D4)
 Desktop only; the phone is unchanged; no database change.
 - **Add a task step by step**: a centred dialog about 560 px wide with the phone's five screens (What's on your mind, When, What time, Which list or label, Anything else). Opened by the **Add** button in the top row (icon only on a squeezed row) or **N**. Quick capture (Q, T) stays as the fast path.

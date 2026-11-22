@@ -98,7 +98,7 @@ export default function PlanMyDay({ refreshKey }: { refreshKey: number }) {
           <AddColumn key={listKey} listKey={listKey} lists={lists} todayKey={todayKey} refreshKey={refreshKey} />
           {earlier > 0 && (
             <Pressable
-              onPress={() => openOverlay({ kind: 'missed', back: 'planning' })}
+              onPress={() => openOverlay({ kind: 'earlier', back: 'planning' })}
               style={[wrap.row, styles.earlier]}
               accessibilityRole="button"
               accessibilityLabel={`Open Earlier: ${earlierLine(earlier)}`}

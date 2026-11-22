@@ -19,7 +19,7 @@ import { WrapRow, runChoice, useWrapRows, styles as wrap } from './WrapUp';
 // past columns). Each row has the Wrap up buttons (Tomorrow, Back to its list, Let go; Today too before 14:00) and a tick
 // that marks it done on its own day; Tick all marks every one done on its own day. Every action saves at once and folds
 // the row with its own Undo (Ctrl+Z works too). Nothing moves by itself. Repeating days are never listed.
-export default function MissedPanel({ refreshKey, back }: { refreshKey: number; back?: 'planning' | 'week' }) {
+export default function EarlierPanel({ refreshKey, back }: { refreshKey: number; back?: 'planning' | 'week' }) {
   // F4: opened from Plan my day, it goes back there when it closes.
   const close = () => (back ? openOverlay({ kind: 'flow', mode: back }) : closeOverlay());
   const todayKey = useRef(dateKey(new Date())).current;

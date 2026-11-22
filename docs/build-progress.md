@@ -1107,3 +1107,8 @@ Gates: tsc clean; the full regression follows this entry.
 - D7 written as a plan only: docs/PLAN_push_after.md (the phone does not carry a shift's inside tasks on a drag; deciding file app/(tabs)/calendar.tsx).
 - Tests: mobile 1326/1326 (3 new in planSets.test.ts), desktop 118/118; p5 20, p56 20, p58 37, p59 29, p60 33, p61 27, p66 17, phone-p29 23, phone-p30 21, phone-p32 12, phone-p33 31.
 - Check by hand: the three desktop Plan screens look and act as before; the top row at 1440 px and narrower.
+
+## Full regression on 3.68.0 (2026-11-22)
+- Gates: tsc clean, mobile 1326/1326, desktop 118/118, iOS export OK (49 markers, 0 hits), security scan passed.
+- Quiet Electron set: 89 checks (88 plus the new p70). 82 passed in the batch; 7 failed in it and all passed alone, so all 7 are flakes: p34 (50/50 alone), p62 (19/19), p66 (17/17), p8 (44/44), phone-p12 (19/19), phone-p13 (17/17), phone-p14 (28/28). The batch ran across midnight and a long pause; the phone-p12 log shows the Electron network service crashing, and p8 depends on a subscription "due 2 hours ago". No stale check, no real bug.
+- Pointer only checks (26) NOT run; ready for Jethro. Most likely touched this round: p3 and p9 (the home top row now has a third centre segment), cp9 (the profile menu row), p7 (the label form has the hours switch), cp8b and p37 (drag, beside the new Anytime drag), cp8e and p43 (cards).

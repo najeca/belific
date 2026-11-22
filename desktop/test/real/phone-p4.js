@@ -101,7 +101,7 @@ async function run() {
   const timedOrder = order.filter((t) => ['Morning walk', 'Standup', 'Evening review'].includes(t));
   check('timed tasks in time order (a projected repeating task included)', JSON.stringify(timedOrder) === JSON.stringify(['Morning walk', 'Standup', 'Evening review']), JSON.stringify(order));
   const any = order.filter((t) => ['Stretch', 'Old habit', 'Pay rent', 'Buy milk'].includes(t));
-  check('Anytime: the routine first, then top priority, then oldest first (a converted routine is a task)', JSON.stringify(any) === JSON.stringify(['Stretch', 'Pay rent', 'Old habit', 'Buy milk']), JSON.stringify(any));
+  check('Anytime: the routine first, then oldest first (no priority from 3.69.0) (a converted routine is a task)', JSON.stringify(any) === JSON.stringify(['Stretch', 'Old habit', 'Buy milk', 'Pay rent']), JSON.stringify(any));
   check('a converted routine shows once (the series, not the routine)', order.filter((t) => t === 'Old habit').length === 1);
   check('an old event is a grey row among the timed ones', await P.js(`!!document.querySelector('[data-today-event="Gym class"]')`));
   // 3.60.0 (on purpose): the Now and Next lines became the Now card.

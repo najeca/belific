@@ -165,5 +165,5 @@ the new screens start without red), then the Today view, the add flow, the lists
 
 ## Built
 
-- D1 as 3.66.0, D3 as 3.67.0, D6 as 3.68.0 (2026-11-21). D7 written as a plan: docs/PLAN_push_after.md. D2, D4 and D5 not started.
+- D1 as 3.66.0, D3 as 3.67.0, D6 as 3.68.0 (2026-11-21); D2 as 3.69.0, D4 as 3.70.0, D5 as 3.71.0, the top row fix as 3.72.0 (2026-11-22). D7 written as a plan: docs/PLAN_push_after.md, not built.
 - Answers used (Jethro, 2026-11-21): Today is a new centre view with the Timebox on the right; the Tasks board today column does not follow the Anytime order yet; the Plan screens keep their one screen style.

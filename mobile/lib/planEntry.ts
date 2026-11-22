@@ -43,7 +43,8 @@ export function weekToPlan(now: Date): string[] {
 // when the centre pane's top row is too narrow to hold it beside the Plan button and the avatar (all three panes open on
 // a 1440 px window leave the centre about 770 px): `rowWidth` is that row's measured width, 0 when it is not known.
 export const ANALYTICS_IN_MENU_BELOW_PX = 1100;
-export const TOP_ROW_NEEDS_PX = 880;
+// 3.72.0: 980 (was 880) now the Add button is in the row; at 930 px the avatar was pushed out of view.
+export const TOP_ROW_NEEDS_PX = 980;
 export const analyticsInMenu = (windowWidth: number, rowWidth = 0): boolean => windowWidth < ANALYTICS_IN_MENU_BELOW_PX || (rowWidth > 0 && rowWidth < TOP_ROW_NEEDS_PX);
 
 // F1 (2): the "Free time" line at the foot of a day column is a setting, off by default (user_settings row).

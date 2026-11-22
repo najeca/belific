@@ -154,7 +154,7 @@ async function run() {
   await I.click(`document.querySelector('[data-popover] [aria-label="Clear week"]')`, 800);
   const wq = await I.textOf(box);
   check('Clear week asks with the count first', /Clear \d+ tasks from \d+ \w+ to \d+ \w+\?/.test(wq), wq);
-  await I.click(`document.querySelector('[data-clear-scope="day"]')`, 300);
+  await I.js(`(() => { const e = document.querySelector('[data-clear-scope="day"]'); console.log('scope-present', !!e); if (e) e.click(); })()`); await C.sleep(300);
   await I.click(`document.querySelector('[data-clear-go]')`, 2200);
   const inWeek = ['shift', 'bank'].concat(raw().some((t) => t.id === 'slides' && t.dueDate) ? [] : []);
   check('the week\'s tasks go back to their lists', inWeek.every((id) => !live(id).dueDate), JSON.stringify(inWeek.map((id) => live(id).dueDate)));

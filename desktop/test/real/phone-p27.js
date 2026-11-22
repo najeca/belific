@@ -147,7 +147,7 @@ async function run() {
 
   // ---- Anytime: slab cards, hold and drag to reorder ----
   const cards = () => all('[data-anytime-card]', 'data-anytime-card');
-  check('Anytime has one card per untimed task (top priority first, then oldest)', JSON.stringify(await cards()) === JSON.stringify(['Post parcel', 'Buy stamps', 'Read chapter 3']), JSON.stringify(await cards()));
+  check('Anytime has one card per untimed task (oldest first, no priority from 3.69.0)', JSON.stringify(await cards()) === JSON.stringify(['Buy stamps', 'Read chapter 3', 'Post parcel']), JSON.stringify(await cards()));
   const gaps = await P.js(`(() => { const r = [...document.querySelectorAll('[data-anytime-body]')].map((e) => e.parentElement.parentElement.getBoundingClientRect()); return r.slice(1).map((b, i) => Math.round(b.top - r[i].bottom)); })()`);
   check('the cards are separate, with a visible gap', gaps.every((g) => g >= 8), JSON.stringify(gaps));
   check('each card has its slab shape behind it (light mode)', (await P.js(`document.querySelectorAll('[data-anytime-card] [data-slab-shape]').length`)) === 3);
@@ -156,13 +156,11 @@ async function run() {
   await scrollTo('[data-anytime-card="Read chapter 3"]');
   await C.sleep(400);
   await shot('phone-p27-anytime');
-  const cardH = await P.js(`Math.round(document.querySelector('[data-anytime-card="Post parcel"]').getBoundingClientRect().height)`);
-  await P.finger.holdDrag(visible('[data-anytime-body="Post parcel"]'), 0, Math.round(cardH * 2.2), 520, 600, 1400);
-  check('hold and drag Post parcel down two places: it is last', JSON.stringify(await cards()) === JSON.stringify(['Buy stamps', 'Read chapter 3', 'Post parcel']), JSON.stringify(await cards()));
-  check('the order is one user_settings row for today', JSON.stringify(JSON.parse(setting('today.order.2026-11-19') || '[]')) === JSON.stringify(['stamps', 'read', 'parcel']), setting('today.order.2026-11-19'));
-  check('no task row changed for the order (no new column)', read('belific_tasks').every((t) => !('dayOrder' in t) && !('day_order' in t)));
+  const cardH = await P.js(`Math.round(document.querySelector('[data-anytime-card="Read chapter 3"]').getBoundingClientRect().height)`);
   await P.finger.holdDrag(visible('[data-anytime-body="Read chapter 3"]'), 0, -Math.round(cardH * 1.2), 520, 600, 1400);
-  check('dragging Read chapter 3 up one place puts it first', JSON.stringify(await cards()) === JSON.stringify(['Read chapter 3', 'Buy stamps', 'Post parcel']), JSON.stringify(await cards()));
+  check('hold and drag Read chapter 3 up one place: it is first', JSON.stringify(await cards()) === JSON.stringify(['Read chapter 3', 'Buy stamps', 'Post parcel']), JSON.stringify(await cards()));
+  check('the order is one user_settings row for today', JSON.stringify(JSON.parse(setting('today.order.2026-11-19') || '[]')) === JSON.stringify(['read', 'stamps', 'parcel']), setting('today.order.2026-11-19'));
+  check('no task row changed for the order (no new column)', read('belific_tasks').every((t) => !('dayOrder' in t) && !('day_order' in t)));
   await P.finger.hold(visible('[data-anytime-body="Buy stamps"]'), 560, 1000);
   check('a hold without moving still opens the hold card', await P.js(`!!document.querySelector('[data-hold-card="Buy stamps"]')`));
   check('and does not change the order', JSON.stringify(await cards()) === JSON.stringify(['Read chapter 3', 'Buy stamps', 'Post parcel']));

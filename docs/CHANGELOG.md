@@ -8,6 +8,13 @@ to know the current version and recent history.
 
 ---
 
+## 3.72.0 — 2026-11-22 (fix: the profile icon was pushed out of the desktop top row; stale checks updated)
+Desktop only; no database change.
+- The new Add button (3.70.0) made the centre pane's top row too long: at a centre width of about 930 px (a 1584 px window with three panes) the avatar was pushed out of view. `TOP_ROW_NEEDS_PX` is now 980 (was 880): below it the buttons go icon only and Analytics moves into the Plan menu. Found by the full quiet regression (p16, p22 and p59 could not open the profile menu).
+- Checks brought in line with changes made on purpose: p22 (a light card has the 6 px slab, dark none), phone-p27 and phone-p4 (the Anytime order is oldest first now the hidden priority is not sorted, 3.69.0), p57 (the repeat choice in Clear week shows only when a repeat falls in the week).
+
+---
+
 ## 3.71.0 — 2026-11-22 (desktop Repeats groups, slab cards, right click menu, Earlier rename; PLAN_desktop_parity D5)
 Desktop only; the phone is unchanged; no database change.
 - **Repeats** in the left pane: the list switcher has a **Repeats** row (with a count). It shows the repeating tasks grouped Daily, Weekly, Every 2 weeks, Every few weeks, Monthly, Every year, Other, each group a heading you click (or Enter) to fold, the fold kept on this computer only (local `belific_desktop_repeat_folds`, never synced). Each row says the pattern in words with "Until 17 Dec" when it ends, the same words as the phone (`lib/repeatGroups.ts`, `lib/repeatWords.ts`), with the usual tick, Skip and Today.

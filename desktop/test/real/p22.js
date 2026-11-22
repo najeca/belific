@@ -161,7 +161,7 @@ async function run() {
         weekdayWeight: wk ? getComputedStyle(wk).fontWeight : null, labelChipBg: lab ? getComputedStyle(lab).backgroundColor : null, dotRound: dot ? px(getComputedStyle(dot).borderTopLeftRadius) >= 4 : null };
     })()`);
     // 3.32.0 (on purpose): 12 px corners, a 2 px outline, no shadow, padding 12 x 14 (16 under a label's 6 px band: 6 + 10).
-    check(`${name}: a card is flat: 12px corners, a 2px outline, no shadow, padding 12 x 14 (or 16 x 14 under a band)`, cardShape.radius === '12px' && cardShape.outline === '2px' && cardShape.shadow === 'none' && /^(12|16)px 14px$/.test(cardShape.pad), JSON.stringify(cardShape));
+    check(`${name}: a card is flat: 12px corners, a 2px outline, no offset shadow in dark, the 6 px slab in light, padding 12 x 14 (or 16 x 14 under a band)`, cardShape.radius === '12px' && cardShape.outline === '2px' && (/dark/i.test(name) ? cardShape.shadow === 'none' : / 6px 6px 0px/.test(cardShape.shadow)) && /^(12|16)px 14px$/.test(cardShape.pad), JSON.stringify(cardShape));
     check(`${name}: the day header is a heavy (800) weekday with a small square Today tag`, cardShape.weekdayWeight === '800' && cardShape.tagRadius === 0 && cardShape.tagBg === true, JSON.stringify(cardShape));
     check(`${name}: Add a task is a dashed 10px row (2 px dashed outline)`, cardShape.addRadius === '10px' && cardShape.addBorder === '2px', JSON.stringify([cardShape.addRadius, cardShape.addBorder]));
     check(`${name}: a label is a plain dot (3.40.0: the card's name is the list's), not a filled chip`, cardShape.labelChipBg === 'rgba(0, 0, 0, 0)' && cardShape.dotRound === true, JSON.stringify([cardShape.labelChipBg, cardShape.dotRound]));

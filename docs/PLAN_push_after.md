@@ -1,6 +1,7 @@
 # Plan: push after (PLAN_push_after, D7 of PLAN_desktop_parity)
 
-Written 2026-11-21 on `v2-redesign` at 3.68.0. **Plan only: no code, no database change, no push, no EAS build.**
+Written 2026-11-21 on `v2-redesign` at 3.68.0. **Built 2026-11-23: P1 3.73.0, P2 3.74.0, P3 3.75.0** (see docs/CHANGELOG.md and
+docs/build-progress.md). Jethro's answers: 1 recommended (chosen by Claude, to confirm), 2 refuse whole, 3 wall, 4 no, 5 yes, 6 yes, 7 yes.
 Where this plan makes a choice of its own it says "chosen here"; the questions at the end ask Jethro to confirm them.
 
 ## The brief (Jethro, 2026-11-21)

@@ -47,7 +47,8 @@ import { moveDay, splitFrom } from '../../lib/seriesActions';
 import { OWN_TIME_NOTE, SERIES_TIME_NOTE } from '../../lib/seriesTime';
 import { formatTime } from '../../lib/data';
 import { isMultiTime, MAX_TIMES, addTimeFields, isTimeDone, moveTimeFields, removeTimeFields, suggestNextTime, timesOf, type TimeEdit, type TimeRefusal } from '../../lib/times';
-import { closeDetail, closeDetailOf, getDetailFocus, isDraftId, notifyChanged, openDetail, useDetailDraft, useDetailId, type NewTaskWhere } from './uiStore';
+import { closeDetail, closeDetailOf, getDetailFocus, isDraftId, notifyChanged, offerUndo, openDetail, useDetailDraft, useDetailId, type NewTaskWhere } from './uiStore';
+import { pushFinish, pushStart } from '../../lib/pushAfterActions';
 import { useFeatures } from './featureStore';
 import { startFocus } from './pomodoroStore';
 import { saveTemplateFromTask } from '../../lib/templateActions';
@@ -261,17 +262,31 @@ function Panel({ task, projected, labels, lists, links, fit, shift, seriesStart,
       moves && was !== null && task.dueDate
         ? carryBreaks(task, { dayKey: task.dueDate, startMin: was, endMin: was + taskDuration(task) }, newDay ?? task.dueDate, toMinutes(fields.startTime ?? task.startTime) ?? was, 'panel')
         : Promise.resolve(0);
+    // D7 push after: a new time or length (or a new day keeping its time) pushes what it now overlaps on that day.
+    const timeEdit = !isMultiTime(task) && ('startTime' in fields || 'durationMinutes' in fields || !!newDay);
+    const ps = timeEdit ? await pushStart(task) : null;
+    const pushed = async (id: string) => {
+      const day = newDay ?? task.dueDate;
+      const startMin = toMinutes('startTime' in fields ? fields.startTime : task.startTime);
+      const r = ps && day && startMin !== null ? await pushFinish(ps, { id, title: task.title, dayKey: day, startMin }) : null;
+      if (r) offerUndo(r.text, async () => {
+        await r.undo();
+        notifyChanged();
+      });
+    };
     // A new Day on a repeating task moves this day only (3.2.0); the series' first row comes back
     // under a new id (series.planMoveDay), so the details follow it there.
     if (task.recurrence && movesOneDay(task, fields)) {
       const row = await moveDay(task, fields.dueDate as string, withoutDay(fields));
       await carry();
+      await pushed(row?.id ?? task.id);
       if (row && row.id !== task.id) openDetail(row.id);
       onSaved();
       return;
     }
     await ops.patch(fields);
     await carry();
+    await pushed(task.id);
     onSaved();
   };
   const dayOps: TaskOps = { ...ops, patch };

@@ -35,7 +35,8 @@ import { isTimeEdit } from '../../lib/seriesTime';
 import { withoutDay } from '../../lib/taskOps';
 import { isDateKey } from '../../lib/kanban';
 import { isMultiTime } from '../../lib/times';
-import { showNotice } from './uiStore';
+import { offerUndo, showNotice } from './uiStore';
+import { pushFinish, pushStart, type PushReport } from '../../lib/pushAfterActions';
 import { DROP_INSIDE, DWELL_MS, dwellDrop, fitRefusal, hostDrop, longerNote } from '../../lib/hosting';
 import { blockChangeRefusal } from '../../lib/hostActions';
 import { carryBreaks } from '../../lib/breakCarry';
@@ -434,9 +435,13 @@ export default function DragProvider({ children, onChanged }: { children: React.
         showNotice(brkNote);
         return;
       }
+      // D7 push after: a longer block is moved onto what follows it, which is pushed later (question 7).
+      const ps = await pushStart(task);
       // Resizing a day of a repeating task changes that day only (3.20.0).
       if (task.recurrence) await editRepeatingTime(task, !!p.item.projected, fields);
       else await updateTask({ ...task, ...fields });
+      const startMin = toMinutes(fields.startTime ?? p.item.time ?? task.startTime);
+      if (task.dueDate && startMin !== null) offerPush(await pushFinish(ps, { id: task.id, title: task.title, dayKey: task.dueDate, startMin }));
       onChangedRef.current();
       return;
     }
@@ -454,6 +459,12 @@ export default function DragProvider({ children, onChanged }: { children: React.
     // (the series' first row included, see series.planMoveDay). On its own day a projected one sets the
     // series' time, as before.
     const target = state.target;
+    // D7 push after: the rows as they were, for the Undo, before anything is written; after the drop on a time, what
+    // it now overlaps is pushed later.
+    const ps = target.kind === 'slot' && task ? await pushStart(task) : null;
+    const pushed = async () => {
+      if (ps && task && target.kind === 'slot') offerPush(await pushFinish(ps, { id: task.id, title: task.title, dayKey: target.dayKey, startMin: target.startMin }));
+    };
     const otherDay = !!task && !!task.recurrence && target.kind !== 'left' && target.dayKey !== task.dueDate;
     // D5: the breaks inside a moved block follow it, in the same gesture (one undo).
     // Shifts S4: what is inside it follows too, and a card dropped on another day takes it to that day at the same times.
@@ -482,6 +493,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
     if (task && !p.item.projected && !p.item.time && isUndatedRepeating(task) && target.kind !== 'left') {
       const patch = dropPatch({ ...task, dueDate: undefined }, p.item.kind, target, todayKey);
       await startRepeatingOn(task, target.dayKey, patch ?? {});
+      await pushed();
       onChangedRef.current();
       return;
     }
@@ -495,6 +507,7 @@ export default function DragProvider({ children, onChanged }: { children: React.
       }
       await write(res.fields);
       await carry();
+      await pushed();
       onChangedRef.current();
       return;
     }
@@ -519,7 +532,16 @@ export default function DragProvider({ children, onChanged }: { children: React.
       await convertDumpItem(item, patch);
     }
     await carry();
+    await pushed();
     onChangedRef.current();
+  }
+
+  // The Undo bar after a push (or the note when nothing could be pushed), with an Undo for the move and every push.
+  function offerPush(r: PushReport | null) {
+    if (r) offerUndo(r.text, async () => {
+      await r.undo();
+      onChangedRef.current();
+    });
   }
 
   const onMove = useCallback(

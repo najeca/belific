@@ -9,7 +9,8 @@ import { reminderDay, reminderWhen } from '../../lib/quickReminder';
 import { KEEP_AS_TEXT, parseQuick, previewText, quickFields, understoodText } from '../../lib/quickParse';
 import { toMinutes, toTime } from '../../lib/timebox';
 import type { TaskList } from '../../lib/types';
-import { closeOverlay, getSelectedList, notifyChanged } from './uiStore';
+import { closeOverlay, getSelectedList, notifyChanged, offerUndo } from './uiStore';
+import { pushAdded } from '../../lib/pushAfterActions';
 import { IconHeading } from './ui';
 import PaletteSwitch from './PaletteSwitch';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
@@ -82,7 +83,13 @@ export default function QuickCapture({ mode }: { mode: 'list' | 'today' }) {
     } else {
       // F7: what was understood fills the Day, time, length and repeat; a Day typed in Q keeps the list too.
       const fields = understood ? quickFields(understood, now) : {};
-      await createTaskIn(title, { ...(mode === 'today' ? { dueDate: todayKey } : { listKey: selected }), ...fields });
+      const made = await createTaskIn(title, { ...(mode === 'today' ? { dueDate: todayKey } : { listKey: selected }), ...fields });
+      // D7 push after: a phrase with a time ("Dentist tomorrow 3pm") pushes what it lands on.
+      const r = await pushAdded(made);
+      if (r) offerUndo(r.text, async () => {
+        await r.undo();
+        notifyChanged();
+      });
     }
     notifyChanged();
     if (keepOpen) {

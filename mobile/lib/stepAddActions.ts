@@ -8,9 +8,11 @@ import { parseQuick, quickFields, type QuickParse } from './quickParse';
 import { opsForTask } from './taskOps';
 import { addTask, loadTasksRaw } from './storage';
 import { breakRefusal } from './hostActions';
+import { pushAdded, type PushReport } from './pushAfterActions';
 import type { Task } from './types';
 
-export type StepWrite = { refused: string } | { task: Task };
+// `push`: D7 push after, what the new time pushed later (the Undo bar's words and its Undo, which keeps the task).
+export type StepWrite = { refused: string } | { task: Task; push?: PushReport };
 
 // The task screen 1 would store from the words typed (no id stamps yet), or null for an empty box. `phrase` is the parsed
 // phrase when the person did not choose "Keep as text".
@@ -37,7 +39,8 @@ export async function stepStore(next: Task): Promise<StepWrite> {
   const stamp = new Date().toISOString();
   const made = { ...next, createdAt: stamp, updatedAt: stamp };
   await addTask(made);
-  return { task: made };
+  const push = await pushAdded(made);
+  return { task: made, ...(push ? { push } : {}) };
 }
 
 // Every answer after screen 1: an ordinary edit of the stored task, read back as stored.
@@ -46,5 +49,7 @@ export async function stepPatch(t: Task, fields: Partial<Task>): Promise<StepWri
   if (refused) return { refused };
   await opsForTask(t).patch(fields);
   const stored = (await loadTasksRaw()).find((x) => x.id === t.id && !x.deletedAt);
-  return { task: stored ?? { ...t, ...fields } };
+  const timed = 'startTime' in fields || 'durationMinutes' in fields || 'dueDate' in fields;
+  const push = timed ? await pushAdded(stored) : null;
+  return { task: stored ?? { ...t, ...fields }, ...(push ? { push } : {}) };
 }

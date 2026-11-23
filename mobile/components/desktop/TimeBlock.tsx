@@ -21,7 +21,8 @@ import { domNode, useDrag } from './DragProvider';
 import { isPopoverOpen, openPopover } from './Popover';
 import { blockChangeRefusal } from '../../lib/hostActions';
 import { carryBreaks } from '../../lib/breakCarry';
-import { openDetail, showNotice } from './uiStore';
+import { offerUndo, openDetail, showNotice } from './uiStore';
+import { pushFinish, pushStart } from '../../lib/pushAfterActions';
 import { isLate } from '../../lib/lateTasks';
 import { tipRef } from './tip';
 import ListEmoji from './ListEmoji';
@@ -226,6 +227,9 @@ export default function TimeBlock({
             showNotice(refused);
             return;
           }
+          // D7 push after: a nudge to a new time or length on the same day pushes what it now overlaps (question 7).
+          const timeNudge = !!nudged && !nudged.dueDate && (nudged.startTime !== undefined || nudged.durationMinutes !== undefined);
+          const ps = timeNudge ? await pushStart(t) : null;
           if (t.recurrence) {
             if (fields.dueDate) await moveDay(t, fields.dueDate, withoutDay(fields));
             else await editRepeatingTime(t, !!proj, fields, 'day');
@@ -235,6 +239,14 @@ export default function TimeBlock({
           if (was !== null && nudged && (nudged.startTime || nudged.dueDate)) {
             const to = toMinutes(nudged.startTime) ?? was;
             await carryBreaks(t, { dayKey: day, startMin: was, endMin: was + taskDuration(shown) }, nudged.dueDate ?? day, to);
+          }
+          const startMin = toMinutes(nudged?.startTime ?? at ?? shown.startTime);
+          const r = ps && day && startMin !== null ? await pushFinish(ps, { id: t.id, title: t.title, dayKey: day, startMin }) : null;
+          if (r) {
+            offerUndo(r.text, async () => {
+              await r.undo();
+              onChanged();
+            });
           }
         })();
         Promise.resolve(done).then(() => {

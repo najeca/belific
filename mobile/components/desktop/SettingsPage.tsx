@@ -25,6 +25,8 @@ import { FEATURES } from '../../lib/features';
 import CalendarsSection from './CalendarsSection';
 import { setCutMin, useCutMin } from './cutStore';
 import { setFreeTimeLine, useFreeTimeLine } from './freeTimeStore';
+import { loadUserSetting, setUserSetting } from '../../lib/storage';
+import { PUSH_AFTER_HINT, PUSH_AFTER_KEY, PUSH_AFTER_LABEL, parsePushAfter } from '../../lib/pushAfter';
 import { setVibrant, useVibrant } from './vibrantStore';
 import { setThemeMode, useThemeMode } from './themeStore';
 import { THEME_MODES, THEME_MODE_LABEL } from '../../lib/themeMode';
@@ -69,6 +71,11 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
   const features = useFeatures();
   const cutMin = useCutMin();
   const freeTimeLine = useFreeTimeLine();
+  // D7 push after: a synced user_settings row, on unless turned off (read again each time Settings opens).
+  const [pushOn, setPushOn] = useState(true);
+  useEffect(() => {
+    void loadUserSetting(PUSH_AFTER_KEY).then((v) => setPushOn(parsePushAfter(v)), () => {});
+  }, [refreshKey]);
   const vibrant = useVibrant();
   const themeMode = useThemeMode();
   const defaultReminders = useDefaultReminders();
@@ -300,6 +307,17 @@ export default function SettingsPage({ onOpenLabels, onOpenSignIn, labelCount, o
               <Text style={styles.hint}>
                 A short line under a day's tasks on the Tasks board, like "Free time · 1h 40m". It is off unless you turn it on. The gaps on the Calendar and the Timebox always show your free time.
               </Text>
+              <View {...({ dataSet: { pushAfterSetting: '1' } } as object)}>
+                <ToggleRow
+                  label={PUSH_AFTER_LABEL}
+                  value={pushOn}
+                  onChange={(v) => {
+                    setPushOn(v);
+                    void setUserSetting(PUSH_AFTER_KEY, v ? 'on' : 'off');
+                  }}
+                />
+              </View>
+              <Text style={styles.hint}>{PUSH_AFTER_HINT}</Text>
             </Section>
 
             <Section title="Daily hours" icon="time-outline">

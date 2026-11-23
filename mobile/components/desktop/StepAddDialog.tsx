@@ -21,7 +21,8 @@ import { addPart } from '../../lib/partActions';
 import { datePatch, durationPatch, labelPatch, listPatch, notesPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
 import { STEP_QUESTION, STEPS, answeredBy, closedNote, nextStep, prevStep, stepLabel, type Step } from '../../lib/stepFlow';
 import type { Project, Task, TaskList } from '../../lib/types';
-import { closeOverlay, notifyChanged, showNotice } from './uiStore';
+import { closeOverlay, notifyChanged, offerUndo, showNotice } from './uiStore';
+import type { PushReport } from '../../lib/pushAfterActions';
 import { DESKTOP_FONT_FAMILY } from './desktopFont';
 
 export interface StepAddWhere {
@@ -98,6 +99,14 @@ export default function StepAddDialog({ where }: { where: StepAddWhere }) {
   const live = liveLists(lists);
   const liveLabels = labels.filter((l) => !l.deletedAt);
 
+  // D7 push after: a time that landed on other tasks pushed them later; the Undo bar says so (its Undo keeps the task).
+  function offerPush(r: PushReport | undefined) {
+    if (r) offerUndo(r.text, async () => {
+      await r.undo();
+      notifyChanged();
+    });
+  }
+
   // Every write after screen 1 runs one after another on the task as the one before left it.
   function patch(fields: Partial<Task> | null): Promise<boolean> {
     const run = chain.current.then(() => patchNow(fields));
@@ -114,6 +123,7 @@ export default function StepAddDialog({ where }: { where: StepAddWhere }) {
     }
     setWarn(null);
     keep(res.task);
+    offerPush(res.push);
     notifyChanged();
     return true;
   }
@@ -138,6 +148,7 @@ export default function StepAddDialog({ where }: { where: StepAddWhere }) {
     }
     setWarn(null);
     keep(res.task);
+    offerPush(res.push);
     setText(draft.task.title);
     setAnswered(answeredBy(draft.fields));
     notifyChanged();

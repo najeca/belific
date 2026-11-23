@@ -1,7 +1,7 @@
 // Run with `npm test` from mobile/. Push after (PLAN_push_after P1): the pure rule.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isRootRow, parsePushAfter, pushFields, pushPlan, pushedText, refusalText, type PushInput, type PushMove } from './pushAfter.ts';
+import { isRootRow, parsePushAfter, pushFields, pushPlan, pushUndoRows, pushedText, refusalText, type PushInput, type PushMove } from './pushAfter.ts';
 import { planThisDayEdit } from './series.ts';
 import type { Task } from './types.ts';
 
@@ -183,4 +183,23 @@ test('the setting is on unless it says off; the words of the Undo bar', () => {
   assert.equal(parsePushAfter('off'), false);
   assert.equal(pushedText('Gym', min('15:00'), 2), 'Moved Gym to 3:00pm and pushed 2 tasks later');
   assert.equal(pushedText('Gym', min('09:00'), 1), 'Moved Gym to 9:00am and pushed 1 task later');
+});
+
+test('the Undo rows: a changed row goes back; a day row the push stored goes back to what the series shows (never a tombstone)', () => {
+  const series = T('run', '07:00', 30, { dueDate: '2026-11-20', recurrence: 'daily' });
+  const a = T('a', '09:30', 30);
+  const before = [series, a];
+  const stored = { ...series, id: `run:${DAY}`, dueDate: DAY, startTime: '10:00', updatedAt: '2026-11-24T08:00:00.000Z' };
+  const after = [series, { ...a, startTime: '10:00', updatedAt: '2026-11-24T08:00:00.000Z' }, stored];
+  const back = pushUndoRows(before, after, '2026-11-24T08:01:00.000Z');
+  const ra = back.find((r) => r.id === 'a')!;
+  assert.equal(ra.startTime, '09:30');
+  const day = back.find((r) => r.id === `run:${DAY}`)!;
+  assert.ok(day);
+  assert.equal(day.deletedAt, undefined);
+  assert.equal(day.startTime, '07:00');
+  assert.equal(back.some((r) => r.id === 'run'), false, 'the root row is not written');
+  // A one off task a push never made is tombstoned as usual (the added task's Undo is taken before it was stored).
+  const extra = T('new', '11:00', 30, { updatedAt: '2026-11-24T08:00:00.000Z' });
+  assert.ok(pushUndoRows(before, [...before, extra], '2026-11-24T08:01:00.000Z').find((r) => r.id === 'new')!.deletedAt);
 });

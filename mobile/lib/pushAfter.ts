@@ -28,7 +28,8 @@
 import type { Task } from './types.ts';
 import { dayHostEntries, hostDay, type DayHostEntry } from './hosting.ts';
 import { nestDay } from './nesting.ts';
-import { idDate } from './series.ts';
+import { idDate, occurrenceFromTemplate, seriesOfRows } from './series.ts';
+import { undoRows } from './earlierUndo.ts';
 import { rootTaskId } from './recurrence.ts';
 import { isSeriesRow } from './rollover.ts';
 import { moveTimeFields } from './times.ts';
@@ -84,9 +85,10 @@ export const isRootRow = (e: Pick<DayHostEntry, 'full' | 'projected'>): boolean 
 export const tasksText = (n: number): string => (n === 1 ? '1 task' : `${n} tasks`);
 export const refusalText = (n: number): string => `Not enough room before midnight to push ${tasksText(n)}. They overlap for now.`;
 export const clashText = (title: string): string => `Not pushing: ${title} would clash with another of its own times. They overlap for now.`;
-// The Undo bar after a push: "Moved Gym to 3:00pm and pushed 2 tasks later".
-export function pushedText(title: string, startMin: number, n: number): string {
-  return `Moved ${title || 'the task'} to ${formatTime(toTime(startMin))} and pushed ${tasksText(n)} later`;
+// The Undo bar after a push: "Moved Gym to 3:00pm and pushed 2 tasks later" ("Added Gym at 3:00pm and ..." for a new
+// task, whose Undo takes back the pushes and keeps the task).
+export function pushedText(title: string, startMin: number, n: number, added = false): string {
+  return `${added ? 'Added' : 'Moved'} ${title || 'the task'} ${added ? 'at' : 'to'} ${formatTime(toTime(startMin))} and pushed ${tasksText(n)} later`;
 }
 
 export function pushPlan(input: PushInput): PushPlan {
@@ -147,6 +149,20 @@ export function pushPlan(input: PushInput): PushPlan {
     if (!ok.ok || (multi.get(m.entry.full.id) ?? 0) > 1) return { refused: clashText(m.entry.full.title), count: moves.length };
   }
   return { moves };
+}
+
+// The rows the push's Undo writes to put `before` back (the drop and every push), given the stored rows `after` it.
+// As earlierUndo.undoRows, except a day row of a series that the push stored (it was only shown before) goes back to
+// what the series shows there, never a tombstone (a tombstone of `root:day` would skip that day).
+export function pushUndoRows(before: Task[], after: Task[], nowIso: string): Task[] {
+  const had = new Set(before.map((t) => t.id));
+  return undoRows(before, after).map((r) => {
+    const day = idDate(r.id);
+    if (had.has(r.id) || !day || !r.deletedAt) return r;
+    const root = rootTaskId(r.id);
+    const series = seriesOfRows(root, before.filter((t) => rootTaskId(t.id) === root));
+    return series ? occurrenceFromTemplate(series.template, day, nowIso) : r;
+  });
 }
 
 // The new fields of one pushed block: its start, or for one time of a task with several, its times.

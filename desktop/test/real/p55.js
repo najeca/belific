@@ -120,11 +120,12 @@ async function run() {
   const occ = live(`shift:${tomorrow}`);
   const bOcc = live(`brief:${tomorrow}`);
   check('this day only: Down moves tomorrow\'s Shift to 8:30 and its Briefing to 9:00, that day only', focused && !!occ && occ.startTime === '08:30' && !!bOcc && bOcc.startTime === '09:00' && live('shift').startTime === '08:00' && live('brief').startTime === '08:30', JSON.stringify([focused, occ && occ.startTime, bOcc && bOcc.startTime]));
-  check('and Study, outside the shift, stays at 18:00', live('study').startTime === '18:00');
+  // Push after (3.74.0): the moved Shift now ends at 18:30 and overlaps Study, so Study is pushed to the Shift's end.
+  check('and Study, outside the shift, is pushed after it to 18:30 (push after, 3.74.0)', live('study').startTime === '18:30', live('study').startTime);
   await undo();
   const occ2 = live(`shift:${tomorrow}`);
   const bOcc2 = live(`brief:${tomorrow}`);
-  check('one Ctrl+Z puts both back', (!occ2 || occ2.startTime === '08:00') && (!bOcc2 || bOcc2.startTime === '08:30'), JSON.stringify([occ2, bOcc2]));
+  check('one Ctrl+Z puts both back, and Study back at 18:00', (!occ2 || occ2.startTime === '08:00') && (!bOcc2 || bOcc2.startTime === '08:30') && live('study').startTime === '18:00', JSON.stringify([occ2, bOcc2, live('study').startTime]));
   await I.click(I.byLabel('Previous day'), 900);
 
   // ---- a day move across midnight: Night a day later ----

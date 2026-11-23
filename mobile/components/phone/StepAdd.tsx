@@ -20,6 +20,7 @@ import { createListState, liveLists, takenEmojis } from '../../lib/lists';
 import { createList } from '../../lib/taskCommands';
 import { loadListsRaw, loadTasksRaw } from '../../lib/storage';
 import { stepDraft, stepPatch, stepPhrase, stepStore } from '../../lib/stepAddActions';
+import type { PushReport } from '../../lib/pushAfterActions';
 import { ADD_PART, PARTS, PARTS_HINT, canHaveParts, partsFor } from '../../lib/parts';
 import { addPart } from '../../lib/partActions';
 import { datePatch, durationPatch, labelPatch, listPatch, notesPatch, timePatch, titlePatch } from '../../lib/detailsPatches';
@@ -76,6 +77,9 @@ const make = (c: ColorTokens) => ({
   partInput: { flex: 1, ...inter(400), fontSize: 16, color: c.textPrimary, minHeight: 48, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface },
   partBtn: { minHeight: 48, paddingHorizontal: 14, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, alignItems: 'center' as const, justifyContent: 'center' as const },
   warn: { ...inter(500), fontSize: 14, lineHeight: 20, color: c.textPrimary },
+  pushRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, marginTop: 8 },
+  pushUndo: { minWidth: 64, minHeight: 44, alignItems: 'center' as const, justifyContent: 'center' as const, paddingHorizontal: 12 },
+  pushUndoText: { ...inter(700), fontSize: 15, color: c.textPrimary, textDecorationLine: 'underline' as const },
   // 3.59.1: the small New list / New label form under its group.
   form: { gap: 10, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.surface },
   formInput: { ...inter(500), fontSize: 17, color: c.textPrimary, minHeight: 48, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: c.borderStrong, backgroundColor: c.pane },
@@ -103,6 +107,8 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
   const [partText, setPartText] = useState('');
   const [picking, setPicking] = useState(false);
   const [warn, setWarn] = useState<string | null>(null);
+  // D7 push after: the last time answer pushed other tasks later; its line and Undo (the Undo keeps this task).
+  const [pushed, setPushed] = useState<PushReport | null>(null);
   // 3.59.1: the inline New list / New label form on screen 4 (a name, an emoji for a list, a colour for a label).
   const [making, setMaking] = useState<'list' | 'label' | null>(null);
   const [newName, setNewName] = useState('');
@@ -132,6 +138,7 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
     setPartText('');
     setPicking(false);
     setWarn(null);
+    setPushed(null);
     setMaking(null);
     loadListsRaw().then(setLists).catch(() => {});
     loadLabels().then(setLabels).catch(() => {});
@@ -162,6 +169,7 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
     }
     setWarn(null);
     keep(res.task);
+    if (res.push) setPushed(res.push);
     onChanged();
     return true;
   }
@@ -191,6 +199,7 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
     setWarn(null);
     const made = res.task;
     keep(made);
+    if (res.push) setPushed(res.push);
     setText(title);
     setAnswered(answeredBy(fields));
     onChanged();
@@ -560,6 +569,25 @@ export function StepAdd({ target, onClose, onChanged }: { target: StepAddTarget 
           {step === 'where' && t ? whereScreen(t) : null}
           {step === 'more' && t ? moreScreen(t) : null}
           {warn ? <Text style={s.warn} accessibilityRole="alert" {...({ dataSet: { stepWarn: '1' } } as object)}>{warn}</Text> : null}
+          {pushed ? (
+            <View style={s.pushRow} {...({ dataSet: { stepPushed: '1' } } as object)}>
+              <Text style={[s.warn, { flex: 1 }]} accessibilityRole="alert">{pushed.text}</Text>
+              {pushed.pushed > 0 ? (
+                <Pressable
+                  onPress={() => {
+                    const r = pushed;
+                    setPushed(null);
+                    void r.undo().then(onChanged);
+                  }}
+                  style={s.pushUndo}
+                  accessibilityRole="button"
+                  accessibilityLabel="Undo the push"
+                >
+                  <Text style={s.pushUndoText}>Undo</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </ScrollView>
         <View style={[s.foot, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           {step === 'what' ? (

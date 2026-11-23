@@ -41,6 +41,7 @@ import { supabase } from '../lib/supabase';
 import { signOut, deleteAccount } from '../lib/auth';
 import RoutineConvertSection from './components/RoutineConvertSection';
 import DailyHoursSection from './components/DailyHoursSection';
+import PushAfterSection from './components/PushAfterSection';
 import CalendarsSection from './components/CalendarsSection';
 import { usePhonePref } from '../components/phone/prefs';
 import { refreshTaskReminders } from '../components/phone/reminderScheduler';
@@ -309,6 +310,9 @@ export default function SettingsScreen() {
             <Toggle value={showStreaks} onValueChange={setShowStreaks} label="Show streaks" colors={Colors} />
           </View>
         </View>
+
+        {/* 3.75.0: push after (PLAN_push_after), synced, on by default. */}
+        <PushAfterSection styles={styles} />
 
         {/* 3.60.0: Count in daily hours, a switch per label, for Today's hours strip (synced). */}
         <DailyHoursSection styles={styles} />

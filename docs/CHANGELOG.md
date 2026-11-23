@@ -8,6 +8,16 @@ to know the current version and recent history.
 
 ---
 
+## 3.75.0 — 2026-11-23 (push after on the phone, and the phone's shift carry; PLAN_push_after P3)
+No database change; the same synced `push.after` row as the desktop.
+- **Push after** on the phone, through the shared `lib/pushAfterActions.ts`: hold and drag a block on the Calendar's Day view, a new time or length in the task details, a time in the step by step add flow (screen 1's phrase or the time screen), and Plan my day's **A time**. What the task now overlaps moves later, one after another, to the first gap big enough, with the desktop's rules (done tasks, breaks, a series' root row never move; a shift counts once; nothing past midnight).
+- The bar says "Moved Standup to 10:00am and pushed 2 tasks later" with **Undo**, which puts the move and every push back (the drag's Undo bar, the details' own Undo, the Plan my day answer's Undo). In the add flow a line under the question says "Added Dentist at 5:00pm and pushed 2 tasks later" with **Undo**, which takes the pushes back and keeps the new task.
+- **Shift carry on the phone** (question 5, a behaviour change): a dragged block, or one given a new start in the details, takes what is inside it (its rows and the breaks inside it) to the new time, as the desktop has done since 3.39.0. The drag's Undo puts them back too.
+- **Settings, Planning**: "Push later tasks when times overlap", on by default (synced with the computer).
+- Plan my day's answer Undo now writes a pushed repeating day back as the series shows it (never a skipped day).
+- Files: `app/(tabs)/calendar.tsx`, `components/phone/TaskDetails.tsx`, `StepAdd.tsx`, `PlanMyDay.tsx`, `lib/planActions.ts`, `app/settings.tsx`, `app/components/PushAfterSection.tsx` (new), `lib/pushAfterActions.ts` (`undoSince`).
+- Tests: new quiet real check `phone-p34` (14 checks).
+
 ## 3.74.0 — 2026-11-23 (push after on the desktop; PLAN_push_after P2)
 No database change; the setting is a synced user_settings row (`push.after`), last write wins as every row.
 - **Push after** on the desktop: a task dropped or moved onto a time other timed tasks of that day already use pushes them later, one after another, to the first gap big enough (the rule is `lib/pushAfter.ts`, 3.73.0). It runs on a drag onto the Timebox or the Calendar, a **resize**, the keyboard **nudges** (Up, Down, Shift+Up, Shift+Down on a block), a new time or length (or a new day keeping its time) in the **details**, a phrase with a time in **Quick capture**, and a time answered in the **step by step add** dialog.

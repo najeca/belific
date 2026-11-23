@@ -45,7 +45,10 @@ import { reminderHint, taskRemindersLabel } from '../../lib/reminder';
 import { isMultiTime, timesOf } from '../../lib/times';
 import { hostLinks, type HostLink } from '../../lib/hosting';
 import { breakRefusal, moveOutOfBreak } from '../../lib/hostActions';
-import { formatMinutes, toTime } from '../../lib/timebox';
+import { formatMinutes, toMinutes, toTime } from '../../lib/timebox';
+import { carryBreaks } from '../../lib/breakCarry';
+import { taskDuration } from '../../lib/drag';
+import { pushFinish, pushStart } from '../../lib/pushAfterActions';
 import { UNDO_MS } from './UndoBar';
 
 // A task's details on the iPhone (PLAN_phone P6): the desktop's details panel for a finger, as a full
@@ -260,7 +263,17 @@ export function TaskDetails({ target, onClose, onChanged }: { target: DetailsTar
       return;
     }
     setBreakNote(null);
+    // D7 push after (P3): a new time or length pushes what it now overlaps that day, and (question 5, the desktop's
+    // shift carry) what is inside the task follows a new start. A task with several times keeps its own Time rows.
+    const day = task.dueDate;
+    const was = toMinutes(task.startTime);
+    const timeEdit = !!day && was !== null && !isMultiTime(task) && ('startTime' in fields || 'durationMinutes' in fields);
+    const ps = timeEdit ? await pushStart(task) : null;
     await ops.patch(fields);
+    const to = 'startTime' in fields ? toMinutes(fields.startTime) : was;
+    if (ps && day && was !== null && to !== null && to !== was) await carryBreaks(task, { dayKey: day, startMin: was, endMin: was + taskDuration(task) }, day, to, 'panel');
+    const r = ps && day && to !== null ? await pushFinish(ps, { id: task.id, title: task.title, dayKey: day, startMin: to }) : null;
+    if (r) setUndo({ text: r.text, run: r.undo });
     const stored = projected ? null : (await loadTasksRaw()).find((t) => t.id === task.id);
     show(stored ?? { ...task, ...fields }, projected);
     onChanged();

@@ -9,8 +9,12 @@ import { taskDuration } from './drag';
 import type { PlanAnswer, PlanStep } from './planQueue';
 import { isUnstartedSeriesDay, UNSTARTED_NOTE } from './planGuard';
 import { loadTasksRaw } from './storage';
+import { pushFinish, pushStart } from './pushAfterActions';
+import { toMinutes } from './timebox';
 
-export async function runPlanAnswer(step: PlanStep, answer: PlanAnswer, todayKey: string, tomorrowKey: string, time?: string): Promise<string | null> {
+// D7 push after: A time that lands on other tasks pushes them later; `onPush` gets the words ("Moved Gym to 3:00pm and
+// pushed 2 tasks later", or why nothing was pushed). The answer's own Undo (rows before, PlanMyDay) puts them back too.
+export async function runPlanAnswer(step: PlanStep, answer: PlanAnswer, todayKey: string, tomorrowKey: string, time?: string, onPush?: (text: string) => void): Promise<string | null> {
   const { item, source } = step;
   const task = item.task;
   if (answer === 'today') {
@@ -38,7 +42,11 @@ export async function runPlanAnswer(step: PlanStep, answer: PlanAnswer, todayKey
   const refused = await breakRefusal(task, { ...fields, dueDate: fields.dueDate ?? task.dueDate ?? todayKey }, 'details');
   if (refused) return refused;
   const ops = item.projected ? opsForProjected(task) : opsForTask(task);
+  const ps = await pushStart(task);
   // A repeating day takes its time for this day only.
   await (item.series ? ops.patchDay(fields) : ops.patch(fields));
+  const startMin = toMinutes(time);
+  const r = startMin !== null ? await pushFinish(ps, { id: task.id, title: task.title, dayKey: fields.dueDate ?? task.dueDate ?? todayKey, startMin }) : null;
+  if (r) onPush?.(r.text);
   return null;
 }

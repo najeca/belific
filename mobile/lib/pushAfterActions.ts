@@ -106,6 +106,13 @@ export async function pushFinish(start: PushStart, moved: { id: string; title: s
   };
 }
 
+// The Undo of a move that pushed nothing (the phone's drag and details): the rows before it written back, which also
+// takes back what moved with it (a shift's rows).
+export async function undoSince(start: PushStart): Promise<() => Promise<void>> {
+  const back = pushUndoRows(start.before, await loadTasksRaw(), new Date().toISOString());
+  return () => updateTasks(back);
+}
+
 // A new task just stored with a day and a time (Quick capture, the add flow): pushes what it overlaps.
 export async function pushAdded(task: Task | null | undefined): Promise<PushReport | null> {
   if (!task || !task.dueDate || !task.startTime) return null;

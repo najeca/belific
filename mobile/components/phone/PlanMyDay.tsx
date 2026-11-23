@@ -16,7 +16,7 @@ import { loadCutMin } from '../../lib/phoneActions';
 import { plannedText } from '../../lib/planDay';
 import { ANSWER_LABEL, answerText, answersFor, planQueue, progressText, readTime, type PlanAnswer, type PlanStep } from '../../lib/planQueue';
 import { runPlanAnswer } from '../../lib/planActions';
-import { undoRows } from '../../lib/earlierUndo';
+import { pushUndoRows } from '../../lib/pushAfter';
 import { BRAIN_DUMP_NAME, liveLists } from '../../lib/lists';
 import { labelColor } from '../../lib/labelColors';
 import type { Project, Task, TaskList } from '../../lib/types';
@@ -110,13 +110,15 @@ export function PlanMyDay({ visible, onClose, onChanged }: { visible: boolean; o
     busy.current = true;
     try {
       const before = await loadTasksRaw();
-      const refused = await runPlanAnswer(step, a, todayKey.current, tomorrowKey, at);
+      let pushedText: string | null = null;
+      const refused = await runPlanAnswer(step, a, todayKey.current, tomorrowKey, at, (t) => (pushedText = t));
       if (refused) {
         setNote(refused);
         return;
       }
       const after = await loadTasksRaw();
-      const entry: Answered = { step, answer: a, text: answerText(a, step.item.task.title, at), back: undoRows(before, after), undone: false };
+      // D7: a pushed day row of a series goes back to what the series shows (pushUndoRows), never a skipped day.
+      const entry: Answered = { step, answer: a, text: pushedText ?? answerText(a, step.item.task.title, at), back: pushUndoRows(before, after, new Date().toISOString()), undone: false };
       setAnswers((list) => [...list, entry]);
       setPicking(false);
       setNote(null);

@@ -8,7 +8,7 @@ import { loadCustomCategories, loadCustomEvents, loadListsRaw, loadProjects, loa
 import { dateKey, formatDayLabel, parseDateKey } from '../../lib/kanban';
 import { calendarTitle, minutesOfDay, stepAnchor, visibleDayKeys } from '../../lib/calendarView';
 import type { CalendarView } from '../../lib/paneState';
-import { toTime } from '../../lib/timebox';
+import { toMinutes, toTime } from '../../lib/timebox';
 import { kv } from '../../lib/kv';
 import { askCalendarAccess, calendarAccess, loadDeviceEvents, openPhoneSettings, DEVICE_CALENDAR_TEXT, type CalendarAccess, type DeviceOccurrence } from '../../lib/deviceCalendar';
 import type { DaySource } from '../../lib/phoneDay';
@@ -24,7 +24,9 @@ import { UndoBar, type UndoMessage } from '../../components/phone/UndoBar';
 import { phoneDropPatch } from '../../lib/phoneDrag';
 import { breakAt, breakEntries, dayHostEntries, fitRefusal, hostStart, longerNote } from '../../lib/hosting';
 import { taskDuration } from '../../lib/drag';
-import { editRepeatingTime, patchSeries, editThisDay } from '../../lib/seriesActions';
+import { editRepeatingTime } from '../../lib/seriesActions';
+import { carryBreaks } from '../../lib/breakCarry';
+import { pushFinish, pushStart, undoSince } from '../../lib/pushAfterActions';
 import { patchTask } from '../../lib/taskActions';
 import type { Task } from '../../lib/types';
 import { MonthView, WeekView } from '../../components/phone/calendar/WeekMonth';
@@ -159,16 +161,20 @@ export default function CalendarScreen() {
       setNotice({ id: Date.now(), text: res.note });
       return;
     }
-    const before: Partial<Task> = {};
-    for (const k of Object.keys(res.fields) as Array<keyof Task>) (before as Record<string, unknown>)[k] = full[k];
+    // D7 (PLAN_push_after P3): the rows as they were, before anything is written, for the Undo.
+    const ps = await pushStart(full);
     // 3.20.0: a drag changes that day only, with no question (the first time of a series goes to every repeat
-    // day); Undo puts back what the drag changed, the same way.
-    let scope: 'series' | 'day' | 'plain' = 'plain';
-    if (full.recurrence) scope = await editRepeatingTime(full, !!source.projected, res.fields, 'day');
+    // day).
+    if (full.recurrence) await editRepeatingTime(full, !!source.projected, res.fields, 'day');
     else await patchTask(full.id, res.fields);
-    const undo = () => (scope === 'series' ? patchSeries(full, before) : scope === 'day' ? editThisDay(full, before).then(() => undefined) : patchTask(full.id, before));
+    // Question 5: the desktop's shift carry. What is inside the block (its rows, the breaks inside it) moves with it.
+    const was = toMinutes(source.time ?? source.task.startTime);
+    if (was !== null && was !== startMin) await carryBreaks(full, { dayKey: anchor, startMin: was, endMin: was + len }, anchor, startMin);
+    // Push after: what the block now overlaps is pushed later; the Undo puts the drop, its rows and every push back.
+    const r = await pushFinish(ps, { id: full.id, title: full.title, dayKey: anchor, startMin });
+    const undo = r ? r.undo : await undoSince(ps);
     await load();
-    setNotice({ id: Date.now(), text: `Moved to ${formatTime(toTime(startMin))}`, undo: () => void undo().then(load) });
+    setNotice({ id: Date.now(), text: r ? r.text : `Moved to ${formatTime(toTime(startMin))}`, undo: () => void undo().then(load) });
   }
 
   const step = (delta: number) => setAnchor((a) => stepAnchor(view, a, delta));

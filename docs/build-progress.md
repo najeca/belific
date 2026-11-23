@@ -1140,3 +1140,9 @@ Gates: tsc clean; the full regression follows this entry.
 ## Full regression on 3.71.0 (2026-11-22)
 - Quiet Electron set run once at 3.71.0: 6 failures: p16 (flake, 42/42 alone), p59/p22/p16 profile menu (real: Add button pushed the avatar out, fixed in 3.72.0), p22 (stale slab expectation), phone-p27 and phone-p4 (priority order, on purpose), p57 (see above). All pass now: p59 29, p22 56, p57 27, phone-p27 54, phone-p4 26, p16 42.
 - Pointer only checks NOT run (27): cp8b to cp8h, cp9 to cp12, p2, p3, p6, p7, p9, p10, p11, p18, p20, p26, p37, p40, p43, p45, p72 (new).
+
+## 3.73.0 P1 of PLAN_push_after: the rule (2026-11-23)
+- New `lib/pushAfter.ts` (pure) and `pushAfter.test.ts` (24/24). Worked out after the moved task's own write, so the drop never waits on it.
+- Jethro's answers (2026-11-23): breaks are walls; a chain that cannot fit before midnight pushes nothing and a note says why; events do not block; the phone gets the shift carry; a setting, on by default; resize and keyboard nudges push; an Undo after every push. Question 1 (not in the list of answers) uses the recommended answer: a task that starts before the drop and overlaps only its start is pushed after it.
+- Choices made here: the root row of a series on its own day is not pushed (left overlapping, like a done task), so a push never writes it; a projected or stored day row is pushed through "this day only". "Inside a shift" means a block of 2 hours or more holding the moved task whole (the shift size); a shift dropped over shorter tasks takes them in as rows instead of pushing them. What carried with the moved task is passed in (`carried`) and never a blocker. Breaks inside a pushed shift go with it, other breaks are walls. Two times of one task in one chain refuse the push.
+- Check by hand: nothing yet (no screen uses it).

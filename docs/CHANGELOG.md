@@ -8,6 +8,15 @@ to know the current version and recent history.
 
 ---
 
+## 3.73.0 — 2026-11-23 (push after, the rule; PLAN_push_after P1)
+No screen changes yet; no database change. Shared by the phone and the desktop.
+- New pure file `lib/pushAfter.ts`: when a task is moved onto a time that other timed tasks of the same day use, works out which of them move later and where. One after another from the moved task's end, stopping at the first gap big enough. A task that starts before the moved one and overlaps only its start is pushed after it too (question 1).
+- Never moved: done tasks and done times, quick reminders, breaks (a wall: a pushed task jumps to the break's end), tasks inside a break, rows inside a shift (they go with their shift, which counts once), the first row (root) of a repeating series, on today tasks that already ended, and anything on a past day. Calendar events and subscriptions never block.
+- A task dropped inside a shift (2 hours or more) pushes nothing; a shift dropped over shorter tasks takes them in as rows.
+- If the chain cannot end by 24:00, nothing is pushed and the note says "Not enough room before midnight to push 2 tasks. They overlap for now." The same when one time of a task with several would clash with another of its times.
+- The setting key `push.after` (a user_settings row, on unless `off`).
+- Tests: `pushAfter.test.ts` (24).
+
 ## 3.72.0 — 2026-11-22 (fix: the profile icon was pushed out of the desktop top row; stale checks updated)
 Desktop only; no database change.
 - The new Add button (3.70.0) made the centre pane's top row too long: at a centre width of about 930 px (a 1584 px window with three panes) the avatar was pushed out of view. `TOP_ROW_NEEDS_PX` is now 980 (was 880): below it the buttons go icon only and Analytics moves into the Plan menu. Found by the full quiet regression (p16, p22 and p59 could not open the profile menu).
